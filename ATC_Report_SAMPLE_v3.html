@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ATC 学习进度报告 / Progress Report</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&family=DM+Mono:wght@400;500&display=swap');
+
+  :root {
+    --bg: #f5f3ef;
+    --surface: #ffffff;
+    --surface2: #f0ede8;
+    --border: #e2ddd6;
+    --accent: #2d6a4f;
+    --accent2: #52b788;
+    --accent-light: #d8f3dc;
+    --warn: #e76f51;
+    --warn-light: #fde8e0;
+    --text: #1a1a1a;
+    --text2: #6b6560;
+    --text3: #9e9890;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Noto Sans SC', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+  .tab-bar { display: flex; background: var(--surface); border-bottom: 2px solid var(--border); padding: 0 20px; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+  .tab-btn { padding: 14px 18px; font-size: 13px; font-weight: 500; cursor: pointer; border: none; background: none; color: var(--text2); border-bottom: 3px solid transparent; margin-bottom: -2px; transition: all 0.2s; text-align: center; }
+  .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .tab-label { font-size: 10px; display: block; opacity: 0.7; margin-top: 2px; }
+
+  .view { display: none; padding: 24px 20px; max-width: 680px; margin: 0 auto; }
+  .view.active { display: block; }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 16px; }
+  .card-title { font-size: 11px; font-weight: 700; color: var(--text3); letter-spacing: 1.2px; text-transform: uppercase; margin-bottom: 14px; }
+
+  /* Bilingual label */
+  label { font-size: 13px; color: var(--text2); display: block; margin-bottom: 5px; font-weight: 500; }
+  label .en { font-size: 11px; color: var(--text3); font-weight: 400; display: block; margin-top: 1px; }
+
+  select, textarea { width: 100%; padding: 10px 12px; border: 1.5px solid var(--border); border-radius: 8px; font-family: 'Noto Sans SC', sans-serif; font-size: 13px; color: var(--text); background: var(--surface); transition: border 0.2s; outline: none; }
+  select:focus, textarea:focus { border-color: var(--accent2); }
+  textarea { resize: vertical; line-height: 1.6; }
+  .form-row { margin-bottom: 14px; }
+
+  .subject-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+  .subj-pill { padding: 7px 14px; border-radius: 20px; border: 1.5px solid var(--border); font-size: 12px; font-weight: 500; cursor: pointer; transition: all 0.15s; background: var(--surface); color: var(--text2); user-select: none; text-align: center; line-height: 1.5; }
+  .subj-pill .en { font-size: 10px; opacity: 0.7; display: block; }
+  .subj-pill.selected { background: var(--accent); color: white; border-color: var(--accent); }
+  .subj-pill.selected .en { opacity: 0.8; }
+
+  .obs-label { display: flex; align-items: flex-start; gap: 8px; font-size: 12px; font-weight: 600; margin: 16px 0 8px; }
+  .obs-label .en { font-size: 10px; color: var(--text3); font-weight: 400; margin-top: 1px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-top: 3px; }
+  .dot-green { background: var(--accent2); }
+  .dot-orange { background: var(--warn); }
+  .dot-blue { background: #4a90d9; }
+
+  .btn { padding: 11px 20px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; border: none; transition: all 0.15s; font-family: 'Noto Sans SC', sans-serif; }
+  .btn-primary { background: var(--accent); color: white; }
+  .btn-primary:hover { background: #1e4d38; }
+  .btn-secondary { background: var(--surface2); color: var(--text); border: 1.5px solid var(--border); }
+  .btn-full { width: 100%; }
+  .btn-sm { padding: 7px 14px; font-size: 12px; }
+
+  .code-box { background: #1a1a1a; color: #a8d8a0; font-family: 'DM Mono', monospace; font-size: 11px; padding: 14px; border-radius: 8px; white-space: pre-wrap; word-break: break-all; line-height: 1.7; position: relative; margin-top: 12px; }
+  .copy-btn { position: absolute; top: 10px; right: 10px; background: #333; color: #ccc; border: none; padding: 5px 10px; border-radius: 5px; font-size: 10px; cursor: pointer; font-family: sans-serif; }
+  .copy-btn:hover { background: var(--accent); color: white; }
+
+  .student-card { background: var(--surface); border: 1.5px solid var(--border); border-radius: 10px; padding: 14px 16px; margin-bottom: 10px; cursor: pointer; transition: all 0.15s; }
+  .student-card:hover { border-color: var(--accent2); }
+  .student-card.selected { border-color: var(--accent); background: var(--accent-light); }
+  .student-name { font-size: 15px; font-weight: 600; }
+  .subj-tags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
+  .subj-tag { background: #eef7f0; color: var(--accent); padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 500; }
+  .subj-tag.missing { background: var(--warn-light); color: var(--warn); }
+
+  .wa-preview { background: #e5ddd5; border-radius: 12px; padding: 20px; }
+  .wa-bubble { background: white; border-radius: 0 12px 12px 12px; padding: 14px 16px; font-size: 13px; line-height: 1.9; color: #1a1a1a; max-width: 95%; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+
+  .paste-area { border: 2px dashed var(--border); border-radius: 10px; padding: 4px; background: var(--surface2); }
+  .paste-area textarea { background: transparent; border: none; }
+
+  .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 6px; }
+  .status-complete { background: var(--accent2); }
+  .status-partial { background: #f4a261; }
+
+  .divider { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
+
+  .alert { background: var(--accent-light); border: 1px solid var(--accent2); border-radius: 8px; padding: 12px 14px; font-size: 12px; color: var(--accent); margin-bottom: 14px; }
+  .alert-warn { background: var(--warn-light); border-color: var(--warn); color: var(--warn); }
+
+  .step-row { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 16px; }
+  .step-num { width: 26px; height: 26px; border-radius: 50%; background: var(--accent); color: white; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px; }
+  .step-text { font-size: 13px; font-weight: 600; }
+  .step-text .en { font-size: 11px; color: var(--text3); font-weight: 400; display: block; margin-top: 1px; }
+
+  .section-heading { font-size: 16px; font-weight: 700; margin-bottom: 2px; }
+  .section-heading .en { font-size: 12px; color: var(--text3); font-weight: 400; }
+  .section-sub { font-size: 12px; color: var(--text3); margin-bottom: 20px; margin-top: 4px; }
+
+  .demo-banner { background: #fff8e1; border: 1px solid #ffc107; border-radius: 8px; padding: 10px 14px; font-size: 11px; color: #7c5a00; margin-bottom: 16px; text-align: center; }
+</style>
+</head>
+<body>
+
+<div class="tab-bar">
+  <button class="tab-btn active" onclick="showTab('teacher', this)">
+    👩‍🏫 老师填写
+    <span class="tab-label">Teacher Form</span>
+  </button>
+  <button class="tab-btn" onclick="showTab('manager', this)">
+    📋 负责人整合
+    <span class="tab-label">Manager View</span>
+  </button>
+  <button class="tab-btn" onclick="showTab('preview', this)">
+    📱 报告预览
+    <span class="tab-label">Report Preview</span>
+  </button>
+</div>
+
+<!-- ========== TEACHER VIEW ========== -->
+<div id="view-teacher" class="view active">
+  <div class="demo-banner">🧪 SAMPLE 演示版本 — 学生名字为虚构 / Demo version — fictitious student names</div>
+
+  <div class="section-heading">老师填写表单 <span class="en">Teacher Observation Form</span></div>
+  <div class="section-sub">填写完成后生成提交码，发给负责人 / Fill in and send the submission code to the person-in-charge</div>
+
+  <div class="card">
+    <div class="card-title">基本资料 / Basic Info</div>
+
+    <div class="form-row">
+      <label>选择学生 <span class="en">Select Student</span></label>
+      <select id="t-student">
+        <option value="">-- 请选择 / Please select --</option>
+        <option>陈俊豪 (小二)</option>
+        <option>李美玲 (小四)</option>
+        <option>张伟明 (小五)</option>
+      </select>
+    </div>
+
+    <div class="form-row">
+      <label>你的名字 <span class="en">Your Name (Teacher)</span></label>
+      <select id="t-teacher">
+        <option value="">-- 请选择 / Please select --</option>
+        <option>AL</option>
+        <option>SA</option>
+        <option>KE</option>
+        <option>AD</option>
+        <option>MT</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">选择你任教的科目 / Select Your Subject</div>
+    <div class="subject-grid">
+      <div class="subj-pill" onclick="toggleSubj(this, '数学')">📐 数学 <span class="en">Mathematics</span></div>
+      <div class="subj-pill" onclick="toggleSubj(this, '英文')">📖 英文 <span class="en">English</span></div>
+      <div class="subj-pill" onclick="toggleSubj(this, '马来文')">🌙 马来文 <span class="en">Bahasa Melayu</span></div>
+      <div class="subj-pill" onclick="toggleSubj(this, '华文')">🈳 华文 <span class="en">Mandarin</span></div>
+      <div class="subj-pill" onclick="toggleSubj(this, '科学')">🔬 科学 <span class="en">Science</span></div>
+    </div>
+  </div>
+
+  <div id="obs-section" style="display:none">
+    <div class="card">
+      <div class="card-title" id="obs-title">观察内容 / Observations</div>
+
+      <div class="obs-label">
+        <div class="dot dot-green"></div>
+        <div>
+          优点 / 做得好的地方
+          <span class="en">Strengths / What the student does well</span>
+        </div>
+      </div>
+      <div class="form-row">
+        <textarea id="t-strength" rows="3" placeholder="例：计算能力强，能独立完成作业 / E.g. Strong calculation skills, completes work independently"></textarea>
+      </div>
+
+      <div class="obs-label">
+        <div class="dot dot-orange"></div>
+        <div>
+          需要加强的地方（考前重点）
+          <span class="en">Areas to improve (exam focus)</span>
+        </div>
+      </div>
+      <div class="form-row">
+        <textarea id="t-weakness" rows="3" placeholder="例：应用题理解较弱 / E.g. Struggles with word problems, needs more practice"></textarea>
+      </div>
+
+      <div class="obs-label">
+        <div class="dot dot-blue"></div>
+        <div>
+          课堂表现与学习态度
+          <span class="en">Attitude & Behaviour in Class</span>
+        </div>
+      </div>
+      <div style="background:var(--surface2);border-radius:8px;padding:10px 12px;font-size:11px;color:var(--text3);margin-bottom:8px;line-height:1.6">
+        💡 写2-3句关于孩子这个人的观察，让家长感受到老师真的认识他的孩子。<br>
+        <span style="color:#aaa">Write 2–3 sentences about the child as a person — attitude, effort, character. This is what makes parents feel seen.</span>
+      </div>
+      <div class="form-row">
+        <textarea id="t-attitude" rows="3" placeholder="例：俊豪每次上课都很开心，愿意尝试，从不轻易放弃 / E.g. Jun Hao always comes to class with a cheerful attitude and never gives up easily"></textarea>
+      </div>
+    </div>
+
+    <button class="btn btn-primary btn-full" onclick="generateCode()">✅ 生成提交码 / Generate Submission Code</button>
+
+    <div id="code-output" style="display:none; margin-top:16px;">
+      <div class="alert">提交码已生成！复制后发给负责人（WhatsApp）<br><span style="font-size:11px">Submission code ready! Copy and send to person-in-charge via WhatsApp.</span></div>
+      <div class="code-box" id="code-text">
+        <button class="copy-btn" onclick="copyCode()">复制 Copy</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== MANAGER VIEW ========== -->
+<div id="view-manager" class="view">
+  <div class="demo-banner">🧪 点击「载入示例数据」可立即体验完整流程 / Click "Load Sample Data" to try the full flow</div>
+
+  <div class="section-heading">负责人整合页面 <span class="en">Manager — Data Collection</span></div>
+  <div class="section-sub">收集各科老师的提交码，整合后一键生成家长报告 / Collect codes from all subject teachers, then generate the parent report</div>
+
+  <div class="step-row">
+    <div class="step-num">1</div>
+    <div class="step-text">
+      粘贴老师发来的提交码
+      <span class="en">Paste submission codes from teachers</span>
+    </div>
+  </div>
+
+  <div class="paste-area form-row">
+    <textarea id="paste-input" rows="6" placeholder="把老师发来的提交码粘贴到这里，可一次粘贴多个&#10;Paste all submission codes here (multiple at once is fine)"></textarea>
+  </div>
+
+  <div style="display:flex; gap:10px; margin-bottom:20px; flex-wrap:wrap">
+    <button class="btn btn-secondary btn-sm" onclick="loadSampleData()">📥 载入示例数据 / Load Sample Data</button>
+    <button class="btn btn-secondary btn-sm" onclick="clearAll()">🗑 清除 / Clear</button>
+  </div>
+
+  <hr class="divider">
+
+  <div class="step-row">
+    <div class="step-num">2</div>
+    <div class="step-text">
+      查看各学生的收集进度
+      <span class="en">Check collection status per student</span>
+    </div>
+  </div>
+
+  <div id="student-progress">
+    <div style="color:var(--text3); font-size:13px; text-align:center; padding:30px">
+      粘贴提交码后，学生进度将显示在这里<br>
+      <span style="font-size:11px">Student progress will appear here after pasting codes</span>
+    </div>
+  </div>
+
+  <div id="generate-section" style="display:none">
+    <hr class="divider">
+    <div class="step-row">
+      <div class="step-num">3</div>
+      <div class="step-text">
+        选择学生，生成报告
+        <span class="en">Select student and generate report</span>
+      </div>
+    </div>
+    <div class="form-row">
+      <label>选择学生 <span class="en">Select Student</span></label>
+      <select id="m-student-select">
+        <option value="">-- 请选择 / Please select --</option>
+      </select>
+    </div>
+    <div style="display:flex; gap:10px; flex-wrap:wrap">
+      <button class="btn btn-primary" onclick="generateReport()">📱 生成 WhatsApp 报告 / Generate Report</button>
+      <button class="btn btn-secondary" onclick="exportNotice()">📊 导出 Excel / Export Excel</button>
+    </div>
+  </div>
+</div>
+
+<!-- ========== PREVIEW VIEW ========== -->
+<div id="view-preview" class="view">
+  <div class="section-heading">WhatsApp 报告预览 <span class="en">Report Preview</span></div>
+  <div class="section-sub">这是家长将收到的消息格式 / This is what the parent will receive</div>
+
+  <div id="wa-output">
+    <div class="alert alert-warn">
+      ⚠️ 请先在「负责人整合」页面选择学生并生成报告<br>
+      <span style="font-size:11px">Please go to "Manager View" tab, select a student and generate the report first.</span>
+    </div>
+    <div style="opacity:0.35">
+      <div class="wa-preview">
+        <div class="wa-bubble">
+          📚 <strong>ATC 学习进度报告</strong><br>
+          学生：陈俊豪（小二）<br>
+          ━━━━━━━━━━━━━━<br><br>
+          🌟 <strong>整体展望：</strong><br>
+          俊豪在本次考前准备阶段整体表现稳定...<br><br>
+          📐 <strong>数学：</strong><br>
+          ✅ 计算能力强，能独立完成作业<br>
+          📌 应用题理解需要加强<br><br>
+          <em>（示意图 / Preview placeholder）</em>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let selectedSubj = '';
+let collectedData = {};
+
+const SUBJ_ICONS = { '数学':'📐', '英文':'📖', '马来文':'🌙', '华文':'🈳', '科学':'🔬' };
+const ALL_SUBJ = ['数学', '英文', '马来文', '华文', '科学'];
+
+function showTab(tab, btn) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('view-' + tab).classList.add('active');
+  btn.classList.add('active');
+}
+
+function toggleSubj(el, subj) {
+  document.querySelectorAll('.subj-pill').forEach(p => p.classList.remove('selected'));
+  el.classList.add('selected');
+  selectedSubj = subj;
+  const subjNames = { '数学':'数学 / Mathematics', '英文':'英文 / English', '马来文':'马来文 / BM', '华文':'华文 / Mandarin', '科学':'科学 / Science' };
+  document.getElementById('obs-title').textContent = (subjNames[subj] || subj) + ' — 观察内容 / Observations';
+  document.getElementById('obs-section').style.display = 'block';
+  document.getElementById('t-strength').value = '';
+  document.getElementById('t-weakness').value = '';
+  document.getElementById('t-attitude').value = '';
+  document.getElementById('code-output').style.display = 'none';
+}
+
+function generateCode() {
+  const student = document.getElementById('t-student').value;
+  const teacher = document.getElementById('t-teacher').value;
+  const strength = document.getElementById('t-strength').value.trim();
+  const weakness = document.getElementById('t-weakness').value.trim();
+
+  if (!student) { alert('请选择学生 / Please select a student'); return; }
+  if (!teacher) { alert('请选择你的名字 / Please select your name'); return; }
+  if (!selectedSubj) { alert('请选择科目 / Please select a subject'); return; }
+  if (!strength) { alert('请填写优点 / Please fill in strengths'); return; }
+  if (!weakness) { alert('请填写需加强内容 / Please fill in areas to improve'); return; }
+
+  const attitude = document.getElementById('t-attitude').value.trim();
+  if (!attitude) { alert('请填写课堂表现 / Please fill in attitude & behaviour'); return; }
+
+  const code = `[ATC]\n学生：${student}\n科目：${selectedSubj}\n老师：${teacher}\n优点：${strength}\n加强：${weakness}\n态度：${attitude}\n[/ATC]`;
+  const codeEl = document.getElementById('code-text');
+  codeEl.setAttribute('data-raw', code);
+  codeEl.innerHTML = `<button class="copy-btn" onclick="copyCode()">复制 Copy</button>${code}`;
+  document.getElementById('code-output').style.display = 'block';
+}
+
+function copyCode() {
+  const raw = document.getElementById('code-text').getAttribute('data-raw');
+  navigator.clipboard.writeText(raw).then(() => {
+    const btn = document.querySelector('#code-text .copy-btn');
+    btn.textContent = '✓ 已复制 Copied!';
+    btn.style.background = 'var(--accent)';
+    btn.style.color = 'white';
+    setTimeout(() => { btn.textContent = '复制 Copy'; btn.style.background = '#333'; btn.style.color = '#ccc'; }, 2000);
+  });
+}
+
+function loadSampleData() {
+  const sample = `[ATC]
+学生：陈俊豪 (小二)
+科目：数学
+老师：AL
+优点：计算能力强，能独立完成练习，对数学有积极态度，很少粗心出错
+加强：应用题理解较弱，需要多练习文字题分析，看题目时要更仔细
+态度：俊豪每次上课都很开心，愿意主动尝试，遇到难题不轻易放弃，是很有韧性的孩子
+[/ATC]
+
+[ATC]
+学生：陈俊豪 (小二)
+科目：英文
+老师：SA
+优点：阅读理解有明显进步，词汇量扩大，积极回答问题
+加强：写作时句子结构需要加强，时态用法有待练习
+态度：上课专注，很有礼貌，同学有困难时会主动帮忙，团队精神很好
+[/ATC]
+
+[ATC]
+学生：陈俊豪 (小二)
+科目：马来文
+老师：KE
+优点：拼写准确，能背诵词汇，作业整洁认真
+加强：写作时连接词使用不够，句子太短，需要练习扩展句子
+态度：每次交作业都很准时，字迹工整，看得出在家有认真温习
+[/ATC]
+
+[ATC]
+学生：李美玲 (小四)
+科目：数学
+老师：AL
+优点：思路清晰，解题步骤整洁，数学逻辑很好，擅长图形题
+加强：分数单元掌握不够牢固，建议考前专项复习
+态度：美玲学习态度认真，遇到不懂的地方会主动发问，自律性很强
+[/ATC]
+
+[ATC]
+学生：李美玲 (小四)
+科目：科学
+老师：AD
+优点：对科学充满好奇心，实验报告写得很好，观察力强
+加强：科学术语记忆需要加强，建议多做词汇复习卡片
+态度：每次上课都带着满满的好奇心来，很享受学习过程，笑容很有感染力
+[/ATC]`;
+
+  document.getElementById('paste-input').value = sample;
+  parseAndDisplay();
+}
+
+function clearAll() {
+  document.getElementById('paste-input').value = '';
+  collectedData = {};
+  renderStudentProgress();
+}
+
+function parseAndDisplay() {
+  const input = document.getElementById('paste-input').value;
+  const blocks = input.match(/\[ATC\]([\s\S]*?)\[\/ATC\]/g) || [];
+  collectedData = {};
+  blocks.forEach(block => {
+    const get = key => { const m = block.match(new RegExp(key + '：(.+)')); return m ? m[1].trim() : ''; };
+    const student = get('学生');
+    const subj = get('科目');
+    const teacher = get('老师');
+    const strength = get('优点');
+    const weakness = get('加强');
+    const attitude = get('态度');
+    if (student && subj) {
+      if (!collectedData[student]) collectedData[student] = {};
+      collectedData[student][subj] = { teacher, strength, weakness, attitude };
+    }
+  });
+  renderStudentProgress();
+}
+
+document.getElementById('paste-input').addEventListener('input', parseAndDisplay);
+
+function renderStudentProgress() {
+  const container = document.getElementById('student-progress');
+  const select = document.getElementById('m-student-select');
+
+  if (!Object.keys(collectedData).length) {
+    container.innerHTML = '<div style="color:var(--text3);font-size:13px;text-align:center;padding:30px">粘贴提交码后，学生进度将显示在这里<br><span style="font-size:11px">Student progress will appear here after pasting codes</span></div>';
+    document.getElementById('generate-section').style.display = 'none';
+    select.innerHTML = '<option value="">-- 请选择 / Please select --</option>';
+    return;
+  }
+
+  let html = '';
+  select.innerHTML = '<option value="">-- 请选择 / Please select --</option>';
+
+  Object.entries(collectedData).forEach(([student, subjects]) => {
+    const filled = Object.keys(subjects).length;
+    const statusClass = filled >= 4 ? 'status-complete' : 'status-partial';
+    const tagsHtml = ALL_SUBJ.map(s => `<span class="subj-tag${subjects[s] ? '' : ' missing'}">${SUBJ_ICONS[s]} ${s}</span>`).join('');
+    html += `<div class="student-card" onclick="selectStudent('${student}')">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <span class="student-name">${student}</span>
+        <span style="font-size:11px;color:var(--text3)"><span class="status-dot ${statusClass}"></span>${filled}/5 subjects</span>
+      </div>
+      <div class="subj-tags">${tagsHtml}</div>
+    </div>`;
+    const opt = document.createElement('option');
+    opt.value = student; opt.textContent = student;
+    select.appendChild(opt);
+  });
+
+  container.innerHTML = html;
+  document.getElementById('generate-section').style.display = 'block';
+}
+
+function selectStudent(name) {
+  document.getElementById('m-student-select').value = name;
+  document.querySelectorAll('.student-card').forEach(c => {
+    c.classList.toggle('selected', c.querySelector('.student-name').textContent === name);
+  });
+}
+
+function generateReport() {
+  const student = document.getElementById('m-student-select').value;
+  if (!student) { alert('请选择学生 / Please select a student'); return; }
+  const data = collectedData[student];
+  if (!data) return;
+
+  const subjects = Object.keys(data);
+  const rawName = student.split(' ')[0];
+  const firstName = rawName.replace(/[^\u4e00-\u9fff]/g, '') || rawName;
+
+  let msg = `📚 *ATC 学习进度报告*\n学生：${student}\n━━━━━━━━━━━━━━\n\n`;
+  msg += `🌟 *整体展望：*\n`;
+  msg += `${firstName}同学在本次考前准备阶段表现${subjects.length >= 3 ? '稳定积极' : '尚可'}。`;
+  msg += `老师们观察到${firstName}在各科目上都有一定的基础，同时也针对性地指出了考前需要重点加强的方向。`;
+  msg += `相信${firstName}在接下来的复习冲刺阶段，能够更有方向地备考，加油！💪\n\n`;
+
+  subjects.forEach(subj => {
+    const d = data[subj];
+    msg += `${SUBJ_ICONS[subj] || '📌'} *${subj}：*\n`;
+    if (d.attitude) msg += `🌱 ${d.attitude}\n`;
+    msg += `✅ ${d.strength}\n`;
+    msg += `📌 ${d.weakness}\n\n`;
+  });
+
+  msg += `━━━━━━━━━━━━━━\n如有任何问题，欢迎随时联系我们！😊`;
+
+  const waDiv = document.getElementById('wa-output');
+  const msgHtml = msg.replace(/\*([^*]+)\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>');
+  const escaped = msg.replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\$/g, '\\$');
+  waDiv.innerHTML = `
+    <div class="alert">✅ 报告已生成！复制后粘贴到 WhatsApp 发给家长<br><span style="font-size:11px">Report ready! Copy and paste into WhatsApp to send to parent.</span></div>
+    <div class="wa-preview"><div class="wa-bubble">${msgHtml}</div></div>
+    <button class="btn btn-primary btn-full" style="margin-top:14px" id="copy-report-btn" onclick="copyReport()">📋 复制完整消息 / Copy Full Message</button>
+  `;
+  waDiv._rawMsg = msg;
+
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('view-preview').classList.add('active');
+  document.querySelectorAll('.tab-btn')[2].classList.add('active');
+}
+
+function copyReport() {
+  const msg = document.getElementById('wa-output')._rawMsg;
+  const btn = document.getElementById('copy-report-btn');
+  navigator.clipboard.writeText(msg).then(() => {
+    btn.textContent = '✓ 已复制！去 WhatsApp 粘贴吧 / Copied! Paste into WhatsApp';
+    btn.style.background = '#1e4d38';
+    setTimeout(() => { btn.textContent = '📋 复制完整消息 / Copy Full Message'; btn.style.background = 'var(--accent)'; }, 3000);
+  });
+}
+
+function exportNotice() {
+  alert('✅ [SAMPLE] 实际版本将导出 Excel 文件，包含：学生、科目、优点、加强、老师、日期\nActual version will export Excel with: Student, Subject, Strengths, Areas to Improve, Teacher, Date');
+}
+</script>
+</body>
+</html>
