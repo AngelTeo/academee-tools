@@ -1,0 +1,1014 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ATC 学习进度报告</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&family=DM+Mono:wght@400;500&display=swap');
+:root{--bg:#f5f3ef;--s:#fff;--s2:#f0ede8;--bd:#e2ddd6;--ac:#2d6a4f;--ac2:#52b788;--acl:#d8f3dc;--wn:#e76f51;--wnl:#fde8e0;--bl:#4a90d9;--bll:#e8f2fc;--pu:#7c5cbf;--gd:#d4a017;--gdl:#fdf6e3;--tx:#1a1a1a;--tx2:#6b6560;--tx3:#9e9890}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Noto Sans SC',sans-serif;background:var(--bg);color:var(--tx);min-height:100vh}
+/* LANDING */
+#land{position:fixed;inset:0;background:var(--bg);z-index:999;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 20px}
+.lcard{background:var(--s);border:1px solid var(--bd);border-radius:16px;padding:24px;width:100%;max-width:360px}
+.linp{width:100%;padding:12px 14px;border:1.5px solid var(--bd);border-radius:10px;font-family:'Noto Sans SC',sans-serif;font-size:14px;color:var(--tx);outline:none;transition:border .2s}
+.linp:focus{border-color:var(--ac2)}
+.lbtn{width:100%;margin-top:14px;padding:13px;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;border:none;font-family:'Noto Sans SC',sans-serif;background:var(--ac);color:#fff}
+.ldiv{display:flex;align-items:center;gap:10px;margin:16px 0 0}
+.ldiv span{font-size:11px;color:var(--tx3);white-space:nowrap}
+.ldiv::before,.ldiv::after{content:'';flex:1;border-top:1px solid var(--bd)}
+.ladm{display:block;text-align:center;font-size:11px;color:var(--tx3);margin-top:12px;cursor:pointer;text-decoration:underline}
+#pwdp{display:none;margin-top:14px}
+.prow{display:flex;gap:8px}
+.prow input{flex:1;padding:10px 12px;border:1.5px solid var(--bd);border-radius:8px;font-size:13px;font-family:'Noto Sans SC',sans-serif;outline:none}
+.prow button{padding:10px 14px;background:var(--bl);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;font-family:'Noto Sans SC',sans-serif}
+/* ROLE BADGE */
+#rbadge{display:none;align-items:center;gap:8px;padding:8px 16px;background:var(--s);border-bottom:1px solid var(--bd)}
+.badge{font-size:11px;font-weight:600;padding:3px 10px;border-radius:10px}
+.bt{background:var(--acl);color:var(--ac)}.ba{background:var(--bll);color:var(--bl)}
+.logbtn{margin-left:auto;font-size:11px;color:var(--tx3);cursor:pointer;border:1px solid var(--bd);background:none;padding:3px 10px;border-radius:8px;font-family:'Noto Sans SC',sans-serif}
+/* APP */
+#app{display:none}
+.tbar{display:flex;background:var(--s);border-bottom:2px solid var(--bd);padding:0 12px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.06);overflow-x:auto}
+.tbtn{padding:13px 12px;font-size:11px;font-weight:500;cursor:pointer;border:none;background:none;color:var(--tx2);border-bottom:3px solid transparent;margin-bottom:-2px;transition:all .2s;text-align:center;white-space:nowrap}
+.tbtn.active{color:var(--ac);border-bottom-color:var(--ac)}
+.tlab{font-size:9px;display:block;opacity:.7;margin-top:2px}
+.view{display:none;padding:20px 16px;max-width:680px;margin:0 auto}
+.view.active{display:block}
+.card{background:var(--s);border:1px solid var(--bd);border-radius:12px;padding:18px;margin-bottom:14px}
+.ctit{font-size:11px;font-weight:700;color:var(--tx3);letter-spacing:1.2px;text-transform:uppercase;margin-bottom:14px}
+label{font-size:13px;color:var(--tx2);display:block;margin-bottom:5px;font-weight:500}
+label .en{font-size:11px;color:var(--tx3);font-weight:400;display:block;margin-top:1px}
+select,textarea,input[type=text]{width:100%;padding:10px 12px;border:1.5px solid var(--bd);border-radius:8px;font-family:'Noto Sans SC',sans-serif;font-size:13px;color:var(--tx);background:var(--s);transition:border .2s;outline:none}
+select:focus,textarea:focus,input[type=text]:focus{border-color:var(--ac2)}
+textarea{resize:vertical;line-height:1.6}
+.fr{margin-bottom:14px}
+/* CLASS/SUBJECT PILLS */
+.pgrid{display:flex;flex-wrap:wrap;gap:8px}
+.pbtn{padding:8px 16px;border-radius:10px;border:1.5px solid var(--bd);font-size:13px;font-weight:600;cursor:pointer;background:var(--s);color:var(--tx2);transition:all .15s;min-width:60px;text-align:center}
+.pbtn.sel{background:var(--ac);color:#fff;border-color:var(--ac)}
+.spill{padding:7px 14px;border-radius:20px;border:1.5px solid var(--bd);font-size:12px;font-weight:500;cursor:pointer;transition:all .15s;background:var(--s);color:var(--tx2);user-select:none;text-align:center;line-height:1.5}
+.spill .en{font-size:10px;opacity:.7;display:block}
+.spill.sel{background:var(--ac);color:#fff;border-color:var(--ac)}
+/* PROGRESS LIST */
+.prog-bar-wrap{background:var(--s2);border-radius:8px;padding:12px 14px;margin-bottom:14px}
+.prog-bar-track{height:8px;background:var(--bd);border-radius:4px;margin-top:8px;overflow:hidden}
+.prog-bar-fill{height:100%;background:var(--ac2);border-radius:4px;transition:width .3s}
+/* STUDENT ACCORDION */
+.stu-acc{border:1.5px solid var(--bd);border-radius:10px;margin-bottom:8px;overflow:hidden;transition:all .2s}
+.stu-acc.done{border-color:var(--ac2)}
+.stu-acc.open{border-color:var(--ac)}
+.stu-acc-head{display:flex;align-items:center;gap:10px;padding:12px 14px;cursor:pointer;background:var(--s)}
+.stu-acc.done .stu-acc-head{background:#f8fffe}
+.stu-acc.open .stu-acc-head{background:var(--acl)}
+.stu-status{width:22px;height:22px;border-radius:50%;border:2px solid var(--bd);display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0;transition:all .2s}
+.stu-acc.done .stu-status{background:var(--ac2);border-color:var(--ac2);color:#fff}
+.stu-acc.open .stu-status{background:var(--ac);border-color:var(--ac);color:#fff}
+.stu-name{font-size:13px;font-weight:600;flex:1}
+.stu-tag{font-size:10px;color:var(--tx3);background:var(--s2);padding:2px 8px;border-radius:8px}
+.stu-acc.done .stu-tag{background:var(--acl);color:var(--ac)}
+.stu-body{display:none;padding:16px;border-top:1px solid var(--bd);background:var(--bg)}
+.stu-acc.open .stu-body{display:block}
+/* TP BUTTONS */
+.tp-grid{display:flex;gap:6px;flex-wrap:wrap}
+.tp-btn{padding:7px 10px;border-radius:8px;border:1.5px solid var(--bd);font-size:11px;font-weight:700;cursor:pointer;background:var(--s);color:var(--tx2);transition:all .15s;text-align:center;min-width:46px}
+.tp-btn .td{font-size:8px;display:block;font-weight:400;margin-top:2px;opacity:.8}
+.tp-btn.sel{background:var(--bl);color:#fff;border-color:var(--bl)}
+/* CHIPS */
+.chiprow{display:flex;flex-wrap:wrap;gap:0}
+.chipw{display:inline-flex;flex-direction:column;gap:4px;margin:3px}
+.hlchip,.cchip{padding:5px 11px;border-radius:16px;border:1.5px solid var(--bd);font-size:11px;font-weight:500;cursor:pointer;transition:all .15s;background:var(--s);color:var(--tx2);user-select:none;white-space:nowrap}
+.hlchip.on{border-color:var(--gd);background:var(--gdl);color:#7c5a00}
+.cchip.str{border-color:var(--ac2);background:var(--acl);color:#1a4a30}
+.cchip.wk{border-color:var(--wn);background:var(--wnl);color:#7a2e1a}
+.cnote{display:none;padding:4px 8px;font-size:11px;border:1px dashed var(--bd);border-radius:6px;background:var(--s2);color:var(--tx2);width:140px;margin-top:2px}
+.cnote.show{display:block}
+.hlcat{margin-bottom:14px}
+.hlcat-t{font-size:12px;font-weight:600;color:var(--tx2);margin-bottom:8px;display:flex;align-items:center;gap:6px}
+.cust{margin-top:8px;padding:7px 10px;border:1.5px dashed var(--bd);border-radius:8px;font-size:11px;background:var(--s2);color:var(--tx2);width:100%}
+.cust:focus{border-color:var(--gd);background:var(--s);border-style:solid;outline:none}
+.custwk{border-color:#f4c2b0}
+.seclabel{display:flex;align-items:flex-start;gap:8px;font-size:12px;font-weight:600;margin:12px 0 6px}
+.seclabel .en{font-size:10px;color:var(--tx3);font-weight:400;margin-top:1px}
+.dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;margin-top:4px}
+.dg{background:var(--ac2)}.do{background:var(--wn)}.db{background:var(--bl)}.dp{background:var(--pu)}
+.csec{margin-bottom:12px}
+.csect{font-size:11px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;margin-bottom:6px;display:flex;align-items:center;gap:6px}
+.hint{background:var(--bll);border-radius:8px;padding:9px 12px;font-size:11px;color:#1a4a7a;margin-bottom:7px;line-height:1.6}
+.opt{font-size:10px;background:var(--s2);color:var(--tx3);border-radius:4px;padding:1px 6px;margin-left:6px;font-weight:400;border:1px solid var(--bd)}
+/* BUTTONS */
+.btn{padding:11px 20px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:none;transition:all .15s;font-family:'Noto Sans SC',sans-serif}
+.btnp{background:var(--ac);color:#fff}.btnp:hover{background:#1e4d38}
+.btns{background:var(--s2);color:var(--tx);border:1.5px solid var(--bd)}
+.btnb{background:var(--bl);color:#fff}
+.btnf{width:100%}.btnsm{padding:7px 14px;font-size:12px}
+.save-btn{width:100%;margin-top:12px;padding:11px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;border:none;background:var(--ac);color:#fff;font-family:'Noto Sans SC',sans-serif}
+.export-wrap{background:var(--acl);border:2px solid var(--ac2);border-radius:12px;padding:18px;text-align:center;margin-top:16px}
+.export-title{font-size:14px;font-weight:700;color:var(--ac);margin-bottom:4px}
+.export-sub{font-size:12px;color:var(--tx2);margin-bottom:14px}
+/* ALERTS */
+.alert{background:var(--acl);border:1px solid var(--ac2);border-radius:8px;padding:12px 14px;font-size:12px;color:var(--ac);margin-bottom:14px}
+.alertw{background:var(--wnl);border-color:var(--wn);color:var(--wn)}
+.alerti{background:var(--bll);border-color:var(--bl);color:#1a4a7a}
+/* WA PREVIEW */
+.wawrap{background:#e5ddd5;border-radius:12px;padding:20px}
+.wabub{background:#fff;border-radius:0 12px 12px 12px;padding:14px 16px;font-size:13px;line-height:1.9;max-width:95%;box-shadow:0 1px 3px rgba(0,0,0,.1)}
+/* MGMT */
+.srow{display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--s);border:1px solid var(--bd);border-radius:8px;margin-bottom:6px}
+.srow-n{flex:1;font-size:13px}.srow-c{font-size:11px;color:var(--tx3);background:var(--s2);padding:2px 8px;border-radius:8px}
+.sdelbtn{background:none;border:none;color:var(--tx3);cursor:pointer;font-size:14px;padding:2px 6px;border-radius:4px}
+.sdelbtn:hover{background:var(--wnl);color:var(--wn)}
+/* STEP */
+.strow{display:flex;align-items:flex-start;gap:10px;margin-bottom:16px}
+.stn{width:26px;height:26px;border-radius:50%;background:var(--ac);color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.stt{font-size:13px;font-weight:600}
+.stt .en{font-size:11px;color:var(--tx3);font-weight:400;display:block;margin-top:1px}
+hr{border:none;border-top:1px solid var(--bd);margin:16px 0}
+.hdg{font-size:16px;font-weight:700;margin-bottom:2px}
+.hdg .en{font-size:12px;color:var(--tx3);font-weight:400}
+.sub{font-size:12px;color:var(--tx3);margin-bottom:18px;margin-top:4px}
+/* STUDENT CARD (manager) */
+.stuc{background:var(--s);border:1.5px solid var(--bd);border-radius:10px;padding:12px 14px;margin-bottom:8px;cursor:pointer;transition:all .15s}
+.stuc:hover{border-color:var(--ac2)}
+.stuc.sel{border-color:var(--ac);background:var(--acl)}
+.tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+.tag{background:#eef7f0;color:var(--ac);padding:2px 7px;border-radius:8px;font-size:10px;font-weight:500}
+.tag.miss{background:var(--wnl);color:var(--wn)}
+.sdot{width:7px;height:7px;border-radius:50%;display:inline-block;margin-right:5px}
+.sok{background:var(--ac2)}.spart{background:#f4a261}
+/* CODE BOX */
+.cbox{background:#1a1a1a;color:#a8d8a0;font-family:'DM Mono',monospace;font-size:11px;padding:14px;border-radius:8px;white-space:pre-wrap;word-break:break-all;line-height:1.7;position:relative;margin-top:10px}
+.cbtn{position:absolute;top:8px;right:8px;background:#333;color:#ccc;border:none;padding:4px 8px;border-radius:4px;font-size:10px;cursor:pointer;font-family:sans-serif}
+@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+
+<!-- LANDING -->
+<div id="land">
+  <div style="font-size:38px;margin-bottom:8px">📚</div>
+  <div style="font-size:21px;font-weight:700;color:var(--ac);margin-bottom:4px">ATC 学习进度报告</div>
+  <div style="font-size:12px;color:var(--tx3);margin-bottom:28px">Progress Report System · Academee ATC</div>
+  <div class="lcard">
+    <label style="font-size:13px;font-weight:600;color:var(--tx2);margin-bottom:6px;display:block">你的名字 / Your Name</label>
+    <input class="linp" id="lname" type="text" placeholder="请输入你的名字" autocomplete="off">
+    <button class="lbtn" onclick="enterTeacher()">👩‍🏫 进入填写表单</button>
+    <div class="ldiv"><span>管理员 / Admin</span></div>
+    <a class="ladm" onclick="togglePwd()">🔒 管理员登入</a>
+    <div id="pwdp">
+      <div class="prow" style="margin-top:10px">
+        <input type="password" id="pwdi" placeholder="密码 / Password" onkeydown="if(event.key==='Enter')enterAdmin()">
+        <button onclick="enterAdmin()">OK</button>
+      </div>
+      <div id="pwde" style="font-size:11px;color:var(--wn);margin-top:6px;display:none">❌ 密码错误</div>
+    </div>
+  </div>
+</div>
+
+<!-- BADGE -->
+<div id="rbadge">
+  <span id="bel" class="badge"></span>
+  <span id="bname" style="font-size:12px;color:var(--tx2)"></span>
+  <button class="logbtn" onclick="logout()">退出</button>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <div class="tbar">
+    <button class="tbtn active" id="tab-t" onclick="showTab('teacher',this)">👩‍🏫 老师填写<span class="tlab">Teacher</span></button>
+    <button class="tbtn" id="tab-m" style="display:none" onclick="showTab('manager',this)">📋 负责人整合<span class="tlab">Manager</span></button>
+    <button class="tbtn" id="tab-p" style="display:none" onclick="showTab('preview',this)">📱 报告预览<span class="tlab">Preview</span></button>
+    <button class="tbtn" id="tab-s" style="display:none" onclick="showTab('students',this)">⚙️ 学生管理<span class="tlab">Students</span></button>
+  </div>
+
+  <!-- TEACHER VIEW -->
+  <div id="view-teacher" class="view active">
+    <div class="hdg">老师填写表单 <span class="en">Teacher Form</span></div>
+    <div class="sub">选择班级和科目，逐一填写学生，导出文件发给负责人</div>
+
+    <div class="card">
+      <div class="ctit">第一步：选择班级和科目</div>
+      <div class="fr">
+        <label>班级 / Class</label>
+        <div class="pgrid" id="cls-grid">
+          <div class="pbtn" onclick="pickCls(this,'ATC1')">ATC 1</div>
+          <div class="pbtn" onclick="pickCls(this,'ATC2')">ATC 2</div>
+          <div class="pbtn" onclick="pickCls(this,'ATC3')">ATC 3</div>
+          <div class="pbtn" onclick="pickCls(this,'ATC4')">ATC 4</div>
+          <div class="pbtn" onclick="pickCls(this,'ATC5')">ATC 5</div>
+          <div class="pbtn" onclick="pickCls(this,'ATC6')">ATC 6</div>
+        </div>
+      </div>
+      <div class="fr">
+        <label>科目 / Subject</label>
+        <div class="pgrid" id="subj-grid">
+          <div class="spill" onclick="pickSubjSetup(this,'数学')">📐 数学<span class="en">Mathematics</span></div>
+          <div class="spill" onclick="pickSubjSetup(this,'英文')">📖 英文<span class="en">English</span></div>
+          <div class="spill" onclick="pickSubjSetup(this,'马来文')">🌙 马来文<span class="en">BM</span></div>
+          <div class="spill" onclick="pickSubjSetup(this,'华文')">🈳 华文<span class="en">Mandarin</span></div>
+          <div class="spill" onclick="pickSubjSetup(this,'科学')">🔬 科学<span class="en">Science</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="progress-section" style="display:none">
+      <!-- Progress bar -->
+      <div class="prog-bar-wrap">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span style="font-size:13px;font-weight:600" id="prog-label">进度</span>
+          <span style="font-size:12px;color:var(--tx2)" id="prog-count">0/0</span>
+        </div>
+        <div class="prog-bar-track"><div class="prog-bar-fill" id="prog-fill" style="width:0%"></div></div>
+        <div style="font-size:11px;color:var(--tx3);margin-top:6px">点击学生名字展开填写 / Tap student name to fill in</div>
+      </div>
+
+      <!-- Student accordion list -->
+      <div id="acc-list"></div>
+
+      <!-- Export section -->
+      <div class="export-wrap" id="export-wrap" style="display:none">
+        <div class="export-title">✅ 可以导出了！</div>
+        <div class="export-sub" id="export-sub"></div>
+        <button class="btn btnp btnf" onclick="exportFile()">📤 导出文件 → 发给负责人</button>
+        <div style="font-size:11px;color:var(--tx2);margin-top:10px">文件名：<span id="fname-preview" style="font-family:monospace;color:var(--ac)"></span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MANAGER VIEW -->
+  <div id="view-manager" class="view">
+    <div class="hdg">负责人整合 <span class="en">Manager View</span></div>
+    <div class="sub">导入老师发来的文件，整合后生成AI报告</div>
+
+    <div class="card">
+      <div class="ctit">导入老师文件 / Import Teacher Files</div>
+      <div id="drop-zone" style="border:2px dashed var(--bd);border-radius:12px;padding:24px;text-align:center;background:var(--s2);cursor:pointer;transition:all .2s;margin-bottom:10px"
+        onclick="document.getElementById('imp-file').click()"
+        ondragover="event.preventDefault();this.style.borderColor='var(--bl)';this.style.background='var(--bll)'"
+        ondragleave="this.style.borderColor='var(--bd)';this.style.background='var(--s2)'"
+        ondrop="event.preventDefault();this.style.borderColor='var(--bd)';this.style.background='var(--s2)';handleDrop(event)">
+        <div style="font-size:28px;margin-bottom:8px">📂</div>
+        <div style="font-size:13px;font-weight:600;color:var(--tx2)">点击或拖放文件到这里</div>
+        <div style="font-size:11px;color:var(--tx3);margin-top:4px">支持一次导入多个文件 / Multiple files supported</div>
+      </div>
+      <input type="file" id="imp-file" accept=".json" multiple style="display:none" onchange="importFiles(event)">
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btns btnsm" onclick="loadSampleMgr()">📋 载入示例数据（Demo）</button>
+        <button class="btn btns btnsm" onclick="clearMgr()">🗑 清除全部</button>
+      </div>
+      <div id="imp-log" style="margin-top:12px"></div>
+    </div>
+
+    <div id="mgr-progress" style="display:none">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+        <div class="ctit" style="margin-bottom:0">已收到的数据 / Received Data</div>
+        <span id="mgr-summary" style="font-size:11px;color:var(--tx3)"></span>
+      </div>
+      <div id="stu-prog"></div>
+      <hr>
+      <div class="fr">
+        <label>选择学生生成报告</label>
+        <select id="m-stu"><option value="">-- 请选择 --</option></select>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <button class="btn btnp" onclick="genReport()">🤖 AI 生成报告</button>
+        <button class="btn btnb" onclick="batchGenAll()">⚡ 批量生成全部报告</button>
+        <button class="btn btns" onclick="exportXls()">📊 导出记录</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PREVIEW -->
+  <div id="view-preview" class="view">
+    <div class="hdg">报告预览</div>
+    <div class="sub">家长将收到的 WhatsApp 消息</div>
+    <div id="wa-out">
+      <div class="alertw alert">⚠️ 请先在「负责人整合」生成报告</div>
+      <div style="opacity:.3"><div class="wawrap"><div class="wabub">📚 <strong>ATC 学习进度报告</strong><br>（示意图）</div></div></div>
+    </div>
+  </div>
+
+  <!-- STUDENT MANAGEMENT -->
+  <div id="view-students" class="view">
+    <div class="hdg">⚙️ 学生名单管理</div>
+    <div class="sub">增减学生后，点「导出更新版文件」上传 GitHub 永久生效</div>
+    <div class="card">
+      <div class="ctit">添加新学生</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
+        <div style="flex:2;min-width:140px"><label style="margin-bottom:4px">姓名</label><input type="text" id="add-n" placeholder="STUDENT NAME"></div>
+        <div style="min-width:100px"><label style="margin-bottom:4px">班级</label>
+          <select id="add-c"><option>ATC1</option><option>ATC2</option><option>ATC3</option><option>ATC4</option><option>ATC5</option><option>ATC6</option></select>
+        </div>
+        <button class="btn btnp btnsm" style="margin-top:18px" onclick="addStu()">＋ 添加</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="ctit">当前名单 <span id="sc" style="font-size:11px;font-weight:400;text-transform:none;letter-spacing:0;color:var(--tx3)"></span></div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px" id="fgrid">
+        <div class="pbtn sel" style="font-size:11px;padding:5px 12px" onclick="filterC(this,'ALL')">全部</div>
+        <div class="pbtn" style="font-size:11px;padding:5px 12px" onclick="filterC(this,'ATC1')">ATC1</div>
+        <div class="pbtn" style="font-size:11px;padding:5px 12px" onclick="filterC(this,'ATC2')">ATC2</div>
+        <div class="pbtn" style="font-size:11px;padding:5px 12px" onclick="filterC(this,'ATC3')">ATC3</div>
+        <div class="pbtn" style="font-size:11px;padding:5px 12px" onclick="filterC(this,'ATC4')">ATC4</div>
+        <div class="pbtn" style="font-size:11px;padding:5px 12px" onclick="filterC(this,'ATC5')">ATC5</div>
+        <div class="pbtn" style="font-size:11px;padding:5px 12px" onclick="filterC(this,'ATC6')">ATC6</div>
+      </div>
+      <div id="sl"></div>
+    </div>
+    <div class="card">
+      <div class="ctit">导出更新版文件</div>
+      <div class="alerti alert">修改名单后，点下载 → 上传 GitHub 替换旧文件 → 所有人立即看到新名单</div>
+      <button class="btn btnp btnf" onclick="exportUpdatedFile()">⬇️ 下载更新版 HTML 文件</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const PWD='ATC2025';
+const ICONS={'数学':'📐','英文':'📖','马来文':'🌙','华文':'🈳','科学':'🔬'};
+const ALL_SUBJ=['数学','英文','马来文','华文','科学'];
+const OPTS={
+  '数学':{s:['加减法熟练','乘法表掌握好','应用题理解好','图形题强','分数概念清晰','解题步骤整洁','计算速度快'],w:['进位加法/退位减法','乘法表需背熟','应用题理解','分数单元','计算速度','粗心出错','文字题分析']},
+  '英文':{s:['阅读理解好','词汇量丰富','写作表达清晰','发音准确','文法掌握好','听力理解强'],w:['阅读理解','词汇量不足','写作句子结构','时态用法','发音练习','文法基础']},
+  '马来文':{s:['拼写准确','造句能力好','Pemahaman强','词汇量丰富','文章理解好'],w:['造句Bina Ayat','词汇量','Pemahaman理解','文法','作文表达','拼写练习']},
+  '华文':{s:['识字量好','写作表达好','阅读流利','听写表现好','理解能力强'],w:['识字量','写作表达','阅读理解','听写练习','笔画书写','词语应用']},
+  '科学':{s:['概念理解强','实验报告好','观察力强','科学术语掌握好','逻辑思维好'],w:['科学术语','概念理解','实验报告','知识点记忆','分析能力']}
+};
+const DEFAULT_STUDENTS=[
+  {name:'ALISA DING YU TONG',cls:'ATC1'},{name:'CAYLA LAU TZE LUO',cls:'ATC1'},{name:'EURO LIONG',cls:'ATC1'},
+  {name:'JORDAN NG YU KE',cls:'ATC1'},{name:'JOVIA FAN QIAN XI',cls:'ATC1'},{name:'JOVY PAY YU LER',cls:'ATC1'},
+  {name:'KOH RUO HAN',cls:'ATC1'},{name:'NG YU HAN',cls:'ATC1'},{name:'SEM CHLOE',cls:'ATC1'},
+  {name:'SO YAN LYNN',cls:'ATC1'},{name:'SONG YU TONG',cls:'ATC1'},{name:'TAN ZHENG XUN',cls:'ATC1'},
+  {name:'VALERIE GOH RUI TANG',cls:'ATC1'},{name:'WYNN GAN EN LE',cls:'ATC1'},
+  {name:'ANDREI SIA',cls:'ATC2'},{name:'ANSO LAU',cls:'ATC2'},{name:'BO LI YIK',cls:'ATC2'},
+  {name:'CELESTE NEO YU XIN',cls:'ATC2'},{name:'EMILY ONG LI QIAN',cls:'ATC2'},{name:'HARRISON MA',cls:'ATC2'},
+  {name:'JAYDEN AW JUN YU',cls:'ATC2'},{name:'LEE YI XU',cls:'ATC2'},{name:'ONG YI DA',cls:'ATC2'},
+  {name:'OSCAR FOO YU XIAN',cls:'ATC2'},{name:'PAY EUN FAYE',cls:'ATC2'},{name:'SUMMER THIOH YEE XUAN',cls:'ATC2'},
+  {name:'BAILEY ONG',cls:'ATC3'},{name:'CHLOE GOH RUI THONG',cls:'ATC3'},{name:'ER LE WEI',cls:'ATC3'},
+  {name:'GOH ZI HAO',cls:'ATC3'},{name:'HAYDEN PAY YU HAO',cls:'ATC3'},{name:'HENG RUI HANN',cls:'ATC3'},
+  {name:'JAYDEN NG REN JIE',cls:'ATC3'},{name:'KOH BO YIH',cls:'ATC3'},{name:'KOH JUNYI',cls:'ATC3'},
+  {name:'LAU CHENG HEE',cls:'ATC3'},{name:'LIM YU XUAN',cls:'ATC3'},{name:'NG CHAO YUAN',cls:'ATC3'},
+  {name:'OON JUN JIE',cls:'ATC3'},{name:'SO YAN KEAT',cls:'ATC3'},{name:'SONG YU JIE',cls:'ATC3'},{name:'TAN KAI JUN',cls:'ATC3'},
+  {name:'ADAM SEE CHING EE',cls:'ATC4'},{name:'BO LI TONG',cls:'ATC4'},{name:'BRITTANY MA',cls:'ATC4'},
+  {name:'DARREN LAU',cls:'ATC4'},{name:'GINA LEE XIN TONG',cls:'ATC4'},{name:'GOH SHARLYN',cls:'ATC4'},
+  {name:'HENG RUI XI',cls:'ATC4'},{name:'HENG ZENG REE MIRABELLE',cls:'ATC4'},{name:'LIM RUI TING',cls:'ATC4'},
+  {name:'LOW EE RON',cls:'ATC4'},{name:'OON JUN TENG',cls:'ATC4'},{name:'TOO JIN XUAN',cls:'ATC4'},{name:'WONG MING EN BELLA',cls:'ATC4'},
+  {name:'ABBY NG RUO NAN',cls:'ATC5'},{name:'CAYSON KHUNG EE JUN',cls:'ATC5'},{name:'ER CHENG WEI',cls:'ATC5'},
+  {name:'JALYN KHOO',cls:'ATC5'},{name:'JEANNIE CHONG EN XIN',cls:'ATC5'},{name:'JOEVY FAN QIAN YU',cls:'ATC5'},
+  {name:'KHOO KANG SHEAN',cls:'ATC5'},{name:'KOH BO REN',cls:'ATC5'},{name:'NG HONG KAI',cls:'ATC5'},{name:'REGAN TAN LEI JUN',cls:'ATC5'},
+  {name:'BO LIHOM',cls:'ATC6'},{name:'CHLOE ONG LI WEI',cls:'ATC6'},{name:'EASON LEE SI FENG',cls:'ATC6'},
+  {name:'LIM JIN HAN',cls:'ATC6'},{name:'LYE YEN XI',cls:'ATC6'},{name:'TAI JING XUAN',cls:'ATC6'},
+  {name:'TAN LI TONG',cls:'ATC6'},{name:'TAN ZHENG YU',cls:'ATC6'}
+];
+
+let students=JSON.parse(localStorage.getItem('atc_students')||'null')||DEFAULT_STUDENTS;
+function saveStu(){localStorage.setItem('atc_students',JSON.stringify(students));}
+
+let curRole='',curName='',curCls='',curSubj='',sessionData={},cData={},filterCls='ALL';
+
+// ===== LANDING =====
+function togglePwd(){const p=document.getElementById('pwdp');p.style.display=p.style.display==='block'?'none':'block';if(p.style.display==='block')document.getElementById('pwdi').focus();}
+function enterTeacher(){
+  const n=document.getElementById('lname').value.trim();
+  if(!n){document.getElementById('lname').style.borderColor='var(--wn)';return;}
+  curRole='teacher';curName=n;launch();
+}
+function enterAdmin(){
+  const n=document.getElementById('lname').value.trim();
+  if(!n){document.getElementById('lname').focus();return;}
+  if(document.getElementById('pwdi').value!==PWD){document.getElementById('pwde').style.display='block';return;}
+  curRole='admin';curName=n;launch();
+}
+function launch(){
+  document.getElementById('land').style.display='none';
+  document.getElementById('app').style.display='block';
+  const b=document.getElementById('rbadge');b.style.display='flex';
+  const el=document.getElementById('bel');
+  document.getElementById('bname').textContent=curName;
+  if(curRole==='admin'){
+    el.className='badge ba';el.textContent='🔑 管理员';
+    ['tab-m','tab-p','tab-s'].forEach(id=>document.getElementById(id).style.display='');
+    renderStuMgmt();
+  } else {
+    el.className='badge bt';el.textContent='👩‍🏫 老师';
+  }
+}
+function logout(){
+  curRole='';curName='';curCls='';curSubj='';sessionData={};
+  document.getElementById('land').style.display='flex';
+  document.getElementById('app').style.display='none';
+  document.getElementById('rbadge').style.display='none';
+  document.getElementById('lname').value='';
+  document.getElementById('pwdi').value='';
+  document.getElementById('pwdp').style.display='none';
+  document.getElementById('pwde').style.display='none';
+  ['tab-m','tab-p','tab-s'].forEach(id=>document.getElementById(id).style.display='none');
+  showTab('teacher',document.getElementById('tab-t'));
+}
+
+function showTab(t,btn){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.querySelectorAll('.tbtn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('view-'+t).classList.add('active');
+  btn.classList.add('active');
+}
+
+// ===== TEACHER - CLASS & SUBJECT SETUP =====
+function pickCls(el,cls){
+  document.querySelectorAll('#cls-grid .pbtn').forEach(b=>b.classList.remove('sel'));
+  el.classList.add('sel');curCls=cls;curSubj='';sessionData={};
+  document.querySelectorAll('#subj-grid .spill').forEach(p=>p.classList.remove('sel'));
+  document.getElementById('progress-section').style.display='none';
+}
+function pickSubjSetup(el,s){
+  if(!curCls){alert('请先选择班级');return;}
+  document.querySelectorAll('#subj-grid .spill').forEach(p=>p.classList.remove('sel'));
+  el.classList.add('sel');curSubj=s;
+  // Load session from localStorage if exists
+  const key=`atc_sess_${curCls}_${curSubj}_${curName}`;
+  const saved=localStorage.getItem(key);
+  sessionData=saved?JSON.parse(saved):{};
+  buildAccordion();
+}
+
+// ===== ACCORDION =====
+function buildAccordion(){
+  const clsStudents=students.filter(s=>s.cls===curCls).sort((a,b)=>a.name.localeCompare(b.name));
+  const total=clsStudents.length;
+  const done=Object.keys(sessionData).length;
+  document.getElementById('prog-label').textContent=`${curCls} · ${ICONS[curSubj]||''} ${curSubj}`;
+  document.getElementById('prog-count').textContent=`${done}/${total} 完成`;
+  document.getElementById('prog-fill').style.width=total?`${(done/total)*100}%`:'0%';
+  document.getElementById('progress-section').style.display='block';
+
+  const o=OPTS[curSubj]||{s:[],w:[]};
+  let h='';
+  clsStudents.forEach(stu=>{
+    const isDone=!!sessionData[stu.name];
+    const d=sessionData[stu.name]||{};
+    h+=`<div class="stu-acc${isDone?' done':''}" id="acc-${stu.name.replace(/\s/g,'_')}">
+      <div class="stu-acc-head" onclick="toggleAcc('${stu.name.replace(/\s/g,'_')}')">
+        <div class="stu-status">${isDone?'✓':''}${!isDone?'':''}</div>
+        <span class="stu-name">${stu.name}</span>
+        <span class="stu-tag">${isDone?'✅ 已完成':'待填写'}</span>
+      </div>
+      <div class="stu-body">
+        ${buildStudentForm(stu.name,o,d)}
+        <button class="save-btn" onclick="saveStuData('${stu.name.replace(/\s/g,'_')}','${stu.name}')">💾 保存此学生 / Save Student</button>
+      </div>
+    </div>`;
+  });
+  document.getElementById('acc-list').innerHTML=h;
+  updateExportSection();
+}
+
+function buildStudentForm(stuName,o,d){
+  const safeId=stuName.replace(/\s/g,'_');
+  const hlItems=['理解能力强','进步明显','作业整洁准时','专注力强','解题思路清晰'];
+  const attItems=['学习态度认真','面对困难不放弃','主动发问','积极参与课堂','主动复习'];
+  const charItems=['与同学相处融洽','乐于帮助同学','情绪稳定开朗','有礼貌有教养','有责任心'];
+
+  const savedHL=(d.highlights||'').split('｜').filter(Boolean);
+  const savedStr=(d.strengths||'').split('｜').filter(Boolean);
+  const savedWk=(d.weaknesses||'').split('｜').filter(Boolean);
+
+  function isHL(item){return savedHL.some(h=>h===item||h.startsWith(item+'('));}
+  function isStr(item){return savedStr.some(s=>s===item||s.startsWith(item+'('));}
+  function isWk(item){return savedWk.some(w=>w===item||w.startsWith(item+'('));}
+  function getNote(arr,item){const found=arr.find(x=>x.startsWith(item+'('));return found?found.slice(item.length+1,-1):'';}
+
+  let h='';
+  // TP
+  h+=`<div style="margin-bottom:12px"><div style="font-size:11px;font-weight:700;color:var(--tx3);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px">掌握程度 (TP) 🔒</div>
+  <div class="tp-grid">`;
+  ['TP1','TP2','TP3','TP4','TP5','TP6'].forEach(tp=>{
+    const labels={'TP1':'初步认识','TP2':'基本掌握','TP3':'达到水准','TP4':'表现良好','TP5':'表现优秀','TP6':'卓越表现'};
+    h+=`<div class="tp-btn${d.tp===tp?' sel':''}" onclick="tpClick(this,'${safeId}','${tp}')">${tp}<span class="td">${labels[tp]}</span></div>`;
+  });
+  h+='</div></div>';
+
+  // Highlights
+  h+=`<div style="margin-bottom:12px"><div style="font-size:11px;font-weight:700;color:var(--tx3);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px">✨ 学生亮点</div>`;
+  const hlCats=[{t:'🎓 学习表现',items:hlItems},{t:'💪 学习态度',items:attItems},{t:'🌟 品格表现',items:charItems}];
+  hlCats.forEach((cat,ci)=>{
+    h+=`<div class="hlcat"><div class="hlcat-t">${cat.t}</div><div class="chiprow">`;
+    cat.items.forEach(item=>{
+      const note=getNote(savedHL,item);
+      h+=`<div class="chipw"><div class="hlchip${isHL(item)?' on':''}" onclick="toggleHLC(this)">${item}</div><input class="cnote${isHL(item)?' show':''}" type="text" value="${note}" placeholder="例子..."></div>`;
+    });
+    h+='</div>';
+    const customKey=['academic','attitude','character'][ci];
+    const customVal=d['hlCustom_'+customKey]||'';
+    h+=`<input type="text" class="cust" id="hlc-${safeId}-${customKey}" value="${customVal}" placeholder="✏️ 其他亮点..."></div>`;
+  });
+  h+='</div>';
+
+  // Subject checkboxes
+  h+=`<div style="margin-bottom:12px"><div style="font-size:11px;font-weight:700;color:var(--tx3);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px">${ICONS[curSubj]||''} ${curSubj} 详细评估</div>`;
+  h+=`<div class="csec"><div class="csect"><span style="color:var(--ac2)">✅</span> 强项 Strengths</div><div class="chiprow">`;
+  o.s.forEach(item=>{
+    const note=getNote(savedStr,item);
+    h+=`<div class="chipw"><div class="cchip${isStr(item)?' str':''}" onclick="checkClick(this,'s')">${item}</div><input class="cnote${isStr(item)?' show':''}" type="text" value="${note}" placeholder="补充..."></div>`;
+  });
+  h+=`</div><input type="text" class="cust" id="strc-${safeId}" value="${d.customStr||''}" placeholder="✏️ 其他强项..."></div>`;
+
+  h+=`<div class="csec"><div class="csect"><span style="color:var(--wn)">📌</span> 需加强</div><div class="chiprow">`;
+  o.w.forEach(item=>{
+    const note=getNote(savedWk,item);
+    h+=`<div class="chipw"><div class="cchip${isWk(item)?' wk':''}" onclick="checkClick(this,'w')">${item}</div><input class="cnote${isWk(item)?' show':''}" type="text" value="${note}" placeholder="补充..."></div>`;
+  });
+  h+=`</div><input type="text" class="cust custwk" id="wkc-${safeId}" value="${d.customWk||''}" placeholder="✏️ 其他需加强..."></div></div>`;
+
+  // Attitude + optional
+  h+=`<div class="seclabel"><div class="dot db"></div><div>课堂表现与学习态度</div></div>
+  <div class="hint">💡 2–3句关于这个孩子的真实观察</div>
+  <div class="fr"><textarea id="att-${safeId}" rows="3" placeholder="例：这位同学每次上课都很开心...">${d.attitude||''}</textarea></div>
+  <div class="seclabel"><div class="dot dp"></div><div>老师将采取的行动<span class="opt">选填</span></div></div>
+  <div class="fr"><textarea id="act-${safeId}" rows="2" placeholder="例：老师将多给予个别辅导...">${d.action||''}</textarea></div>
+  <div class="seclabel"><div class="dot do"></div><div>给家长的建议<span class="opt">选填</span></div></div>
+  <div class="fr"><textarea id="par-${safeId}" rows="2" placeholder="例：建议家长每天陪读10分钟...">${d.parentSuggestion||''}</textarea></div>`;
+
+  return h;
+}
+
+function tpClick(el,safeId,tp){
+  const body=el.closest('.stu-body');
+  body.querySelectorAll('.tp-btn').forEach(b=>b.classList.remove('sel'));
+  el.classList.add('sel');
+}
+
+function toggleAcc(safeId){
+  const acc=document.getElementById('acc-'+safeId);
+  const isOpen=acc.classList.contains('open');
+  // Close all
+  document.querySelectorAll('.stu-acc.open').forEach(a=>a.classList.remove('open'));
+  if(!isOpen) acc.classList.add('open');
+}
+
+function toggleHLC(el){
+  el.classList.toggle('on');
+  const n=el.closest('.chipw').querySelector('.cnote');
+  el.classList.contains('on')?n.classList.add('show'):(n.classList.remove('show'),n.value='');
+}
+function checkClick(el,t){
+  const ws=el.classList.contains('str'),ww=el.classList.contains('wk');
+  el.classList.remove('str','wk');
+  const n=el.closest('.chipw').querySelector('.cnote');
+  if(t==='s'&&!ws){el.classList.add('str');n.classList.add('show');}
+  else if(t==='w'&&!ww){el.classList.add('wk');n.classList.add('show');}
+  else{n.classList.remove('show');n.value='';}
+}
+
+function chipVal(el){const n=el.closest('.chipw').querySelector('.cnote').value.trim();return n?`${el.textContent.trim()}(${n})`:el.textContent.trim();}
+
+function saveStuData(safeId,stuName){
+  const body=document.getElementById('acc-'+safeId).querySelector('.stu-body');
+  const tp=(body.querySelector('.tp-btn.sel')||{}).textContent?.split('\n')[0]||'';
+  if(!tp){alert('请选择 TP 等级');return;}
+  const att=document.getElementById('att-'+safeId).value.trim();
+  if(!att){alert('请填写课堂表现');return;}
+
+  const hl=[...body.querySelectorAll('.hlchip.on')].map(chipVal);
+  ['academic','attitude','character'].forEach(k=>{
+    const v=document.getElementById(`hlc-${safeId}-${k}`).value.trim();
+    if(v) hl.push(v);
+  });
+  const str=[...body.querySelectorAll('.cchip.str')].map(chipVal);
+  const customStr=document.getElementById('strc-'+safeId).value.trim();
+  if(customStr) str.push(customStr);
+  const wk=[...body.querySelectorAll('.cchip.wk')].map(chipVal);
+  const customWk=document.getElementById('wkc-'+safeId).value.trim();
+  if(customWk) wk.push(customWk);
+
+  sessionData[stuName]={
+    student:stuName, class:curCls, subject:curSubj, teacher:curName,
+    tp, highlights:hl.join('｜'), strengths:str.join('｜'), weaknesses:wk.join('｜'),
+    attitude:att, action:document.getElementById('act-'+safeId).value.trim(),
+    parentSuggestion:document.getElementById('par-'+safeId).value.trim(),
+    hlCustom_academic:document.getElementById(`hlc-${safeId}-academic`).value.trim(),
+    hlCustom_attitude:document.getElementById(`hlc-${safeId}-attitude`).value.trim(),
+    hlCustom_character:document.getElementById(`hlc-${safeId}-character`).value.trim(),
+    customStr, customWk
+  };
+
+  // Save to localStorage
+  const key=`atc_sess_${curCls}_${curSubj}_${curName}`;
+  localStorage.setItem(key,JSON.stringify(sessionData));
+
+  // Update accordion
+  const acc=document.getElementById('acc-'+safeId);
+  acc.classList.add('done');acc.classList.remove('open');
+  acc.querySelector('.stu-status').textContent='✓';
+  acc.querySelector('.stu-tag').textContent='✅ 已完成';
+
+  // Update progress
+  const clsStudents=students.filter(s=>s.cls===curCls);
+  const done=Object.keys(sessionData).length;
+  const total=clsStudents.length;
+  document.getElementById('prog-count').textContent=`${done}/${total} 完成`;
+  document.getElementById('prog-fill').style.width=`${(done/total)*100}%`;
+  updateExportSection();
+}
+
+function updateExportSection(){
+  const clsStudents=students.filter(s=>s.cls===curCls);
+  const done=Object.keys(sessionData).length;
+  const total=clsStudents.length;
+  const wrap=document.getElementById('export-wrap');
+  if(done>0){
+    wrap.style.display='block';
+    const date=new Date().toISOString().split('T')[0];
+    const fname=`${curCls}_${curSubj}_${curName}_${date}.json`;
+    document.getElementById('fname-preview').textContent=fname;
+    document.getElementById('export-sub').textContent=
+      done===total?`全部 ${total} 名学生已完成，可以导出了！`:`已完成 ${done}/${total} 名，也可以先导出当前进度。`;
+  } else {
+    wrap.style.display='none';
+  }
+}
+
+function exportFile(){
+  const clsStudents=students.filter(s=>s.cls===curCls);
+  const date=new Date().toISOString().split('T')[0];
+  const payload={
+    meta:{teacher:curName,class:curCls,subject:curSubj,exportDate:date,
+      totalStudents:clsStudents.length,completedStudents:Object.keys(sessionData).length},
+    submissions:Object.values(sessionData)
+  };
+  const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=`${curCls}_${curSubj}_${curName}_${date}.json`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+  // Clear session after export
+  const key=`atc_sess_${curCls}_${curSubj}_${curName}`;
+  localStorage.removeItem(key);
+  alert(`✅ 文件已导出！请用 WhatsApp 把文件发给负责人。\n\n文件名：${a.download}`);
+}
+
+// ===== MANAGER =====
+function handleDrop(e){
+  const files=[...e.dataTransfer.files].filter(f=>f.name.endsWith('.json'));
+  if(!files.length){alert('请选择 .json 文件');return;}
+  processFiles(files);
+}
+
+function importFiles(e){
+  const files=[...e.target.files];
+  if(!files.length)return;
+  processFiles(files);
+  e.target.value='';
+}
+
+function processFiles(files){
+  const log=document.getElementById('imp-log');
+  let successCount=0, totalStudents=0;
+  const results=[];
+  let processed=0;
+
+  files.forEach(file=>{
+    const reader=new FileReader();
+    reader.onload=function(ev){
+      try{
+        const data=JSON.parse(ev.target.result);
+        if(!data.submissions||!data.meta) throw new Error('格式错误');
+        let count=0;
+        data.submissions.forEach(sub=>{
+          const key=sub.student.replace(/\s*\([^)]+\)\s*$/,'').trim();
+          if(!cData[key]) cData[key]={};
+          cData[key][sub.subject]={tch:sub.teacher,tp:sub.tp,hl:sub.highlights,str:sub.strengths,wk:sub.weaknesses,att:sub.attitude,act:sub.action,par:sub.parentSuggestion};
+          count++;
+        });
+        successCount++;
+        totalStudents+=count;
+        results.push(`✅ ${data.meta.class} · ${data.meta.subject} (${data.meta.teacher}) · ${count}人`);
+      }catch(err){
+        results.push(`❌ ${file.name}：格式错误`);
+      }
+      processed++;
+      if(processed===files.length){
+        // All done
+        log.innerHTML=`<div class="alert" style="line-height:1.8">
+          <strong>导入完成：${successCount}/${files.length} 个文件成功</strong><br>
+          ${results.join('<br>')}
+        </div>`;
+        renderMgrProg();
+      }
+    };
+    reader.readAsText(file);
+  });
+}
+
+function loadSampleMgr(){
+  const sample={meta:{teacher:'AL',class:'ATC1',subject:'数学',exportDate:'2025-04-08',totalStudents:14,completedStudents:3},
+    submissions:[
+      {student:'ALISA DING YU TONG',class:'ATC1',subject:'数学',teacher:'AL',tp:'TP3',
+        highlights:'学习态度认真(每次准时交作业)｜面对困难不放弃',strengths:'加减法熟练(很少出错)｜解题步骤整洁',
+        weaknesses:'应用题理解(看不懂题目意思)｜分数单元',
+        attitude:'Alisa在课堂上认真专注，遇到不懂的地方会主动举手发问，是很勤奋的学生。',
+        action:'老师将增加应用题专项练习',parentSuggestion:'建议家长监督背诵乘法表，每天10分钟'},
+      {student:'CAYLA LAU TZE LUO',class:'ATC1',subject:'数学',teacher:'AL',tp:'TP4',
+        highlights:'理解能力强(新概念学得很快)｜主动发问｜有责任心',strengths:'应用题理解好｜图形题强｜分数概念清晰',
+        weaknesses:'粗心出错(计算时少看符号)',
+        attitude:'Cayla学习主动积极，每次上课都充满活力，数学逻辑思维很强。',
+        action:'',parentSuggestion:'考前多做练习题，注意检查答案'},
+      {student:'EURO LIONG',class:'ATC1',subject:'数学',teacher:'AL',tp:'TP2',
+        highlights:'学习态度认真｜有礼貌有教养',strengths:'加减法熟练',
+        weaknesses:'乘法表需背熟｜应用题理解｜分数单元｜计算速度',
+        attitude:'Euro上课认真听讲，但在独立完成练习时需要较多引导，需要加强自信心。',
+        action:'老师将给予额外个别辅导',parentSuggestion:'建议每天在家练习10道乘法表题目'}
+    ]};
+  sample.submissions.forEach(sub=>{
+    const key=`${sub.student} (${sub.class})`;
+    if(!cData[key]) cData[key]={};
+    cData[key][sub.subject]={tch:sub.teacher,tp:sub.tp,hl:sub.highlights,str:sub.strengths,wk:sub.weaknesses,att:sub.attitude,act:sub.action,par:sub.parentSuggestion};
+  });
+  document.getElementById('imp-log').innerHTML=`<div class="alert">✅ 示例数据已载入（ATC1 · 数学 · 3名学生）</div>`;
+  renderMgrProg();
+}
+
+function clearMgr(){cData={};document.getElementById('imp-log').innerHTML='';document.getElementById('mgr-progress').style.display='none';}
+
+function renderMgrProg(){
+  const prog=document.getElementById('stu-prog');
+  const sel=document.getElementById('m-stu');
+  if(!Object.keys(cData).length){document.getElementById('mgr-progress').style.display='none';return;}
+  document.getElementById('mgr-progress').style.display='block';
+
+  const total=Object.keys(cData).length;
+  const ready=Object.values(cData).filter(s=>Object.keys(s).length>=3).length;
+  document.getElementById('mgr-summary').textContent=`共 ${total} 名学生 · ${ready} 名已收到 3+ 科目`;
+
+  let h='';sel.innerHTML='<option value="">-- 请选择 --</option>';
+  // Sort by class then name
+  const sorted=Object.entries(cData).sort((a,b)=>a[0].localeCompare(b[0]));
+  sorted.forEach(([stu,subjs])=>{
+    const n=Object.keys(subjs).length;
+    const complete=n>=5;
+    const partial=n>=3;
+    const sc=complete?'sok':partial?'spart':'';
+    const tags=ALL_SUBJ.map(s=>`<span class="tag${subjs[s]?'':' miss'}">${ICONS[s]} ${s}</span>`).join('');
+    const badge=complete?'<span style="font-size:10px;background:var(--acl);color:var(--ac);padding:2px 7px;border-radius:8px;margin-left:6px">全科 ✓</span>':
+                partial?'<span style="font-size:10px;background:#fff3cd;color:#7c5a00;padding:2px 7px;border-radius:8px;margin-left:6px">部分</span>':
+                '<span style="font-size:10px;background:var(--wnl);color:var(--wn);padding:2px 7px;border-radius:8px;margin-left:6px">待收</span>';
+    h+=`<div class="stuc" onclick="pickMgrStu('${stu}')">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <span style="font-size:13px;font-weight:600">${stu}</span>
+        <span>${badge}<span style="font-size:11px;color:var(--tx3);margin-left:4px"><span class="sdot ${sc}"></span>${n}/5</span></span>
+      </div>
+      <div class="tags">${tags}</div>
+    </div>`;
+    const o=document.createElement('option');o.value=stu;o.textContent=stu;sel.appendChild(o);
+  });
+  prog.innerHTML=h;
+}
+
+async function batchGenAll(){
+  const ready=Object.entries(cData).filter(([,s])=>Object.keys(s).length>=3);
+  if(!ready.length){alert('没有学生收到足够科目数据（至少3科）');return;}
+  if(!confirm(`将为 ${ready.length} 名学生生成报告，每份约15秒，总共约 ${ready.length*15} 秒。确认开始？`))return;
+
+  const div=document.getElementById('wa-out');
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.querySelectorAll('.tbtn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('view-preview').classList.add('active');
+  document.getElementById('tab-p').classList.add('active');
+
+  const reports=[];
+  for(let i=0;i<ready.length;i++){
+    const [stu,data]=ready[i];
+    const subjs=Object.keys(data);
+    div.innerHTML=`<div style="text-align:center;padding:40px 20px">
+      <div style="font-size:30px;animation:spin 1.5s linear infinite;display:inline-block">⚙️</div>
+      <div style="font-size:14px;font-weight:600;color:var(--ac);margin:12px 0 6px">批量生成中... (${i+1}/${ready.length})</div>
+      <div style="font-size:13px;color:var(--tx2)">正在生成：${stu}</div>
+      <div style="font-size:11px;color:var(--tx3);margin-top:6px">请勿关闭页面</div>
+    </div>`;
+    try{
+      const result=await callGAS({action:'generateReport',prompt:buildPrompt(stu,data,subjs)});
+      reports.push({stu,msg:result.success?result.report.trim():genTemplate(stu,data,subjs),ai:result.success});
+    }catch(e){
+      reports.push({stu,msg:genTemplate(stu,data,subjs),ai:false});
+    }
+    // Small delay to avoid rate limiting
+    if(i<ready.length-1) await new Promise(r=>setTimeout(r,2000));
+  }
+
+  // Show all reports
+  let html=`<div class="alert">✅ 批量生成完成！共 ${reports.length} 份报告</div>
+    <div style="font-size:12px;color:var(--tx3);margin-bottom:12px">点击每份报告的「复制」按钮，逐一发送给家长</div>`;
+  reports.forEach((r,i)=>{
+    const preview=r.msg.replace(/\*([^*]+)\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>');
+    html+=`<div style="margin-bottom:20px">
+      <div style="font-size:12px;font-weight:700;color:var(--tx2);margin-bottom:8px">
+        ${i+1}. ${r.stu} ${r.ai?'<span style="color:var(--ac);font-size:10px">🤖 AI</span>':'<span style="color:var(--wn);font-size:10px">📋 模板</span>'}
+      </div>
+      <div class="wawrap"><div class="wabub" style="font-size:12px">${preview}</div></div>
+      <button class="btn btnp" style="width:100%;margin-top:8px;font-size:12px" onclick="copyOneBatch(this,'${encodeURIComponent(r.msg)}')">📋 复制此报告</button>
+    </div>`;
+  });
+  div.innerHTML=html;
+}
+
+function copyOneBatch(btn,encodedMsg){
+  const msg=decodeURIComponent(encodedMsg);
+  navigator.clipboard.writeText(msg).then(()=>{
+    btn.textContent='✓ 已复制！';btn.style.background='#1e4d38';
+    setTimeout(()=>{btn.textContent='📋 复制此报告';btn.style.background='var(--ac)';},3000);
+  });
+}
+
+function pickMgrStu(name){
+  document.getElementById('m-stu').value=name;
+  document.querySelectorAll('.stuc').forEach(c=>c.classList.toggle('sel',c.querySelector('span').textContent===name));
+}
+
+function fmtItem(r){return r.replace(/\((.+?)\)/,'（$1）');}
+
+function buildPrompt(stu,data,subjs){
+  const cleanStu=stu.replace(/\s*\([^)]+\)\s*$/,'').trim();
+  const fn=cleanStu.split(' ')[0];
+  const tpNums=subjs.map(s=>parseInt((data[s].tp||'TP0').replace('TP',''))).filter(n=>n>0);
+  const avg=tpNums.length?Math.round(tpNums.reduce((a,b)=>a+b,0)/tpNums.length):3;
+  let hint='';
+  if(avg<=2)hint='学生基础较弱，语气要温暖鼓励，重点放在进步空间和老师的支持上。';
+  else if(avg===3)hint='学生稳定发展中，语气积极正面，肯定努力，指出清晰的加强方向。';
+  else if(avg===4)hint='学生表现良好，语气肯定赞赏，加强项轻描淡写提出。';
+  else hint='学生表现优秀，语气充满欣赏，加强项作为锦上添花的建议。';
+  const allHL=new Set();
+  subjs.forEach(s=>{if(data[s].hl)data[s].hl.split('｜').forEach(h=>h&&allHL.add(fmtItem(h.trim())))});
+  let sd='';
+  subjs.forEach(s=>{
+    const d=data[s];
+    sd+=`\n【${s}】老师：${d.tch}\n`;
+    if(d.att)sd+=`课堂表现：${d.att}\n`;
+    if(d.str)sd+=`强项：${d.str.split('｜').filter(Boolean).map(fmtItem).join('、')}\n`;
+    if(d.wk)sd+=`需加强：${d.wk.split('｜').filter(Boolean).map(fmtItem).join('、')}\n`;
+    if(d.act)sd+=`老师行动：${d.act}\n`;
+    if(d.par)sd+=`家长建议：${d.par}\n`;
+  });
+  return `你是Academee ATC教育中心的负责人，正在为家长撰写一份考前学习进度报告。
+
+【内部参考-语气指引，不要提及】${hint}
+
+【学生】${cleanStu}
+${allHL.size?`【老师观察到的亮点】${[...allHL].join('、')}`:''}
+${sd}
+
+【要求】
+1. 温暖专业的中文，让家长感受到老师真的认识和关心这个孩子
+2. WhatsApp格式，用*粗体*标记标题
+3. 结构：
+   - 📚 *ATC 学习进度报告* + 学生姓名 + 分隔线
+   - 🌟 *整体展望*：2-3句温暖总结
+   - ✨ *学生亮点*：整合成自然的句子
+   - 各科目：emoji+科目名，先写孩子在这科的状态，再写强项和需加强（用建设性语言），融入老师行动和家长建议
+   - 分隔线 + 温暖结语
+4. 约300-400字，适合WhatsApp阅读
+5. 只输出报告本身，无需前言`;
+}
+
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbxHGIsicvJ1RslzBM4DFROxaOARh2hatUU346V2bhtlM1b5_3nUBRQm9VPmX-XJyxT95w/exec';
+
+async function callGAS(payload) {
+  const resp = await fetch(GAS_URL, {
+    method: 'POST',
+    headers: {'Content-Type': 'text/plain'},
+    body: JSON.stringify(payload)
+  });
+  if (!resp.ok) throw new Error('GAS error: ' + resp.status);
+  return await resp.json();
+}
+
+async function genReport(){
+  const stu=document.getElementById('m-stu').value;
+  if(!stu){alert('请选择学生');return;}
+  const data=cData[stu];if(!data)return;
+  const subjs=Object.keys(data);
+  const div=document.getElementById('wa-out');
+  div.innerHTML=`<div style="text-align:center;padding:40px 20px"><div style="font-size:30px;animation:spin 1.5s linear infinite;display:inline-block">⚙️</div><div style="font-size:14px;font-weight:600;color:var(--ac);margin:12px 0 6px">AI 正在生成报告...</div><div style="font-size:12px;color:var(--tx3)">通过 Google Apps Script 调用 AI，约15秒，请稍等</div></div>`;
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.querySelectorAll('.tbtn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('view-preview').classList.add('active');
+  document.getElementById('tab-p').classList.add('active');
+  try{
+    const result = await callGAS({action: 'generateReport', prompt: buildPrompt(stu,data,subjs)});
+    if(!result.success) throw new Error(result.error);
+    showReport(div, result.report.trim());
+  }catch(e){
+    console.error('AI generation failed:', e);
+    showReport(div, genTemplate(stu,data,subjs), true);
+  }
+}
+
+function genTemplate(stu,data,subjs){
+  // Strip class code from student name for parent-facing message
+  const cleanStu=stu.replace(/\s*\([^)]+\)\s*$/,'').trim();
+  const fn=cleanStu.split(' ')[0];
+  const allHL=new Set();
+  subjs.forEach(s=>{if(data[s].hl)data[s].hl.split('｜').forEach(h=>h&&allHL.add(h.trim()))});
+  const tpNums=subjs.map(s=>parseInt((data[s].tp||'TP0').replace('TP',''))).filter(n=>n>0);
+  const avg=tpNums.length?Math.round(tpNums.reduce((a,b)=>a+b,0)/tpNums.length):3;
+  let t=avg<=2?`老师们正给予${fn}更多个别关注与耐心引导，期望在考前能建立更稳固的基础。`:
+           avg===3?`${fn}整体表现稳定，老师们观察到他/她在各科目上认真付出的努力。`:
+           avg===4?`${fn}在各科目上表现良好，积极的学习态度让老师们感到欣慰。`:
+           `${fn}在各科目上均表现优秀，老师们都为他/她感到骄傲。`;
+  let m=`📚 *ATC 学习进度报告*\n学生：${cleanStu}\n━━━━━━━━━━━━━━\n\n🌟 *整体展望：*\n${t}相信${fn}在接下来的冲刺复习中能更有方向，加油！💪\n\n`;
+  if(allHL.size){m+=`✨ *学生亮点：*\n`;allHL.forEach(h=>m+=`• ${fmtItem(h)}\n`);m+='\n';}
+  subjs.forEach(s=>{
+    const d=data[s];
+    m+=`${ICONS[s]||'📌'} *${s}：*\n`;
+    // NOTE: attitude field is raw teacher notes — NOT shown in template mode (AI handles transformation)
+    if(d.str)m+=`✅ 强项：${d.str.split('｜').filter(Boolean).map(fmtItem).join('、')}\n`;
+    if(d.wk)m+=`📌 需加强：${d.wk.split('｜').filter(Boolean).map(fmtItem).join('、')}\n`;
+    if(d.act)m+=`👩‍🏫 老师行动：${d.act}\n`;
+    if(d.par)m+=`🏠 家长配合：${d.par}\n`;
+    m+='\n';
+  });
+  m+=`━━━━━━━━━━━━━━\n如有任何问题，欢迎随时联系我们！😊`;
+  return m;
+}
+
+function showReport(div,msg,fallback=false){
+  const cleanMsg=msg.replace(/\s*\([^)]+\)\s*(?=\n)/g,''); // strip class codes
+  const html=cleanMsg.replace(/\*([^*]+)\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>');
+  if(fallback){
+    // Fallback: show editable version with strong warning — do NOT allow direct copy
+    div.innerHTML=`
+      <div class="alertw alert" style="font-size:12px;line-height:1.7">
+        ⚠️ <strong>AI 无法连接，报告由标准模板生成。</strong><br>
+        课堂观察内容（老师的原始备注）已被隐藏，不会直接发给家长。<br>
+        <strong>请先人工审阅以下内容，确认无误后才复制发送。</strong>
+      </div>
+      <div style="font-size:12px;color:var(--tx2);margin-bottom:8px;font-weight:600">📝 可直接在下方编辑后再复制：</div>
+      <textarea id="rpt-edit" rows="20" style="width:100%;padding:14px;border:2px solid var(--wn);border-radius:10px;font-family:'Noto Sans SC',sans-serif;font-size:12px;line-height:1.8;color:var(--tx);background:#fffdf9">${cleanMsg}</textarea>
+      <button class="btn btnp btnf" style="margin-top:10px" onclick="copyEdited()">📋 复制编辑后的消息</button>
+      <button class="btn btns btnf" style="margin-top:8px" onclick="genReport()">🔄 重试 AI 生成</button>`;
+    div._msg=cleanMsg;
+  } else {
+    div.innerHTML=`
+      <div class="alert">✅ AI 报告已生成！复制后粘贴到 WhatsApp 发给家长</div>
+      <div class="wawrap"><div class="wabub">${html}</div></div>
+      <button class="btn btnp btnf" style="margin-top:14px" id="crb" onclick="copyRpt()">📋 复制完整消息</button>
+      <button class="btn btns btnf" style="margin-top:8px" onclick="genReport()">🔄 重新生成</button>`;
+    div._msg=cleanMsg;
+  }
+}
+
+function copyEdited(){
+  const txt=document.getElementById('rpt-edit').value;
+  navigator.clipboard.writeText(txt).then(()=>{
+    const btn=event.target;
+    btn.textContent='✓ 已复制！去 WhatsApp 粘贴吧';btn.style.background='#1e4d38';
+    setTimeout(()=>{btn.textContent='📋 复制编辑后的消息';btn.style.background='var(--ac)';},3000);
+  });
+}
+
+function copyRpt(){
+  const btn=document.getElementById('crb');
+  navigator.clipboard.writeText(document.getElementById('wa-out')._msg).then(()=>{
+    btn.textContent='✓ 已复制！';btn.style.background='#1e4d38';
+    setTimeout(()=>{btn.textContent='📋 复制完整消息';btn.style.background='var(--ac)';},3000);
+  });
+}
+function exportXls(){alert('实际版本将导出 Excel 记录');}
+
+// ===== STUDENT MANAGEMENT =====
+function renderStuMgmt(){
+  const filtered=filterCls==='ALL'?students:students.filter(s=>s.cls===filterCls);
+  const sorted=[...filtered].sort((a,b)=>a.cls.localeCompare(b.cls)||a.name.localeCompare(b.name));
+  document.getElementById('sc').textContent=`共 ${students.length} 名 / 显示 ${sorted.length}`;
+  document.getElementById('sl').innerHTML=sorted.map(s=>`
+    <div class="srow"><span class="srow-c">${s.cls}</span><span class="srow-n">${s.name}</span>
+    <button class="sdelbtn" onclick="delStu('${s.name}','${s.cls}')">✕</button></div>`).join('');
+}
+function filterC(el,cls){
+  document.querySelectorAll('#fgrid .pbtn').forEach(b=>b.classList.remove('sel'));
+  el.classList.add('sel');filterCls=cls;renderStuMgmt();
+}
+function addStu(){
+  const n=document.getElementById('add-n').value.trim().toUpperCase();
+  const c=document.getElementById('add-c').value;
+  if(!n){alert('请输入学生姓名');return;}
+  if(students.find(s=>s.name===n&&s.cls===c)){alert('该学生已在名单中');return;}
+  students.push({name:n,cls:c});saveStu();renderStuMgmt();
+  document.getElementById('add-n').value='';
+}
+function delStu(name,cls){
+  if(!confirm(`确认删除：${name} (${cls})？`))return;
+  students=students.filter(s=>!(s.name===name&&s.cls===cls));
+  saveStu();renderStuMgmt();
+}
+function exportUpdatedFile(){
+  let html=document.documentElement.outerHTML;
+  html=html.replace(/const DEFAULT_STUDENTS=\[[\s\S]*?\];/,`const DEFAULT_STUDENTS=${JSON.stringify(students)};`);
+  const blob=new Blob([html],{type:'text/html'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);a.download='ATC_Report_UPDATED.html';a.click();
+  URL.revokeObjectURL(a.href);
+}
+</script>
+</body>
+</html>
