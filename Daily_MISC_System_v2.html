@@ -1233,7 +1233,7 @@ async function pushRecordToSupabase(rec){
 // Get all records for a student
 async function getStudentHistory(name){
   try{
-    const {data,error}=await _sb.from('records').select('*').ilike('student_name',name).order('created_at',{ascending:false});
+    const {data,error}=await _sb.from('records').select('*').ilike('student_name','%'+name+'%').order('created_at',{ascending:false});
     if(error)throw error;
     return data||[];
   }catch(e){console.warn('Supabase fetch error:',e);return[];}
@@ -1456,7 +1456,12 @@ function renderForgotBlock(){
   const prog=document.getElementById('f_prog')?.value||'SRK';
   const items=FORGOT_ITEMS[prog]||[];
   return`<div id="forgot-block"><div class="sec-div">STUDENTS — ADD THEN TAP WHAT THEY FORGOT</div>
-    <div class="stu-add-row"><input type="text" id="stu-nn" placeholder="Type student name…" onkeydown="if(event.key==='Enter')addFS()"><button onclick="addFS()">Add</button></div>
+    <div class="stu-add-row">
+      <div class="stu-wrap" style="flex:1;">
+        <input type="text" id="stu-nn" placeholder="Tap to search student…" readonly onclick="openStuPicker('stu-nn')" autocomplete="off" style="text-transform:uppercase;cursor:pointer;background:var(--sur);width:100%;border:.5px solid var(--bdr);border-radius:var(--rs);padding:11px 12px;font-family:'DM Sans',sans-serif;font-size:14px;outline:none;">
+      </div>
+      <button onclick="addFS()">Add</button>
+    </div>
     <div id="fs-list">${renderFSList(items)}</div></div>`;
 }
 function renderFSList(items){
