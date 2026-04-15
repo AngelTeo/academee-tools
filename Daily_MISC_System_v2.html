@@ -1305,11 +1305,18 @@ function show(id){document.querySelectorAll('.scr').forEach(s=>s.classList.remov
 
 // ══ ENTRY SCREEN ══
 function togglePwWrap(){
-  // First check if still logged in
-  if(checkMgmtSession())return;
+  try{
+    const exp=parseInt(localStorage.getItem('mgmt_session')||'0');
+    if(exp&&Date.now()<exp){show('s-mgmt');syncAllFromSupabase();return;}
+  }catch(e){}
   const w=document.getElementById('pw-wrap');
-  w.style.display=w.style.display==='none'||!w.style.display?'block':'none';
-  if(w.style.display==='block')document.getElementById('pw-input').focus();
+  if(!w)return;
+  const shown=w.style.display==='block';
+  w.style.display=shown?'none':'block';
+  if(!shown){
+    const inp=document.getElementById('pw-input');
+    if(inp)setTimeout(()=>inp.focus(),100);
+  }
 }
 function enterTeacher(){
   const ini=document.getElementById('entry-ini').value.trim().toUpperCase();
@@ -1682,7 +1689,6 @@ function extractStudentsFromForm(){
     if(f.type==='forgot'){
       forgotState.students.forEach(s=>{if(s&&s.length>2)students.add(s.toUpperCase());});
     }
-  });
   });
   return[...students];
 }
