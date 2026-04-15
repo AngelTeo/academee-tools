@@ -3112,7 +3112,7 @@ function sendDraftWA(){
 // ══ INIT ══
 // ══ DOMAIN LOCK ══
 (function(){
-  const allowed=['misc-system.netlify.app','localhost','127.0.0.1'];
+  const allowed=['angelteo.github.io','misc-system.netlify.app','localhost','127.0.0.1'];
   const host=location.hostname;
   if(!allowed.some(d=>host===d||host.endsWith('.'+d))){
     document.body.innerHTML=`<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;font-family:sans-serif;background:#f4f7f5;padding:32px;text-align:center;">
