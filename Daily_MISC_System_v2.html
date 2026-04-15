@@ -198,7 +198,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--sur2);color:var(--txt);fo
 .stu-rec-item:last-child{border-bottom:none;}
 
 .stat-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:16px;}
-.dash-toprow{margin-bottom:10px;}
+.dash-toprow{margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;}
 .dash-cols{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start;}
 @media(max-width:640px){.dash-cols{grid-template-columns:1fr;}}
 .dash-col{background:var(--sur);border:.5px solid var(--bdr);border-radius:var(--r);padding:14px;box-shadow:var(--sh);}
@@ -1283,6 +1283,8 @@ function show(id){document.querySelectorAll('.scr').forEach(s=>s.classList.remov
 
 // ══ ENTRY SCREEN ══
 function togglePwWrap(){
+  // First check if still logged in
+  if(checkMgmtSession())return;
   const w=document.getElementById('pw-wrap');
   w.style.display=w.style.display==='none'||!w.style.display?'block':'none';
   if(w.style.display==='block')document.getElementById('pw-input').focus();
@@ -1307,10 +1309,73 @@ function goEntry(){
 }
 function mgmtLogin(){
   const pw=document.getElementById('pw-input').value;
-  if(pw===MGMT_PW){show('s-mgmt');renderDash();}
+  if(pw===MGMT_PW){
+    // Save session for 8 hours
+    localStorage.setItem('mgmt_session', Date.now() + 12*60*60*1000);
+    show('s-mgmt');syncAllFromSupabase();
+  }
   else{document.getElementById('pw-err').style.display='block';document.getElementById('pw-input').value='';}
 }
-function mgmtLogout(){show('s-entry');}
+function mgmtLogout(){
+  localStorage.removeItem('mgmt_session');
+  show('s-entry');
+}
+function checkMgmtSession(){
+  const exp=parseInt(localStorage.getItem('mgmt_session')||'0');
+  if(exp&&Date.now()<exp){show('s-mgmt');syncAllFromSupabase();return true;}
+  return false;
+}
+
+// Sync ALL records from Supabase into S.records, then render dashboard
+async function syncAllFromSupabase(){
+  toast('Syncing from cloud…');
+  try{
+    const {data,error}=await _sb.from('records').select('*').order('created_at',{ascending:false});
+    if(error)throw error;
+    if(data&&data.length){
+      // Merge Supabase records with local records (avoid duplicates by supabase_id)
+      const existing=new Set(S.records.map(r=>r.supabase_id).filter(Boolean));
+      const newRecs=data
+        .filter(r=>!existing.has(r.id))
+        .map(r=>({
+          id:'sb_'+r.id,
+          supabase_id:r.id,
+          type:r.report_type||'',
+          cat:getCatForType(r.report_type||''),
+          raw:r.details||'',
+          date:r.created_at?r.created_at.slice(0,10):'',
+          students:r.student_name&&r.student_name!=='(no student)'?[r.student_name]:[],
+          summary:r.student_name||'',
+          handled:false,
+          parentNotified:false,
+          remarks:'',
+          status:'open',
+          followUpDate:'',
+          createdAt:r.created_at?new Date(r.created_at).getTime():Date.now(),
+          savedBy:r.teacher||'',
+        }));
+      if(newRecs.length){
+        S.records=[...newRecs,...S.records];
+        save();
+      }
+      toast('✅ Synced '+data.length+' records from cloud');
+    }else{
+      toast('Cloud is empty — showing local records');
+    }
+  }catch(e){
+    toast('Sync failed, showing local records',true);
+    console.warn('syncAllFromSupabase error:',e);
+  }
+  renderDash();
+}
+
+function getCatForType(type){
+  for(const f of FORMATS){if(f.id===type)return f.cat||'Daily';}
+  return 'Daily';
+}
+
+// Refresh button for dashboard
+function refreshDash(){syncAllFromSupabase();}
 
 // ══ TEACHER HOME ══
 function renderTeacher(cat){
@@ -1685,13 +1750,18 @@ function copyMsg(){
 // ══ MGMT DASHBOARD ══
 function renderDash(){
   const tod=today();
-  const todR=S.records.filter(r=>r.date===tod).sort((a,b)=>b.createdAt-a.createdAt);
-  // Follow-up Needed: status=follow_up with date due, OR older open records
+  // TODAY'S REPORTS = submitted today (createdAt = today), regardless of incident date
+  const todR=S.records.filter(r=>{
+    const created=r.createdAt?new Date(r.createdAt).toISOString().slice(0,10):'';
+    return created===tod||r.date===tod;
+  }).sort((a,b)=>b.createdAt-a.createdAt);
+  // FOLLOW UP = older open/follow_up records NOT submitted today
   const pend=S.records.filter(r=>{
     const st=r.status||'open';
     if(st==='closed')return false;
+    const created=r.createdAt?new Date(r.createdAt).toISOString().slice(0,10):'';
+    if(created===tod)return false; // already in today's reports
     if(st==='follow_up'){
-      // Show if followUpDate is today or past
       if(!r.followUpDate)return true;
       return r.followUpDate<=tod;
     }
@@ -1706,6 +1776,7 @@ function renderDash(){
   // ── Date pill + Stats row ──
   h+=`<div class="dash-toprow">
     <div class="tpill">📅 ${fdl(tod)}</div>
+    <button onclick="refreshDash()" style="background:var(--sur);border:.5px solid var(--bdr);border-radius:20px;padding:4px 12px;font-size:11px;font-weight:600;color:var(--g);cursor:pointer;font-family:'DM Sans',sans-serif;">🔄 Sync</button>
   </div>
   <div class="stat-grid">
     <div class="stat"><div class="sv">${todR.length}</div><div class="sl">Today</div></div>
