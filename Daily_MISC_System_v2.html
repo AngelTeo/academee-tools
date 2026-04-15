@@ -2905,8 +2905,8 @@ function renderMgmtReport(cat){
   if(cat!==undefined)mRepCat=cat;else cat=mRepCat;
   const el=document.getElementById('mreport-content')||document.getElementById('mp-mreport');
   if(!el)return;
-  const SKIP=['Attendance','Schedule','Events'];
-  // Tabs
+  const SKIP=['Schedule','Events']; // Attendance now included
+  // Tabs - follow CATS order
   let tabs='<div class="tab-strip">';
   tabs+='<button class="xtab '+(cat==='ALL'?'on':'')+'" onclick="renderMgmtReport(\'ALL\')">All</button>';
   Object.keys(CATS).forEach(function(ct){
@@ -2916,7 +2916,7 @@ function renderMgmtReport(cat){
     tabs+='<button class="xtab '+(cat===ct?'on':'')+'" onclick="renderMgmtReport(\''+ct+'\')">'+(cm?cm.icon+' ':'')+ct+'</button>';
   });
   tabs+='</div>';
-  // Formats
+  // Formats - follow CATS order, skip Schedule/Events outbox items
   var show=FORMATS.filter(function(f){
     if(cat!=='ALL'&&f.cat!==cat)return false;
     if(SKIP.includes(f.cat)&&f.dk)return false;
@@ -3130,31 +3130,49 @@ function openAddCheckModal(recordId, studentName){
   const hh=String(now.getHours()).padStart(2,'0');
   const mm=String(now.getMinutes()).padStart(2,'0');
   const defaultTime=`${hh}:${mm}`;
+  // Store times in window for this modal
+  window._chkTimes=[defaultTime];
+  function renderChkTimes(){
+    const el=document.getElementById('chk-times-list');
+    if(!el)return;
+    el.innerHTML=window._chkTimes.map((t,i)=>`
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+        <input type="time" value="${t}" onchange="window._chkTimes[${i}]=this.value"
+          style="flex:1;border:.5px solid var(--bdr);border-radius:var(--rs);padding:10px 12px;font-family:'DM Sans',sans-serif;font-size:14px;outline:none;">
+        ${window._chkTimes.length>1?`<button onclick="window._chkTimes.splice(${i},1);renderChkTimes();" style="background:none;border:none;font-size:20px;color:var(--mut);cursor:pointer;padding:0 4px;">×</button>`:''}
+      </div>`).join('')
+      +`<button onclick="window._chkTimes.push('');renderChkTimes();" 
+          style="background:none;border:1.5px dashed var(--bdr);border-radius:var(--rs);padding:6px 14px;font-size:12px;font-weight:600;color:var(--g);cursor:pointer;font-family:'DM Sans',sans-serif;display:flex;align-items:center;gap:6px;margin-top:2px;">
+          + Add Time Slot
+        </button>`;
+  }
   openModal('⏰ Add Today Check',
     `<div class="frow"><label style="font-size:12px;font-weight:600;color:var(--txt2);display:block;margin-bottom:6px;">Student</label>
      <input type="text" id="chk-stu" value="${esc(studentName)}" style="width:100%;border:.5px solid var(--bdr);border-radius:var(--rs);padding:10px 12px;font-family:'DM Sans',sans-serif;font-size:14px;outline:none;text-transform:uppercase;"></div>
      <div class="frow"><label style="font-size:12px;font-weight:600;color:var(--txt2);display:block;margin-bottom:6px;">Check Time</label>
-     <input type="time" id="chk-time" value="${defaultTime}" style="width:100%;border:.5px solid var(--bdr);border-radius:var(--rs);padding:10px 12px;font-family:'DM Sans',sans-serif;font-size:14px;outline:none;"></div>
+     <div id="chk-times-list"></div></div>
      <div class="frow"><label style="font-size:12px;font-weight:600;color:var(--txt2);display:block;margin-bottom:6px;">What to check</label>
      <input type="text" id="chk-note" placeholder="e.g. Give medicine, Check temperature" style="width:100%;border:.5px solid var(--bdr);border-radius:var(--rs);padding:10px 12px;font-family:'DM Sans',sans-serif;font-size:14px;outline:none;"></div>`,
     `<button class="btn" onclick="closeModal()">Cancel</button>
      <button class="btn btn-grn" onclick="saveCheck('${recordId}')">Add Check</button>`
   );
+  setTimeout(renderChkTimes, 50);
 }
 
 async function saveCheck(recordId){
   const stu=document.getElementById('chk-stu')?.value.trim().toUpperCase()||'';
-  const time=document.getElementById('chk-time')?.value||'';
+  const times=(window._chkTimes||[]).filter(t=>t&&t.trim());
   const note=document.getElementById('chk-note')?.value.trim()||'';
-  if(!time){toast('Please set a time',true);return;}
+  if(!times.length){toast('Please set at least one time',true);return;}
   if(!note){toast('Please describe what to check',true);return;}
   try{
-    const {error}=await _sb.from('checks').insert({
+    const rows=times.map(t=>({
       record_id:recordId, student_name:stu,
-      check_time:time, note:note, done:false
-    });
+      check_time:t, note:note, done:false
+    }));
+    const {error}=await _sb.from('checks').insert(rows);
     if(error)throw error;
-    toast('✅ Check added: '+time);
+    toast(`✅ ${rows.length} check${rows.length>1?'s':''} added!`);
     closeModal();
     await loadTodayChecks();
     renderDash();
