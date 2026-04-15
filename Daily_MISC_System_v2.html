@@ -1216,19 +1216,41 @@ async function syncStudentsFromSupabase(){
 async function pushRecordToSupabase(rec){
   try{
     const ini=getIni();
+    const base={
+      report_type:rec.type||'',
+      details:rec.raw||'',
+      teacher:rec.savedBy||ini||'',
+      created_at:new Date().toISOString(),
+      status:rec.status||'open',
+      flagged:rec.flagged||false,
+      follow_up_date:rec.followUpDate||'',
+      remarks:rec.remarks||'',
+      handled:rec.handled||false,
+      parent_notified:rec.parentNotified||false,
+    };
     const rows=(rec.students||[]).length?
-      (rec.students||[]).map(name=>({
-        student_name:name,
-        report_type:rec.type||'',
-        details:rec.raw||'',
-        teacher:ini||'',
-        created_at:new Date().toISOString()
-      })):
-      [{student_name:'(no student)',report_type:rec.type||'',details:rec.raw||'',teacher:ini||'',created_at:new Date().toISOString()}];
-    const {error}=await _sb.from('records').insert(rows);
+      (rec.students||[]).map(name=>({...base,student_name:name})):
+      [{...base,student_name:'(no student)'}];
+    const {data,error}=await _sb.from('records').insert(rows).select();
     if(error)console.warn('Supabase push failed:',error);
-    else console.log('✅ Record pushed to Supabase');
+    else{
+      // Store supabase id back on local record
+      if(data&&data[0]){rec.supabase_id=data[0].id;save();}
+      console.log('✅ Record pushed to Supabase');
+    }
   }catch(e){console.warn('Supabase push error:',e);}
+}
+
+// Update specific fields on existing Supabase record
+async function updateSupabase(rec, fields){
+  if(!rec)return;
+  const sbId=rec.supabase_id;
+  if(!sbId){console.warn('No supabase_id, skipping update');return;}
+  try{
+    const {error}=await _sb.from('records').update(fields).eq('id',sbId);
+    if(error)console.warn('Supabase update failed:',error);
+    else console.log('✅ Updated Supabase:',fields);
+  }catch(e){console.warn('Supabase update error:',e);}
 }
 
 // Get all records for a student
@@ -1333,34 +1355,30 @@ async function syncAllFromSupabase(){
     const {data,error}=await _sb.from('records').select('*').order('created_at',{ascending:false});
     if(error)throw error;
     if(data&&data.length){
-      // Merge Supabase records with local records (avoid duplicates by supabase_id)
-      const existing=new Set(S.records.map(r=>r.supabase_id).filter(Boolean));
-      const newRecs=data
-        .filter(r=>!existing.has(r.id))
-        .map(r=>({
-          id:'sb_'+r.id,
-          supabase_id:r.id,
-          type:r.report_type||'',
-          cat:getCatForType(r.report_type||''),
-          raw:r.details||'',
-          date:r.created_at?r.created_at.slice(0,10):'',
-          students:r.student_name&&r.student_name!=='(no student)'?[r.student_name]:[],
-          summary:r.student_name||'',
-          handled:false,
-          parentNotified:false,
-          remarks:'',
-          status:'open',
-          followUpDate:'',
-          createdAt:r.created_at?new Date(r.created_at).getTime():Date.now(),
-          savedBy:r.teacher||'',
-        }));
-      if(newRecs.length){
-        S.records=[...newRecs,...S.records];
-        save();
-      }
+      // REPLACE local records with Supabase records (deletions respected)
+      S.records=data.map(r=>({
+        id:'sb_'+r.id,
+        supabase_id:r.id,
+        type:r.report_type||'',
+        cat:getCatForType(r.report_type||''),
+        raw:r.details||'',
+        date:r.created_at?r.created_at.slice(0,10):'',
+        students:r.student_name&&r.student_name!=='(no student)'?[r.student_name]:[],
+        summary:r.student_name||'',
+        status:r.status||'open',
+        flagged:r.flagged||false,
+        followUpDate:r.follow_up_date||'',
+        remarks:r.remarks||'',
+        handled:r.handled||false,
+        parentNotified:r.parent_notified||false,
+        createdAt:r.created_at?new Date(r.created_at).getTime():Date.now(),
+        savedBy:r.teacher||'',
+      }));
+      save();
       toast('✅ Synced '+data.length+' records from cloud');
     }else{
-      toast('Cloud is empty — showing local records');
+      S.records=[];save();
+      toast('No records in cloud yet');
     }
   }catch(e){
     toast('Sync failed, showing local records',true);
@@ -1778,12 +1796,12 @@ function renderDash(){
     <div class="tpill">📅 ${fdl(tod)}</div>
     <button onclick="refreshDash()" style="background:var(--sur);border:.5px solid var(--bdr);border-radius:20px;padding:4px 12px;font-size:11px;font-weight:600;color:var(--g);cursor:pointer;font-family:'DM Sans',sans-serif;">🔄 Sync</button>
   </div>
-  <div class="stat-grid">
+  ${(()=>{const flagCount=S.records.filter(r=>r.flagged===true).length;return`<div class="stat-grid">
     <div class="stat"><div class="sv">${todR.length}</div><div class="sl">Today</div></div>
     <div class="stat ${pend.length>0?'amb':'grn'}"><div class="sv">${pend.length}</div><div class="sl">Pending</div></div>
     <div class="stat ${urg.length>0?'red':''}"><div class="sv">${urg.length}</div><div class="sl">Urgent</div></div>
-    <div class="stat"><div class="sv">${S.records.length}</div><div class="sl">Total</div></div>
-  </div>`;
+    <div class="stat ${flagCount>0?'red':''}"><div class="sv">${flagCount>0?flagCount:S.records.length}</div><div class="sl">${flagCount>0?'Flagged':'Total'}</div></div>
+  </div>`;})()}`;
 
   // ── Two-column layout ──
   h+=`<div class="dash-cols">`;
@@ -1830,6 +1848,16 @@ function renderDash(){
   }
   h+=`</div>`;
   h+=`</div>`; // end dash-cols
+
+  // ── Flagged Records (full width) ──
+  const flagged=S.records.filter(r=>r.flagged===true);
+  if(flagged.length){
+    h+=`<div class="dash-col-hdr" style="margin-top:18px;margin-bottom:8px;">
+      <span class="dash-col-title">🚩 Flagged</span>
+      <span style="font-size:11px;font-weight:700;background:#fee2e2;color:#991b1b;padding:2px 10px;border-radius:12px;">${flagged.length}</span>
+    </div>`;
+    flagged.forEach(r=>h+=recCard(r));
+  }
 
   // ── Follow Up Calendar (full width) ──
   h+=`<div class="dash-col-hdr" style="margin-top:18px;margin-bottom:8px;">
@@ -1996,16 +2024,17 @@ function statusCfg(s){
 const STATUS_ORDER=['open','follow_up','closed'];
 function cycleStatus(id){
   const r=S.records.find(x=>x.id===id);if(!r)return;
-  // Migrate legacy in_progress → open
   if(r.status==='in_progress')r.status='open';
   const idx=STATUS_ORDER.indexOf(r.status||'open');
   r.status=STATUS_ORDER[(idx+1)%STATUS_ORDER.length];
   if(r.status!=='follow_up')r.followUpDate='';
   save();renderRecordsTable();renderDash();
+  updateSupabase(r,{status:r.status,follow_up_date:r.followUpDate||''});
 }
 function setFollowUp(id,date){
   const r=S.records.find(x=>x.id===id);if(!r)return;
   r.followUpDate=date;r.status='follow_up';save();renderDash();
+  updateSupabase(r,{status:'follow_up',follow_up_date:date});
 }
 let calYear=new Date().getFullYear(),calMonth=new Date().getMonth();
 function buildCalendar(){
@@ -2098,21 +2127,31 @@ function recCard(r){
   const st=r.status||'open';
   const isClosed=st==='closed';
   const isFollowUp=st==='follow_up';
+  const isFlagged=r.flagged===true;
   // Status badge
   let stBadge='';
   if(isFollowUp)stBadge=`<span style="font-size:10px;font-weight:700;color:#7c3aed;background:#f3e8ff;padding:2px 7px;border-radius:8px;">📌 Follow Up${r.followUpDate?' · '+r.followUpDate:''}</span>`;
   else if(isClosed)stBadge=`<span style="font-size:10px;font-weight:700;color:#059669;background:#d1fae5;padding:2px 7px;border-radius:8px;">✅ Closed</span>`;
-  // Visual: closed = dimmed, border-left color by status
-  const borderCol=isFollowUp?'#7c3aed':isClosed?'#d1d5db':'var(--bdr)';
+  const borderLeft=isFlagged?'border-left:3px solid #dc2626;':'';
   const opacity=isClosed?'opacity:.5;':'';
-  const bgStyle=isClosed?'background:#fafafa;':'';
-  return`<div class="rec rec-status-${st}" data-recid="${r.id}"><div class="rec-top">
+  return`<div class="rec rec-status-${st}" data-recid="${r.id}" style="${borderLeft}"><div class="rec-top">
     <div class="rec-ico" style="background:${cm.bg};${isClosed?'filter:grayscale(.5);':''}">${cm.icon}</div>
     <div style="flex:1;min-width:0;${isClosed?'opacity:.55;':''}">
-      <div class="rec-type">${f.label} <span style="font-size:10px;font-weight:400;color:var(--mut);">${fds(r.date)}</span></div>
+      <div class="rec-type">${isFlagged?'🚩 ':''} ${f.label} <span style="font-size:10px;font-weight:400;color:var(--mut);">${fds(r.date)}</span></div>
       <div class="rec-meta">${r.students.length?'👤 '+r.students.slice(0,3).join(' · ')+(r.students.length>3?` +${r.students.length-3}`:''):'—'}</div>
       ${stBadge?`<div style="margin-top:4px;">${stBadge}</div>`:''}
-    </div></div></div>`;
+    </div>
+    <button onclick="event.stopPropagation();toggleFlag('${r.id}')" style="background:none;border:none;font-size:18px;cursor:pointer;padding:4px;opacity:${isFlagged?'1':'0.25'};flex-shrink:0;" title="${isFlagged?'Remove flag':'Flag this record'}">${isFlagged?'🚩':'🚩'}</button>
+    </div></div>`;
+}
+
+function toggleFlag(id){
+  const r=S.records.find(x=>x.id===id);if(!r)return;
+  r.flagged=!r.flagged;
+  save();renderDash();
+  if(document.getElementById('mp-records').classList.contains('on'))renderRecordsTable();
+  toast(r.flagged?'🚩 Flagged':'Flag removed');
+  updateSupabase(r,{flagged:r.flagged});
 }
 
 // ══ LOG ENTRY ══
@@ -2436,8 +2475,35 @@ function updateStudents(id,val){
   if(document.getElementById('mp-records').classList.contains('on'))renderRecordsTable();
   renderDash();
 }
-function setF(id,f,v){const r=S.records.find(x=>x.id===id);if(!r)return;r[f]=v;save();renderDash();if(document.getElementById('mp-records').classList.contains('on'))renderRecordsTable();if(f!=='remarks')toast(v?`✓ ${f==='handled'?'Handled':'Parent notified'}`:'Unmarked');}
-function delRec(id){if(!confirm('Delete?'))return;S.records=S.records.filter(x=>x.id!==id);save();closeModal();renderDash();if(document.getElementById('mp-records').classList.contains('on'))renderRecordsTable();toast('Deleted');}
+function setF(id,f,v){
+  const r=S.records.find(x=>x.id===id);if(!r)return;
+  r[f]=v;save();renderDash();
+  if(document.getElementById('mp-records').classList.contains('on'))renderRecordsTable();
+  if(f!=='remarks')toast(v?`✓ ${f==='handled'?'Handled':'Parent notified'}`:'Unmarked');
+  const sbField=f==='parentNotified'?'parent_notified':f;
+  updateSupabase(r,{[sbField]:v});
+}
+function delRec(id){
+  if(!confirm('Delete?'))return;
+  const rec=S.records.find(x=>x.id===id);
+  S.records=S.records.filter(x=>x.id!==id);
+  save();closeModal();renderDash();
+  if(document.getElementById('mp-records').classList.contains('on'))renderRecordsTable();
+  toast('Deleted');
+  // Also delete from Supabase
+  if(rec){
+    const sbId=rec.supabase_id||(rec.id.startsWith('sb_')?rec.id.replace('sb_',''):null);
+    if(sbId){
+      _sb.from('records').delete().eq('id',sbId)
+        .then(({error})=>{if(error)console.warn('Supabase delete failed:',error);else console.log('✅ Deleted from Supabase');});
+    }
+    // Also delete by matching details+student_name for records pushed directly
+    if(rec.raw&&!sbId){
+      _sb.from('records').delete().eq('details',rec.raw)
+        .then(({error})=>{if(error)console.warn('Supabase delete failed:',error);});
+    }
+  }
+}
 
 // ══ STUDENTS ══
 // ── Student Profile ──
@@ -3019,6 +3085,20 @@ function sendDraftWA(){
 
 
 // ══ INIT ══
+// ══ DOMAIN LOCK ══
+(function(){
+  const allowed=['misc-system.netlify.app','localhost','127.0.0.1'];
+  const host=location.hostname;
+  if(!allowed.some(d=>host===d||host.endsWith('.'+d))){
+    document.body.innerHTML=`<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;font-family:sans-serif;background:#f4f7f5;padding:32px;text-align:center;">
+      <div style="font-size:52px;margin-bottom:16px;">⛔</div>
+      <div style="font-size:18px;font-weight:700;color:#1a2533;margin-bottom:8px;">Unauthorized Access</div>
+      <div style="font-size:13px;color:#8a96a8;">This system is not licensed for use on this domain.</div>
+    </div>`;
+    throw new Error('Domain not authorized');
+  }
+})();
+
 loadS();
 document.getElementById('entry-ini').value=getIni();
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
