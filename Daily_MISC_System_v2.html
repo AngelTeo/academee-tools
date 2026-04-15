@@ -1832,7 +1832,7 @@ function renderDash(){
   function tabBtn(key, icon, label, count, urgCol, urgBg){
     const active=tab===key;
     const hasCount=count>0;
-    return`<div onclick="window._dashTab='${key}';renderDash();" style="flex:1;background:${active?'var(--navy)':'var(--sur)'};border:.5px solid ${active?'var(--navy)':'var(--bdr)'};border-radius:var(--r);padding:12px 8px;text-align:center;cursor:pointer;transition:.15s;user-select:none;">
+    return`<div data-tab="${key}" style="flex:1;background:${active?'var(--navy)':'var(--sur)'};border:.5px solid ${active?'var(--navy)':'var(--bdr)'};border-radius:var(--r);padding:12px 8px;text-align:center;cursor:pointer;transition:.15s;user-select:none;">
       <div style="font-size:22px;margin-bottom:4px;">${icon}</div>
       <div style="font-size:${hasCount?'18px':'14px'};font-weight:700;color:${active?'#fff':hasCount?(urgCol||'var(--navy)'):'var(--mut)'};">${count}</div>
       <div style="font-size:10px;font-weight:600;color:${active?'rgba(255,255,255,.7)':'var(--mut)'};margin-top:2px;line-height:1.3;">${label}</div>
@@ -1894,6 +1894,8 @@ function renderDash(){
     document.addEventListener('click',function(e){
       const card=e.target.closest('[data-recid]');
       if(card)openRec(card.dataset.recid);
+      const tabEl=e.target.closest('[data-tab]');
+      if(tabEl&&tabEl.dataset.tab){window._dashTab=tabEl.dataset.tab;renderDash();}
     });
     window._dashClickBound=true;
   }
