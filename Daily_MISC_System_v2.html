@@ -1796,34 +1796,43 @@ function renderDash(){
     <div class="tpill">📅 ${fdl(tod)}</div>
     <button onclick="refreshDash()" style="background:var(--sur);border:.5px solid var(--bdr);border-radius:20px;padding:4px 12px;font-size:11px;font-weight:600;color:var(--g);cursor:pointer;font-family:'DM Sans',sans-serif;">🔄 Sync</button>
   </div>
-  ${(()=>{const flagCount=S.records.filter(r=>r.flagged===true).length;return`<div class="stat-grid">
+  <div class="stat-grid">
     <div class="stat"><div class="sv">${todR.length}</div><div class="sl">Today</div></div>
     <div class="stat ${pend.length>0?'amb':'grn'}"><div class="sv">${pend.length}</div><div class="sl">Pending</div></div>
     <div class="stat ${urg.length>0?'red':''}"><div class="sv">${urg.length}</div><div class="sl">Urgent</div></div>
-    <div class="stat ${flagCount>0?'red':''}"><div class="sv">${flagCount>0?flagCount:S.records.length}</div><div class="sl">${flagCount>0?'Flagged':'Total'}</div></div>
-  </div>`;})()}`;
+    <div class="stat"><div class="sv">${S.records.length}</div><div class="sl">Total</div></div>
+  </div>`;
 
   // ── Two-column layout ──
   h+=`<div class="dash-cols">`;
 
-  // LEFT: Today's Reports
-  // Sort: open/follow_up first, closed last
-  const todOpen=todR.filter(r=>(r.status||'open')!=='closed');
-  const todClosed=todR.filter(r=>(r.status||'open')==='closed');
-  const todSorted=[...todOpen,...todClosed];
+  // LEFT: Today's Reports — flagged pinned first, then open, then closed
+  const todFlagged=todR.filter(r=>r.flagged===true);
+  const todOpen=todR.filter(r=>!r.flagged&&(r.status||'open')!=='closed');
+  const todClosed=todR.filter(r=>!r.flagged&&(r.status||'open')==='closed');
+  const todSorted=[...todFlagged,...todOpen,...todClosed];
+  const flagCount2=todFlagged.length;
   const openCount=todOpen.length;
   const closedCount=todClosed.length;
+  // Filter state
+  const dashFilter=window._dashFilter||'all';
+  let filteredTod=todSorted;
+  if(dashFilter==='flagged') filteredTod=todFlagged;
+  else if(dashFilter==='open') filteredTod=todOpen;
+  else if(dashFilter==='closed') filteredTod=todClosed;
+
   h+=`<div class="dash-col">
     <div class="dash-col-hdr">
       <span class="dash-col-title">📋 Today's Reports</span>
       <button class="btn btn-sm" onclick="mGoPage('records')">All →</button>
     </div>
-    <div style="display:flex;gap:6px;margin-bottom:10px;">
-      ${openCount?`<span style="font-size:10px;font-weight:700;color:#d97706;background:#fef3c7;padding:2px 8px;border-radius:8px;">○ ${openCount} open</span>`:''}
-      ${closedCount?`<span style="font-size:10px;font-weight:700;color:#059669;background:#d1fae5;padding:2px 8px;border-radius:8px;">✅ ${closedCount} closed</span>`:''}
+    <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;">
+      ${flagCount2?`<button onclick="window._dashFilter=window._dashFilter==='flagged'?'all':'flagged';renderDash();" style="font-size:10px;font-weight:700;color:${dashFilter==='flagged'?'#fff':'#991b1b'};background:${dashFilter==='flagged'?'#dc2626':'#fee2e2'};padding:3px 10px;border-radius:8px;border:none;cursor:pointer;">🚩 ${flagCount2} flagged</button>`:''}
+      ${openCount?`<button onclick="window._dashFilter=window._dashFilter==='open'?'all':'open';renderDash();" style="font-size:10px;font-weight:700;color:${dashFilter==='open'?'#fff':'#d97706'};background:${dashFilter==='open'?'#d97706':'#fef3c7'};padding:3px 10px;border-radius:8px;border:none;cursor:pointer;">○ ${openCount} open</button>`:''}
+      ${closedCount?`<button onclick="window._dashFilter=window._dashFilter==='closed'?'all':'closed';renderDash();" style="font-size:10px;font-weight:700;color:${dashFilter==='closed'?'#fff':'#059669'};background:${dashFilter==='closed'?'#059669':'#d1fae5'};padding:3px 10px;border-radius:8px;border:none;cursor:pointer;">✅ ${closedCount} closed</button>`:''}
     </div>`;
-  if(todR.length){
-    todSorted.slice(0,8).forEach(r=>h+=recCard(r));
+  if(filteredTod.length){
+    filteredTod.forEach(r=>h+=recCard(r));
   }else{
     h+=`<div class="dash-empty-col"><div style="font-size:28px;margin-bottom:8px;">📋</div><div class="dash-empty-txt">No reports today</div></div>`;
   }
@@ -1848,16 +1857,6 @@ function renderDash(){
   }
   h+=`</div>`;
   h+=`</div>`; // end dash-cols
-
-  // ── Flagged Records (full width) ──
-  const flagged=S.records.filter(r=>r.flagged===true);
-  if(flagged.length){
-    h+=`<div class="dash-col-hdr" style="margin-top:18px;margin-bottom:8px;">
-      <span class="dash-col-title">🚩 Flagged</span>
-      <span style="font-size:11px;font-weight:700;background:#fee2e2;color:#991b1b;padding:2px 10px;border-radius:12px;">${flagged.length}</span>
-    </div>`;
-    flagged.forEach(r=>h+=recCard(r));
-  }
 
   // ── Follow Up Calendar (full width) ──
   h+=`<div class="dash-col-hdr" style="margin-top:18px;margin-bottom:8px;">
