@@ -1815,7 +1815,7 @@ function renderDash(){
   const todOpen=todR.filter(r=>!r.flagged&&(r.status||'open')!=='closed');
   const todClosed=todR.filter(r=>!r.flagged&&(r.status||'open')==='closed');
   const todSorted=[...todFlagged,...todOpen,...todClosed];
-  const pendChecks=_todayChecks.filter(c=>!c.done).length;
+  const pendChecks=(_todayChecks||[]).filter(c=>!c.done).length;
 
   if(!window._dashTab)window._dashTab='today';
   const tab=window._dashTab;
@@ -1841,7 +1841,7 @@ function renderDash(){
 
   h+=`<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px;">
     ${tabBtn('today','📋',`Today's`,todR.length)}
-    ${tabBtn('checks','⏰',"Today's Checks",_todayChecks.length,pendChecks?'#92400e':null,null)}
+    ${tabBtn('checks','⏰',"Today's Checks",(_todayChecks||[]).length,pendChecks?'#92400e':null,null)}
     ${tabBtn('flagged','🚩','Flagged',flagged.length,flagged.length?'#dc2626':null,null)}
     ${tabBtn('followup','🟡','Follow-up',allPend.length,allPend.length?'#854f0b':null,null)}
   </div>`;
@@ -1865,7 +1865,7 @@ function renderDash(){
   }
 
   else if(tab==='checks'){
-    if(_todayChecks.length) h+=renderTodayChecksInline();
+    if((_todayChecks||[]).length) h+=renderTodayChecksInline();
     else h+=`<div style="text-align:center;padding:20px;color:var(--mut);font-size:13px;">⏰ No checks scheduled today</div>`;
   }
 
