@@ -3173,6 +3173,32 @@ async function markCheckDone(checkId){
   }catch(e){toast('Failed: '+e.message,true);}
 }
 
+function renderTodayChecksInline(){
+  if(!(_todayChecks||[]).length)return'<div style="text-align:center;padding:20px;color:var(--mut);font-size:13px;">⏰ No checks scheduled today</div>';
+  const now=new Date();
+  const nowMin=now.getHours()*60+now.getMinutes();
+  return (_todayChecks||[]).map(c=>{
+    const [hh,mm]=(c.check_time||'00:00').split(':').map(Number);
+    const cMin=hh*60+mm;
+    const diff=cMin-nowMin;
+    let col,bg,icon;
+    if(c.done){col='#059669';bg='#d1fae5';icon='✅';}
+    else if(diff<0){col='#dc2626';bg='#fee2e2';icon='🔴';}
+    else if(diff<=30){col='#d97706';bg='#fef3c7';icon='🟡';}
+    else{col='#64748b';bg='#f1f5f9';icon='⚪';}
+    const timeStr=`${String(hh).padStart(2,'0')}:${String(mm).padStart(2,'0')}`;
+    return`<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:${bg};border-radius:var(--rs);margin-bottom:6px;border:.5px solid ${col}30;">
+      <span style="font-size:16px;flex-shrink:0;">${icon}</span>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:12px;font-weight:700;color:${col};">${timeStr}${c.done?' · <span style="font-size:10px;font-weight:400;">Done</span>':''}</div>
+        <div style="font-size:12px;color:var(--txt2);">${esc(c.note||'')}${c.student_name?' · <b>'+esc(c.student_name)+'</b>':''}</div>
+        ${c.done&&c.done_note?`<div style="font-size:11px;color:var(--mut);margin-top:2px;">📝 ${esc(c.done_note)}</div>`:''}
+      </div>
+      ${!c.done?`<button onclick="markCheckDone(${c.id})" style="background:var(--g);color:#fff;border:none;border-radius:8px;padding:5px 12px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">Done ✓</button>`:''}
+    </div>`;
+  }).join('');
+}
+
 function renderTodayChecks(){
   if(!_todayChecks.length)return'';
   const now=new Date();
