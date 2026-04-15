@@ -3125,27 +3125,27 @@ async function loadTodayChecks(){
   }catch(e){console.warn('loadTodayChecks error:',e);_todayChecks=[];}
 }
 
+function renderChkTimes(){
+  const el=document.getElementById('chk-times-list');
+  if(!el)return;
+  el.innerHTML=(window._chkTimes||[]).map((t,i)=>`
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+      <input type="time" value="${t}" onchange="window._chkTimes[${i}]=this.value"
+        style="flex:1;border:.5px solid var(--bdr);border-radius:var(--rs);padding:10px 12px;font-family:'DM Sans',sans-serif;font-size:14px;outline:none;">
+      ${(window._chkTimes||[]).length>1?`<button onclick="window._chkTimes.splice(${i},1);renderChkTimes();" style="background:none;border:none;font-size:20px;color:var(--mut);cursor:pointer;padding:0 4px;">×</button>`:''}
+    </div>`).join('')
+    +`<button onclick="window._chkTimes.push('');renderChkTimes();"
+        style="background:none;border:1.5px dashed var(--bdr);border-radius:var(--rs);padding:6px 14px;font-size:12px;font-weight:600;color:var(--g);cursor:pointer;font-family:'DM Sans',sans-serif;display:flex;align-items:center;gap:6px;margin-top:2px;">
+        + Add Time Slot
+      </button>`;
+}
+
 function openAddCheckModal(recordId, studentName){
   const now=new Date();
   const hh=String(now.getHours()).padStart(2,'0');
   const mm=String(now.getMinutes()).padStart(2,'0');
   const defaultTime=`${hh}:${mm}`;
-  // Store times in window for this modal
   window._chkTimes=[defaultTime];
-  function renderChkTimes(){
-    const el=document.getElementById('chk-times-list');
-    if(!el)return;
-    el.innerHTML=window._chkTimes.map((t,i)=>`
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-        <input type="time" value="${t}" onchange="window._chkTimes[${i}]=this.value"
-          style="flex:1;border:.5px solid var(--bdr);border-radius:var(--rs);padding:10px 12px;font-family:'DM Sans',sans-serif;font-size:14px;outline:none;">
-        ${window._chkTimes.length>1?`<button onclick="window._chkTimes.splice(${i},1);renderChkTimes();" style="background:none;border:none;font-size:20px;color:var(--mut);cursor:pointer;padding:0 4px;">×</button>`:''}
-      </div>`).join('')
-      +`<button onclick="window._chkTimes.push('');renderChkTimes();" 
-          style="background:none;border:1.5px dashed var(--bdr);border-radius:var(--rs);padding:6px 14px;font-size:12px;font-weight:600;color:var(--g);cursor:pointer;font-family:'DM Sans',sans-serif;display:flex;align-items:center;gap:6px;margin-top:2px;">
-          + Add Time Slot
-        </button>`;
-  }
   openModal('⏰ Add Today Check',
     `<div class="frow"><label style="font-size:12px;font-weight:600;color:var(--txt2);display:block;margin-bottom:6px;">Student</label>
      <input type="text" id="chk-stu" value="${esc(studentName)}" style="width:100%;border:.5px solid var(--bdr);border-radius:var(--rs);padding:10px 12px;font-family:'DM Sans',sans-serif;font-size:14px;outline:none;text-transform:uppercase;"></div>
