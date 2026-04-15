@@ -1392,6 +1392,7 @@ async function syncAllFromSupabase(){
     console.warn('syncAllFromSupabase error:',e);
   }
   renderDash();
+  loadTodayChecks().then(()=>renderDash());
 }
 
 function getCatForType(type){
@@ -1885,6 +1886,7 @@ function renderDash(){
   h+=`</div>`; // end dash-cols
 
   // ── Follow Up Calendar (full width) ──
+  h+=renderTodayChecks();
   h+=`<div class="dash-col-hdr" style="margin-top:18px;margin-bottom:8px;">
     <span class="dash-col-title">📅 Follow Up Calendar</span>
   </div>
@@ -2456,6 +2458,9 @@ function openRec(id){
       <button onclick="openFuUpdateModal('${r.id}',-1)" style="width:100%;margin-top:8px;padding:10px;border-radius:var(--r);border:1.5px solid #25D366;background:#f0fdf4;color:#166534;font-weight:700;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="#166534"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
         📝 Today's Update
+      </button>
+      <button onclick="openAddCheckModal('${r.id}','${esc(r.students[0]||'')}')" style="width:100%;margin-top:6px;padding:10px;border-radius:var(--r);border:1.5px solid #f59e0b;background:#fffbeb;color:#92400e;font-weight:700;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">
+        ⏰ Add Today Check
       </button>
     </div>
     <div style="margin-top:14px;"><label style="font-size:12px;font-weight:600;color:var(--txt2);display:block;margin-bottom:5px;">Remarks</label>
@@ -3108,6 +3113,102 @@ function sendDraftWA(){
   },2000);
 }
 
+
+// ══ TODAY CHECKS ══
+let _todayChecks=[];
+
+async function loadTodayChecks(){
+  try{
+    const tod=today();
+    const {data,error}=await _sb.from('checks').select('*')
+      .gte('created_at', tod+'T00:00:00')
+      .lte('created_at', tod+'T23:59:59')
+      .order('check_time',{ascending:true});
+    if(error)throw error;
+    _todayChecks=data||[];
+  }catch(e){console.warn('loadTodayChecks error:',e);_todayChecks=[];}
+}
+
+function openAddCheckModal(recordId, studentName){
+  const now=new Date();
+  const hh=String(now.getHours()).padStart(2,'0');
+  const mm=String(now.getMinutes()).padStart(2,'0');
+  const defaultTime=`${hh}:${mm}`;
+  openModal('⏰ Add Today Check',
+    `<div class="frow"><label style="font-size:12px;font-weight:600;color:var(--txt2);display:block;margin-bottom:6px;">Student</label>
+     <input type="text" id="chk-stu" value="${esc(studentName)}" style="width:100%;border:.5px solid var(--bdr);border-radius:var(--rs);padding:10px 12px;font-family:'DM Sans',sans-serif;font-size:14px;outline:none;text-transform:uppercase;"></div>
+     <div class="frow"><label style="font-size:12px;font-weight:600;color:var(--txt2);display:block;margin-bottom:6px;">Check Time</label>
+     <input type="time" id="chk-time" value="${defaultTime}" style="width:100%;border:.5px solid var(--bdr);border-radius:var(--rs);padding:10px 12px;font-family:'DM Sans',sans-serif;font-size:14px;outline:none;"></div>
+     <div class="frow"><label style="font-size:12px;font-weight:600;color:var(--txt2);display:block;margin-bottom:6px;">What to check</label>
+     <input type="text" id="chk-note" placeholder="e.g. Give medicine, Check temperature" style="width:100%;border:.5px solid var(--bdr);border-radius:var(--rs);padding:10px 12px;font-family:'DM Sans',sans-serif;font-size:14px;outline:none;"></div>`,
+    `<button class="btn" onclick="closeModal()">Cancel</button>
+     <button class="btn btn-grn" onclick="saveCheck('${recordId}')">Add Check</button>`
+  );
+}
+
+async function saveCheck(recordId){
+  const stu=document.getElementById('chk-stu')?.value.trim().toUpperCase()||'';
+  const time=document.getElementById('chk-time')?.value||'';
+  const note=document.getElementById('chk-note')?.value.trim()||'';
+  if(!time){toast('Please set a time',true);return;}
+  if(!note){toast('Please describe what to check',true);return;}
+  try{
+    const {error}=await _sb.from('checks').insert({
+      record_id:recordId, student_name:stu,
+      check_time:time, note:note, done:false
+    });
+    if(error)throw error;
+    toast('✅ Check added: '+time);
+    closeModal();
+    await loadTodayChecks();
+    renderDash();
+  }catch(e){toast('Failed: '+e.message,true);}
+}
+
+async function markCheckDone(checkId){
+  const note=prompt('Optional: add a note for this check (or leave blank)') ;
+  if(note===null)return; // cancelled
+  try{
+    const {error}=await _sb.from('checks').update({
+      done:true, done_at:new Date().toISOString(), done_note:note||''
+    }).eq('id',checkId);
+    if(error)throw error;
+    toast('✅ Check done!');
+    await loadTodayChecks();
+    renderDash();
+  }catch(e){toast('Failed: '+e.message,true);}
+}
+
+function renderTodayChecks(){
+  if(!_todayChecks.length)return'';
+  const now=new Date();
+  const nowMin=now.getHours()*60+now.getMinutes();
+  const items=_todayChecks.map(c=>{
+    const [hh,mm]=(c.check_time||'00:00').split(':').map(Number);
+    const cMin=hh*60+mm;
+    const diff=cMin-nowMin;
+    let col,bg,icon;
+    if(c.done){col='#059669';bg='#d1fae5';icon='✅';}
+    else if(diff<0){col='#dc2626';bg='#fee2e2';icon='🔴';} // overdue
+    else if(diff<=30){col='#d97706';bg='#fef3c7';icon='🟡';} // soon
+    else{col='#64748b';bg:'#f1f5f9';icon='⚪';}
+    const timeStr=`${String(hh).padStart(2,'0')}:${String(mm).padStart(2,'0')}`;
+    return`<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:${bg};border-radius:var(--rs);margin-bottom:6px;border:.5px solid ${col}30;">
+      <span style="font-size:16px;flex-shrink:0;">${icon}</span>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:12px;font-weight:700;color:${col};">${timeStr} ${c.done?'<span style="font-size:10px;font-weight:400;"> · Done</span>':''}</div>
+        <div style="font-size:12px;color:var(--txt2);">${esc(c.note||'')}${c.student_name?' · <b>'+esc(c.student_name)+'</b>':''}</div>
+        ${c.done&&c.done_note?`<div style="font-size:11px;color:var(--mut);margin-top:2px;">📝 ${esc(c.done_note)}</div>`:''}
+      </div>
+      ${!c.done?`<button onclick="markCheckDone(${c.id})" style="background:var(--g);color:#fff;border:none;border-radius:8px;padding:5px 12px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">Done ✓</button>`:''}
+    </div>`;
+  }).join('');
+  const pending=_todayChecks.filter(c=>!c.done).length;
+  return`<div class="dash-col-hdr" style="margin-top:18px;margin-bottom:8px;">
+    <span class="dash-col-title">⏰ Today's Checks</span>
+    ${pending?`<span style="font-size:11px;font-weight:700;background:#fef3c7;color:#92400e;padding:2px 10px;border-radius:12px;">${pending} pending</span>`:'<span style="font-size:11px;font-weight:700;background:#d1fae5;color:#059669;padding:2px 10px;border-radius:12px;">All done ✅</span>'}
+  </div>${items}`;
+}
 
 // ══ INIT ══
 // ══ DOMAIN LOCK ══
