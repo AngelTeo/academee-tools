@@ -1538,7 +1538,7 @@ function getYN(id){
 }
 function renderForgotBlock(){
   const prog=document.getElementById('f_prog')?.value||'SRK';
-  const items=FORGOT_ITEMS[prog]||[];
+  const items=FORGOT_ITEMS[prog]||FORGOT_ITEMS['SRK'];
   return`<div id="forgot-block"><div class="sec-div">STUDENTS — ADD THEN TAP WHAT THEY FORGOT</div>
     <div class="stu-add-row">
       <div class="stu-wrap" style="flex:1;">
@@ -1549,15 +1549,32 @@ function renderForgotBlock(){
     <div id="fs-list">${renderFSList(items)}</div></div>`;
 }
 function renderFSList(items){
-  if(!items)items=FORGOT_ITEMS[document.getElementById('f_prog')?.value||'SRK']||[];
+  const prog=document.getElementById('f_prog')?.value||'SRK';
+  if(!items||!items.length)items=FORGOT_ITEMS[prog]||FORGOT_ITEMS['SRK']||[];
   return forgotState.students.map((stu,i)=>`<div class="stu-item-card">
     <div class="sin"><div class="sname">${esc(stu)}</div><button class="sdel" onclick="removeFS(${i})">×</button></div>
     <div class="items-grid">${items.map(item=>`<button class="item-toggle ${(forgotState.items[stu]||[]).includes(item)?'on':''}" onclick="toggleFI('${esc(stu)}','${esc(item)}')">${item}</button>`).join('')}</div>
+    <div style="display:flex;gap:6px;margin-top:8px;">
+      <input type="text" placeholder="Other item…" id="custom-item-${i}"
+        style="flex:1;border:.5px solid var(--bdr);border-radius:var(--rs);padding:8px 10px;font-family:'DM Sans',sans-serif;font-size:13px;outline:none;"
+        onkeydown="if(event.key==='Enter'){addCustomFI('${esc(stu)}',${i});event.preventDefault();}">
+      <button onclick="addCustomFI('${esc(stu)}',${i})"
+        style="background:var(--g);color:#fff;border:none;border-radius:var(--rs);padding:8px 12px;font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;">Add</button>
+    </div>
   </div>`).join('');
+}
+function addCustomFI(stu,idx){
+  const inp=document.getElementById('custom-item-'+idx);
+  if(!inp)return;
+  const v=inp.value.trim();if(!v)return;
+  if(!forgotState.items[stu])forgotState.items[stu]=[];
+  forgotState.items[stu].push(v);
+  inp.value='';
+  document.getElementById('fs-list').innerHTML=renderFSList();
 }
 function addFS(){
   const inp=document.getElementById('stu-nn');
-  const n=inp.value.trim().toUpperCase();if(!n)return;
+  const n=inp.value.trim().toUpperCase();if(!n){toast('Please select a student first',true);return;}
   if(forgotState.students.includes(n)){toast('Already added',true);return;}
   forgotState.students.push(n);forgotState.items[n]=[];inp.value='';
   document.getElementById('fs-list').innerHTML=renderFSList();
@@ -1647,10 +1664,8 @@ function stuBlur(){}
 
 // ── Direct Save to System (MGMT) ──
 function extractStudentsFromForm(){
-  // Extract student names directly from form fields (faster than parsing raw text)
   const students=new Set();
   if(!curFmt)return[];
-  // Top-level student fields
   curFmt.fields.forEach(f=>{
     if(f.type==='student'){
       const el=document.getElementById('f_'+f.id);
@@ -1663,6 +1678,11 @@ function extractStudentsFromForm(){
         if(e.name&&e.name.trim().length>2)students.add(e.name.trim().toUpperCase());
       });
     }
+    // Forgot block: extract from forgotState
+    if(f.type==='forgot'){
+      forgotState.students.forEach(s=>{if(s&&s.length>2)students.add(s.toUpperCase());});
+    }
+  });
   });
   return[...students];
 }
