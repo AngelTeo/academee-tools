@@ -1795,107 +1795,110 @@ function copyMsg(){
 // ══ MGMT DASHBOARD ══
 function renderDash(){
   const tod=today();
-  // TODAY'S REPORTS = submitted today (createdAt = today), regardless of incident date
   const todR=S.records.filter(r=>{
     const created=r.createdAt?new Date(r.createdAt).toISOString().slice(0,10):'';
     return created===tod||r.date===tod;
   }).sort((a,b)=>b.createdAt-a.createdAt);
-  // FOLLOW UP = older open/follow_up records NOT submitted today
   const pend=S.records.filter(r=>{
     const st=r.status||'open';
     if(st==='closed')return false;
     const created=r.createdAt?new Date(r.createdAt).toISOString().slice(0,10):'';
-    if(created===tod)return false; // already in today's reports
-    if(st==='follow_up'){
-      if(!r.followUpDate)return true;
-      return r.followUpDate<=tod;
-    }
+    if(created===tod)return false;
+    if(st==='follow_up'){if(!r.followUpDate)return true;return r.followUpDate<=tod;}
     return r.date&&r.date<tod;
   });
   const urg=pend.filter(r=>['HEALTH','INJURED','COMPLAINT'].includes(r.type));
   const oth=pend.filter(r=>!urg.includes(r));
   const allPend=[...urg,...oth];
-
-  let h=``;
-
-  // ── Date pill + Stats row ──
-  h+=`<div class="dash-toprow">
-    <div class="tpill">📅 ${fdl(tod)}</div>
-    <button onclick="refreshDash()" style="background:var(--sur);border:.5px solid var(--bdr);border-radius:20px;padding:4px 12px;font-size:11px;font-weight:600;color:var(--g);cursor:pointer;font-family:'DM Sans',sans-serif;">🔄 Sync</button>
-  </div>
-  <div class="stat-grid">
-    <div class="stat"><div class="sv">${todR.length}</div><div class="sl">Today</div></div>
-    <div class="stat ${pend.length>0?'amb':'grn'}"><div class="sv">${pend.length}</div><div class="sl">Pending</div></div>
-    <div class="stat ${urg.length>0?'red':''}"><div class="sv">${urg.length}</div><div class="sl">Urgent</div></div>
-    <div class="stat"><div class="sv">${S.records.length}</div><div class="sl">Total</div></div>
-  </div>`;
-
-  // ── Two-column layout ──
-  h+=`<div class="dash-cols">`;
-
-  // LEFT: Today's Reports — flagged pinned first, then open, then closed
+  const flagged=S.records.filter(r=>r.flagged===true);
   const todFlagged=todR.filter(r=>r.flagged===true);
   const todOpen=todR.filter(r=>!r.flagged&&(r.status||'open')!=='closed');
   const todClosed=todR.filter(r=>!r.flagged&&(r.status||'open')==='closed');
   const todSorted=[...todFlagged,...todOpen,...todClosed];
-  const flagCount2=todFlagged.length;
-  const openCount=todOpen.length;
-  const closedCount=todClosed.length;
-  // Filter state
+  const pendChecks=_todayChecks.filter(c=>!c.done).length;
+
+  // Expand states
+  if(!window._dashOpen)window._dashOpen={today:true,flagged:false,followup:false,checks:false};
+
+  let h=``;
+
+  // ── Top bar ──
+  h+=`<div class="dash-toprow" style="margin-bottom:16px;">
+    <div class="tpill">📅 ${fdl(tod)}</div>
+    <button onclick="refreshDash()" style="background:var(--sur);border:.5px solid var(--bdr);border-radius:20px;padding:4px 12px;font-size:11px;font-weight:600;color:var(--g);cursor:pointer;font-family:'DM Sans',sans-serif;">🔄 Sync</button>
+  </div>`;
+
+  // ── Collapsible section helper ──
+  function section(key, icon, title, count, countColor, countBg, content, emptyMsg){
+    const open=window._dashOpen[key];
+    const hasContent=count>0;
+    return`<div style="background:var(--sur);border:.5px solid var(--bdr);border-radius:var(--r);margin-bottom:10px;overflow:hidden;box-shadow:var(--sh);">
+      <div onclick="window._dashOpen['${key}']=!window._dashOpen['${key}'];renderDash();" style="display:flex;align-items:center;gap:12px;padding:14px 16px;cursor:pointer;${open?'border-bottom:.5px solid var(--bdr);':''}>
+        <span style="font-size:20px;">${icon}</span>
+        <span style="font-size:14px;font-weight:700;color:var(--txt);flex:1;">${title}</span>
+        <span style="font-size:13px;font-weight:700;background:${hasContent?countBg:'var(--sur2)'};color:${hasContent?countColor:'var(--mut)'};padding:3px 12px;border-radius:20px;">${count}</span>
+        <span style="color:var(--mut);font-size:18px;transition:.2s;transform:${open?'rotate(90deg)':'rotate(0deg)'}"›</span>
+      </div>
+      ${open?`<div style="padding:12px 14px 14px;">${hasContent?content:emptyMsg}</div>`:''}
+    </div>`;
+  }
+
+  // ── 1. Today's Reports ──
   const dashFilter=window._dashFilter||'all';
   let filteredTod=todSorted;
   if(dashFilter==='flagged') filteredTod=todFlagged;
   else if(dashFilter==='open') filteredTod=todOpen;
   else if(dashFilter==='closed') filteredTod=todClosed;
 
-  h+=`<div class="dash-col">
-    <div class="dash-col-hdr">
-      <span class="dash-col-title">📋 Today's Reports</span>
-      <button class="btn btn-sm" onclick="mGoPage('records')">All →</button>
+  const todFilterBtns=`<div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;">
+    ${todFlagged.length?`<button onclick="event.stopPropagation();window._dashFilter=window._dashFilter==='flagged'?'all':'flagged';renderDash();" style="font-size:10px;font-weight:700;color:${dashFilter==='flagged'?'#fff':'#991b1b'};background:${dashFilter==='flagged'?'#dc2626':'#fee2e2'};padding:3px 10px;border-radius:8px;border:none;cursor:pointer;">🚩 ${todFlagged.length} flagged</button>`:''}
+    ${todOpen.length?`<button onclick="event.stopPropagation();window._dashFilter=window._dashFilter==='open'?'all':'open';renderDash();" style="font-size:10px;font-weight:700;color:${dashFilter==='open'?'#fff':'#d97706'};background:${dashFilter==='open'?'#d97706':'#fef3c7'};padding:3px 10px;border-radius:8px;border:none;cursor:pointer;">○ ${todOpen.length} open</button>`:''}
+    ${todClosed.length?`<button onclick="event.stopPropagation();window._dashFilter=window._dashFilter==='closed'?'all':'closed';renderDash();" style="font-size:10px;font-weight:700;color:${dashFilter==='closed'?'#fff':'#059669'};background:${dashFilter==='closed'?'#059669':'#d1fae5'};padding:3px 10px;border-radius:8px;border:none;cursor:pointer;">✅ ${todClosed.length} closed</button>`:''}
+  </div>${filteredTod.map(r=>recCard(r)).join('')}`;
+
+  h+=section('today','📋','Today\'s Reports',todR.length,'#1a3a5c','#dbeafe',
+    todFilterBtns,
+    '<div style="text-align:center;padding:16px;color:var(--mut);font-size:13px;">No reports today</div>');
+
+  // ── 2. Flagged ──
+  const flagContent=flagged.map(r=>recCard(r)).join('');
+  h+=`<div style="background:var(--sur);border:${flagged.length?'1.5px solid #fca5a5':'0.5px solid var(--bdr)'};border-radius:var(--r);margin-bottom:10px;overflow:hidden;box-shadow:var(--sh);">
+    <div onclick="window._dashOpen['flagged']=!window._dashOpen['flagged'];renderDash();" style="display:flex;align-items:center;gap:12px;padding:14px 16px;cursor:pointer;${window._dashOpen.flagged?'border-bottom:.5px solid var(--bdr);':''}>
+      <span style="font-size:20px;">🚩</span>
+      <span style="font-size:14px;font-weight:700;color:${flagged.length?'#991b1b':'var(--txt)'};flex:1;">Flagged</span>
+      <span style="font-size:13px;font-weight:700;background:${flagged.length?'#fee2e2':'var(--sur2)'};color:${flagged.length?'#dc2626':'var(--mut)'};padding:3px 12px;border-radius:20px;">${flagged.length}</span>
+      <span style="color:var(--mut);font-size:18px;">›</span>
     </div>
-    <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;">
-      ${flagCount2?`<button onclick="window._dashFilter=window._dashFilter==='flagged'?'all':'flagged';renderDash();" style="font-size:10px;font-weight:700;color:${dashFilter==='flagged'?'#fff':'#991b1b'};background:${dashFilter==='flagged'?'#dc2626':'#fee2e2'};padding:3px 10px;border-radius:8px;border:none;cursor:pointer;">🚩 ${flagCount2} flagged</button>`:''}
-      ${openCount?`<button onclick="window._dashFilter=window._dashFilter==='open'?'all':'open';renderDash();" style="font-size:10px;font-weight:700;color:${dashFilter==='open'?'#fff':'#d97706'};background:${dashFilter==='open'?'#d97706':'#fef3c7'};padding:3px 10px;border-radius:8px;border:none;cursor:pointer;">○ ${openCount} open</button>`:''}
-      ${closedCount?`<button onclick="window._dashFilter=window._dashFilter==='closed'?'all':'closed';renderDash();" style="font-size:10px;font-weight:700;color:${dashFilter==='closed'?'#fff':'#059669'};background:${dashFilter==='closed'?'#059669':'#d1fae5'};padding:3px 10px;border-radius:8px;border:none;cursor:pointer;">✅ ${closedCount} closed</button>`:''}
-    </div>`;
-  if(filteredTod.length){
-    filteredTod.forEach(r=>h+=recCard(r));
-  }else{
-    h+=`<div class="dash-empty-col"><div style="font-size:28px;margin-bottom:8px;">📋</div><div class="dash-empty-txt">No reports today</div></div>`;
-  }
-  h+=`</div>`;
+    ${window._dashOpen.flagged?`<div style="padding:12px 14px 14px;">${flagged.length?flagContent:'<div style="text-align:center;padding:16px;color:var(--mut);font-size:13px;">No flagged records</div>'}</div>`:''}
+  </div>`;
 
-  // RIGHT: Follow-up Needed
-  h+=`<div class="dash-col">
-    <div class="dash-col-hdr">
-      <span class="dash-col-title">🟡 Follow-up Needed</span>
-      ${allPend.length?`<span class="dash-badge">${allPend.length}</span>`:''}
-    </div>`;
-  if(urg.length){
-    h+=`<div class="dash-section-lbl">🔴 Urgent</div>`;
-    urg.slice(0,4).forEach(r=>h+=acCard(r,'urg'));
-  }
-  if(oth.length){
-    if(urg.length)h+=`<div class="dash-section-lbl" style="margin-top:10px;">🟡 Pending</div>`;
-    oth.slice(0,4).forEach(r=>h+=acCard(r,'warn'));
-  }
-  if(!allPend.length){
-    h+=`<div class="dash-empty-col"><div style="font-size:28px;margin-bottom:8px;">✅</div><div class="dash-empty-txt">All caught up!</div></div>`;
-  }
-  h+=`</div>`;
-  h+=`</div>`; // end dash-cols
+  // ── 3. Follow-up Needed ──
+  const fuContent=`${urg.length?`<div class="dash-section-lbl">🔴 Urgent</div>${urg.map(r=>acCard(r,'urg')).join('')}`:''}
+    ${oth.length?`${urg.length?'<div class="dash-section-lbl" style="margin-top:10px;">🟡 Pending</div>':''}${oth.map(r=>acCard(r,'warn')).join('')}`:''}`;
+  h+=section('followup','🟡','Follow-up Needed',allPend.length,'#854f0b','#fef3c7',
+    fuContent,
+    '<div style="text-align:center;padding:16px;color:var(--mut);font-size:13px;">✅ All caught up!</div>');
 
-  // ── Follow Up Calendar (full width) ──
-  h+=renderTodayChecks();
-  h+=`<div class="dash-col-hdr" style="margin-top:18px;margin-bottom:8px;">
-    <span class="dash-col-title">📅 Follow Up Calendar</span>
-  </div>
-  <div id="cal-container"></div>`;
+  // ── 4. Today's Checks ──
+  const checksContent=_todayChecks.length?renderTodayChecksInline():'';
+  h+=section('checks','⏰','Today\'s Checks',_todayChecks.length,
+    pendChecks?'#92400e':'#059669',
+    pendChecks?'#fef3c7':'#d1fae5',
+    checksContent,
+    '<div style="text-align:center;padding:16px;color:var(--mut);font-size:13px;">No checks scheduled today</div>');
+
+  // ── Calendar ──
+  h+=`<div style="margin-top:6px;background:var(--sur);border:.5px solid var(--bdr);border-radius:var(--r);overflow:hidden;box-shadow:var(--sh);">
+    <div onclick="window._dashOpen['cal']=!window._dashOpen['cal'];renderDash();" style="display:flex;align-items:center;gap:12px;padding:14px 16px;cursor:pointer;">
+      <span style="font-size:20px;">📅</span>
+      <span style="font-size:14px;font-weight:700;color:var(--txt);flex:1;">Follow Up Calendar</span>
+      <span style="color:var(--mut);font-size:18px;">›</span>
+    </div>
+    ${window._dashOpen['cal']?'<div style="padding:0 14px 14px;"><div id="cal-container"></div></div>':''}
+  </div>`;
 
   document.getElementById('dash-content').innerHTML=h;
-  document.getElementById('cal-container').innerHTML=buildCalendar();
-  // Event delegation for rec cards - more reliable than inline onclick
-  // persistent event delegation - attached once via global handler
+  if(window._dashOpen['cal'])document.getElementById('cal-container').innerHTML=buildCalendar();
   if(!window._dashClickBound){
     document.addEventListener('click',function(e){
       const card=e.target.closest('[data-recid]');
@@ -1903,6 +1906,31 @@ function renderDash(){
     });
     window._dashClickBound=true;
   }
+}
+
+function renderTodayChecksInline(){
+  const now=new Date();
+  const nowMin=now.getHours()*60+now.getMinutes();
+  return _todayChecks.map(c=>{
+    const [hh,mm]=(c.check_time||'00:00').split(':').map(Number);
+    const cMin=hh*60+mm;
+    const diff=cMin-nowMin;
+    let col,bg,icon;
+    if(c.done){col='#059669';bg='#d1fae5';icon='✅';}
+    else if(diff<0){col='#dc2626';bg='#fee2e2';icon='🔴';}
+    else if(diff<=30){col='#d97706';bg='#fef3c7';icon='🟡';}
+    else{col='#64748b';bg='#f1f5f9';icon='⚪';}
+    const timeStr=`${String(hh).padStart(2,'0')}:${String(mm).padStart(2,'0')}`;
+    return`<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:${bg};border-radius:var(--rs);margin-bottom:6px;border:.5px solid ${col}30;">
+      <span style="font-size:16px;flex-shrink:0;">${icon}</span>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:12px;font-weight:700;color:${col};">${timeStr}${c.done?' · <span style="font-size:10px;font-weight:400;">Done</span>':''}</div>
+        <div style="font-size:12px;color:var(--txt2);">${esc(c.note||'')}${c.student_name?' · <b>'+esc(c.student_name)+'</b>':''}</div>
+        ${c.done&&c.done_note?`<div style="font-size:11px;color:var(--mut);margin-top:2px;">📝 ${esc(c.done_note)}</div>`:''}
+      </div>
+      ${!c.done?`<button onclick="markCheckDone(${c.id})" style="background:var(--g);color:#fff;border:none;border-radius:8px;padding:5px 12px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">Done ✓</button>`:''}
+    </div>`;
+  }).join('');
 }
 function acCard(r,cls){
   const f=FORMATS.find(x=>x.id===r.type);const cm=CATS[r.cat]||{icon:'•'};
