@@ -1811,7 +1811,7 @@ function renderDash(){
   const urg=pend.filter(r=>['HEALTH','INJURED','COMPLAINT'].includes(r.type));
   const oth=pend.filter(r=>!urg.includes(r));
   const allPend=[...urg,...oth];
-  const flagged=S.records.filter(r=>r.flagged===true);
+  const flagged=S.records.filter(r=>r.flagged===true&&(r.status||'open')!=='closed');
   const todFlagged=todR.filter(r=>r.flagged===true);
   const todOpen=todR.filter(r=>!r.flagged&&(r.status||'open')!=='closed');
   const todClosed=todR.filter(r=>!r.flagged&&(r.status||'open')==='closed');
@@ -1886,13 +1886,7 @@ function renderDash(){
   }
 
   else if(tab==='flagged'){
-    if(flagged.length){
-      const flaggedSorted=[
-        ...flagged.filter(r=>(r.status||'open')!=='closed'),
-        ...flagged.filter(r=>(r.status||'open')==='closed'),
-      ];
-      flaggedSorted.forEach(r=>h+=recCard(r));
-    }
+    if(flagged.length) flagged.forEach(r=>h+=recCard(r));
     else h+=`<div style="text-align:center;padding:20px;color:var(--mut);font-size:13px;">🚩 No flagged records</div>`;
   }
 
@@ -2316,22 +2310,23 @@ function renderFollowUpModal(){
 }
 
 function skipWeekend(d){
-  const day=d.getDay();
-  if(day===6)d.setDate(d.getDate()+2);
-  else if(day===0)d.setDate(d.getDate()+1);
+  while(d.getDay()===0||d.getDay()===6)d.setDate(d.getDate()+1);
   return d;
 }
 function calcFuDates(st){
   const dates=[];
   const base=new Date();
   base.setHours(12,0,0,0);
-  for(let i=1;i<=st.times;i++){
-    const d=new Date(base);
-    if(st.unit==='DAY')d.setDate(d.getDate()+st.every*i);
-    else if(st.unit==='WEEK')d.setDate(d.getDate()+st.every*7*i);
-    else if(st.unit==='MONTH')d.setMonth(d.getMonth()+st.every*i);
+  let prev=new Date(base);
+  for(let i=0;i<st.times;i++){
+    const d=new Date(prev);
+    if(st.unit==='DAY')d.setDate(d.getDate()+st.every);
+    else if(st.unit==='WEEK')d.setDate(d.getDate()+st.every*7);
+    else if(st.unit==='MONTH')d.setMonth(d.getMonth()+st.every);
     skipWeekend(d);
-    dates.push(d.toISOString().slice(0,10));
+    const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0');
+    dates.push(`${y}-${m}-${day}`);
+    prev=d; // chain from previous date
   }
   return dates;
 }
