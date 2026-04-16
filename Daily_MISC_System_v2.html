@@ -1827,8 +1827,7 @@ function renderDash(){
   h+=`<div class="dash-toprow" style="margin-bottom:14px;">
     <div class="tpill">📅 ${fdl(tod)}</div>
     <div style="display:flex;gap:6px;align-items:center;">
-      <button id="notif-perm-btn" onclick="enableAlerts()" style="background:var(--sur);border:.5px solid var(--bdr);border-radius:20px;padding:4px 12px;font-size:11px;font-weight:600;color:var(--amb);cursor:pointer;font-family:'DM Sans',sans-serif;">🔕 Enable Alerts</button>
-      <button onclick="testAlert()" style="background:var(--sur);border:.5px solid var(--bdr);border-radius:20px;padding:4px 12px;font-size:11px;font-weight:600;color:var(--mut);cursor:pointer;font-family:'DM Sans',sans-serif;">🧪 Test</button>
+      <button id="notif-perm-btn" onclick="alertsBtnClick()" style="background:var(--sur);border:.5px solid var(--bdr);border-radius:20px;padding:4px 12px;font-size:11px;font-weight:600;color:var(--mut);cursor:pointer;font-family:'DM Sans',sans-serif;">🔕 Enable Alerts</button>
       <button onclick="refreshDash()" style="background:var(--sur);border:.5px solid var(--bdr);border-radius:20px;padding:4px 12px;font-size:11px;font-weight:600;color:var(--g);cursor:pointer;font-family:'DM Sans',sans-serif;">🔄 Sync</button>
     </div>
   </div>`;
@@ -3274,19 +3273,17 @@ let _notifiedChecks=new Set();
 let _reminderInterval=null;
 let _audioCtx=null;
 
-// Must be called from a user gesture to unlock audio
-function initAudio(){
+async function initAudio(){
   try{
     if(!_audioCtx)_audioCtx=new(window.AudioContext||window.webkitAudioContext)();
-    if(_audioCtx.state==='suspended')_audioCtx.resume();
-  }catch(e){}
+    if(_audioCtx.state==='suspended')await _audioCtx.resume();
+  }catch(e){console.warn('initAudio:',e);}
 }
 
-function playBeep(){
+async function playBeep(){
   try{
-    initAudio();
-    if(!_audioCtx)return;
-    // C5 E5 G5 C6 — pleasant bell
+    await initAudio();
+    if(!_audioCtx||_audioCtx.state!=='running'){console.warn('AudioContext not running:',_audioCtx?.state);return;}
     [[523,0],[659,0.18],[784,0.36],[1047,0.55]].forEach(([freq,t])=>{
       const o=_audioCtx.createOscillator(),g=_audioCtx.createGain();
       o.connect(g);g.connect(_audioCtx.destination);
@@ -3296,53 +3293,55 @@ function playBeep(){
       g.gain.exponentialRampToValueAtTime(0.001,_audioCtx.currentTime+t+0.7);
       o.start(_audioCtx.currentTime+t);o.stop(_audioCtx.currentTime+t+0.8);
     });
-  }catch(e){console.warn('playBeep error:',e);}
+  }catch(e){console.warn('playBeep:',e);}
 }
 
 function doVibrate(){
   try{if(navigator.vibrate)navigator.vibrate([400,100,400,100,600]);}catch(e){}
 }
 
-function showReminderNotif(c){
-  if(!('Notification' in window)||Notification.permission!=='granted')return;
-  const title='⏰ '+(c.check_time||'').slice(0,5)+' — Check Reminder';
-  const body=(c.note||'Check required')+(c.student_name?' · '+c.student_name:'');
+function showReminderNotif(label,body){
+  if(!('Notification' in window)){console.warn('Notification API not supported');return;}
+  if(Notification.permission!=='granted'){console.warn('Notification permission:',Notification.permission);return;}
   try{
-    const n=new Notification(title,{body,tag:'chk_'+c.id});
+    const n=new Notification('⏰ '+label,{body,tag:'chk_reminder'});
     n.onclick=()=>{window.focus();n.close();};
     setTimeout(()=>n.close(),20000);
-  }catch(e){}
+  }catch(e){console.warn('showReminderNotif:',e);}
 }
 
 function fireReminder(c){
+  const label=(c.check_time||'').slice(0,5)+' — Check Reminder';
+  const body=(c.note||'Check required')+(c.student_name?' · '+c.student_name:'');
   playBeep();
   doVibrate();
-  showReminderNotif(c);
+  showReminderNotif(label,body);
   toast('⏰ '+(c.check_time||'').slice(0,5)+' — '+(c.note||'Check!')+(c.student_name?' · '+c.student_name:''));
 }
 
-// Called from user gesture — unlocks audio AND requests notif permission
-async function enableAlerts(){
-  initAudio(); // unlock AudioContext on user click
-  if('Notification' in window&&Notification.permission==='default'){
+// Single button: first tap = enable, subsequent taps = test
+async function alertsBtnClick(){
+  await initAudio(); // MUST be in user gesture
+  const audioOk=_audioCtx&&_audioCtx.state==='running';
+  const notifGranted='Notification' in window&&Notification.permission==='granted';
+  // If not yet fully enabled — enable now
+  if(!notifGranted&&'Notification' in window&&Notification.permission==='default'){
     const p=await Notification.requestPermission();
-    if(p==='granted')toast('🔔 Alerts fully enabled (sound + vibrate + notification)!');
-    else toast('🔔 Sound & vibrate enabled (notifications blocked)');
-  } else if(Notification.permission==='granted'){
-    toast('🔔 Alerts already enabled!');
-  } else {
-    toast('🔔 Sound & vibrate enabled!');
+    updateNotifBtn();
+    if(p==='granted'){toast('🔔 All alerts enabled! Tap again to test.');}
+    else{toast('Sound & vibrate ON · Notifications blocked by browser');}
+    return;
   }
-  updateNotifBtn();
-}
-
-// Test all 3 manually
-function testAlert(){
-  initAudio();
+  // Already enabled or can't get permission — run test
+  let msg='Test results: ';
+  msg+=audioOk?'🔊 Sound OK · ':'🔇 Sound FAIL · ';
+  msg+=navigator.vibrate?'📳 Vibrate OK · ':'📵 No vibrate · ';
+  msg+=notifGranted?'🔔 Notif OK':'🔕 Notif blocked';
   playBeep();
   doVibrate();
-  showReminderNotif({id:'test',check_time:'TEST',note:'Test reminder',student_name:'TEST'});
-  toast('⏰ TEST — sound + vibrate + notification sent!');
+  showReminderNotif('TEST — Reminder Working!','This is a test. If you see this, notifications work!');
+  toast(msg);
+  updateNotifBtn();
 }
 
 function updateNotifBtn(){
@@ -3350,8 +3349,9 @@ function updateNotifBtn(){
   if(!btn)return;
   const audioOk=_audioCtx&&_audioCtx.state==='running';
   const notifOk='Notification' in window&&Notification.permission==='granted';
-  if(audioOk&&notifOk){btn.textContent='🔔 Alerts ON';btn.style.color='var(--g)';btn.style.borderColor='var(--g)';}
-  else{btn.textContent='🔕 Enable Alerts';btn.style.color='var(--amb)';btn.style.borderColor='var(--bdr)';}
+  if(audioOk&&notifOk){btn.innerHTML='🔔 Alerts ON';btn.style.color='var(--g)';btn.style.borderColor='#0F6E56';}
+  else if(audioOk){btn.innerHTML='🔔 Sound ON';btn.style.color='var(--amb)';btn.style.borderColor='var(--bdr)';}
+  else{btn.innerHTML='🔕 Enable Alerts';btn.style.color='var(--mut)';btn.style.borderColor='var(--bdr)';}
 }
 
 function startCheckReminder(){
@@ -3360,11 +3360,9 @@ function startCheckReminder(){
   _reminderInterval=setInterval(async()=>{
     await loadTodayChecks();
     const now=new Date();
-    // nowStr = "HH:MM"
     const nowStr=String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
     (_todayChecks||[]).forEach(c=>{
       if(c.done||_notifiedChecks.has(String(c.id)))return;
-      // check_time may be "HH:MM" or "HH:MM:SS" — normalise to HH:MM
       const ct=(c.check_time||'').slice(0,5);
       if(ct===nowStr){
         _notifiedChecks.add(String(c.id));
@@ -3372,7 +3370,7 @@ function startCheckReminder(){
         renderDash();
       }
     });
-  },20000); // every 20 seconds
+  },20000);
 }
 
 function stopCheckReminder(){
