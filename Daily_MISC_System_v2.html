@@ -1339,19 +1339,20 @@ function goEntry(){
 function mgmtLogin(){
   const pw=document.getElementById('pw-input').value;
   if(pw===MGMT_PW){
-    // Save session for 8 hours
     localStorage.setItem('mgmt_session', Date.now() + 12*60*60*1000);
     show('s-mgmt');syncAllFromSupabase();
+    startCheckReminder();
   }
   else{document.getElementById('pw-err').style.display='block';document.getElementById('pw-input').value='';}
 }
 function mgmtLogout(){
   localStorage.removeItem('mgmt_session');
+  stopCheckReminder();
   show('s-entry');
 }
 function checkMgmtSession(){
   const exp=parseInt(localStorage.getItem('mgmt_session')||'0');
-  if(exp&&Date.now()<exp){show('s-mgmt');syncAllFromSupabase();return true;}
+  if(exp&&Date.now()<exp){show('s-mgmt');syncAllFromSupabase();startCheckReminder();return true;}
   return false;
 }
 
@@ -1825,7 +1826,10 @@ function renderDash(){
   // ── Top bar ──
   h+=`<div class="dash-toprow" style="margin-bottom:14px;">
     <div class="tpill">📅 ${fdl(tod)}</div>
-    <button onclick="refreshDash()" style="background:var(--sur);border:.5px solid var(--bdr);border-radius:20px;padding:4px 12px;font-size:11px;font-weight:600;color:var(--g);cursor:pointer;font-family:'DM Sans',sans-serif;">🔄 Sync</button>
+    <div style="display:flex;gap:6px;align-items:center;">
+      <button id="notif-perm-btn" onclick="requestNotifPerm().then(updateNotifBtn)" style="background:var(--sur);border:.5px solid var(--bdr);border-radius:20px;padding:4px 12px;font-size:11px;font-weight:600;color:var(--amb);cursor:pointer;font-family:'DM Sans',sans-serif;">🔕 Enable Alerts</button>
+      <button onclick="refreshDash()" style="background:var(--sur);border:.5px solid var(--bdr);border-radius:20px;padding:4px 12px;font-size:11px;font-weight:600;color:var(--g);cursor:pointer;font-family:'DM Sans',sans-serif;">🔄 Sync</button>
+    </div>
   </div>`;
 
   // ── 4 Tab buttons ──
@@ -1889,6 +1893,7 @@ function renderDash(){
   </div>`;
 
   document.getElementById('dash-content').innerHTML=h;
+  updateNotifBtn();
   document.getElementById('cal-container').innerHTML=buildCalendar();
   if(!window._dashClickBound){
     document.addEventListener('click',function(e){
@@ -3261,6 +3266,85 @@ function renderTodayChecks(){
     <span class="dash-col-title">⏰ Today's Checks</span>
     ${pending?`<span style="font-size:11px;font-weight:700;background:#fef3c7;color:#92400e;padding:2px 10px;border-radius:12px;">${pending} pending</span>`:'<span style="font-size:11px;font-weight:700;background:#d1fae5;color:#059669;padding:2px 10px;border-radius:12px;">All done ✅</span>'}
   </div>${items}`;
+}
+
+// ══ CHECK REMINDERS ══
+let _notifiedChecks=new Set();
+let _reminderInterval=null;
+
+function playBeep(){
+  try{
+    const ctx=new(window.AudioContext||window.webkitAudioContext)();
+    // Pleasant bell sequence: C5 E5 G5 C6
+    [[523,0],[659,0.18],[784,0.36],[1047,0.55]].forEach(([freq,t])=>{
+      const o=ctx.createOscillator(),g=ctx.createGain();
+      o.connect(g);g.connect(ctx.destination);
+      o.frequency.value=freq;o.type='sine';
+      g.gain.setValueAtTime(0,ctx.currentTime+t);
+      g.gain.linearRampToValueAtTime(0.3,ctx.currentTime+t+0.04);
+      g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+t+0.7);
+      o.start(ctx.currentTime+t);o.stop(ctx.currentTime+t+0.8);
+    });
+  }catch(e){}
+}
+
+function doVibrate(){
+  try{if(navigator.vibrate)navigator.vibrate([400,100,400,100,600]);}catch(e){}
+}
+
+function showReminderNotif(c){
+  if(!('Notification' in window)||Notification.permission!=='granted')return;
+  const title='⏰ '+c.check_time+' — Check Reminder';
+  const body=(c.note||'Check required')+(c.student_name?' · '+c.student_name:'');
+  const n=new Notification(title,{body,requireInteraction:true,tag:'chk_'+c.id});
+  n.onclick=()=>{window.focus();n.close();};
+  setTimeout(()=>n.close(),20000);
+}
+
+function fireReminder(c){
+  playBeep();
+  doVibrate();
+  showReminderNotif(c);
+  toast('⏰ '+c.check_time+' — '+(c.note||'Check!')+(c.student_name?' · '+c.student_name:''));
+}
+
+async function requestNotifPerm(){
+  if(!('Notification' in window)){toast('Notifications not supported on this browser',true);return;}
+  if(Notification.permission==='granted'){toast('🔔 Notifications already enabled!');return;}
+  const p=await Notification.requestPermission();
+  if(p==='granted'){toast('🔔 Notifications enabled!');updateNotifBtn();}
+  else{toast('Notifications blocked — only beep & vibrate will work',true);}
+}
+
+function updateNotifBtn(){
+  const btn=document.getElementById('notif-perm-btn');
+  if(!btn)return;
+  const perm='Notification' in window?Notification.permission:'N/A';
+  if(perm==='granted'){btn.textContent='🔔 Alerts ON';btn.style.color='var(--g)';}
+  else{btn.textContent='🔕 Enable Alerts';btn.style.color='var(--amb)';}
+}
+
+function startCheckReminder(){
+  if(_reminderInterval)clearInterval(_reminderInterval);
+  // Pre-mark today's done checks so we don't re-notify them
+  _notifiedChecks=new Set((_todayChecks||[]).filter(c=>c.done).map(c=>String(c.id)));
+  _reminderInterval=setInterval(async()=>{
+    await loadTodayChecks();
+    const now=new Date();
+    const nowStr=String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
+    (_todayChecks||[]).forEach(c=>{
+      if(c.done||_notifiedChecks.has(String(c.id)))return;
+      if(c.check_time===nowStr){
+        _notifiedChecks.add(String(c.id));
+        fireReminder(c);
+        renderDash();
+      }
+    });
+  },30000); // check every 30 seconds
+}
+
+function stopCheckReminder(){
+  if(_reminderInterval){clearInterval(_reminderInterval);_reminderInterval=null;}
 }
 
 // ══ INIT ══
