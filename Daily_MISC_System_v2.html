@@ -3145,10 +3145,13 @@ let _todayChecks=[];
 
 async function loadTodayChecks(){
   try{
+    // Use local date boundaries converted to UTC (Malaysia UTC+8)
     const tod=today();
+    const startLocal=new Date(tod+'T00:00:00');
+    const endLocal=new Date(tod+'T23:59:59');
     const {data,error}=await _sb.from('checks').select('*')
-      .gte('created_at', tod+'T00:00:00')
-      .lte('created_at', tod+'T23:59:59')
+      .gte('created_at', startLocal.toISOString())
+      .lte('created_at', endLocal.toISOString())
       .order('check_time',{ascending:true});
     if(error)throw error;
     _todayChecks=data||[];
