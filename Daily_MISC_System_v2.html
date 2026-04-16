@@ -3273,25 +3273,32 @@ let _notifiedChecks=new Set();
 let _reminderInterval=null;
 let _audioCtx=null;
 
-async function initAudio(){
+// MUST be called synchronously within a user gesture (no await before this)
+function initAudioSync(){
   try{
     if(!_audioCtx)_audioCtx=new(window.AudioContext||window.webkitAudioContext)();
-    if(_audioCtx.state==='suspended')await _audioCtx.resume();
-  }catch(e){console.warn('initAudio:',e);}
+    if(_audioCtx.state==='suspended')_audioCtx.resume(); // fire-and-forget, no await
+  }catch(e){console.warn('initAudioSync:',e);}
 }
 
 async function playBeep(){
   try{
-    await initAudio();
-    if(!_audioCtx||_audioCtx.state!=='running'){console.warn('AudioContext not running:',_audioCtx?.state);return;}
-    [[523,0],[659,0.18],[784,0.36],[1047,0.55]].forEach(([freq,t])=>{
-      const o=_audioCtx.createOscillator(),g=_audioCtx.createGain();
-      o.connect(g);g.connect(_audioCtx.destination);
-      o.frequency.value=freq;o.type='sine';
-      g.gain.setValueAtTime(0,_audioCtx.currentTime+t);
-      g.gain.linearRampToValueAtTime(0.3,_audioCtx.currentTime+t+0.04);
-      g.gain.exponentialRampToValueAtTime(0.001,_audioCtx.currentTime+t+0.7);
-      o.start(_audioCtx.currentTime+t);o.stop(_audioCtx.currentTime+t+0.8);
+    if(!_audioCtx){console.warn('AudioCtx not created yet — tap Enable Alerts first');return;}
+    if(_audioCtx.state==='suspended')await _audioCtx.resume();
+    if(_audioCtx.state!=='running'){console.warn('AudioCtx state:',_audioCtx.state);return;}
+    // Bell sequence × 3 (C5 E5 G5 C6), each rep ~1.4s, gap 0.3s
+    const seq=[[523,0],[659,0.18],[784,0.36],[1047,0.55]];
+    [0,1.7,3.4].forEach(rep=>{
+      seq.forEach(([freq,t])=>{
+        const o=_audioCtx.createOscillator(),g=_audioCtx.createGain();
+        o.connect(g);g.connect(_audioCtx.destination);
+        o.frequency.value=freq;o.type='sine';
+        const st=_audioCtx.currentTime+rep+t;
+        g.gain.setValueAtTime(0,st);
+        g.gain.linearRampToValueAtTime(0.3,st+0.04);
+        g.gain.exponentialRampToValueAtTime(0.001,st+0.7);
+        o.start(st);o.stop(st+0.8);
+      });
     });
   }catch(e){console.warn('playBeep:',e);}
 }
@@ -3300,47 +3307,66 @@ function doVibrate(){
   try{if(navigator.vibrate)navigator.vibrate([400,100,400,100,600]);}catch(e){}
 }
 
+// Full-screen flash — works on ALL devices, no permission needed
+function showFlashAlert(timeStr,note,studentName){
+  const existing=document.getElementById('_flash_alert');
+  if(existing)existing.remove();
+  const el=document.createElement('div');
+  el.id='_flash_alert';
+  el.style.cssText='position:fixed;inset:0;z-index:99999;background:rgba(220,38,38,0.96);display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;animation:_flashAnim 0.4s ease 3;';
+  el.innerHTML=`
+    <style>@keyframes _flashAnim{0%,100%{opacity:1}50%{opacity:0.3}}</style>
+    <div style="font-size:64px;margin-bottom:12px;">⏰</div>
+    <div style="font-size:28px;font-weight:800;color:#fff;margin-bottom:8px;">${timeStr}</div>
+    <div style="font-size:18px;font-weight:600;color:#fff;margin-bottom:6px;">${note||'Check Required'}</div>
+    ${studentName?`<div style="font-size:16px;color:rgba(255,255,255,0.85);">👤 ${studentName}</div>`:''}
+    <div style="margin-top:24px;font-size:13px;color:rgba(255,255,255,0.7);">Tap anywhere to dismiss</div>
+  `;
+  el.onclick=()=>el.remove();
+  document.body.appendChild(el);
+  setTimeout(()=>el?.remove(),15000);
+}
+
 function showReminderNotif(label,body){
-  if(!('Notification' in window)){console.warn('Notification API not supported');return;}
-  if(Notification.permission!=='granted'){console.warn('Notification permission:',Notification.permission);return;}
+  if(!('Notification' in window)||Notification.permission!=='granted')return;
   try{
     const n=new Notification('⏰ '+label,{body,tag:'chk_reminder'});
     n.onclick=()=>{window.focus();n.close();};
     setTimeout(()=>n.close(),20000);
-  }catch(e){console.warn('showReminderNotif:',e);}
+  }catch(e){console.warn('Notification:',e);}
 }
 
 function fireReminder(c){
-  const label=(c.check_time||'').slice(0,5)+' — Check Reminder';
-  const body=(c.note||'Check required')+(c.student_name?' · '+c.student_name:'');
+  const timeStr=(c.check_time||'').slice(0,5);
+  const note=c.note||'Check required';
+  const stu=c.student_name||'';
   playBeep();
   doVibrate();
-  showReminderNotif(label,body);
-  toast('⏰ '+(c.check_time||'').slice(0,5)+' — '+(c.note||'Check!')+(c.student_name?' · '+c.student_name:''));
+  showFlashAlert(timeStr,note,stu);          // works on ALL devices
+  showReminderNotif(timeStr+' — '+note, stu); // desktop Chrome/Edge bonus
+  toast('⏰ '+timeStr+' — '+note+(stu?' · '+stu:''));
 }
 
-// Single button: first tap = enable, subsequent taps = test
-async function alertsBtnClick(){
-  await initAudio(); // MUST be in user gesture
-  const audioOk=_audioCtx&&_audioCtx.state==='running';
+// Single button — sync AudioContext init MUST happen before any await
+function alertsBtnClick(){
+  initAudioSync(); // SYNC — must be first, before any await
+  _alertsBtnAsync(); // handle rest async
+}
+async function _alertsBtnAsync(){
   const notifGranted='Notification' in window&&Notification.permission==='granted';
-  // If not yet fully enabled — enable now
   if(!notifGranted&&'Notification' in window&&Notification.permission==='default'){
     const p=await Notification.requestPermission();
     updateNotifBtn();
-    if(p==='granted'){toast('🔔 All alerts enabled! Tap again to test.');}
-    else{toast('Sound & vibrate ON · Notifications blocked by browser');}
+    toast(p==='granted'?'🔔 All alerts enabled! Tap again to test.':'🔔 Sound & flash enabled (notifications blocked)');
     return;
   }
-  // Already enabled or can't get permission — run test
-  let msg='Test results: ';
-  msg+=audioOk?'🔊 Sound OK · ':'🔇 Sound FAIL · ';
-  msg+=navigator.vibrate?'📳 Vibrate OK · ':'📵 No vibrate · ';
-  msg+=notifGranted?'🔔 Notif OK':'🔕 Notif blocked';
-  playBeep();
-  doVibrate();
-  showReminderNotif('TEST — Reminder Working!','This is a test. If you see this, notifications work!');
-  toast(msg);
+  // Already set up — run test
+  const audioOk=_audioCtx&&_audioCtx.state==='running';
+  const parts=[audioOk?'🔊 Sound OK':'🔇 Sound FAIL',navigator.vibrate?'📳 Vibrate OK':'📵 No vibrate',notifGranted?'🔔 Notif OK':'🔕 No notif','🔴 Flash OK'];
+  playBeep();doVibrate();
+  showFlashAlert('TEST','Test reminder — if you see this it works!','');
+  showReminderNotif('TEST','Test reminder');
+  toast(parts.join(' · '));
   updateNotifBtn();
 }
 
@@ -3349,8 +3375,7 @@ function updateNotifBtn(){
   if(!btn)return;
   const audioOk=_audioCtx&&_audioCtx.state==='running';
   const notifOk='Notification' in window&&Notification.permission==='granted';
-  if(audioOk&&notifOk){btn.innerHTML='🔔 Alerts ON';btn.style.color='var(--g)';btn.style.borderColor='#0F6E56';}
-  else if(audioOk){btn.innerHTML='🔔 Sound ON';btn.style.color='var(--amb)';btn.style.borderColor='var(--bdr)';}
+  if(audioOk){btn.innerHTML=notifOk?'🔔 Alerts ON':'🔔 Sound ON';btn.style.color=notifOk?'var(--g)':'var(--amb)';btn.style.borderColor=notifOk?'#0F6E56':'var(--bdr)';}
   else{btn.innerHTML='🔕 Enable Alerts';btn.style.color='var(--mut)';btn.style.borderColor='var(--bdr)';}
 }
 
