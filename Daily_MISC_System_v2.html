@@ -511,7 +511,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--sur2);color:var(--txt);fo
 const B='\u2980';
 const H=(n,e='')=>`*${B}${B}${B}${B} ${n} ${B}${B}${B}${B}*`+(e?` ${e}`:'');
 const BD=s=>`*${s}*`;
-const today=()=>new Date().toISOString().slice(0,10);
+const today=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');};
 const nowT=()=>{const d=new Date();return`${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;};
 const fd=iso=>{if(!iso)return'';const[y,m,d]=iso.split('-');return`${d}/${m}/${y}`;};
 const fds=iso=>{try{return new Date(iso+'T12:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short'});}catch{return iso||'--';}};
@@ -997,7 +997,7 @@ const FORMATS=[
 },
 // ─ ITEMS ─
 {id:'FORGOT',label:'Forgot Items',cat:'Items',icon:'🎒',desc:'Per student — tap what they forgot',st:true,dk:null,
- sum:(v)=>v.prog?v.prog+' class':'—',
+ sum:(v)=>{const stus=[...new Set(Object.values(v.forgot||{}).flat())];return stus.length?stus.slice(0,2).join(', ')+(stus.length>2?' +':''):'—';},
  kw:['FORGOT SRK','FORGOT SRT','FORGOT ATC'],needH:false,needP:true,
  fields:[
   {id:'prog',label:'Program',type:'select',opts:['SRK','SRT','ATC'],req:true},
@@ -2729,8 +2729,13 @@ function detectFmt(hdr){
   return[...FORMATS].sort((a,b)=>Math.max(...b.kw.map(k=>k.length))-Math.max(...a.kw.map(k=>k.length))).find(f=>f.kw.some(kw=>n.includes(kw.toUpperCase())))||null;
 }
 function exDate(t){
-  let m=t.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+  // Priority 1: labelled "Date: DD/MM/YYYY" (avoid WhatsApp timestamp at top)
+  let m=t.match(/[Dd]ate\s*:\s*(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
   if(m){const y=+m[3],mo=+m[2]-1,d=+m[1];return`${y}-${String(mo+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;}
+  // Priority 2: any DD/MM/YYYY
+  m=t.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+  if(m){const y=+m[3],mo=+m[2]-1,d=+m[1];return`${y}-${String(mo+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;}
+  // Priority 3: DD/MM + day name
   m=t.match(/(\d{1,2})[\/\-](\d{1,2})\s+(Mon|Tue|Wed|Thu|Fri|Sat|Sun)/i);
   if(m){const y=new Date().getFullYear(),mo=+m[2]-1,d=+m[1];return`${y}-${String(mo+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;}
   return today();
@@ -2741,10 +2746,17 @@ function exStus(text){
   let m,r=/Student(?:\s+Name)?:\s*([A-Z][A-Z\s&]+?)(?:\n|$)/gi;
   while((m=r.exec(text))!==null){const n=m[1].replace(/[*⚠️\s]+$/,'').trim();if(n.length>2&&n.length<50)found.add(n);}
   r=/\*([A-Z][A-Z]{1,}(?:\s+[A-Z]+){1,4})\*/g;
-  const skip=/^(MON|TUE|WED|THU|FRI|SAT|SUN|JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC|SRK|SRT|ATC|OBSERVATION|ACTION TAKEN|INVESTIGATION|RESOLUTION|STAR|HEALTH REPORT|CLASS REPLACEMENT|CHANGE SLOT|BIRTHDAY|LOST ITEM|FOUND ITEM|UNFOUND BOOKS|BEHAVIOUR REPORT|LEARNING REPORT|SPECIAL CARE|PARENT REQUEST|PARENT COMPLAINT|PICKUP|EMOTION|F UP MEDICINE|FORGOT|PRESENT SHARING|LATE HOMEWORK|PENCIL GRIP PROBLEM)$/;
+  const skip=/^(MON|TUE|WED|THU|FRI|SAT|SUN|JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC|SRK|SRT|ATC|OBSERVATION|ACTION TAKEN|INVESTIGATION|RESOLUTION|STAR|HEALTH REPORT|CLASS REPLACEMENT|CHANGE SLOT|BIRTHDAY|LOST ITEM|FOUND ITEM|UNFOUND BOOKS|BEHAVIOUR REPORT|LEARNING REPORT|SPECIAL CARE|PARENT REQUEST|PARENT COMPLAINT|PICKUP|EMOTION|F UP MEDICINE|FORGOT|PRESENT SHARING|LATE HOMEWORK|PENCIL GRIP PROBLEM|NO WATER BOTTLE|NO PENCIL BOX|NO SCHOOL BAG|NO LUNCH BOX|NO STATIONERY)$/;
   while((m=r.exec(text))!==null){const n=m[1].trim();if(!skip.test(n))found.add(n);}
   r=/^\d+\.\s+([A-Z][A-Z &\/]{2,35})(?:\s*[-–\n]|$)/gm;
   while((m=r.exec(text))!==null){const n=m[1].replace(/[*]/g,'').trim();if(n.length>3&&!/^(LV\d|JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC|MON|TUE|WED)/.test(n))found.add(n);}
+  // Plain uppercase name lines — catches FORGOT format student names (no label/bold/number)
+  r=/^([A-Z][A-Z\s\/&]{4,59})$/gm;
+  const skipLine=/^(SRK|SRT|ATC|MON|TUE|WED|THU|FRI|SAT|SUN|NO\s|FULL DAY|HALF|AL|MC|EL|UL|TIME OFF|PRE.INFORMATION|REPORTED BY|DATE|TIME|REMARKS|ACTION TAKEN|FOLLOW UP)$/;
+  while((m=r.exec(text))!==null){
+    const n=m[1].trim();
+    if(n.length>5&&n.length<60&&!skipLine.test(n)&&/[A-Z]{2,}/.test(n)&&n.split(' ').length>=2)found.add(n);
+  }
   return[...found].slice(0,15);
 }
 
@@ -2907,21 +2919,19 @@ function renderMgmtReport(cat){
   if(cat!==undefined)mRepCat=cat;else cat=mRepCat;
   const el=document.getElementById('mreport-content')||document.getElementById('mp-mreport');
   if(!el)return;
-  const SKIP=['Schedule','Events']; // Attendance now included
-  // Tabs - follow CATS order
+  // Tabs - only show categories that have non-outbox formats
   let tabs='<div class="tab-strip">';
   tabs+='<button class="xtab '+(cat==='ALL'?'on':'')+'" onclick="renderMgmtReport(\'ALL\')">All</button>';
   Object.keys(CATS).forEach(function(ct){
-    if(SKIP.includes(ct))return;
-    if(!FORMATS.some(function(f){return f.cat===ct;}))return;
+    if(!FORMATS.some(function(f){return f.cat===ct&&!f.dk;}))return;
     var cm=CATS[ct];
     tabs+='<button class="xtab '+(cat===ct?'on':'')+'" onclick="renderMgmtReport(\''+ct+'\')">'+(cm?cm.icon+' ':'')+ct+'</button>';
   });
   tabs+='</div>';
-  // Formats - follow CATS order, skip Schedule/Events outbox items
+  // Formats - outbox accumulator formats (dk) shown in Outbox only, not here
   var show=FORMATS.filter(function(f){
     if(cat!=='ALL'&&f.cat!==cat)return false;
-    if(SKIP.includes(f.cat)&&f.dk)return false;
+    if(f.dk)return false;
     return true;
   });
   var body='';
