@@ -2248,8 +2248,16 @@ function parseLog(){
   document.getElementById('prev-panel2').classList.add('on');
 }
 function confirmSave(){
-  pendingRecs.forEach(p=>S.records.unshift({id:'r_'+Date.now()+'_'+Math.random().toString(36).slice(2,5),type:p.fmt.id,cat:p.fmt.cat,raw:p.raw,date:p.date,students:p.students,handled:false,parentNotified:false,remarks:'',status:'open',followUpDate:'',createdAt:Date.now()}));
-  save();clearLog();toast(`✓ ${pendingRecs.length} record${pendingRecs.length>1?'s':''} saved`);pendingRecs=[];renderDash();
+  const count=pendingRecs.length;
+  pendingRecs.forEach(p=>{
+    const rec={id:'r_'+Date.now()+'_'+Math.random().toString(36).slice(2,5),type:p.fmt.id,cat:p.fmt.cat,raw:p.raw,date:p.date,students:p.students,handled:false,parentNotified:false,remarks:'',status:'open',followUpDate:'',createdAt:Date.now()};
+    S.records.unshift(rec);
+    pushRecordToSupabase(rec);
+  });
+  save();
+  clearLog();
+  toast(`✓ ${count} record${count>1?'s':''} saved`);
+  renderDash();
 }
 
 // ══ RECORD MODAL ══
