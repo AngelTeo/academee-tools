@@ -3502,6 +3502,8 @@ function stopCheckReminder(){
 
 loadS();
 document.getElementById('entry-ini').value=getIni();
+// Auto-init OneSignal on every page load (registers service worker silently)
+osInit();
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
 </script>
 
