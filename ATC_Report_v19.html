@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ATC 学习进度报告 v19</title>
+<title>ATC 学习进度报告 v20</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&family=DM+Mono:wght@400;500&display=swap');
 :root{--bg:#f5f3ef;--s:#fff;--s2:#f0ede8;--bd:#e2ddd6;--ac:#2d6a4f;--ac2:#52b788;--acl:#d8f3dc;--wn:#e76f51;--wnl:#fde8e0;--bl:#4a90d9;--bll:#e8f2fc;--pu:#7c5cbf;--gd:#d4a017;--gdl:#fdf6e3;--tx:#1a1a1a;--tx2:#6b6560;--tx3:#9e9890}
@@ -612,10 +612,10 @@ function buildStudentForm(stuName,o,d){
   h+='</div></div>';
 
   // Highlights
-  h+=`<div style="margin-bottom:12px"><div style="font-size:11px;font-weight:700;color:var(--tx3);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px">✨ 学生亮点</div>`;
-  const hlCats=[{t:'🎓 学习表现',items:hlItems},{t:'💪 学习态度',items:attItems},{t:'🌟 品格表现',items:charItems}];
+  h+=`<div style="margin-bottom:12px"><div style="font-size:11px;font-weight:700;color:var(--tx3);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px">✨ 老师的观察（勾选 + 可补充真实观察）</div><div style="font-size:11px;color:var(--bl);background:var(--bll);padding:7px 10px;border-radius:6px;margin-bottom:10px">💡 勾选适合的描述，也可以在下方补充真实画面——优点或缺点都行，我们会帮你整理成合适的语言</div>`;
+  const hlCats=[{t:'🎓 学习表现',sub:'勾选观察到的，下方可补充具体情况',items:hlItems},{t:'💪 学习态度',sub:'包括专注力、积极性、面对困难的反应',items:attItems},{t:'🌟 品格表现',sub:'包括与同学相处、礼貌、情绪管理',items:charItems}];
   hlCats.forEach((cat,ci)=>{
-    h+=`<div class="hlcat"><div class="hlcat-t">${cat.t}</div><div class="chiprow">`;
+    h+=`<div class="hlcat"><div class="hlcat-t">${cat.t}<span style="font-size:10px;font-weight:400;color:var(--tx3);margin-left:6px">${cat.sub||''}</span></div><div class="chiprow">`;
     cat.items.forEach(item=>{
       const note=getNote(savedHL,item);
       h+=`<div class="chipw"><div class="hlchip${isHL(item)?' on':''}" onclick="toggleHLC(this)">${item}</div><input class="cnote${isHL(item)?' show':''}" type="text" value="${note}" placeholder="例子..."></div>`;
@@ -623,7 +623,7 @@ function buildStudentForm(stuName,o,d){
     h+='</div>';
     const customKey=['academic','attitude','character'][ci];
     const customVal=d['hlCustom_'+customKey]||'';
-    h+=`<input type="text" class="cust" id="hlc-${safeId}-${customKey}" value="${customVal}" placeholder="✏️ 其他亮点..."></div>`;
+    h+=`<input type="text" class="cust" id="hlc-${safeId}-${customKey}" value="${customVal}" placeholder="✏️ 补充真实观察（好的坏的都可以写，我们会帮你整理）..."></div>`;
   });
   h+='</div>';
 
@@ -643,14 +643,24 @@ function buildStudentForm(stuName,o,d){
   });
   h+=`</div><input type="text" class="cust custwk" id="wkc-${safeId}" value="${d.customWk||''}" placeholder="✏️ 其他需加强..."></div></div>`;
 
-  // Attitude + optional
-  h+=`<div class="seclabel"><div class="dot db"></div><div>课堂表现与学习态度</div></div>
-  <div class="hint">💡 2–3句关于这个孩子的真实观察</div>
-  <div class="fr"><textarea id="att-${safeId}" rows="3" placeholder="例：这位同学每次上课都很开心...">${d.attitude||''}</textarea></div>
-  <div class="seclabel"><div class="dot dp"></div><div>老师将采取的行动<span class="opt">选填</span></div></div>
-  <div class="fr"><textarea id="act-${safeId}" rows="2" placeholder="例：老师将多给予个别辅导...">${d.action||''}</textarea></div>
-  <div class="seclabel"><div class="dot do"></div><div>给家长的建议<span class="opt">选填</span></div></div>
-  <div class="fr"><textarea id="par-${safeId}" rows="2" placeholder="例：建议家长每天陪读10分钟...">${d.parentSuggestion||''}</textarea></div>`;
+  // Classroom observation (required)
+  const savedActChk=(d.actionChecks||'').split('｜').filter(Boolean);
+  h+=`<div class="seclabel"><div class="dot db"></div><div>📸 课堂真实画面 <span style="color:var(--wn);font-size:10px">必填</span></div></div>
+  <div class="hint">💡 写一个<strong>真实的课堂画面</strong>——这孩子说了什么、做了什么、有什么反应？越具体越好，我们用这个整理出有温度的报告<br>
+  ✅ 好例子：上周做错了一道题，他擦掉重新算，第三次做对了，笑着举手说"老师我会了！"<br>
+  ❌ 不好：上课表现良好 / 各项都需加强</div>
+  <div class="fr"><textarea id="att-${safeId}" rows="4" placeholder="例：她每次听到新题目会先皱眉想一想，不会马上举手问。上周科学课做实验，她主动帮组员记录，很有条理。">${d.attitude||''}</textarea></div>
+  
+  <div class="seclabel"><div class="dot dp"></div><div>👩‍🏫 老师已做 / 会做的事 <span style="color:var(--tx3);font-size:10px">勾选 + 可补充</span></div></div>
+  <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">
+    ${['个别辅导','鼓励多发问','额外练习题','考前重点复习','家长沟通跟进','调整教学方式','情绪支持陪伴','加强基础概念'].map(a=>`<label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;padding:5px 10px;border:1.5px solid var(--bd);border-radius:8px;background:${savedActChk.includes(a)?'var(--acl)':'var(--s)'};color:${savedActChk.includes(a)?'var(--ac)':'var(--tx2)'}">
+      <input type="checkbox" style="display:none" onchange="toggleActChk(this,'${safeId}')" ${savedActChk.includes(a)?'checked':''}>${a}</label>`).join('')}
+  </div>
+  <input type="text" class="cust" id="act-${safeId}" value="${d.action||''}" placeholder="✏️ 其他补充...">
+  
+  <div class="seclabel"><div class="dot do"></div><div>🏠 考前家长可以配合 <span style="color:var(--tx3);font-size:10px">选填</span></div></div>
+  <div style="font-size:11px;color:var(--tx3);margin-bottom:6px">具体一点会更有帮助，家长比较容易执行</div>
+  <div class="fr"><textarea id="par-${safeId}" rows="2" placeholder="例：考前两天让他早点睡，不需要额外加练习。或：每天睡前帮她温习一下当天学的生字，10分钟就好。">${d.parentSuggestion||''}</textarea></div>`;
 
   return h;
 }
@@ -685,6 +695,17 @@ function checkClick(el,t){
 
 function chipVal(el){const n=el.closest('.chipw').querySelector('.cnote').value.trim();return n?`${el.textContent.trim()}(${n})`:el.textContent.trim();}
 
+function toggleActChk(cb,safeId){
+  const lbl=cb.closest('label');
+  if(cb.checked){lbl.style.background='var(--acl)';lbl.style.color='var(--ac)';}
+  else{lbl.style.background='var(--s)';lbl.style.color='var(--tx2)';}
+}
+
+function getActChecks(safeId){
+  const body=document.getElementById('acc-'+safeId).querySelector('.stu-body');
+  return [...body.querySelectorAll('input[type=checkbox]:checked')].map(cb=>cb.closest('label').textContent.trim()).join('｜');
+}
+
 function saveStuData(safeId,stuName){
   const body=document.getElementById('acc-'+safeId).querySelector('.stu-body');
   const tp=(body.querySelector('.tp-btn.sel')||{}).textContent?.split('\n')[0]||'';
@@ -707,7 +728,9 @@ function saveStuData(safeId,stuName){
   sessionData[stuName]={
     student:stuName, class:curCls, subject:curSubj, teacher:curName,
     tp, highlights:hl.join('｜'), strengths:str.join('｜'), weaknesses:wk.join('｜'),
-    attitude:att, action:document.getElementById('act-'+safeId).value.trim(),
+    attitude:att,
+    actionChecks:getActChecks(safeId),
+    action:document.getElementById('act-'+safeId).value.trim(),
     parentSuggestion:document.getElementById('par-'+safeId).value.trim(),
     hlCustom_academic:document.getElementById(`hlc-${safeId}-academic`).value.trim(),
     hlCustom_attitude:document.getElementById(`hlc-${safeId}-attitude`).value.trim(),
@@ -801,7 +824,7 @@ function processFiles(files){
         data.submissions.forEach(sub=>{
           const key=sub.student.replace(/\s*\([^)]+\)\s*$/,'').trim(); // strip class code
           if(!cData[key]) cData[key]={};
-          cData[key][sub.subject]={tch:sub.teacher,tp:sub.tp,hl:sub.highlights,str:sub.strengths,wk:sub.weaknesses,att:sub.attitude,act:sub.action,par:sub.parentSuggestion,cls:sub.class};
+          cData[key][sub.subject]={tch:sub.teacher,tp:sub.tp,hl:sub.highlights,str:sub.strengths,wk:sub.weaknesses,att:sub.attitude,actChk:sub.actionChecks||'',act:sub.action,par:sub.parentSuggestion,cls:sub.class};
           count++;
         });
         successCount++;
@@ -861,7 +884,7 @@ function loadSampleMgr(){
   submissions.forEach(sub=>{
     const key=sub.student; // Clean name, no class code
     if(!cData[key]) cData[key]={};
-    cData[key][sub.subject]={tch:sub.teacher,tp:sub.tp,hl:sub.highlights,str:sub.strengths,wk:sub.weaknesses,att:sub.attitude,act:sub.action,par:sub.parentSuggestion,cls:sub.cls};
+    cData[key][sub.subject]={tch:sub.teacher,tp:sub.tp,hl:sub.highlights,str:sub.strengths,wk:sub.weaknesses,att:sub.attitude,actChk:sub.actionChecks||'',act:sub.action,par:sub.parentSuggestion,cls:sub.cls};
   });
   document.getElementById('imp-log').innerHTML=`<div class="alert">✅ 示例数据已载入（3名学生 · 多科目）</div>`;
   renderMgrProg();
@@ -1051,46 +1074,73 @@ function buildPrompt(stu,data,subjs,prevReports=[]){
 
   const allHL=new Set();
   subjs.forEach(s=>{if(data[s].hl)data[s].hl.split('｜').forEach(h=>h&&allHL.add(cleanLabel(h.trim())))});
+
+  // Build per-subject data with sensitive content transformation
+  const SENSITIVE_MAP=[
+    {p:/不礼貌|没礼貌|无礼/,r:'正在学习课堂礼仪'},
+    {p:/吵[闹架]|很吵|爱吵|影响他人|影响老师|影响课堂/,r:'课堂上比较活跃，需要引导专注'},
+    {p:/不认真|不专心|懒散|懒惰/,r:'专注力还在培养中'},
+    {p:/打瞌睡|睡觉/,r:'有时需要老师提醒专注'},
+    {p:/不主动发问|不敢发问/,r:'发问意愿还在鼓励中'},
+    {p:/容易放弃|自我放弃|不愿尝试/,r:'遇到困难时需要多一些鼓励'},
+    {p:/不服|不削|不耐烦/,r:'情绪管理还在引导中'},
+    {p:/骂她?他?时/,r:'老师纠正时'},
+    {p:/各项都很弱|各项都需加强|各项都需多多加强|需多多加强/,r:'整体还在打基础阶段'},
+    {p:/没有强项|没有|None/,r:''},
+  ];
+  function sanitize(text){
+    if(!text)return text;
+    let t=text;
+    SENSITIVE_MAP.forEach(({p,r})=>{t=t.replace(p,r);});
+    return t.trim();
+  }
+
   let sd='';
+  let allActChks=new Set();
   subjs.forEach(s=>{
     const d=data[s];
-    sd+=`\n【${s}】（TP内部参考：${d.tp||'?'}，不可写出）\n`;
+    sd+=`\n【${s}科】（TP仅供语气参考：${d.tp||'?'}，不可写出数字或等级）\n`;
     const curr=currYear[s];
-    if(curr)sd+=`小学${yr}年级${s}课程范围（必须在此范围内写评语）：${curr}\n`;
-    if(d.att)sd+=`课堂观察：${d.att}\n`;
-    if(d.str)sd+=`表现好的地方：${d.str.split('｜').filter(Boolean).map(cleanLabel).join('、')}\n`;
-    if(d.wk)sd+=`需要练习的地方：${d.wk.split('｜').filter(Boolean).map(cleanLabel).join('、')}\n`;
-    if(d.act)sd+=`老师会做的：${d.act}\n`;
-    if(d.par)sd+=`可以请家长配合：${d.par}\n`;
+    if(curr)sd+=`${yr}年级${s}课程范围（报告内容必须在此范围内）：${curr}\n`;
+    if(d.att)sd+=`📸 老师的真实课堂画面：${d.att}\n`;
+    const strList=d.str?d.str.split('｜').filter(Boolean).map(cleanLabel).filter(v=>v&&!v.match(/^(None|没有|各项|需加强|中等|待加强)$/i)):[];
+    if(strList.length)sd+=`✅ 做得好的地方：${strList.join('、')}\n`;
+    const wkList=d.wk?d.wk.split('｜').filter(Boolean).map(cleanLabel).filter(v=>v&&!v.match(/^(各项|都非常好|都还不错)$/i)):[];
+    if(wkList.length)sd+=`📌 需要加强的地方：${wkList.join('、')}\n`;
+    if(d.actChk)d.actChk.split('｜').filter(Boolean).forEach(a=>allActChks.add(a));
+    if(d.act)sd+=`老师补充：${d.act}\n`;
+    if(d.par)sd+=`考前家长可配合：${d.par}\n`;
   });
 
-  return `你是Academee ATC教育中心一位有爱心、有经验的老师，正在给家长发WhatsApp消息，分享孩子在ATC课堂的学习近况。
+  const actChkStr=[...allActChks].join('、');
 
-【孩子信息】${cleanStu}，小学${yr}年级，约${age}岁。
+  return `你是Academee ATC教育中心一位真诚有温度的老师，正在给家长发一条WhatsApp消息，分享孩子在ATC课堂的学习情况。这份报告在考试前发出，目的是让家长安心、信任老师、感受到老师真的看见了孩子。
+
+【孩子信息】${cleanStu}，小学${yr}年级，约${age}岁
 【语气指引】${tpGuidance}
-${allHL.size?`【老师观察到的亮点】${[...allHL].join('、')}\n`:''}
+${allHL.size?`【老师观察到的孩子特质】${[...allHL].join('、')}\n`:''}
 ${sd}
-
-【重要写作规则】
-1. 马来西亚华人日常语气，加入"呢"、"哦"、"啊"、"其实"、"慢慢来"等，像老师跟家长聊天
-2. 内容必须符合小学${yr}年级程度，不要写超出课程范围的东西
-3. 每科必须有优有弱——小学生没有完美的！弱点用正面建设性语言，如"目前还在练习中呢"
-4. TP等级和数字绝对不能出现在报告里
-5. 亮点整合成自然段落，不要列点
-
-${prevReports.length>0?`【历史报告参考 — 防止自相矛盾】
-以下是之前发给这位家长的报告摘要。请确保这次的评语：
-- 不与之前的说法自相矛盾
-- 如果有进步，明确指出（如"比上次更...了"）
-- 如果某方面仍需加强，保持一致但语气要有新鲜感
-${prevReports.map((r,i)=>`\n上${i===0?'一':'两'}次报告（${r.year}年${r.month}月）摘要：\n${r.reportText?r.reportText.substring(0,200)+'...':''}`).join('\n')}
+${actChkStr?`【老师已经/会做的事】${actChkStr}（请在报告结尾自然提及，让家长感受到老师的用心）\n`:''}
+${prevReports.length>0?`【历史报告参考 — 确保不自相矛盾】
+${prevReports.map((r,i)=>`上${i===0?'一':'两'}次报告（${r.year}年${r.month}月）：${r.reportText?r.reportText.substring(0,200)+'...':''}`).join('\n')}
 `:''}
-【结尾必须自然包含】
-① 一两句育儿智慧（轻松降低家长对成绩的焦虑，点到为止）
-② 用朋友聊天的方式说明课堂观察与考试成绩可能有差异是正常的
-③ 下一阶段老师会如何继续帮助孩子（让家长感受续费价值）
+【写作核心原则】
+1. 语气像认识了三个月的老师朋友在跟家长聊天——用"呢"、"哦"、"啊"、"其实"、"慢慢来"、"放心"
+2. 真诚比完美重要。每个孩子都有成长空间，缺点要说出来，但用建设性的方式：不说"他不专心"，说"专注力还在培养中，老师会持续引导呢"
+3. 如果老师填的课堂画面有具体细节，一定要用——这是报告最有温度的部分
+4. 内容必须符合小学${yr}年级课程范围，不写超纲内容
+5. TP等级和数字绝对不出现在报告里
+6. 不要逐科列点，要融合成自然流畅的段落
 
-【格式】WhatsApp，*粗体*标题，📚开头，约350-450字，只输出报告本身`;
+【报告结构（自然融合，不要标题）】
+① 开头：用一个温暖的观察切入，让家长感受到"老师真的认识我的孩子"
+② 中间：各科表现——优点具体真实，缺点诚实但温和，说明老师会如何跟进
+③ 结尾三要素（自然融入，不要编号）：
+   - 一句轻松的育儿智慧（降低考试焦虑，点到为止）
+   - 课堂表现和考试成绩有时会有落差，这是正常的（朋友语气说）
+   - 老师接下来会继续做什么（让家长感受到续费的价值）
+
+【格式】WhatsApp消息，*粗体*标题，📚开头，350-400字，只输出报告本身，不要任何前言或解释`;
 }
 
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbxHGIsicvJ1RslzBM4DFROxaOARh2hatUU346V2bhtlM1b5_3nUBRQm9VPmX-XJyxT95w/exec';
