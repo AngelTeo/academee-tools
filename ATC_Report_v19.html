@@ -225,6 +225,19 @@ hr{border:none;border-top:1px solid var(--bd);margin:16px 0}
         <div style="font-size:11px;color:var(--tx3);margin-top:6px">点击学生名字展开填写 / Tap student name to fill in</div>
       </div>
 
+      <!-- Restore from JSON -->
+      <div id="restore-bar" style="display:flex;align-items:center;gap:8px;margin-bottom:10px;padding:10px 12px;background:var(--gdl);border:1.5px dashed var(--gd);border-radius:10px">
+        <div style="flex:1">
+          <div style="font-size:12px;font-weight:600;color:#7c5a00">🔄 恢复上次填写的数据 / Restore Previous Data</div>
+          <div style="font-size:11px;color:#9a7020;margin-top:2px">上传之前导出的文件，所有填写内容会自动恢复 / Upload your previously exported file to restore all data</div>
+        </div>
+        <label style="cursor:pointer;padding:8px 14px;background:var(--gd);color:#fff;border-radius:8px;font-size:12px;font-weight:600;white-space:nowrap">
+          📂 选择文件
+          <input type="file" accept=".json" style="display:none" onchange="restoreFromJson(event)">
+        </label>
+      </div>
+      <div id="restore-status" style="margin-bottom:8px"></div>
+
       <!-- Student accordion list -->
       <div id="acc-list"></div>
 
@@ -861,6 +874,80 @@ function exportFile(){
   const key=`atc_sess_${curCls}_${curSubj}_${curName}`;
   localStorage.removeItem(key);
   alert(`✅ 文件已导出！请用 WhatsApp 把文件发给负责人。\n\n文件名：${a.download}`);
+}
+
+// ===== RESTORE FROM JSON =====
+function restoreFromJson(event){
+  const file = event.target.files[0];
+  if(!file) return;
+  const status = document.getElementById('restore-status');
+  status.innerHTML = '<div class="alerti alert" style="font-size:12px">⏳ 恢复中...</div>';
+
+  const reader = new FileReader();
+  reader.onload = function(ev){
+    try{
+      const data = JSON.parse(ev.target.result);
+      if(!data.submissions || !data.meta) throw new Error('格式不对');
+
+      // Check class & subject match
+      const fileCls = data.meta.class;
+      const fileSubj = data.meta.subject;
+
+      if(fileCls !== curCls){
+        status.innerHTML = `<div class="alertw alert" style="font-size:12px">❌ 班级不符：文件是 ${fileCls}，你目前选的是 ${curCls}</div>`;
+        return;
+      }
+      if(fileSubj !== curSubj){
+        status.innerHTML = `<div class="alertw alert" style="font-size:12px">❌ 科目不符：文件是 ${fileSubj}，你目前选的是 ${curSubj}</div>`;
+        return;
+      }
+
+      // Restore each student's data into sessionData
+      let restored = 0;
+      data.submissions.forEach(sub => {
+        const stuName = sub.student;
+        sessionData[stuName] = {
+          student: stuName,
+          class: sub.class,
+          subject: sub.subject,
+          teacher: sub.teacher || curName,
+          tp: sub.tp || '',
+          highlights: sub.highlights || '',
+          strengths: sub.strengths || '',
+          weaknesses: sub.weaknesses || '',
+          attitude: sub.attitude || '',
+          actionChecks: sub.actionChecks || '',
+          action: sub.action || '',
+          parentSuggestion: sub.parentSuggestion || '',
+          hlCustom_academic: sub.hlCustom_academic || '',
+          hlCustom_attitude: sub.hlCustom_attitude || '',
+          hlCustom_character: sub.hlCustom_character || '',
+          customStr: sub.customStr || '',
+          customWk: sub.customWk || ''
+        };
+        restored++;
+      });
+
+      // Save to localStorage
+      const key = `atc_sess_${curCls}_${curSubj}_${curName}`;
+      localStorage.setItem(key, JSON.stringify(sessionData));
+
+      // Rebuild accordion with restored data
+      buildAccordion();
+      updateExportSection();
+
+      const teacher = data.meta.teacher || curName;
+      const dateStr = data.meta.exportDate || '';
+      status.innerHTML = `<div class="alert" style="font-size:12px">✅ 成功恢复 ${restored} 名学生的数据！（来自 ${teacher} · ${dateStr}）<br><span style="font-size:11px;color:var(--tx3)">请检查数据是否正确，有需要可以修改后重新导出。</span></div>`;
+
+      // Reset file input
+      event.target.value = '';
+
+    } catch(err){
+      status.innerHTML = `<div class="alertw alert" style="font-size:12px">❌ 恢复失败：${err.message}</div>`;
+    }
+  };
+  reader.readAsText(file);
 }
 
 // ===== MANAGER =====
