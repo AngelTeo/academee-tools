@@ -1749,7 +1749,7 @@ async function syncAllFromSupabase(){
         raw:r.details||'',
         date:r.report_date||(r.created_at?r.created_at.slice(0,10):''),
         students:r.student_name&&r.student_name!=='(no student)'?[r.student_name]:[],
-        summary:r.student_name||'',
+        summary:r.summary||'',
         status:r.status||'open',
         flagged:r.flagged||false,
         followUpDate:r.follow_up_date||'',
