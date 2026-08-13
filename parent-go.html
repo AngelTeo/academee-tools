@@ -258,7 +258,7 @@ const MGMT_PW='MISCSRK2026';
 const KEY='parentgo_v1';
 const INI_KEY='ini_v4'; // Shared with MISC — same initials
 
-const PROGRAMS=['SRK','SRT','ATC']; // Order matters
+const PROGRAMS=['SRK','SRT','ATC','GAK']; // Order matters
 const DEFAULT_PROG='SRK';
 const COMM_TYPES=[
   {id:'call',label:'📞 Phone Call'},
@@ -373,9 +373,31 @@ async function syncAll(){
   }
 }
 async function syncStudents(){
-  const {data,error}=await _sb.from('students').select('name,class,prog').order('name');
-  if(error){console.warn('students sync',error);return;}
-  if(data){S.students=data;save();console.log('📥 Students:',data.length);}
+  // New schema: name_en (display name), dept_group (array), status
+  // Only Active students, paginate to bypass 1000-row limit
+  let all=[];
+  let from=0;
+  const PAGE=1000;
+  while(from<10000){
+    const {data,error}=await _sb.from('students')
+      .select('name_en,name_cn,dept_group,status')
+      .eq('status','Active')
+      .order('name_en',{ascending:true})
+      .range(from,from+PAGE-1);
+    if(error){console.warn('students sync',error);return;}
+    if(!data||!data.length)break;
+    all=all.concat(data);
+    if(data.length<PAGE)break;
+    from+=PAGE;
+  }
+  // Normalize to internal shape: {name, progs[]}
+  S.students=all.map(r=>({
+    name:r.name_en||'',
+    name_cn:r.name_cn||'',
+    progs:Array.isArray(r.dept_group)?r.dept_group.map(p=>String(p).toUpperCase()):[]
+  })).filter(s=>s.name);
+  save();
+  console.log('📥 Students (Active):',S.students.length);
 }
 async function syncComms(){
   // Paginate to fetch all
@@ -434,8 +456,8 @@ async function syncFromCloud(){await syncAll();}
 
 // ══ COVERAGE VIEW ══
 function renderCoverage(){
-  // Filter students by selected program
-  const studs=S.students.filter(s=>(s.prog||'').toUpperCase()===_selProg);
+  // Filter students by selected program (dept_group is an array — student can belong to multiple)
+  const studs=S.students.filter(s=>(s.progs||[]).includes(_selProg));
   const search=(document.getElementById('search-in')?.value||'').toUpperCase();
   // Build per-student stats
   const rows=studs.map(s=>{
@@ -460,12 +482,12 @@ function renderCoverage(){
   // Update program tabs
   const tabsEl=document.getElementById('prog-tabs');
   tabsEl.innerHTML=PROGRAMS.map(p=>{
-    const cnt=S.students.filter(s=>(s.prog||'').toUpperCase()===p).length;
+    const cnt=S.students.filter(s=>(s.progs||[]).includes(p)).length;
     return `<button class="prog-tab ${p===_selProg?'on':''}" onclick="setProg('${p}')">${p} (${cnt})</button>`;
   }).join('');
 
   // Update metrics
-  const allProgStuds=S.students.filter(s=>(s.prog||'').toUpperCase()===_selProg);
+  const allProgStuds=S.students.filter(s=>(s.progs||[]).includes(_selProg));
   const allRows=allProgStuds.map(s=>{
     const list=S.comms.filter(c=>c.student===s.name);
     if(!list.length)return {status:'never'};
@@ -558,7 +580,7 @@ function openNewComm(prefillStudent){
   const initialStudent=prefillStudent||linkedInfo?.student||'';
   const initialSubject=linked?'event_followup':'other';
 
-  // Build student datalist
+  // Build student datalist (sorted alphabetically by name_en)
   const studOptions=S.students.map(s=>`<option value="${esc(s.name)}">`).join('');
 
   openModal(
