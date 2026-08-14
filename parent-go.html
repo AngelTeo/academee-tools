@@ -59,15 +59,17 @@ html,body{background:var(--sur2);color:var(--txt);font-family:'DM Sans',sans-ser
 .pill{display:inline-flex;align-items:center;gap:6px;background:var(--navy);color:#fff;padding:7px 14px;border-radius:20px;font-weight:600;font-size:13px;margin-bottom:8px;}
 
 /* Metric cards row */
-.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;}
-.metric{background:var(--sur);border-radius:var(--r);padding:14px 12px;box-shadow:var(--sh);text-align:center;border:.5px solid var(--bdr);}
-.metric-num{font-size:28px;font-weight:800;margin-bottom:2px;}
-.metric-lab{font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.06em;font-weight:600;}
+.metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px;}
+.metric{background:var(--sur);border-radius:var(--r);padding:16px 12px;box-shadow:var(--sh);text-align:center;border:.5px solid var(--bdr);}
+.metric-num{font-size:34px;font-weight:800;margin-bottom:4px;line-height:1;}
+.metric-lab{font-size:12px;color:var(--txt2);text-transform:uppercase;letter-spacing:.05em;font-weight:700;margin-bottom:4px;}
+.metric-sub{font-size:11px;color:var(--mut);font-weight:500;}
+.m-red{border-left:4px solid var(--red2);}
 .m-red .metric-num{color:var(--red2);}
 .m-yel .metric-num{color:var(--yel2);}
 .m-grn .metric-num{color:var(--grn2);}
 .m-gry .metric-num{color:var(--gry2);}
-@media(max-width:640px){.metrics{grid-template-columns:repeat(2,1fr);}.metric-num{font-size:22px;}}
+@media(max-width:640px){.metrics{grid-template-columns:1fr;}.metric-num{font-size:28px;}}
 
 /* Program tabs (SRK / SRT / ATC) */
 .prog-tabs{display:flex;gap:8px;margin-bottom:16px;overflow-x:auto;padding-bottom:2px;}
@@ -83,10 +85,11 @@ html,body{background:var(--sur2);color:var(--txt);font-family:'DM Sans',sans-ser
 
 /* Coverage table */
 .cov-card{background:var(--sur);border-radius:var(--r);box-shadow:var(--sh);border:.5px solid var(--bdr);overflow:hidden;margin-bottom:20px;}
-.cov-head{display:grid;grid-template-columns:1fr 130px 90px 80px 120px;gap:8px;padding:12px 16px;background:var(--sur2);font-size:11px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--bdr);}
-.cov-row{display:grid;grid-template-columns:1fr 130px 90px 80px 120px;gap:8px;padding:12px 16px;border-bottom:.5px solid var(--bdr);align-items:center;cursor:pointer;transition:background .1s;}
+.cov-head{display:grid;grid-template-columns:2fr 110px 68px 68px 68px 60px 110px;gap:6px;padding:12px 14px;background:var(--sur2);font-size:11px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--bdr);}
+.cov-row{display:grid;grid-template-columns:2fr 110px 68px 68px 68px 60px 110px;gap:6px;padding:12px 14px;border-bottom:.5px solid var(--bdr);align-items:center;cursor:pointer;transition:background .1s;}
 .cov-row:last-child{border-bottom:none;}
 .cov-row:hover{background:var(--sur2);}
+.cov-head-ctr{text-align:center;}
 .cov-name{font-weight:600;font-size:13px;color:var(--txt);}
 .cov-last{font-size:12px;color:var(--txt2);}
 .cov-days{font-size:12px;font-weight:700;text-align:center;}
@@ -96,10 +99,17 @@ html,body{background:var(--sur2);color:var(--txt);font-family:'DM Sans',sans-ser
 .st-yel{background:var(--yel3);color:var(--yel2);}
 .st-grn{background:var(--grn3);color:var(--grn2);}
 .st-gry{background:var(--gry3);color:var(--gry2);}
+.cov-class{font-size:11px;color:var(--txt2);font-weight:600;background:var(--sur2);padding:3px 7px;border-radius:6px;display:inline-block;}
+.date-chip{font-size:11px;font-weight:700;text-align:center;padding:5px 4px;border-radius:6px;background:var(--g3);color:var(--g2);font-family:'DM Sans',sans-serif;}
+.date-chip.dc-empty{background:var(--sur2);color:var(--mut);font-weight:400;}
+.date-chip.dc-more{background:var(--gry3);color:var(--gry2);}
+.cov-total{font-size:12px;font-weight:700;color:var(--navy);text-align:center;}
 @media(max-width:768px){
-  .cov-head{grid-template-columns:1fr 90px 90px;gap:6px;padding:10px;font-size:10px;}
-  .cov-row{grid-template-columns:1fr 90px 90px;gap:6px;padding:10px;}
+  .cov-head{grid-template-columns:1.4fr 60px 60px 60px 85px;gap:5px;padding:10px 8px;font-size:9px;}
+  .cov-row{grid-template-columns:1.4fr 60px 60px 60px 85px;gap:5px;padding:10px 8px;}
   .cov-head-hide-mob,.cov-row-hide-mob{display:none;}
+  .cov-class{font-size:10px;padding:2px 5px;}
+  .date-chip{font-size:10px;padding:4px 2px;}
 }
 
 /* Action buttons */
@@ -144,6 +154,8 @@ html,body{background:var(--sur2);color:var(--txt);font-family:'DM Sans',sans-ser
 .tl-item{border-left:3px solid var(--bdr);padding:8px 0 8px 12px;margin-bottom:8px;position:relative;}
 .tl-item.tl-linked{border-color:var(--blue);}
 .tl-item.tl-standalone{border-color:var(--g);}
+.tl-item.tl-parent{border-color:#a78bfa;background:#faf5ff;padding-left:12px;}
+.tl-item.tl-unknown{border-color:#9ca3af;background:#f9fafb;padding-left:12px;}
 .tl-date{font-size:11px;color:var(--mut);font-weight:600;}
 .tl-body{font-size:13px;color:var(--txt);margin-top:2px;}
 .tl-meta{font-size:11px;color:var(--mut);margin-top:2px;}
@@ -193,7 +205,7 @@ html,body{background:var(--sur2);color:var(--txt);font-family:'DM Sans',sans-ser
   <div id="pg-cov" class="pg-page on">
     <div id="pill-date" class="pill"></div>
     <div class="page-title">Parent Coverage</div>
-    <div class="page-sub">Track family engagement · red rows need contact soon</div>
+    <div class="page-sub">Which families need our attention? · Coverage counts only school-initiated contact</div>
 
     <div class="metrics" id="metrics"></div>
 
@@ -206,16 +218,19 @@ html,body{background:var(--sur2);color:var(--txt);font-family:'DM Sans',sans-ser
 
     <div class="search-box">
       <input id="search-in" class="search-in" type="text" placeholder="🔍 Search by student name..." oninput="renderCoverage()">
-      <button id="filter-red" class="filter-btn" onclick="toggleFilter('red')">🔴 Only overdue</button>
-      <button id="filter-never" class="filter-btn" onclick="toggleFilter('never')">⚫ Only never</button>
+      <button id="filter-attention" class="filter-btn" onclick="toggleFilter('attention')">❤️ Need Attention</button>
+      <button id="filter-due" class="filter-btn" onclick="toggleFilter('due')">🟡 Due Soon</button>
+      <button id="filter-never" class="filter-btn" onclick="toggleFilter('never')">⚫ Never</button>
     </div>
 
     <div class="cov-card">
       <div class="cov-head">
         <div>Student</div>
-        <div>Last Contact</div>
-        <div class="cov-head-hide-mob">Days Ago</div>
-        <div class="cov-head-hide-mob">Comms</div>
+        <div>Class</div>
+        <div class="cov-head-ctr cov-head-hide-mob">Date 1</div>
+        <div class="cov-head-ctr">Date 2</div>
+        <div class="cov-head-ctr">Date 3</div>
+        <div class="cov-head-ctr cov-head-hide-mob">Total</div>
         <div>Status</div>
       </div>
       <div id="cov-list"></div>
@@ -268,12 +283,16 @@ const COMM_TYPES=[
   {id:'other',label:'❓ Other'},
 ];
 const SUBJECTS=[
-  {id:'health',label:'🏥 Health'},
-  {id:'behavior',label:'⚠️ Behavior'},
+  {id:'positive',label:'🌟 Positive Moment'},
+  {id:'care',label:'❤️ Care / Check-in'},
   {id:'progress',label:'📈 Learning Progress'},
+  {id:'praise',label:'👏 Praise / Recognition'},
+  {id:'health',label:'🏥 Health'},
+  {id:'behavior',label:'⚠️ Behaviour / Concern'},
   {id:'event_followup',label:'📋 MISC Follow-up'},
   {id:'other',label:'💬 General'},
 ];
+const POSITIVE_SUBJECT_IDS=['positive','care','progress','praise'];
 const OUTCOMES=[
   {id:'noted',label:'✏️ Noted'},
   {id:'parent_ack',label:'✅ Parent Acknowledged'},
@@ -281,17 +300,52 @@ const OUTCOMES=[
   {id:'follow_up',label:'📌 Needs Follow-up'},
 ];
 
+// ══ CORE SEMANTICS (spec v2) ══
+// Only school-initiated contact counts toward Coverage clock.
+function isSchoolInitiated(c){return c && c.initiator==='teacher';}
+function isPositiveComm(c){return c && POSITIVE_SUBJECT_IDS.includes(c.subject);}
+
+// Human-friendly initiator label. Anything not explicitly 'teacher' or 'parent'
+// is 'unknown' — including null, undefined, empty string, or unexpected values.
+// Unknown does NOT count as school-initiated for Coverage.
+function initiatorLabel(c){
+  if(!c)return '❔ Initiator Unknown';
+  if(c.initiator==='teacher')return '👨‍🏫 School Initiated';
+  if(c.initiator==='parent')return '👪 Parent Initiated';
+  return '❔ Initiator Unknown';
+}
+
+// Match a communication to a student. Prefer student_id; fallback to name (legacy).
+function normaliseStudentName(v){return String(v||'').trim().replace(/\s+/g,' ').toLowerCase();}
+function commBelongsToStudent(c,s){
+  if(c.student_id&&s.student_id){
+    return String(c.student_id)===String(s.student_id);
+  }
+  return normaliseStudentName(c.student)===normaliseStudentName(s.name);
+}
+
+// Warmth status — the ONE definitive helper. Coverage + metrics both use this.
+// Reason codes: 'never' | 'over45' | '30to45' | 'recent'
+function getWarmthStatus(lastDate){
+  if(!lastDate)return {status:'attention',reason:'never',daysAgo:null};
+  const daysAgo=daysBetween(lastDate,today());
+  if(daysAgo>45)return {status:'attention',reason:'over45',daysAgo};
+  if(daysAgo>=30)return {status:'due',reason:'30to45',daysAgo};
+  return {status:'covered',reason:'recent',daysAgo};
+}
+
 // ══ STATE ══
 const S={comms:[],students:[]};
 let _tt=null;
 let _selProg=DEFAULT_PROG;
-let _filter='';  // '', 'red', 'never'
+let _filter='';  // '', 'attention', 'due', 'never'
 let _pendingLinkedMiscId=null; // when opened from URL params
 
 // ══ UTILS ══
 function today(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
 function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function fmt(d){if(!d)return '—';try{const dt=new Date(d);return dt.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});}catch(e){return d;}}
+function fmtShort(d){if(!d)return '—';try{const dt=new Date(d);return String(dt.getMonth()+1).padStart(2,'0')+'/'+String(dt.getDate()).padStart(2,'0');}catch(e){return d;}}
 function daysBetween(a,b){const ms=new Date(b)-new Date(a);return Math.floor(ms/(24*60*60*1000));}
 function toast(msg,err=false){const el=document.getElementById('toast');el.textContent=msg;el.style.background=err?'var(--red)':'var(--txt)';el.classList.add('on');clearTimeout(_tt);_tt=setTimeout(()=>el.classList.remove('on'),2400);}
 function getIni(){return(localStorage.getItem(INI_KEY)||'').toUpperCase();}
@@ -373,15 +427,16 @@ async function syncAll(){
   }
 }
 async function syncStudents(){
-  // New schema: name_en (display name), dept_group (array), status
-  // Only Active students, paginate to bypass 1000-row limit
+  // Uses v_student_roster view — pre-flattened: one row per (student × department)
+  // with class info attached. Only Active + Enrolled students.
   let all=[];
   let from=0;
   const PAGE=1000;
   while(from<10000){
-    const {data,error}=await _sb.from('students')
-      .select('name_en,name_cn,dept_group,status')
+    const {data,error}=await _sb.from('v_student_roster')
+      .select('student_id,name_en,name_cn,department,class_name,display_name,status,enrollment_active')
       .eq('status','Active')
+      .eq('enrollment_active',true)
       .order('name_en',{ascending:true})
       .range(from,from+PAGE-1);
     if(error){console.warn('students sync',error);return;}
@@ -390,14 +445,16 @@ async function syncStudents(){
     if(data.length<PAGE)break;
     from+=PAGE;
   }
-  // Normalize to internal shape: {name, progs[]}
+  // Normalize — one row per (student × dept). Same student appears in multiple dept tabs.
   S.students=all.map(r=>({
+    student_id:r.student_id,
     name:r.name_en||'',
     name_cn:r.name_cn||'',
-    progs:Array.isArray(r.dept_group)?r.dept_group.map(p=>String(p).toUpperCase()):[]
-  })).filter(s=>s.name);
+    dept:(r.department||'').toUpperCase(),
+    class:r.display_name||r.class_name||'',
+  })).filter(s=>s.name&&s.dept);
   save();
-  console.log('📥 Students (Active):',S.students.length);
+  console.log('📥 Student roster (Active × Enrolled):',S.students.length,'rows');
 }
 async function syncComms(){
   // Paginate to fetch all
@@ -417,10 +474,11 @@ async function syncComms(){
   S.comms=all.map(r=>({
     id:'sb_'+r.id,
     supabase_id:r.id,
+    student_id:r.student_id||null,
     student:r.student_name||'',
     date:r.comm_date||'',
     type:r.comm_type||'other',
-    initiator:r.initiator||'teacher',
+    initiator:r.initiator||'unknown',
     reporter:r.reporter||'',
     subject:r.subject||'other',
     summary:r.summary||'',
@@ -433,6 +491,7 @@ async function syncComms(){
 }
 async function pushComm(c){
   const row={
+    student_id:c.student_id||null,
     student_name:c.student,
     comm_date:c.date,
     comm_type:c.type,
@@ -443,7 +502,14 @@ async function pushComm(c){
     outcome:c.outcome,
     linked_misc_id:c.linked_misc_id||null
   };
-  const {data,error}=await _sb.from('parent_comms').insert(row).select();
+  let {data,error}=await _sb.from('parent_comms').insert(row).select();
+  // Fallback: if student_id column doesn't exist yet, retry without it (shouldn't happen since migration ran)
+  if(error&&/student_id/i.test(String(error.message||''))){
+    console.warn('student_id column missing — retrying without. Run SQL migration!');
+    const {student_id,...rest}=row;
+    const retry=await _sb.from('parent_comms').insert(rest).select();
+    data=retry.data;error=retry.error;
+  }
   if(error){console.warn('pushComm failed',error);throw error;}
   if(data&&data[0]){
     c.supabase_id=data[0].id;
@@ -456,59 +522,65 @@ async function syncFromCloud(){await syncAll();}
 
 // ══ COVERAGE VIEW ══
 function renderCoverage(){
-  // Filter students by selected program (dept_group is an array — student can belong to multiple)
-  const studs=S.students.filter(s=>(s.progs||[]).includes(_selProg));
+  // Filter students by selected program (each row is a student × dept)
+  const studs=S.students.filter(s=>s.dept===_selProg);
   const search=(document.getElementById('search-in')?.value||'').toUpperCase();
-  // Build per-student stats
+
+  // Build per-student stats — SCHOOL-INITIATED only for Coverage semantics
   const rows=studs.map(s=>{
-    const list=S.comms.filter(c=>c.student===s.name);
-    if(!list.length)return {name:s.name,last:null,daysAgo:null,count:0,status:'never'};
-    const sorted=list.slice().sort((a,b)=>b.date.localeCompare(a.date));
-    const last=sorted[0].date;
-    const dAgo=daysBetween(last,today());
-    let status='grn';
-    if(dAgo>30)status='red';
-    else if(dAgo>=15)status='yel';
-    return {name:s.name,last,daysAgo:dAgo,count:list.length,status};
+    const schoolList=S.comms.filter(c=>commBelongsToStudent(c,s)&&isSchoolInitiated(c));
+    const sorted=schoolList.slice().sort((a,b)=>b.date.localeCompare(a.date));
+    const dates=sorted.slice(0,3).map(c=>c.date);
+    const more=Math.max(0,sorted.length-3);
+    const last=sorted[0]?.date||null;
+    const ws=getWarmthStatus(last);
+    return {
+      student_id:s.student_id,
+      name:s.name,
+      cls:s.class,
+      dates,more,last,
+      daysAgo:ws.daysAgo,
+      count:schoolList.length,
+      status:ws.status,      // 'attention' | 'due' | 'covered'
+      reason:ws.reason,      // 'never' | 'over45' | '30to45' | 'recent'
+    };
   }).filter(r=>{
     if(search&&!r.name.toUpperCase().includes(search))return false;
-    if(_filter==='red'&&r.status!=='red')return false;
-    if(_filter==='never'&&r.status!=='never')return false;
+    if(_filter==='attention'&&r.status!=='attention')return false;
+    if(_filter==='due'&&r.status!=='due')return false;
+    if(_filter==='never'&&r.reason!=='never')return false;
     return true;
   });
-  // Sort alphabetically per Teo's decision
+  // Sort alphabetically
   rows.sort((a,b)=>a.name.localeCompare(b.name));
 
-  // Update program tabs
+  // Program tabs
   const tabsEl=document.getElementById('prog-tabs');
   tabsEl.innerHTML=PROGRAMS.map(p=>{
-    const cnt=S.students.filter(s=>(s.progs||[]).includes(p)).length;
+    const cnt=S.students.filter(s=>s.dept===p).length;
     return `<button class="prog-tab ${p===_selProg?'on':''}" onclick="setProg('${p}')">${p} (${cnt})</button>`;
   }).join('');
 
-  // Update metrics
-  const allProgStuds=S.students.filter(s=>(s.progs||[]).includes(_selProg));
-  const allRows=allProgStuds.map(s=>{
-    const list=S.comms.filter(c=>c.student===s.name);
-    if(!list.length)return {status:'never'};
-    const sorted=list.slice().sort((a,b)=>b.date.localeCompare(a.date));
-    const dAgo=daysBetween(sorted[0].date,today());
-    let status='grn';
-    if(dAgo>30)status='red';
-    else if(dAgo>=15)status='yel';
-    return {status};
+  // Metrics — computed over ALL students in current dept (regardless of filter)
+  const allProgStuds=S.students.filter(s=>s.dept===_selProg);
+  const m={attention:0,due:0,covered:0,never:0,over45:0};
+  allProgStuds.forEach(s=>{
+    const schoolList=S.comms.filter(c=>commBelongsToStudent(c,s)&&isSchoolInitiated(c));
+    const sorted=schoolList.slice().sort((a,b)=>b.date.localeCompare(a.date));
+    const ws=getWarmthStatus(sorted[0]?.date||null);
+    m[ws.status]++;
+    if(ws.reason==='never')m.never++;
+    if(ws.reason==='over45')m.over45++;
   });
-  const m={red:0,yel:0,grn:0,never:0};
-  allRows.forEach(r=>m[r.status]++);
   document.getElementById('metrics').innerHTML=`
-    <div class="metric m-gry"><div class="metric-num">${m.never}</div><div class="metric-lab">⚫ Never</div></div>
-    <div class="metric m-red"><div class="metric-num">${m.red}</div><div class="metric-lab">🔴 >30 days</div></div>
-    <div class="metric m-yel"><div class="metric-num">${m.yel}</div><div class="metric-lab">🟡 15-30 days</div></div>
-    <div class="metric m-grn"><div class="metric-num">${m.grn}</div><div class="metric-lab">🟢 <15 days</div></div>
+    <div class="metric m-red"><div class="metric-num">${m.attention}</div><div class="metric-lab">❤️ Need Attention</div><div class="metric-sub">${m.over45} over 45d · ${m.never} never</div></div>
+    <div class="metric m-yel"><div class="metric-num">${m.due}</div><div class="metric-lab">🟡 Due Soon</div><div class="metric-sub">30–45 days</div></div>
+    <div class="metric m-grn"><div class="metric-num">${m.covered}</div><div class="metric-lab">🟢 Covered</div><div class="metric-sub">&lt; 30 days</div></div>
   `;
 
-  // Update filter button states
-  document.getElementById('filter-red').classList.toggle('on',_filter==='red');
+  // Filter button active states
+  document.getElementById('filter-attention').classList.toggle('on',_filter==='attention');
+  document.getElementById('filter-due').classList.toggle('on',_filter==='due');
   document.getElementById('filter-never').classList.toggle('on',_filter==='never');
 
   const el=document.getElementById('cov-list');
@@ -517,14 +589,30 @@ function renderCoverage(){
     return;
   }
   el.innerHTML=rows.map(r=>{
-    const stCls={red:'st-red',yel:'st-yel',grn:'st-grn',never:'st-gry'}[r.status];
-    const stLabel={red:'🔴 Overdue',yel:'🟡 Soon',grn:'🟢 Recent',never:'⚫ Never'}[r.status];
-    const daysTxt=r.daysAgo===null?'—':`${r.daysAgo}d`;
-    return `<div class="cov-row" onclick="viewStudent('${esc(r.name)}')">
+    // Status pill labels — action-oriented
+    const stCls={attention:'st-red',due:'st-yel',covered:'st-grn'}[r.status];
+    let stLabel;
+    if(r.status==='attention'){
+      stLabel=r.reason==='never'?'❤️ Contact Now · Never':'❤️ Contact Now';
+    }else if(r.status==='due'){
+      stLabel='🟡 Due Soon';
+    }else{
+      stLabel='🟢 Covered';
+    }
+    // 3 date slots
+    const d1=r.dates[0]?`<div class="date-chip">${fmtShort(r.dates[0])}</div>`:`<div class="date-chip dc-empty">—</div>`;
+    const d2=r.dates[1]?`<div class="date-chip">${fmtShort(r.dates[1])}</div>`:`<div class="date-chip dc-empty">—</div>`;
+    let d3;
+    if(r.more>0)d3=`<div class="date-chip dc-more">+${r.more}</div>`;
+    else if(r.dates[2])d3=`<div class="date-chip">${fmtShort(r.dates[2])}</div>`;
+    else d3=`<div class="date-chip dc-empty">—</div>`;
+    return `<div class="cov-row" data-action="view-student" data-sid="${esc(r.student_id||'')}" data-sname="${esc(r.name)}">
       <div class="cov-name">${esc(r.name)}</div>
-      <div class="cov-last">${fmt(r.last)}</div>
-      <div class="cov-days cov-row-hide-mob">${daysTxt}</div>
-      <div class="cov-count cov-row-hide-mob">${r.count}</div>
+      <div><span class="cov-class">${esc(r.cls||'—')}</span></div>
+      <div class="cov-row-hide-mob">${d1}</div>
+      <div>${d2}</div>
+      <div>${d3}</div>
+      <div class="cov-total cov-row-hide-mob">${r.count}</div>
       <div class="cov-status ${stCls}">${stLabel}</div>
     </div>`;
   }).join('');
@@ -536,35 +624,75 @@ function toggleFilter(f){
 }
 
 // ══ STUDENT TIMELINE ══
-function viewStudent(name){
-  const list=S.comms.filter(c=>c.student===name).sort((a,b)=>b.date.localeCompare(a.date));
-  const body=`
-    <div style="font-size:13px;color:var(--mut);margin-bottom:14px;">
-      Total: <strong>${list.length}</strong> communication${list.length===1?'':'s'}
-    </div>
-    ${list.length?list.map(c=>{
-      const linkCls=c.linked_misc_id?'tl-linked':'tl-standalone';
-      const linkTag=c.linked_misc_id?`<span class="tl-linked-tag">MISC #${c.linked_misc_id}</span>`:'';
-      const type=(COMM_TYPES.find(t=>t.id===c.type)||{}).label||c.type;
-      const subj=(SUBJECTS.find(s=>s.id===c.subject)||{}).label||c.subject;
-      const outc=(OUTCOMES.find(o=>o.id===c.outcome)||{}).label||c.outcome;
-      return `<div class="tl-item ${linkCls}">
-        <div class="tl-date">${fmt(c.date)} · by ${esc(c.reporter||'—')}</div>
-        <div class="tl-body">${linkTag}${esc(c.summary||'(no summary)')}</div>
-        <div class="tl-meta">${type} · ${subj} · ${outc}</div>
-      </div>`;
-    }).join(''):`<div class="empty"><div class="empty-emoji">📭</div>No communications logged yet</div>`}
-  `;
+function viewStudent(studentId, name){
+  // Prefer id-based match (authoritative); fallback to name for legacy comms.
+  let rosterMatch=null;
+  if(studentId){rosterMatch=S.students.find(s=>String(s.student_id)===String(studentId));}
+  if(!rosterMatch){rosterMatch=S.students.find(s=>s.name===name);}
+  const list=S.comms.filter(c=>{
+    if(rosterMatch)return commBelongsToStudent(c,rosterMatch);
+    return normaliseStudentName(c.student)===normaliseStudentName(name);
+  }).sort((a,b)=>b.date.localeCompare(a.date));
+
+  // Warmth Profile computation
+  const schoolList=list.filter(isSchoolInitiated);
+  const parentList=list.filter(c=>c.initiator==='parent');
+  const unknownList=list.filter(c=>c.initiator!=='teacher'&&c.initiator!=='parent');
+  const positiveSchoolList=schoolList.filter(isPositiveComm);
+  const lastWarm=schoolList[0]?.date||null;
+  const ws=getWarmthStatus(lastWarm);
+  let statusLabel;
+  if(ws.status==='attention')statusLabel=ws.reason==='never'?'❤️ Need Attention · Never':'❤️ Need Attention';
+  else if(ws.status==='due')statusLabel='🟡 Due Soon';
+  else statusLabel='🟢 Covered';
+  const statusColor={attention:'var(--red2)',due:'var(--yel2)',covered:'var(--grn2)'}[ws.status];
+  const lastWarmTxt=lastWarm?`${fmt(lastWarm)} (${ws.daysAgo}d ago)`:'Never contacted proactively';
+
+  const unknownRow=unknownList.length?`
+        <div style="color:var(--txt2);">Initiator Unknown</div><div style="font-weight:700;color:var(--txt);text-align:right;">${unknownList.length}</div>`:'';
+
+  const profile=`
+    <div style="background:var(--sur2);border-radius:var(--rs);padding:12px 14px;margin-bottom:14px;">
+      <div style="font-size:11px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">Warmth Profile</div>
+      <div style="display:grid;grid-template-columns:1fr auto;gap:6px 12px;font-size:13px;">
+        <div style="color:var(--txt2);">School Initiated</div><div style="font-weight:700;color:var(--txt);text-align:right;">${schoolList.length}</div>
+        <div style="color:var(--txt2);">Parent Initiated</div><div style="font-weight:700;color:var(--txt);text-align:right;">${parentList.length}</div>${unknownRow}
+        <div style="color:var(--txt2);">Positive Warm Contacts</div><div style="font-weight:700;color:var(--txt);text-align:right;">${positiveSchoolList.length}</div>
+        <div style="color:var(--txt2);">Last Warm Contact</div><div style="font-weight:600;color:var(--txt);text-align:right;font-size:12px;">${lastWarmTxt}</div>
+        <div style="color:var(--txt2);">Current Status</div><div style="font-weight:800;color:${statusColor};text-align:right;">${statusLabel}</div>
+      </div>
+    </div>`;
+
+  const timeline=list.length?list.map(c=>{
+    const school=isSchoolInitiated(c);
+    const isParent=c.initiator==='parent';
+    const linkCls=c.linked_misc_id?'tl-linked':(school?'tl-standalone':(isParent?'tl-parent':'tl-unknown'));
+    const linkTag=c.linked_misc_id?`<span class="tl-linked-tag">MISC #${c.linked_misc_id}</span>`:'';
+    const type=(COMM_TYPES.find(t=>t.id===c.type)||{}).label||c.type;
+    const subj=(SUBJECTS.find(s=>s.id===c.subject)||{}).label||c.subject;
+    const initTag=initiatorLabel(c);
+    const outc=(OUTCOMES.find(o=>o.id===c.outcome)||{}).label||c.outcome;
+    return `<div class="tl-item ${linkCls}">
+      <div class="tl-date">${fmt(c.date)} · logged by ${esc(c.reporter||'—')}</div>
+      <div class="tl-body">${linkTag}${esc(c.summary||'(no summary)')}</div>
+      <div class="tl-meta">${type} · ${subj} · ${initTag} · ${outc}</div>
+    </div>`;
+  }).join(''):`<div class="empty"><div class="empty-emoji">📭</div>No communications logged yet</div>`;
+
+  // Preserve authoritative id for "Log New" button so we don't lose identity when prefilling
+  const preselectId=rosterMatch?.student_id||studentId||'';
+  const preselectName=rosterMatch?.name||name||'';
+
   openModal(
-    `👤 ${esc(name)}`,
-    body,
+    `👤 ${esc(preselectName)}`,
+    profile+`<div style="font-size:11px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">Communication History</div>`+timeline,
     `<button class="btn btn-sec" onclick="closeModal()">Close</button>
-     <button class="btn btn-primary" onclick="openNewComm('${esc(name)}')">➕ Log New</button>`
+     <button class="btn btn-primary" data-action="open-new" data-sid="${esc(preselectId)}" data-sname="${esc(preselectName)}">➕ Log New</button>`
   );
 }
 
 // ══ NEW COMM FORM ══
-function openNewComm(prefillStudent){
+function openNewComm(prefillStudent,prefillStudentId){
   const ini=getIni();
   const linked=_pendingLinkedMiscId;
   const linkedInfo=window._pendingLinkedInfo;
@@ -580,16 +708,30 @@ function openNewComm(prefillStudent){
   const initialStudent=prefillStudent||linkedInfo?.student||'';
   const initialSubject=linked?'event_followup':'other';
 
-  // Build student datalist (sorted alphabetically by name_en)
-  const studOptions=S.students.map(s=>`<option value="${esc(s.name)}">`).join('');
+  // Student picker (A3): dedup by student_id — one option per family, listing all dept·class.
+  // Datalist option label:  "NAME · Class1 (SRK) · Class2 (SRT)"
+  // On select, JS parses back to name, resolves student_id.
+  const byId={};
+  S.students.forEach(s=>{
+    if(!s.student_id)return;
+    if(!byId[s.student_id])byId[s.student_id]={name:s.name,rows:[]};
+    byId[s.student_id].rows.push({dept:s.dept,cls:s.class});
+  });
+  const stuIndex=Object.entries(byId).map(([id,info])=>{
+    const parts=info.rows.map(r=>`${r.cls||'?'} (${r.dept})`).join(' · ');
+    return {id,name:info.name,label:`${info.name} · ${parts}`};
+  });
+  const studOptions=stuIndex.map(x=>`<option value="${esc(x.label)}">`).join('');
 
   openModal(
     '➕ Log Parent Communication',
     `${linkedBanner}
      <div class="f-row">
        <label class="f-lab">Student <span class="req">*</span></label>
-       <input id="f-student" list="stu-list" class="f-in" placeholder="Type or pick a student" value="${esc(initialStudent)}">
+       <input id="f-student" list="stu-list" class="f-in" placeholder="Type student name…" value="${esc(initialStudent)}" autocomplete="off">
        <datalist id="stu-list">${studOptions}</datalist>
+       <div id="f-student-hint" style="font-size:11px;color:var(--mut);margin-top:4px;min-height:14px;"></div>
+       <input type="hidden" id="f-student-id" value="">
      </div>
      <div class="f-row-2">
        <div>
@@ -609,8 +751,8 @@ function openNewComm(prefillStudent){
        <div>
          <label class="f-lab">Initiator</label>
          <select id="f-init" class="f-sel">
-           <option value="teacher">👨‍🏫 Teacher initiated</option>
-           <option value="parent">👪 Parent initiated</option>
+           <option value="teacher">👨‍🏫 School Initiated</option>
+           <option value="parent">👪 Parent Initiated</option>
          </select>
        </div>
      </div>
@@ -630,11 +772,68 @@ function openNewComm(prefillStudent){
     `<button class="btn btn-sec" onclick="closeModal()">Cancel</button>
      <button class="btn btn-primary" onclick="saveComm()">💾 Save</button>`
   );
+
+  // Wire student input — attempt resolve on input; clear hidden id on manual edit
+  window._stuIndex=stuIndex;
+  const stuIn=document.getElementById('f-student');
+  const hidIn=document.getElementById('f-student-id');
+  const hintEl=document.getElementById('f-student-hint');
+  function tryResolve(commitPure){
+    const raw=stuIn.value.trim();
+    hidIn.value='';
+    if(!raw){hintEl.textContent='';hintEl.style.color='var(--mut)';return;}
+    // 1) Full label match (user picked from datalist)
+    const byLabel=stuIndex.find(x=>x.label===raw);
+    if(byLabel){
+      hidIn.value=byLabel.id;
+      if(commitPure)stuIn.value=byLabel.name; // A3: clean input back to pure name
+      hintEl.textContent=`✓ Bound: ${byLabel.name}`;
+      hintEl.style.color='var(--grn2)';
+      return;
+    }
+    // 2) Exact name match (case-insensitive)
+    const matches=stuIndex.filter(x=>x.name.toUpperCase()===raw.toUpperCase());
+    if(matches.length===1){
+      hidIn.value=matches[0].id;
+      if(commitPure)stuIn.value=matches[0].name;
+      hintEl.textContent=`✓ Bound: ${matches[0].name}`;
+      hintEl.style.color='var(--grn2)';
+      return;
+    }
+    if(matches.length>1){
+      hintEl.innerHTML=`⚠️ ${matches.length} students named "${esc(raw)}" — please pick one:<br>${matches.map(m=>`&nbsp;&nbsp;• ${esc(m.label)}`).join('<br>')}`;
+      hintEl.style.color='var(--yel2)';
+      return;
+    }
+    hintEl.textContent='⚠ No matching student found';
+    hintEl.style.color='var(--red2)';
+  }
+  stuIn.addEventListener('input',()=>{
+    hidIn.value=''; // manual edit invalidates previous binding
+    tryResolve(false);
+  });
+  stuIn.addEventListener('change',()=>tryResolve(true));
+  stuIn.addEventListener('blur',()=>tryResolve(true));
+
+  // Prefill: if caller supplied a student_id, seed hidden field and trust it.
+  // Otherwise resolve by name if we have one.
+  if(prefillStudentId){
+    const bound=stuIndex.find(x=>x.id===prefillStudentId);
+    if(bound){
+      hidIn.value=bound.id;
+      stuIn.value=bound.name;
+      hintEl.textContent=`✓ Bound: ${bound.name}`;
+      hintEl.style.color='var(--grn2)';
+    }else if(initialStudent){setTimeout(()=>tryResolve(true),50);}
+  }else if(initialStudent){
+    setTimeout(()=>tryResolve(true),50);
+  }
   setTimeout(()=>document.getElementById(initialStudent?'f-summary':'f-student')?.focus(),80);
 }
 
 async function saveComm(){
-  const student=(document.getElementById('f-student').value||'').trim();
+  const stuInputRaw=(document.getElementById('f-student').value||'').trim();
+  const hiddenId=(document.getElementById('f-student-id').value||'').trim();
   const date=document.getElementById('f-date').value;
   const type=document.getElementById('f-type').value;
   const initiator=document.getElementById('f-init').value;
@@ -644,12 +843,45 @@ async function saveComm(){
   const outcome=document.getElementById('f-outcome').value;
   const linkedMiscId=document.getElementById('f-linked-misc').value;
 
-  if(!student){toast('Please enter a student name',true);return;}
+  if(!stuInputRaw){toast('Please enter a student name',true);return;}
   if(!date){toast('Please pick a date',true);return;}
   if(!summary){toast('Please write what was discussed',true);return;}
 
+  // Resolve student identity — TRUST hidden ID first if it's still valid.
+  // Manual name edit already clears hidden ID via input listener, so a present hidden ID
+  // means the user's last binding action was intentional.
+  const idx=window._stuIndex||[];
+  let studentId=null;
+  let studentName='';
+
+  if(hiddenId){
+    const bound=idx.find(x=>x.id===hiddenId);
+    const raw=stuInputRaw.toUpperCase();
+    if(bound&&(bound.name.toUpperCase()===raw||bound.label===stuInputRaw)){
+      // Hidden ID is still consistent with the visible input — use it.
+      studentId=bound.id;
+      studentName=bound.name;
+    }
+    // else: hidden stale (shouldn't happen since input listener clears it, but defensive)
+  }
+
+  // Fallback: name/label resolution when no valid hidden ID
+  if(!studentId){
+    const byLabel=idx.find(x=>x.label===stuInputRaw);
+    if(byLabel){studentId=byLabel.id;studentName=byLabel.name;}
+    else{
+      const matches=idx.filter(x=>x.name.toUpperCase()===stuInputRaw.toUpperCase());
+      if(matches.length===1){studentId=matches[0].id;studentName=matches[0].name;}
+      else if(matches.length>1){toast('Multiple students match — please pick from dropdown',true);return;}
+      else{toast('Student not found in roster — please pick from dropdown',true);return;}
+    }
+  }
+  if(!studentId){toast('Could not bind student. Please pick from the dropdown.',true);return;}
+
   const comm={
-    student,date,type,initiator,reporter,subject,summary,outcome,
+    student_id:studentId,
+    student:studentName,
+    date,type,initiator,reporter,subject,summary,outcome,
     linked_misc_id:linkedMiscId?parseInt(linkedMiscId):null,
     createdAt:Date.now()
   };
@@ -662,7 +894,7 @@ async function saveComm(){
     renderLog();
     // If linked to MISC, ask whether to sync back
     if(comm.linked_misc_id){
-      askSyncBackToMisc(comm.linked_misc_id,student);
+      askSyncBackToMisc(comm.linked_misc_id,studentName);
     }else{
       toast('✅ Communication logged');
     }
@@ -715,13 +947,14 @@ function renderLog(){
       const type=(COMM_TYPES.find(t=>t.id===c.type)||{}).label||c.type;
       const subj=(SUBJECTS.find(s=>s.id===c.subject)||{}).label||c.subject;
       const linkTag=c.linked_misc_id?`<span class="tl-linked-tag">MISC #${c.linked_misc_id}</span>`:'';
-      return `<div style="padding:14px 16px;border-bottom:.5px solid var(--bdr);cursor:pointer;" onclick="viewStudent('${esc(c.student)}')">
+      const initTag=initiatorLabel(c);
+      return `<div style="padding:14px 16px;border-bottom:.5px solid var(--bdr);cursor:pointer;" data-action="view-student" data-sid="${esc(c.student_id||'')}" data-sname="${esc(c.student)}">
         <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap;">
           <div style="font-weight:700;color:var(--navy);">${esc(c.student)}</div>
           <div style="font-size:12px;color:var(--mut);">${fmt(c.date)} · ${esc(c.reporter||'—')}</div>
         </div>
         <div style="margin-top:6px;font-size:13px;color:var(--txt);">${linkTag}${esc(c.summary)}</div>
-        <div style="margin-top:4px;font-size:11px;color:var(--mut);">${type} · ${subj}</div>
+        <div style="margin-top:4px;font-size:11px;color:var(--mut);">${type} · ${subj} · ${initTag}</div>
       </div>`;
     }).join('')}
   </div>
@@ -771,6 +1004,19 @@ if(!checkSession()){
 }
 checkUrlParams();
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
+
+// ── Global click delegation: handles all data-action="view-student" / "open-new" clicks
+//    across Coverage rows, All Comms rows, and modal buttons. Uses data-sid + data-sname
+//    (safe against apostrophes, quotes, XSS in student names).
+document.addEventListener('click',function(e){
+  const el=e.target.closest('[data-action]');
+  if(!el)return;
+  const action=el.dataset.action;
+  const sid=el.dataset.sid||'';
+  const sname=el.dataset.sname||'';
+  if(action==='view-student'){viewStudent(sid,sname);}
+  else if(action==='open-new'){openNewComm(sname,sid);}
+});
 </script>
 </body>
 </html>
