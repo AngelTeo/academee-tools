@@ -775,18 +775,29 @@ function openNewComm(prefillStudent,prefillStudentId){
 
   // Wire student input — attempt resolve on input; clear hidden id on manual edit
   window._stuIndex=stuIndex;
+  // Silent-switch guard: track the student the user most recently *committed* to
+  // (change/blur/prefill). Manual edits clear hidden ID but keep this "original pick"
+  // so that fallback resolution to a DIFFERENT student triggers a confirmation dialog.
+  window._originalPickedId=null;
   const stuIn=document.getElementById('f-student');
   const hidIn=document.getElementById('f-student-id');
   const hintEl=document.getElementById('f-student-hint');
   function tryResolve(commitPure){
     const raw=stuIn.value.trim();
     hidIn.value='';
-    if(!raw){hintEl.textContent='';hintEl.style.color='var(--mut)';return;}
+    if(!raw){
+      hintEl.textContent='';hintEl.style.color='var(--mut)';
+      if(commitPure)window._originalPickedId=null; // Empty input on commit = reset pick memory
+      return;
+    }
     // 1) Full label match (user picked from datalist)
     const byLabel=stuIndex.find(x=>x.label===raw);
     if(byLabel){
       hidIn.value=byLabel.id;
-      if(commitPure)stuIn.value=byLabel.name; // A3: clean input back to pure name
+      if(commitPure){
+        stuIn.value=byLabel.name; // A3: clean input back to pure name
+        window._originalPickedId=byLabel.id; // Track as committed pick
+      }
       hintEl.textContent=`✓ Bound: ${byLabel.name}`;
       hintEl.style.color='var(--grn2)';
       return;
@@ -795,7 +806,10 @@ function openNewComm(prefillStudent,prefillStudentId){
     const matches=stuIndex.filter(x=>x.name.toUpperCase()===raw.toUpperCase());
     if(matches.length===1){
       hidIn.value=matches[0].id;
-      if(commitPure)stuIn.value=matches[0].name;
+      if(commitPure){
+        stuIn.value=matches[0].name;
+        window._originalPickedId=matches[0].id; // Track as committed pick
+      }
       hintEl.textContent=`✓ Bound: ${matches[0].name}`;
       hintEl.style.color='var(--grn2)';
       return;
@@ -822,6 +836,7 @@ function openNewComm(prefillStudent,prefillStudentId){
     if(bound){
       hidIn.value=bound.id;
       stuIn.value=bound.name;
+      window._originalPickedId=bound.id; // Prefill = committed pick baseline
       hintEl.textContent=`✓ Bound: ${bound.name}`;
       hintEl.style.color='var(--grn2)';
     }else if(initialStudent){setTimeout(()=>tryResolve(true),50);}
@@ -877,6 +892,23 @@ async function saveComm(){
     }
   }
   if(!studentId){toast('Could not bind student. Please pick from the dropdown.',true);return;}
+
+  // Silent-switch safety check (Option 3 per spec):
+  // If user explicitly committed to student X earlier (via dropdown pick, blur, or prefill)
+  // but the record is now about to save as student Y, force explicit confirmation.
+  // This prevents "picked Aaron See, saves as Aaron Foo" without the user noticing.
+  const originalId=window._originalPickedId;
+  if(originalId&&studentId!==originalId){
+    const origInfo=idx.find(x=>x.id===originalId);
+    const origName=origInfo?origInfo.name:'the student you originally picked';
+    const ok=confirm(
+      `⚠️ Student switch detected\n\n`+
+      `You originally picked: ${origName}\n`+
+      `About to save as: ${studentName}\n\n`+
+      `Click OK to save under "${studentName}", or Cancel to fix.`
+    );
+    if(!ok)return;
+  }
 
   const comm={
     student_id:studentId,
