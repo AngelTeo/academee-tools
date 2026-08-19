@@ -3560,6 +3560,9 @@ function openRec(id){
       <button onclick="openAddCheckModal('${r.id}','${esc(r.students[0]||'')}')" style="width:100%;margin-top:6px;padding:10px;border-radius:var(--r);border:1.5px solid #f59e0b;background:#fffbeb;color:#92400e;font-weight:700;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">
         ⏰ Add Today Check
       </button>
+      ${window._isTeacher?'':`<button onclick="jumpToParentGo('${r.id}')" style="width:100%;margin-top:6px;padding:10px;border-radius:var(--r);border:1.5px solid #a78bfa;background:#faf5ff;color:#6d28d9;font-weight:700;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">
+        📞 Log Parent Comm →
+      </button>`}
     </div>
     <div style="margin-top:14px;"><label style="font-size:12px;font-weight:600;color:var(--txt2);display:block;margin-bottom:5px;">Remarks</label>
     <textarea style="width:100%;border:.5px solid var(--bdr);border-radius:var(--rs);padding:10px;font-family:'DM Sans',sans-serif;font-size:14px;height:65px;outline:none;" placeholder="Add notes…" onchange="setF('${id}','remarks',this.value)">${esc(r.remarks||'')}</textarea></div>
@@ -3779,6 +3782,32 @@ function setF(id,f,v){
   if(f!=='remarks')toast(v?`✓ ${f==='handled'?'Handled':'Parent notified'}`:'Unmarked');
   const sbField=f==='parentNotified'?'parent_notified':f;
   updateSupabase(r,{[sbField]:v});
+}
+
+// ── Jump to ParentGo with linked MISC context ──
+// Opens ParentGo in a new tab with URL params so the New Comm form
+// auto-prefills the linked MISC case info (Section 26 of ParentGo spec).
+// Only MGMT sees the button (blocked at render time by _isTeacher check).
+function jumpToParentGo(recId){
+  const r=S.records.find(x=>x.id===recId);
+  if(!r){toast('Record not found',true);return;}
+  if(window._isTeacher){toast('MGMT-only feature',true);return;}
+  const supabaseId=r.supabase_id;
+  if(!supabaseId){
+    if(!confirm('This record has not synced to cloud yet. Continue anyway?'))return;
+  }
+  // Build URL params — ParentGo reads these on load
+  const student=(r.students||[])[0]||'';
+  const fmt=(FORMATS.find(f=>f.id===r.type)||{}).label||r.type;
+  const summary=`${fmt}: ${(r.summary||'').slice(0,80)}`;
+  const p=new URLSearchParams();
+  if(supabaseId)p.set('misc_id',String(supabaseId));
+  if(student)p.set('student',student);
+  if(summary)p.set('summary',summary);
+  // Compute base URL — same origin as MISC, sibling file
+  const base=window.location.href.replace(/\/[^\/]*$/,'/parent-go.html');
+  const url=base+'?'+p.toString();
+  window.open(url,'_blank');
 }
 
 // ── Close case with required resolution note ──
