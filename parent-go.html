@@ -59,17 +59,22 @@ html,body{background:var(--sur2);color:var(--txt);font-family:'DM Sans',sans-ser
 .pill{display:inline-flex;align-items:center;gap:6px;background:var(--navy);color:#fff;padding:7px 14px;border-radius:20px;font-weight:600;font-size:13px;margin-bottom:8px;}
 
 /* Metric cards row */
-.metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px;}
+.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;}
 .metric{background:var(--sur);border-radius:var(--r);padding:16px 12px;box-shadow:var(--sh);text-align:center;border:.5px solid var(--bdr);}
 .metric-num{font-size:34px;font-weight:800;margin-bottom:4px;line-height:1;}
 .metric-lab{font-size:12px;color:var(--txt2);text-transform:uppercase;letter-spacing:.05em;font-weight:700;margin-bottom:4px;}
 .metric-sub{font-size:11px;color:var(--mut);font-weight:500;}
 .m-red{border-left:4px solid var(--red2);}
 .m-red .metric-num{color:var(--red2);}
+.m-yel{border-left:4px solid var(--yel2);}
 .m-yel .metric-num{color:var(--yel2);}
+.m-grn{border-left:4px solid var(--grn2);}
 .m-grn .metric-num{color:var(--grn2);}
 .m-gry .metric-num{color:var(--gry2);}
-@media(max-width:640px){.metrics{grid-template-columns:1fr;}.metric-num{font-size:28px;}}
+.m-pur{border-left:4px solid #a78bfa;}
+.m-pur .metric-num{color:#7c3aed;}
+@media(max-width:840px){.metrics{grid-template-columns:repeat(2,1fr);}}
+@media(max-width:400px){.metrics{grid-template-columns:1fr;}.metric-num{font-size:28px;}}
 
 /* Program tabs (SRK / SRT / ATC) */
 .prog-tabs{display:flex;gap:8px;margin-bottom:16px;overflow-x:auto;padding-bottom:2px;}
@@ -100,6 +105,8 @@ html,body{background:var(--sur2);color:var(--txt);font-family:'DM Sans',sans-ser
 .st-grn{background:var(--grn3);color:var(--grn2);}
 .st-gry{background:var(--gry3);color:var(--gry2);}
 .cov-class{font-size:11px;color:var(--txt2);font-weight:600;background:var(--sur2);padding:3px 7px;border-radius:6px;display:inline-block;}
+.cov-status-cell{display:flex;flex-direction:column;gap:4px;align-items:stretch;}
+.await-badge{font-size:10px;color:#6d28d9;font-weight:700;background:#ede9fe;padding:3px 6px;border-radius:8px;text-align:center;border:.5px solid #c4b5fd;}
 .date-chip{font-size:11px;font-weight:700;text-align:center;padding:5px 4px;border-radius:6px;background:var(--g3);color:var(--g2);font-family:'DM Sans',sans-serif;}
 .date-chip.dc-empty{background:var(--sur2);color:var(--mut);font-weight:400;}
 .date-chip.dc-more{background:var(--gry3);color:var(--gry2);}
@@ -220,6 +227,7 @@ html,body{background:var(--sur2);color:var(--txt);font-family:'DM Sans',sans-ser
       <input id="search-in" class="search-in" type="text" placeholder="🔍 Search by student name..." oninput="renderCoverage()">
       <button id="filter-attention" class="filter-btn" onclick="toggleFilter('attention')">❤️ Need Attention</button>
       <button id="filter-due" class="filter-btn" onclick="toggleFilter('due')">🟡 Due Soon</button>
+      <button id="filter-awaiting" class="filter-btn" onclick="toggleFilter('awaiting')">👪 Awaiting Reply</button>
       <button id="filter-never" class="filter-btn" onclick="toggleFilter('never')">⚫ Never</button>
     </div>
 
@@ -332,6 +340,24 @@ function getWarmthStatus(lastDate){
   if(daysAgo>45)return {status:'attention',reason:'over45',daysAgo};
   if(daysAgo>=30)return {status:'due',reason:'30to45',daysAgo};
   return {status:'covered',reason:'recent',daysAgo};
+}
+
+// Parent-Awaiting-Response detector.
+// Returns {daysAwaiting: N} when parent has an outstanding outreach that school
+// hasn't followed up on yet. Returns null otherwise.
+// Rule: if latest parent-init date > latest school-init date, parent is awaiting.
+// Once school does a school-init contact, the awaiting badge auto-clears.
+function getParentAwaitingInfo(allCommsForStudent){
+  const parents=allCommsForStudent.filter(c=>c && c.initiator==='parent');
+  if(!parents.length)return null;
+  parents.sort((a,b)=>b.date.localeCompare(a.date));
+  const schools=allCommsForStudent.filter(c=>isSchoolInitiated(c));
+  schools.sort((a,b)=>b.date.localeCompare(a.date));
+  const lastParent=parents[0].date;
+  const lastSchool=schools[0]?.date||null;
+  // School already responded (school-init on or after parent-init) → cleared
+  if(lastSchool&&lastSchool>=lastParent)return null;
+  return {daysAwaiting:daysBetween(lastParent,today()), lastParent};
 }
 
 // ══ STATE ══
@@ -528,12 +554,14 @@ function renderCoverage(){
 
   // Build per-student stats — SCHOOL-INITIATED only for Coverage semantics
   const rows=studs.map(s=>{
-    const schoolList=S.comms.filter(c=>commBelongsToStudent(c,s)&&isSchoolInitiated(c));
+    const allList=S.comms.filter(c=>commBelongsToStudent(c,s));
+    const schoolList=allList.filter(isSchoolInitiated);
     const sorted=schoolList.slice().sort((a,b)=>b.date.localeCompare(a.date));
     const dates=sorted.slice(0,3).map(c=>c.date);
     const more=Math.max(0,sorted.length-3);
     const last=sorted[0]?.date||null;
     const ws=getWarmthStatus(last);
+    const awaiting=getParentAwaitingInfo(allList);
     return {
       student_id:s.student_id,
       name:s.name,
@@ -543,12 +571,14 @@ function renderCoverage(){
       count:schoolList.length,
       status:ws.status,      // 'attention' | 'due' | 'covered'
       reason:ws.reason,      // 'never' | 'over45' | '30to45' | 'recent'
+      awaiting,              // {daysAwaiting, lastParent} or null
     };
   }).filter(r=>{
     if(search&&!r.name.toUpperCase().includes(search))return false;
     if(_filter==='attention'&&r.status!=='attention')return false;
     if(_filter==='due'&&r.status!=='due')return false;
     if(_filter==='never'&&r.reason!=='never')return false;
+    if(_filter==='awaiting'&&!r.awaiting)return false;
     return true;
   });
   // Sort alphabetically
@@ -563,25 +593,29 @@ function renderCoverage(){
 
   // Metrics — computed over ALL students in current dept (regardless of filter)
   const allProgStuds=S.students.filter(s=>s.dept===_selProg);
-  const m={attention:0,due:0,covered:0,never:0,over45:0};
+  const m={attention:0,due:0,covered:0,never:0,over45:0,awaiting:0};
   allProgStuds.forEach(s=>{
-    const schoolList=S.comms.filter(c=>commBelongsToStudent(c,s)&&isSchoolInitiated(c));
+    const allList=S.comms.filter(c=>commBelongsToStudent(c,s));
+    const schoolList=allList.filter(isSchoolInitiated);
     const sorted=schoolList.slice().sort((a,b)=>b.date.localeCompare(a.date));
     const ws=getWarmthStatus(sorted[0]?.date||null);
     m[ws.status]++;
     if(ws.reason==='never')m.never++;
     if(ws.reason==='over45')m.over45++;
+    if(getParentAwaitingInfo(allList))m.awaiting++;
   });
   document.getElementById('metrics').innerHTML=`
     <div class="metric m-red"><div class="metric-num">${m.attention}</div><div class="metric-lab">❤️ Need Attention</div><div class="metric-sub">${m.over45} over 45d · ${m.never} never</div></div>
     <div class="metric m-yel"><div class="metric-num">${m.due}</div><div class="metric-lab">🟡 Due Soon</div><div class="metric-sub">30–45 days</div></div>
     <div class="metric m-grn"><div class="metric-num">${m.covered}</div><div class="metric-lab">🟢 Covered</div><div class="metric-sub">&lt; 30 days</div></div>
+    <div class="metric m-pur"><div class="metric-num">${m.awaiting}</div><div class="metric-lab">👪 Awaiting Reply</div><div class="metric-sub">Parent reached out</div></div>
   `;
 
   // Filter button active states
   document.getElementById('filter-attention').classList.toggle('on',_filter==='attention');
   document.getElementById('filter-due').classList.toggle('on',_filter==='due');
   document.getElementById('filter-never').classList.toggle('on',_filter==='never');
+  document.getElementById('filter-awaiting').classList.toggle('on',_filter==='awaiting');
 
   const el=document.getElementById('cov-list');
   if(!rows.length){
@@ -599,6 +633,10 @@ function renderCoverage(){
     }else{
       stLabel='🟢 Covered';
     }
+    // Parent-awaiting badge
+    const awaitBadge=r.awaiting
+      ? `<div class="await-badge">👪 Awaiting ${r.awaiting.daysAwaiting}d</div>`
+      : '';
     // 3 date slots
     const d1=r.dates[0]?`<div class="date-chip">${fmtShort(r.dates[0])}</div>`:`<div class="date-chip dc-empty">—</div>`;
     const d2=r.dates[1]?`<div class="date-chip">${fmtShort(r.dates[1])}</div>`:`<div class="date-chip dc-empty">—</div>`;
@@ -613,7 +651,10 @@ function renderCoverage(){
       <div>${d2}</div>
       <div>${d3}</div>
       <div class="cov-total cov-row-hide-mob">${r.count}</div>
-      <div class="cov-status ${stCls}">${stLabel}</div>
+      <div class="cov-status-cell">
+        <div class="cov-status ${stCls}">${stLabel}</div>
+        ${awaitBadge}
+      </div>
     </div>`;
   }).join('');
 }
@@ -641,6 +682,7 @@ function viewStudent(studentId, name){
   const positiveSchoolList=schoolList.filter(isPositiveComm);
   const lastWarm=schoolList[0]?.date||null;
   const ws=getWarmthStatus(lastWarm);
+  const awaiting=getParentAwaitingInfo(list);
   let statusLabel;
   if(ws.status==='attention')statusLabel=ws.reason==='never'?'❤️ Need Attention · Never':'❤️ Need Attention';
   else if(ws.status==='due')statusLabel='🟡 Due Soon';
@@ -650,6 +692,9 @@ function viewStudent(studentId, name){
 
   const unknownRow=unknownList.length?`
         <div style="color:var(--txt2);">Initiator Unknown</div><div style="font-weight:700;color:var(--txt);text-align:right;">${unknownList.length}</div>`:'';
+  const awaitingRow=awaiting
+    ? `<div style="color:var(--txt2);">Awaiting Reply</div><div style="font-weight:800;color:#7c3aed;text-align:right;">👪 ${awaiting.daysAwaiting}d — ${fmt(awaiting.lastParent)}</div>`
+    : `<div style="color:var(--txt2);">Awaiting Reply</div><div style="font-weight:600;color:var(--mut);text-align:right;">— no pending —</div>`;
 
   const profile=`
     <div style="background:var(--sur2);border-radius:var(--rs);padding:12px 14px;margin-bottom:14px;">
@@ -659,6 +704,7 @@ function viewStudent(studentId, name){
         <div style="color:var(--txt2);">Parent Initiated</div><div style="font-weight:700;color:var(--txt);text-align:right;">${parentList.length}</div>${unknownRow}
         <div style="color:var(--txt2);">Positive Warm Contacts</div><div style="font-weight:700;color:var(--txt);text-align:right;">${positiveSchoolList.length}</div>
         <div style="color:var(--txt2);">Last Warm Contact</div><div style="font-weight:600;color:var(--txt);text-align:right;font-size:12px;">${lastWarmTxt}</div>
+        ${awaitingRow}
         <div style="color:var(--txt2);">Current Status</div><div style="font-weight:800;color:${statusColor};text-align:right;">${statusLabel}</div>
       </div>
     </div>`;
