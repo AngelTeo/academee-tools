@@ -1,0 +1,1119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>ParentGo</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+:root{
+  --g:#0f6e56;--g2:#085041;--g3:#d1fae5;--g4:#f0fdf9;
+  --navy:#1a3a5c;--blue:#2d7dd2;
+  --red:#a32d2d;--amb:#854f0b;--amb2:#fef3c7;
+  --txt:#1a2533;--txt2:#4a5568;--mut:#8a96a8;
+  --sur:#fff;--sur2:#f4f7f5;--bdr:#dde8e3;
+  --r:14px;--rs:10px;
+  --sh:0 1px 4px rgba(0,0,0,.07);--shm:0 8px 32px rgba(0,0,0,.12);
+  --red3:#fee2e2;--red2:#dc2626;
+  --yel3:#fef3c7;--yel2:#d97706;
+  --grn3:#d1fae5;--grn2:#059669;
+  --gry3:#e5e7eb;--gry2:#6b7280;
+}
+html,body{background:var(--sur2);color:var(--txt);font-family:'DM Sans',sans-serif;font-size:14px;line-height:1.5;overflow-x:hidden;}
+.scr{display:none;min-height:100vh;}
+.scr.on{display:block;}
+
+/* ══ ENTRY SCREEN ══ */
+.entry-wrap{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:24px;background:linear-gradient(135deg,#0f6e56,#085041);}
+.entry-card{background:#fff;border-radius:20px;padding:32px 28px;max-width:400px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.2);}
+.entry-brand{text-align:center;margin-bottom:24px;}
+.entry-brand-emoji{font-size:44px;margin-bottom:6px;}
+.entry-brand-name{font-size:22px;font-weight:700;color:var(--navy);}
+.entry-brand-sub{font-size:12px;color:var(--mut);margin-top:4px;text-transform:uppercase;letter-spacing:.08em;}
+.entry-lab{font-size:13px;font-weight:600;color:var(--txt2);margin-bottom:6px;}
+.entry-in{width:100%;border:1px solid var(--bdr);border-radius:var(--rs);padding:12px 14px;font-family:inherit;font-size:15px;outline:none;margin-bottom:14px;}
+.entry-in:focus{border-color:var(--g);}
+.entry-btn{width:100%;padding:14px;border:none;border-radius:var(--rs);background:var(--g);color:#fff;font-weight:700;font-size:15px;font-family:inherit;cursor:pointer;}
+.entry-btn:hover{background:var(--g2);}
+.pw-err{color:var(--red2);font-size:12px;margin-bottom:8px;display:none;}
+
+/* ══ MAIN LAYOUT ══ */
+.topbar{background:var(--navy);color:#fff;padding:14px 20px;display:flex;align-items:center;gap:14px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.15);}
+.topbar-brand{font-size:16px;font-weight:700;display:flex;align-items:center;gap:6px;}
+.topbar-nav{display:flex;gap:4px;flex:1;margin-left:12px;}
+.topbar-nav a{color:#c4d4e6;padding:8px 14px;border-radius:8px;font-weight:600;font-size:14px;cursor:pointer;text-decoration:none;}
+.topbar-nav a.on{background:rgba(255,255,255,.15);color:#fff;}
+.topbar-nav a:hover{background:rgba(255,255,255,.1);}
+.topbar-logout{background:transparent;border:1px solid rgba(255,255,255,.3);color:#fff;padding:6px 12px;border-radius:8px;font-size:13px;cursor:pointer;font-family:inherit;}
+.topbar-logout:hover{background:rgba(255,255,255,.1);}
+
+.pg-page{display:none;padding:20px;max-width:1400px;margin:0 auto;}
+.pg-page.on{display:block;}
+
+.page-title{font-size:24px;font-weight:800;color:var(--navy);margin-bottom:6px;letter-spacing:-.02em;}
+.page-sub{font-size:13px;color:var(--mut);margin-bottom:20px;}
+
+/* Header pill */
+.pill{display:inline-flex;align-items:center;gap:6px;background:var(--navy);color:#fff;padding:7px 14px;border-radius:20px;font-weight:600;font-size:13px;margin-bottom:8px;}
+
+/* Metric cards row */
+.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;}
+.metric{background:var(--sur);border-radius:var(--r);padding:16px 12px;box-shadow:var(--sh);text-align:center;border:.5px solid var(--bdr);}
+.metric-num{font-size:34px;font-weight:800;margin-bottom:4px;line-height:1;}
+.metric-lab{font-size:12px;color:var(--txt2);text-transform:uppercase;letter-spacing:.05em;font-weight:700;margin-bottom:4px;}
+.metric-sub{font-size:11px;color:var(--mut);font-weight:500;}
+.m-red{border-left:4px solid var(--red2);}
+.m-red .metric-num{color:var(--red2);}
+.m-yel{border-left:4px solid var(--yel2);}
+.m-yel .metric-num{color:var(--yel2);}
+.m-grn{border-left:4px solid var(--grn2);}
+.m-grn .metric-num{color:var(--grn2);}
+.m-gry .metric-num{color:var(--gry2);}
+.m-pur{border-left:4px solid #a78bfa;}
+.m-pur .metric-num{color:#7c3aed;}
+@media(max-width:840px){.metrics{grid-template-columns:repeat(2,1fr);}}
+@media(max-width:400px){.metrics{grid-template-columns:1fr;}.metric-num{font-size:28px;}}
+
+/* Program tabs (SRK / SRT / ATC) */
+.prog-tabs{display:flex;gap:8px;margin-bottom:16px;overflow-x:auto;padding-bottom:2px;}
+.prog-tab{padding:9px 16px;border-radius:20px;border:1.5px solid var(--bdr);background:var(--sur);color:var(--txt2);font-weight:700;font-size:13px;cursor:pointer;white-space:nowrap;font-family:inherit;}
+.prog-tab.on{background:var(--navy);color:#fff;border-color:var(--navy);}
+
+/* Search bar */
+.search-box{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;}
+.search-in{flex:1;min-width:200px;border:.5px solid var(--bdr);border-radius:var(--rs);padding:10px 12px;font-family:inherit;font-size:14px;outline:none;background:var(--sur);}
+.search-in:focus{border-color:var(--g);}
+.filter-btn{padding:10px 14px;border-radius:var(--rs);border:1.5px solid var(--bdr);background:var(--sur);color:var(--txt2);font-weight:600;font-size:13px;cursor:pointer;font-family:inherit;}
+.filter-btn.on{background:var(--navy);color:#fff;border-color:var(--navy);}
+
+/* Coverage table */
+.cov-card{background:var(--sur);border-radius:var(--r);box-shadow:var(--sh);border:.5px solid var(--bdr);overflow:hidden;margin-bottom:20px;}
+.cov-head{display:grid;grid-template-columns:2fr 110px 68px 68px 68px 60px 110px;gap:6px;padding:12px 14px;background:var(--sur2);font-size:11px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--bdr);}
+.cov-row{display:grid;grid-template-columns:2fr 110px 68px 68px 68px 60px 110px;gap:6px;padding:12px 14px;border-bottom:.5px solid var(--bdr);align-items:center;cursor:pointer;transition:background .1s;}
+.cov-row:last-child{border-bottom:none;}
+.cov-row:hover{background:var(--sur2);}
+.cov-head-ctr{text-align:center;}
+.cov-name{font-weight:600;font-size:13px;color:var(--txt);}
+.cov-last{font-size:12px;color:var(--txt2);}
+.cov-days{font-size:12px;font-weight:700;text-align:center;}
+.cov-count{font-size:12px;color:var(--mut);text-align:center;}
+.cov-status{padding:4px 8px;border-radius:12px;font-size:11px;font-weight:700;text-align:center;text-transform:uppercase;letter-spacing:.04em;}
+.st-red{background:var(--red3);color:var(--red2);}
+.st-yel{background:var(--yel3);color:var(--yel2);}
+.st-grn{background:var(--grn3);color:var(--grn2);}
+.st-gry{background:var(--gry3);color:var(--gry2);}
+.cov-class{font-size:11px;color:var(--txt2);font-weight:600;background:var(--sur2);padding:3px 7px;border-radius:6px;display:inline-block;}
+.cov-status-cell{display:flex;flex-direction:column;gap:4px;align-items:stretch;}
+.await-badge{font-size:10px;color:#6d28d9;font-weight:700;background:#ede9fe;padding:3px 6px;border-radius:8px;text-align:center;border:.5px solid #c4b5fd;}
+.date-chip{font-size:11px;font-weight:700;text-align:center;padding:5px 4px;border-radius:6px;background:var(--g3);color:var(--g2);font-family:'DM Sans',sans-serif;}
+.date-chip.dc-empty{background:var(--sur2);color:var(--mut);font-weight:400;}
+.date-chip.dc-more{background:var(--gry3);color:var(--gry2);}
+.cov-total{font-size:12px;font-weight:700;color:var(--navy);text-align:center;}
+@media(max-width:768px){
+  .cov-head{grid-template-columns:1.4fr 60px 60px 60px 85px;gap:5px;padding:10px 8px;font-size:9px;}
+  .cov-row{grid-template-columns:1.4fr 60px 60px 60px 85px;gap:5px;padding:10px 8px;}
+  .cov-head-hide-mob,.cov-row-hide-mob{display:none;}
+  .cov-class{font-size:10px;padding:2px 5px;}
+  .date-chip{font-size:10px;padding:4px 2px;}
+}
+
+/* Action buttons */
+.act-row{display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap;}
+.btn{padding:11px 16px;border:none;border-radius:var(--rs);font-weight:700;font-size:14px;cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:6px;}
+.btn-primary{background:var(--g);color:#fff;}
+.btn-primary:hover{background:var(--g2);}
+.btn-nav{background:var(--navy);color:#fff;}
+.btn-nav:hover{background:#132d47;}
+.btn-sec{background:var(--sur);color:var(--txt2);border:1.5px solid var(--bdr);}
+.btn-sec:hover{background:var(--sur2);}
+
+/* Empty state */
+.empty{text-align:center;padding:40px 20px;color:var(--mut);}
+.empty-emoji{font-size:44px;margin-bottom:8px;}
+
+/* Modal */
+.mod-bg{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;display:none;align-items:flex-start;justify-content:center;padding:20px;overflow-y:auto;}
+.mod-bg.on{display:flex;}
+.mod{background:var(--sur);border-radius:var(--r);max-width:560px;width:100%;box-shadow:var(--shm);margin:20px 0;}
+.mod-h{padding:20px 20px 12px 20px;display:flex;align-items:center;justify-content:space-between;border-bottom:.5px solid var(--bdr);}
+.mod-title{font-size:18px;font-weight:700;color:var(--navy);}
+.mod-close{background:transparent;border:none;font-size:22px;color:var(--mut);cursor:pointer;padding:0 4px;font-family:inherit;}
+.mod-body{padding:20px;}
+.mod-foot{padding:12px 20px;border-top:.5px solid var(--bdr);display:flex;gap:8px;justify-content:flex-end;background:var(--sur2);border-radius:0 0 var(--r) var(--r);}
+
+.f-lab{font-size:13px;font-weight:600;color:var(--txt2);display:block;margin-bottom:6px;}
+.f-lab .req{color:var(--red2);}
+.f-in,.f-sel,.f-ta{width:100%;border:.5px solid var(--bdr);border-radius:var(--rs);padding:10px 12px;font-family:inherit;font-size:14px;outline:none;background:var(--sur);}
+.f-in:focus,.f-sel:focus,.f-ta:focus{border-color:var(--g);}
+.f-ta{resize:vertical;min-height:76px;font-family:inherit;}
+.f-row{margin-bottom:14px;}
+.f-row-2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;}
+@media(max-width:480px){.f-row-2{grid-template-columns:1fr;}}
+
+/* Linked MISC banner */
+.linked-banner{background:linear-gradient(135deg,#eef2ff,#e0e7ff);border:1px solid #a5b4fc;border-radius:var(--rs);padding:12px;margin-bottom:14px;}
+.linked-title{font-size:12px;font-weight:700;color:#4338ca;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;}
+.linked-body{font-size:13px;color:#312e81;}
+
+/* Student timeline modal */
+.tl-item{border-left:3px solid var(--bdr);padding:8px 0 8px 12px;margin-bottom:8px;position:relative;}
+.tl-item.tl-linked{border-color:var(--blue);}
+.tl-item.tl-standalone{border-color:var(--g);}
+.tl-item.tl-parent{border-color:#a78bfa;background:#faf5ff;padding-left:12px;}
+.tl-item.tl-unknown{border-color:#9ca3af;background:#f9fafb;padding-left:12px;}
+.tl-date{font-size:11px;color:var(--mut);font-weight:600;}
+.tl-body{font-size:13px;color:var(--txt);margin-top:2px;}
+.tl-meta{font-size:11px;color:var(--mut);margin-top:2px;}
+.tl-linked-tag{display:inline-block;background:#dbeafe;color:#1e40af;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700;margin-right:4px;}
+
+/* Toast */
+.toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(100px);background:var(--txt);color:#fff;padding:11px 20px;border-radius:22px;font-size:13px;font-weight:600;box-shadow:0 6px 20px rgba(0,0,0,.28);z-index:400;opacity:0;transition:transform .28s,opacity .28s;pointer-events:none;max-width:calc(100vw - 40px);text-align:center;}
+.toast.on{transform:translateX(-50%) translateY(0);opacity:1;}
+
+/* Small button rows in table */
+.mini-btn{padding:5px 9px;border-radius:8px;border:1px solid var(--bdr);background:var(--sur);color:var(--txt2);font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;}
+.mini-btn:hover{background:var(--g);color:#fff;border-color:var(--g);}
+</style>
+</head>
+<body>
+
+<!-- ══ ENTRY SCREEN ══ -->
+<div class="scr on" id="s-entry">
+  <div class="entry-wrap">
+    <div class="entry-card">
+      <div class="entry-brand">
+        <div class="entry-brand-emoji">📞</div>
+        <div class="entry-brand-name">ParentGo</div>
+        <div class="entry-brand-sub">Parent Communication Log</div>
+      </div>
+      <label class="entry-lab">Your Initials</label>
+      <input id="entry-ini" class="entry-in" type="text" maxlength="6" placeholder="e.g. SQ" oninput="this.value=this.value.toUpperCase()">
+      <label class="entry-lab">MGMT Password</label>
+      <input id="pw-input" class="entry-in" type="password" placeholder="Password" onkeydown="if(event.key==='Enter')doLogin()">
+      <div id="pw-err" class="pw-err">⚠ Incorrect password</div>
+      <button class="entry-btn" onclick="doLogin()">Login</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MGMT SCREEN ══ -->
+<div class="scr" id="s-mgmt">
+  <div class="topbar">
+    <div class="topbar-brand">📞 ParentGo</div>
+    <div class="topbar-nav">
+      <a id="nav-cov" class="on" onclick="goPage('cov')">Coverage</a>
+      <a id="nav-log" onclick="goPage('log')">All Comms</a>
+    </div>
+    <button class="topbar-logout" onclick="doLogout()">Logout</button>
+  </div>
+
+  <div id="pg-cov" class="pg-page on">
+    <div id="pill-date" class="pill"></div>
+    <div class="page-title">Parent Coverage</div>
+    <div class="page-sub">Which families need our attention? · Coverage counts only school-initiated contact</div>
+
+    <div class="metrics" id="metrics"></div>
+
+    <div class="act-row">
+      <button class="btn btn-primary" onclick="openNewComm()">➕ Log Communication</button>
+      <button class="btn btn-sec" onclick="syncFromCloud()">🔄 Refresh</button>
+    </div>
+
+    <div class="prog-tabs" id="prog-tabs"></div>
+
+    <div class="search-box">
+      <input id="search-in" class="search-in" type="text" placeholder="🔍 Search by student name..." oninput="renderCoverage()">
+      <button id="filter-attention" class="filter-btn" onclick="toggleFilter('attention')">❤️ Need Attention</button>
+      <button id="filter-due" class="filter-btn" onclick="toggleFilter('due')">🟡 Due Soon</button>
+      <button id="filter-awaiting" class="filter-btn" onclick="toggleFilter('awaiting')">👪 Awaiting Reply</button>
+      <button id="filter-never" class="filter-btn" onclick="toggleFilter('never')">⚫ Never</button>
+    </div>
+
+    <div class="cov-card">
+      <div class="cov-head">
+        <div>Student</div>
+        <div>Class</div>
+        <div class="cov-head-ctr cov-head-hide-mob">Date 1</div>
+        <div class="cov-head-ctr">Date 2</div>
+        <div class="cov-head-ctr">Date 3</div>
+        <div class="cov-head-ctr cov-head-hide-mob">Total</div>
+        <div>Status</div>
+      </div>
+      <div id="cov-list"></div>
+    </div>
+  </div>
+
+  <div id="pg-log" class="pg-page">
+    <div class="page-title">All Communications</div>
+    <div class="page-sub">Recent parent contact log · newest first</div>
+    <div class="act-row">
+      <button class="btn btn-primary" onclick="openNewComm()">➕ Log Communication</button>
+      <button class="btn btn-sec" onclick="syncFromCloud()">🔄 Refresh</button>
+    </div>
+    <div id="log-list"></div>
+  </div>
+</div>
+
+<!-- ══ MODAL ══ -->
+<div class="mod-bg" id="modal">
+  <div class="mod">
+    <div class="mod-h">
+      <div class="mod-title" id="mod-title">Modal</div>
+      <button class="mod-close" onclick="closeModal()">×</button>
+    </div>
+    <div class="mod-body" id="mod-body"></div>
+    <div class="mod-foot" id="mod-foot"></div>
+  </div>
+</div>
+
+<!-- ══ TOAST ══ -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ══ CONFIG ══
+const SUPABASE_URL='https://qnpvqsvvsgsantekgfbz.supabase.co';
+const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFucHZxc3Z2c2dzYW50ZWtnZmJ6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYxNzg4MzIsImV4cCI6MjA5MTc1NDgzMn0.8rfv0BQpWNNSD8yrhHNwCOkcG9q5_uMD7B7z_Y324a0';
+const _sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+
+const MGMT_PW='MISCSRK2026';
+const KEY='parentgo_v1';
+const INI_KEY='ini_v4'; // Shared with MISC — same initials
+
+const PROGRAMS=['SRK','SRT','ATC','GAK']; // Order matters
+const DEFAULT_PROG='SRK';
+const COMM_TYPES=[
+  {id:'call',label:'📞 Phone Call'},
+  {id:'whatsapp',label:'💬 WhatsApp'},
+  {id:'meeting',label:'👥 Meeting'},
+  {id:'in_person',label:'🚶 In Person'},
+  {id:'other',label:'❓ Other'},
+];
+const SUBJECTS=[
+  {id:'positive',label:'🌟 Positive Moment'},
+  {id:'care',label:'❤️ Care / Check-in'},
+  {id:'progress',label:'📈 Learning Progress'},
+  {id:'praise',label:'👏 Praise / Recognition'},
+  {id:'health',label:'🏥 Health'},
+  {id:'behavior',label:'⚠️ Behaviour / Concern'},
+  {id:'event_followup',label:'📋 MISC Follow-up'},
+  {id:'other',label:'💬 General'},
+];
+const POSITIVE_SUBJECT_IDS=['positive','care','progress','praise'];
+const OUTCOMES=[
+  {id:'noted',label:'✏️ Noted'},
+  {id:'parent_ack',label:'✅ Parent Acknowledged'},
+  {id:'resolved',label:'✔️ Resolved'},
+  {id:'follow_up',label:'📌 Needs Follow-up'},
+];
+
+// ══ CORE SEMANTICS (spec v2) ══
+// Only school-initiated contact counts toward Coverage clock.
+function isSchoolInitiated(c){return c && c.initiator==='teacher';}
+function isPositiveComm(c){return c && POSITIVE_SUBJECT_IDS.includes(c.subject);}
+
+// Human-friendly initiator label. Anything not explicitly 'teacher' or 'parent'
+// is 'unknown' — including null, undefined, empty string, or unexpected values.
+// Unknown does NOT count as school-initiated for Coverage.
+function initiatorLabel(c){
+  if(!c)return '❔ Initiator Unknown';
+  if(c.initiator==='teacher')return '👨‍🏫 School Initiated';
+  if(c.initiator==='parent')return '👪 Parent Initiated';
+  return '❔ Initiator Unknown';
+}
+
+// Match a communication to a student. Prefer student_id; fallback to name (legacy).
+function normaliseStudentName(v){return String(v||'').trim().replace(/\s+/g,' ').toLowerCase();}
+function commBelongsToStudent(c,s){
+  if(c.student_id&&s.student_id){
+    return String(c.student_id)===String(s.student_id);
+  }
+  return normaliseStudentName(c.student)===normaliseStudentName(s.name);
+}
+
+// Warmth status — the ONE definitive helper. Coverage + metrics both use this.
+// Reason codes: 'never' | 'over45' | '30to45' | 'recent'
+function getWarmthStatus(lastDate){
+  if(!lastDate)return {status:'attention',reason:'never',daysAgo:null};
+  const daysAgo=daysBetween(lastDate,today());
+  if(daysAgo>45)return {status:'attention',reason:'over45',daysAgo};
+  if(daysAgo>=30)return {status:'due',reason:'30to45',daysAgo};
+  return {status:'covered',reason:'recent',daysAgo};
+}
+
+// Parent-Awaiting-Response detector.
+// Returns {daysAwaiting: N} when parent has an outstanding outreach that school
+// hasn't followed up on yet. Returns null otherwise.
+// Rule: if latest parent-init date > latest school-init date, parent is awaiting.
+// Once school does a school-init contact, the awaiting badge auto-clears.
+// Same-day tiebreak: uses createdAt to determine actual order when comm_date matches.
+function sortCommsByRecency(list){
+  // Descending: newest first. Date primary, createdAt tiebreaker for same-day comms.
+  return list.slice().sort((a,b)=>{
+    if(a.date!==b.date)return b.date.localeCompare(a.date);
+    return (b.createdAt||0)-(a.createdAt||0);
+  });
+}
+function getParentAwaitingInfo(allCommsForStudent){
+  const parents=allCommsForStudent.filter(c=>c && c.initiator==='parent');
+  if(!parents.length)return null;
+  const parentsSorted=sortCommsByRecency(parents);
+  const schools=sortCommsByRecency(allCommsForStudent.filter(c=>isSchoolInitiated(c)));
+  const lastParent=parentsSorted[0];
+  const lastSchool=schools[0]||null;
+  // School already responded — compare date+createdAt, not date only.
+  // If dates differ: use date order. If dates same: use createdAt order.
+  if(lastSchool){
+    if(lastSchool.date>lastParent.date)return null;
+    if(lastSchool.date===lastParent.date&&(lastSchool.createdAt||0)>=(lastParent.createdAt||0))return null;
+  }
+  return {daysAwaiting:daysBetween(lastParent.date,today()), lastParent:lastParent.date};
+}
+
+// ══ STATE ══
+const S={comms:[],students:[]};
+let _tt=null;
+let _selProg=DEFAULT_PROG;
+let _filter='';  // '', 'attention', 'due', 'never'
+let _pendingLinkedMiscId=null; // when opened from URL params
+
+// ══ UTILS ══
+function today(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function fmt(d){if(!d)return '—';try{const dt=new Date(d);return dt.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});}catch(e){return d;}}
+function fmtShort(d){if(!d)return '—';try{const dt=new Date(d);return String(dt.getMonth()+1).padStart(2,'0')+'/'+String(dt.getDate()).padStart(2,'0');}catch(e){return d;}}
+function daysBetween(a,b){const ms=new Date(b)-new Date(a);return Math.floor(ms/(24*60*60*1000));}
+function toast(msg,err=false){const el=document.getElementById('toast');el.textContent=msg;el.style.background=err?'var(--red)':'var(--txt)';el.classList.add('on');clearTimeout(_tt);_tt=setTimeout(()=>el.classList.remove('on'),2400);}
+function getIni(){return(localStorage.getItem(INI_KEY)||'').toUpperCase();}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){console.warn('save failed',e);}}
+function load(){try{const p=JSON.parse(localStorage.getItem(KEY)||'{}');if(p.comms)S.comms=p.comms;if(p.students)S.students=p.students;}catch(e){}}
+function show(id){document.querySelectorAll('.scr').forEach(s=>s.classList.remove('on'));document.getElementById(id).classList.add('on');}
+function goPage(id){
+  document.querySelectorAll('.pg-page').forEach(p=>p.classList.remove('on'));
+  document.getElementById('pg-'+id).classList.add('on');
+  document.querySelectorAll('.topbar-nav a').forEach(a=>a.classList.remove('on'));
+  document.getElementById('nav-'+id).classList.add('on');
+  if(id==='log')renderLog();
+  if(id==='cov')renderCoverage();
+}
+function openModal(title,body,foot){
+  document.getElementById('mod-title').innerHTML=title;
+  document.getElementById('mod-body').innerHTML=body;
+  document.getElementById('mod-foot').innerHTML=foot||'';
+  document.getElementById('modal').classList.add('on');
+}
+function closeModal(){document.getElementById('modal').classList.remove('on');}
+
+// ══ AUTH ══
+function doLogin(){
+  const pw=document.getElementById('pw-input').value;
+  const ini=document.getElementById('entry-ini').value.trim().toUpperCase();
+  if(pw!==MGMT_PW){
+    document.getElementById('pw-err').style.display='block';
+    document.getElementById('pw-input').value='';
+    return;
+  }
+  if(!ini){
+    document.getElementById('pw-err').style.display='none';
+    document.getElementById('pw-input').value='';
+    toast('Please enter your initials first',true);
+    document.getElementById('entry-ini').focus();
+    return;
+  }
+  localStorage.setItem(INI_KEY,ini);
+  localStorage.setItem('parentgo_session',Date.now()+12*60*60*1000);
+  show('s-mgmt');
+  updateDatePill();
+  syncAll();
+}
+function doLogout(){
+  localStorage.removeItem('parentgo_session');
+  show('s-entry');
+}
+function checkSession(){
+  const exp=parseInt(localStorage.getItem('parentgo_session')||'0');
+  if(exp&&Date.now()<exp){
+    show('s-mgmt');
+    updateDatePill();
+    syncAll();
+    return true;
+  }
+  return false;
+}
+function updateDatePill(){
+  const d=new Date();
+  const s=d.toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short',year:'numeric'});
+  document.getElementById('pill-date').innerHTML=`📅 ${s}`;
+}
+
+// ══ SUPABASE SYNC ══
+async function syncAll(){
+  toast('Syncing…');
+  // Render immediately from cache so user sees something
+  try{renderCoverage();renderLog();}catch(e){}
+  try{
+    await syncStudents();
+    await syncComms();
+    renderCoverage();
+    renderLog();
+    toast('✅ Synced');
+  }catch(e){
+    console.warn('sync error',e);
+    toast('Sync failed — showing local cache',true);
+  }
+}
+async function syncStudents(){
+  // Uses v_student_roster view — pre-flattened: one row per (student × department)
+  // with class info attached. Only Active + Enrolled students.
+  let all=[];
+  let from=0;
+  const PAGE=1000;
+  while(from<10000){
+    const {data,error}=await _sb.from('v_student_roster')
+      .select('student_id,name_en,name_cn,department,class_name,display_name,status,enrollment_active')
+      .eq('status','Active')
+      .eq('enrollment_active',true)
+      .order('name_en',{ascending:true})
+      .range(from,from+PAGE-1);
+    if(error){console.warn('students sync',error);return;}
+    if(!data||!data.length)break;
+    all=all.concat(data);
+    if(data.length<PAGE)break;
+    from+=PAGE;
+  }
+  // Normalize — one row per (student × dept). Same student appears in multiple dept tabs.
+  S.students=all.map(r=>({
+    student_id:r.student_id,
+    name:r.name_en||'',
+    name_cn:r.name_cn||'',
+    dept:(r.department||'').toUpperCase(),
+    class:r.display_name||r.class_name||'',
+  })).filter(s=>s.name&&s.dept);
+  save();
+  console.log('📥 Student roster (Active × Enrolled):',S.students.length,'rows');
+}
+async function syncComms(){
+  // Paginate to fetch all
+  let all=[];
+  let from=0;
+  const PAGE=1000;
+  while(from<20000){
+    const query=_sb.from('parent_comms').select('*').order('comm_date',{ascending:false}).range(from,from+PAGE-1);
+    const timeout=new Promise((_,rej)=>setTimeout(()=>rej(new Error('Timeout')),15000));
+    const {data,error}=await Promise.race([query,timeout]);
+    if(error)throw error;
+    if(!data||!data.length)break;
+    all=all.concat(data);
+    if(data.length<PAGE)break;
+    from+=PAGE;
+  }
+  S.comms=all.map(r=>({
+    id:'sb_'+r.id,
+    supabase_id:r.id,
+    student_id:r.student_id||null,
+    student:r.student_name||'',
+    date:r.comm_date||'',
+    type:r.comm_type||'other',
+    initiator:r.initiator||'unknown',
+    reporter:r.reporter||'',
+    subject:r.subject||'other',
+    summary:r.summary||'',
+    outcome:r.outcome||'noted',
+    linked_misc_id:r.linked_misc_id||null,
+    createdAt:r.created_at?new Date(r.created_at).getTime():Date.now()
+  }));
+  save();
+  console.log('📥 Comms:',all.length);
+}
+async function pushComm(c){
+  // student_id is authoritative + NOT NULL at DB level. It must always be set here
+  // (saveComm resolves + validates it before calling). No silent fallback — a missing
+  // student_id should be a hard failure, never a name-only write.
+  if(!c.student_id){
+    console.warn('pushComm blocked: missing student_id');
+    throw new Error('Cannot save: student_id is required (authoritative identity).');
+  }
+  const row={
+    student_id:c.student_id,
+    student_name:c.student,
+    comm_date:c.date,
+    comm_type:c.type,
+    initiator:c.initiator,
+    reporter:c.reporter,
+    subject:c.subject,
+    summary:c.summary,
+    outcome:c.outcome,
+    linked_misc_id:c.linked_misc_id||null
+  };
+  const {data,error}=await _sb.from('parent_comms').insert(row).select();
+  if(error){console.warn('pushComm failed',error);throw error;}
+  if(data&&data[0]){
+    c.supabase_id=data[0].id;
+    c.id='sb_'+data[0].id;
+    if(data[0].created_at)c.createdAt=new Date(data[0].created_at).getTime();
+  }
+  return c;
+}
+async function syncFromCloud(){await syncAll();}
+
+// ══ COVERAGE VIEW ══
+function renderCoverage(){
+  // Filter students by selected program (each row is a student × dept)
+  const studs=S.students.filter(s=>s.dept===_selProg);
+  const search=(document.getElementById('search-in')?.value||'').toUpperCase();
+
+  // Build per-student stats — SCHOOL-INITIATED only for Coverage semantics
+  const rows=studs.map(s=>{
+    const allList=S.comms.filter(c=>commBelongsToStudent(c,s));
+    const schoolList=allList.filter(isSchoolInitiated);
+    const sorted=sortCommsByRecency(schoolList);
+    const dates=sorted.slice(0,3).map(c=>c.date);
+    const more=Math.max(0,sorted.length-3);
+    const last=sorted[0]?.date||null;
+    const ws=getWarmthStatus(last);
+    const awaiting=getParentAwaitingInfo(allList);
+    return {
+      student_id:s.student_id,
+      name:s.name,
+      cls:s.class,
+      dates,more,last,
+      daysAgo:ws.daysAgo,
+      count:schoolList.length,
+      status:ws.status,      // 'attention' | 'due' | 'covered'
+      reason:ws.reason,      // 'never' | 'over45' | '30to45' | 'recent'
+      awaiting,              // {daysAwaiting, lastParent} or null
+    };
+  }).filter(r=>{
+    if(search&&!r.name.toUpperCase().includes(search))return false;
+    if(_filter==='attention'&&r.status!=='attention')return false;
+    if(_filter==='due'&&r.status!=='due')return false;
+    if(_filter==='never'&&r.reason!=='never')return false;
+    if(_filter==='awaiting'&&!r.awaiting)return false;
+    return true;
+  });
+  // Sort alphabetically
+  rows.sort((a,b)=>a.name.localeCompare(b.name));
+
+  // Program tabs
+  const tabsEl=document.getElementById('prog-tabs');
+  tabsEl.innerHTML=PROGRAMS.map(p=>{
+    const cnt=S.students.filter(s=>s.dept===p).length;
+    return `<button class="prog-tab ${p===_selProg?'on':''}" onclick="setProg('${p}')">${p} (${cnt})</button>`;
+  }).join('');
+
+  // Metrics — computed over ALL students in current dept (regardless of filter)
+  const allProgStuds=S.students.filter(s=>s.dept===_selProg);
+  const m={attention:0,due:0,covered:0,never:0,over45:0,awaiting:0};
+  allProgStuds.forEach(s=>{
+    const allList=S.comms.filter(c=>commBelongsToStudent(c,s));
+    const schoolList=allList.filter(isSchoolInitiated);
+    const sorted=sortCommsByRecency(schoolList);
+    const ws=getWarmthStatus(sorted[0]?.date||null);
+    m[ws.status]++;
+    if(ws.reason==='never')m.never++;
+    if(ws.reason==='over45')m.over45++;
+    if(getParentAwaitingInfo(allList))m.awaiting++;
+  });
+  document.getElementById('metrics').innerHTML=`
+    <div class="metric m-red"><div class="metric-num">${m.attention}</div><div class="metric-lab">❤️ Need Attention</div><div class="metric-sub">${m.over45} over 45d · ${m.never} never</div></div>
+    <div class="metric m-yel"><div class="metric-num">${m.due}</div><div class="metric-lab">🟡 Due Soon</div><div class="metric-sub">30–45 days</div></div>
+    <div class="metric m-grn"><div class="metric-num">${m.covered}</div><div class="metric-lab">🟢 Covered</div><div class="metric-sub">&lt; 30 days</div></div>
+    <div class="metric m-pur"><div class="metric-num">${m.awaiting}</div><div class="metric-lab">👪 Awaiting Reply</div><div class="metric-sub">Parent reached out</div></div>
+  `;
+
+  // Filter button active states
+  document.getElementById('filter-attention').classList.toggle('on',_filter==='attention');
+  document.getElementById('filter-due').classList.toggle('on',_filter==='due');
+  document.getElementById('filter-never').classList.toggle('on',_filter==='never');
+  document.getElementById('filter-awaiting').classList.toggle('on',_filter==='awaiting');
+
+  const el=document.getElementById('cov-list');
+  if(!rows.length){
+    el.innerHTML=`<div class="empty"><div class="empty-emoji">📭</div>No students match your filter</div>`;
+    return;
+  }
+  el.innerHTML=rows.map(r=>{
+    // Status pill labels — action-oriented
+    const stCls={attention:'st-red',due:'st-yel',covered:'st-grn'}[r.status];
+    let stLabel;
+    if(r.status==='attention'){
+      stLabel=r.reason==='never'?'❤️ Contact Now · Never':'❤️ Contact Now';
+    }else if(r.status==='due'){
+      stLabel='🟡 Due Soon';
+    }else{
+      stLabel='🟢 Covered';
+    }
+    // Parent-awaiting badge
+    const awaitBadge=r.awaiting
+      ? `<div class="await-badge">👪 Awaiting ${r.awaiting.daysAwaiting}d</div>`
+      : '';
+    // 3 date slots
+    const d1=r.dates[0]?`<div class="date-chip">${fmtShort(r.dates[0])}</div>`:`<div class="date-chip dc-empty">—</div>`;
+    const d2=r.dates[1]?`<div class="date-chip">${fmtShort(r.dates[1])}</div>`:`<div class="date-chip dc-empty">—</div>`;
+    let d3;
+    if(r.more>0)d3=`<div class="date-chip dc-more">+${r.more}</div>`;
+    else if(r.dates[2])d3=`<div class="date-chip">${fmtShort(r.dates[2])}</div>`;
+    else d3=`<div class="date-chip dc-empty">—</div>`;
+    return `<div class="cov-row" data-action="view-student" data-sid="${esc(r.student_id||'')}" data-sname="${esc(r.name)}">
+      <div class="cov-name">${esc(r.name)}</div>
+      <div><span class="cov-class">${esc(r.cls||'—')}</span></div>
+      <div class="cov-row-hide-mob">${d1}</div>
+      <div>${d2}</div>
+      <div>${d3}</div>
+      <div class="cov-total cov-row-hide-mob">${r.count}</div>
+      <div class="cov-status-cell">
+        <div class="cov-status ${stCls}">${stLabel}</div>
+        ${awaitBadge}
+      </div>
+    </div>`;
+  }).join('');
+}
+function setProg(p){_selProg=p;renderCoverage();}
+function toggleFilter(f){
+  _filter=(_filter===f)?'':f;
+  renderCoverage();
+}
+
+// ══ STUDENT TIMELINE ══
+function viewStudent(studentId, name){
+  // Prefer id-based match (authoritative); fallback to name for legacy comms.
+  let rosterMatch=null;
+  if(studentId){rosterMatch=S.students.find(s=>String(s.student_id)===String(studentId));}
+  if(!rosterMatch){rosterMatch=S.students.find(s=>s.name===name);}
+  const list=sortCommsByRecency(S.comms.filter(c=>{
+    if(rosterMatch)return commBelongsToStudent(c,rosterMatch);
+    return normaliseStudentName(c.student)===normaliseStudentName(name);
+  }));
+
+  // Warmth Profile computation
+  const schoolList=list.filter(isSchoolInitiated);
+  const parentList=list.filter(c=>c.initiator==='parent');
+  const unknownList=list.filter(c=>c.initiator!=='teacher'&&c.initiator!=='parent');
+  const positiveSchoolList=schoolList.filter(isPositiveComm);
+  const lastWarm=schoolList[0]?.date||null;
+  const ws=getWarmthStatus(lastWarm);
+  const awaiting=getParentAwaitingInfo(list);
+  let statusLabel;
+  if(ws.status==='attention')statusLabel=ws.reason==='never'?'❤️ Need Attention · Never':'❤️ Need Attention';
+  else if(ws.status==='due')statusLabel='🟡 Due Soon';
+  else statusLabel='🟢 Covered';
+  const statusColor={attention:'var(--red2)',due:'var(--yel2)',covered:'var(--grn2)'}[ws.status];
+  const lastWarmTxt=lastWarm?`${fmt(lastWarm)} (${ws.daysAgo}d ago)`:'Never contacted proactively';
+
+  const unknownRow=unknownList.length?`
+        <div style="color:var(--txt2);">Initiator Unknown</div><div style="font-weight:700;color:var(--txt);text-align:right;">${unknownList.length}</div>`:'';
+  const awaitingRow=awaiting
+    ? `<div style="color:var(--txt2);">Awaiting Reply</div><div style="font-weight:800;color:#7c3aed;text-align:right;">👪 ${awaiting.daysAwaiting}d — ${fmt(awaiting.lastParent)}</div>`
+    : `<div style="color:var(--txt2);">Awaiting Reply</div><div style="font-weight:600;color:var(--mut);text-align:right;">— no pending —</div>`;
+
+  const profile=`
+    <div style="background:var(--sur2);border-radius:var(--rs);padding:12px 14px;margin-bottom:14px;">
+      <div style="font-size:11px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">Warmth Profile</div>
+      <div style="display:grid;grid-template-columns:1fr auto;gap:6px 12px;font-size:13px;">
+        <div style="color:var(--txt2);">School Initiated</div><div style="font-weight:700;color:var(--txt);text-align:right;">${schoolList.length}</div>
+        <div style="color:var(--txt2);">Parent Initiated</div><div style="font-weight:700;color:var(--txt);text-align:right;">${parentList.length}</div>${unknownRow}
+        <div style="color:var(--txt2);">Positive Warm Contacts</div><div style="font-weight:700;color:var(--txt);text-align:right;">${positiveSchoolList.length}</div>
+        <div style="color:var(--txt2);">Last Warm Contact</div><div style="font-weight:600;color:var(--txt);text-align:right;font-size:12px;">${lastWarmTxt}</div>
+        ${awaitingRow}
+        <div style="color:var(--txt2);">Current Status</div><div style="font-weight:800;color:${statusColor};text-align:right;">${statusLabel}</div>
+      </div>
+    </div>`;
+
+  const timeline=list.length?list.map(c=>{
+    const school=isSchoolInitiated(c);
+    const isParent=c.initiator==='parent';
+    const linkCls=c.linked_misc_id?'tl-linked':(school?'tl-standalone':(isParent?'tl-parent':'tl-unknown'));
+    const linkTag=c.linked_misc_id?`<span class="tl-linked-tag">MISC #${c.linked_misc_id}</span>`:'';
+    const type=(COMM_TYPES.find(t=>t.id===c.type)||{}).label||c.type;
+    const subj=(SUBJECTS.find(s=>s.id===c.subject)||{}).label||c.subject;
+    const initTag=initiatorLabel(c);
+    const outc=(OUTCOMES.find(o=>o.id===c.outcome)||{}).label||c.outcome;
+    return `<div class="tl-item ${linkCls}">
+      <div class="tl-date">${fmt(c.date)} · logged by ${esc(c.reporter||'—')}</div>
+      <div class="tl-body">${linkTag}${esc(c.summary||'(no summary)')}</div>
+      <div class="tl-meta">${type} · ${subj} · ${initTag} · ${outc}</div>
+    </div>`;
+  }).join(''):`<div class="empty"><div class="empty-emoji">📭</div>No communications logged yet</div>`;
+
+  // Preserve authoritative id for "Log New" button so we don't lose identity when prefilling
+  const preselectId=rosterMatch?.student_id||studentId||'';
+  const preselectName=rosterMatch?.name||name||'';
+
+  openModal(
+    `👤 ${esc(preselectName)}`,
+    profile+`<div style="font-size:11px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">Communication History</div>`+timeline,
+    `<button class="btn btn-sec" onclick="closeModal()">Close</button>
+     <button class="btn btn-primary" data-action="open-new" data-sid="${esc(preselectId)}" data-sname="${esc(preselectName)}">➕ Log New</button>`
+  );
+}
+
+// ══ NEW COMM FORM ══
+function openNewComm(prefillStudent,prefillStudentId){
+  const ini=getIni();
+  const linked=_pendingLinkedMiscId;
+  const linkedInfo=window._pendingLinkedInfo;
+  _pendingLinkedMiscId=null; // consume once
+  window._pendingLinkedInfo=null;
+
+  const linkedBanner=linked?`
+    <div class="linked-banner">
+      <div class="linked-title">🔗 Linked to MISC Case #${linked}</div>
+      <div class="linked-body">${esc(linkedInfo?.summary||'')} · Student: ${esc(linkedInfo?.student||'')}</div>
+    </div>`:'';
+
+  const initialStudent=prefillStudent||linkedInfo?.student||'';
+  const initialSubject=linked?'event_followup':'other';
+
+  // Student picker (A3): dedup by student_id — one option per family, listing all dept·class.
+  // Datalist option label:  "NAME · Class1 (SRK) · Class2 (SRT)"
+  // On select, JS parses back to name, resolves student_id.
+  const byId={};
+  S.students.forEach(s=>{
+    if(!s.student_id)return;
+    if(!byId[s.student_id])byId[s.student_id]={name:s.name,rows:[]};
+    byId[s.student_id].rows.push({dept:s.dept,cls:s.class});
+  });
+  const stuIndex=Object.entries(byId).map(([id,info])=>{
+    const parts=info.rows.map(r=>`${r.cls||'?'} (${r.dept})`).join(' · ');
+    return {id,name:info.name,label:`${info.name} · ${parts}`};
+  });
+  const studOptions=stuIndex.map(x=>`<option value="${esc(x.label)}">`).join('');
+
+  openModal(
+    '➕ Log Parent Communication',
+    `${linkedBanner}
+     <div class="f-row">
+       <label class="f-lab">Student <span class="req">*</span></label>
+       <input id="f-student" list="stu-list" class="f-in" placeholder="Type student name…" value="${esc(initialStudent)}" autocomplete="off">
+       <datalist id="stu-list">${studOptions}</datalist>
+       <div id="f-student-hint" style="font-size:11px;color:var(--mut);margin-top:4px;min-height:14px;"></div>
+       <input type="hidden" id="f-student-id" value="">
+     </div>
+     <div class="f-row-2">
+       <div>
+         <label class="f-lab">Date <span class="req">*</span></label>
+         <input id="f-date" class="f-in" type="date" value="${today()}">
+       </div>
+       <div>
+         <label class="f-lab">Reporter</label>
+         <input id="f-reporter" class="f-in" type="text" maxlength="6" value="${esc(ini)}" oninput="this.value=this.value.toUpperCase()">
+       </div>
+     </div>
+     <div class="f-row-2">
+       <div>
+         <label class="f-lab">Type <span class="req">*</span></label>
+         <select id="f-type" class="f-sel">${COMM_TYPES.map(t=>`<option value="${t.id}">${t.label}</option>`).join('')}</select>
+       </div>
+       <div>
+         <label class="f-lab">Initiator</label>
+         <select id="f-init" class="f-sel">
+           <option value="teacher">👨‍🏫 School Initiated</option>
+           <option value="parent">👪 Parent Initiated</option>
+         </select>
+       </div>
+     </div>
+     <div class="f-row">
+       <label class="f-lab">Subject</label>
+       <select id="f-subject" class="f-sel">${SUBJECTS.map(s=>`<option value="${s.id}" ${s.id===initialSubject?'selected':''}>${s.label}</option>`).join('')}</select>
+     </div>
+     <div class="f-row">
+       <label class="f-lab">Summary <span class="req">*</span></label>
+       <textarea id="f-summary" class="f-ta" placeholder="What was discussed? What did the parent say?"></textarea>
+     </div>
+     <div class="f-row">
+       <label class="f-lab">Outcome</label>
+       <select id="f-outcome" class="f-sel">${OUTCOMES.map(o=>`<option value="${o.id}">${o.label}</option>`).join('')}</select>
+     </div>
+     <input type="hidden" id="f-linked-misc" value="${linked||''}">`,
+    `<button class="btn btn-sec" onclick="closeModal()">Cancel</button>
+     <button class="btn btn-primary" onclick="saveComm()">💾 Save</button>`
+  );
+
+  // Wire student input — attempt resolve on input; clear hidden id on manual edit
+  window._stuIndex=stuIndex;
+  // Silent-switch guard: track the student the user most recently *committed* to
+  // (change/blur/prefill). Manual edits clear hidden ID but keep this "original pick"
+  // so that fallback resolution to a DIFFERENT student triggers a confirmation dialog.
+  window._originalPickedId=null;
+  const stuIn=document.getElementById('f-student');
+  const hidIn=document.getElementById('f-student-id');
+  const hintEl=document.getElementById('f-student-hint');
+  function tryResolve(commitPure){
+    const raw=stuIn.value.trim();
+    hidIn.value='';
+    if(!raw){
+      hintEl.textContent='';hintEl.style.color='var(--mut)';
+      if(commitPure)window._originalPickedId=null; // Empty input on commit = reset pick memory
+      return;
+    }
+    // 1) Full label match (user picked from datalist)
+    const byLabel=stuIndex.find(x=>x.label===raw);
+    if(byLabel){
+      hidIn.value=byLabel.id;
+      if(commitPure){
+        stuIn.value=byLabel.name; // A3: clean input back to pure name
+        window._originalPickedId=byLabel.id; // Track as committed pick
+      }
+      hintEl.textContent=`✓ Bound: ${byLabel.name}`;
+      hintEl.style.color='var(--grn2)';
+      return;
+    }
+    // 2) Exact name match (case-insensitive)
+    const matches=stuIndex.filter(x=>x.name.toUpperCase()===raw.toUpperCase());
+    if(matches.length===1){
+      hidIn.value=matches[0].id;
+      if(commitPure){
+        stuIn.value=matches[0].name;
+        window._originalPickedId=matches[0].id; // Track as committed pick
+      }
+      hintEl.textContent=`✓ Bound: ${matches[0].name}`;
+      hintEl.style.color='var(--grn2)';
+      return;
+    }
+    if(matches.length>1){
+      hintEl.innerHTML=`⚠️ ${matches.length} students named "${esc(raw)}" — please pick one:<br>${matches.map(m=>`&nbsp;&nbsp;• ${esc(m.label)}`).join('<br>')}`;
+      hintEl.style.color='var(--yel2)';
+      return;
+    }
+    hintEl.textContent='⚠ No matching student found';
+    hintEl.style.color='var(--red2)';
+  }
+  stuIn.addEventListener('input',()=>{
+    hidIn.value=''; // manual edit invalidates previous binding
+    tryResolve(false);
+  });
+  stuIn.addEventListener('change',()=>tryResolve(true));
+  stuIn.addEventListener('blur',()=>tryResolve(true));
+
+  // Prefill: if caller supplied a student_id, seed hidden field and trust it.
+  // Otherwise resolve by name if we have one.
+  if(prefillStudentId){
+    const bound=stuIndex.find(x=>x.id===prefillStudentId);
+    if(bound){
+      hidIn.value=bound.id;
+      stuIn.value=bound.name;
+      window._originalPickedId=bound.id; // Prefill = committed pick baseline
+      hintEl.textContent=`✓ Bound: ${bound.name}`;
+      hintEl.style.color='var(--grn2)';
+    }else if(initialStudent){setTimeout(()=>tryResolve(true),50);}
+  }else if(initialStudent){
+    setTimeout(()=>tryResolve(true),50);
+  }
+  setTimeout(()=>document.getElementById(initialStudent?'f-summary':'f-student')?.focus(),80);
+}
+
+async function saveComm(){
+  // Double-submit guard: prevent double tap / re-click during network work
+  const saveBtn=document.querySelector('.mod-foot .btn-primary');
+  if(saveBtn&&saveBtn.disabled)return; // already saving
+  const stuInputRaw=(document.getElementById('f-student').value||'').trim();
+  const hiddenId=(document.getElementById('f-student-id').value||'').trim();
+  const date=document.getElementById('f-date').value;
+  const type=document.getElementById('f-type').value;
+  const initiator=document.getElementById('f-init').value;
+  const reporter=(document.getElementById('f-reporter').value||'').trim().toUpperCase();
+  const subject=document.getElementById('f-subject').value;
+  const summary=(document.getElementById('f-summary').value||'').trim();
+  const outcome=document.getElementById('f-outcome').value;
+  const linkedMiscId=document.getElementById('f-linked-misc').value;
+
+  if(!stuInputRaw){toast('Please enter a student name',true);return;}
+  if(!date){toast('Please pick a date',true);return;}
+  if(!summary){toast('Please write what was discussed',true);return;}
+
+  // Resolve student identity — TRUST hidden ID first if it's still valid.
+  // Manual name edit already clears hidden ID via input listener, so a present hidden ID
+  // means the user's last binding action was intentional.
+  const idx=window._stuIndex||[];
+  let studentId=null;
+  let studentName='';
+
+  if(hiddenId){
+    const bound=idx.find(x=>x.id===hiddenId);
+    const raw=stuInputRaw.toUpperCase();
+    if(bound&&(bound.name.toUpperCase()===raw||bound.label===stuInputRaw)){
+      // Hidden ID is still consistent with the visible input — use it.
+      studentId=bound.id;
+      studentName=bound.name;
+    }
+    // else: hidden stale (shouldn't happen since input listener clears it, but defensive)
+  }
+
+  // Fallback: name/label resolution when no valid hidden ID
+  if(!studentId){
+    const byLabel=idx.find(x=>x.label===stuInputRaw);
+    if(byLabel){studentId=byLabel.id;studentName=byLabel.name;}
+    else{
+      const matches=idx.filter(x=>x.name.toUpperCase()===stuInputRaw.toUpperCase());
+      if(matches.length===1){studentId=matches[0].id;studentName=matches[0].name;}
+      else if(matches.length>1){toast('Multiple students match — please pick from dropdown',true);return;}
+      else{toast('Student not found in roster — please pick from dropdown',true);return;}
+    }
+  }
+  if(!studentId){toast('Could not bind student. Please pick from the dropdown.',true);return;}
+
+  // Silent-switch safety check (Option 3 per spec):
+  // If user explicitly committed to student X earlier (via dropdown pick, blur, or prefill)
+  // but the record is now about to save as student Y, force explicit confirmation.
+  // This prevents "picked Aaron See, saves as Aaron Foo" without the user noticing.
+  const originalId=window._originalPickedId;
+  if(originalId&&studentId!==originalId){
+    const origInfo=idx.find(x=>x.id===originalId);
+    const origName=origInfo?origInfo.name:'the student you originally picked';
+    const ok=confirm(
+      `⚠️ Student switch detected\n\n`+
+      `You originally picked: ${origName}\n`+
+      `About to save as: ${studentName}\n\n`+
+      `Click OK to save under "${studentName}", or Cancel to fix.`
+    );
+    if(!ok)return;
+  }
+
+  const comm={
+    student_id:studentId,
+    student:studentName,
+    date,type,initiator,reporter,subject,summary,outcome,
+    linked_misc_id:linkedMiscId?parseInt(linkedMiscId):null,
+    createdAt:Date.now()
+  };
+  // Disable Save button + swap label to prevent double-submit
+  if(saveBtn){saveBtn.disabled=true;saveBtn.dataset.origHtml=saveBtn.innerHTML;saveBtn.innerHTML='💾 Saving…';}
+  try{
+    await pushComm(comm);
+    S.comms.unshift(comm);
+    save();
+    closeModal();
+    renderCoverage();
+    renderLog();
+    // If linked to MISC, ask whether to sync back
+    if(comm.linked_misc_id){
+      askSyncBackToMisc(comm.linked_misc_id,studentName);
+    }else{
+      toast('✅ Communication logged');
+    }
+  }catch(e){
+    console.warn('saveComm error',e);
+    toast('Save failed — please retry',true);
+    // On error, re-enable button so user can retry
+    if(saveBtn){saveBtn.disabled=false;if(saveBtn.dataset.origHtml)saveBtn.innerHTML=saveBtn.dataset.origHtml;}
+  }
+  // (Success path: modal closes, button ref becomes stale — no need to restore)
+}
+
+function askSyncBackToMisc(miscId,student){
+  openModal(
+    '🔗 Sync back to MISC?',
+    `<div style="font-size:14px;color:var(--txt);margin-bottom:10px;">
+       This communication is linked to MISC Case #${miscId} (${esc(student)}).
+     </div>
+     <div style="font-size:13px;color:var(--txt2);">
+       Mark that MISC record as <strong>Parent Notified</strong>?
+     </div>`,
+    `<button class="btn btn-sec" onclick="closeModal();toast('✅ Logged (not synced to MISC)');">No, skip</button>
+     <button class="btn btn-primary" onclick="syncBackToMisc(${miscId})">Yes, mark it</button>`
+  );
+}
+
+async function syncBackToMisc(miscId){
+  try{
+    const {error}=await _sb.from('records').update({parent_notified:true}).eq('id',miscId);
+    if(error)throw error;
+    toast('✅ Synced — MISC marked as Parent Notified');
+  }catch(e){
+    console.warn('syncBackToMisc',e);
+    toast('MISC sync failed — please mark manually',true);
+  }
+  closeModal();
+}
+
+// ══ ALL COMMS LOG ══
+function renderLog(){
+  const el=document.getElementById('log-list');
+  if(!S.comms.length){
+    el.innerHTML=`<div class="empty"><div class="empty-emoji">📭</div>No communications logged yet</div>`;
+    return;
+  }
+  const items=S.comms.slice().sort((a,b)=>{
+    if(a.date!==b.date)return b.date.localeCompare(a.date);
+    return (b.createdAt||0)-(a.createdAt||0);
+  }).slice(0,200);
+
+  el.innerHTML=`<div class="cov-card">
+    ${items.map(c=>{
+      const type=(COMM_TYPES.find(t=>t.id===c.type)||{}).label||c.type;
+      const subj=(SUBJECTS.find(s=>s.id===c.subject)||{}).label||c.subject;
+      const linkTag=c.linked_misc_id?`<span class="tl-linked-tag">MISC #${c.linked_misc_id}</span>`:'';
+      const initTag=initiatorLabel(c);
+      return `<div style="padding:14px 16px;border-bottom:.5px solid var(--bdr);cursor:pointer;" data-action="view-student" data-sid="${esc(c.student_id||'')}" data-sname="${esc(c.student)}">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap;">
+          <div style="font-weight:700;color:var(--navy);">${esc(c.student)}</div>
+          <div style="font-size:12px;color:var(--mut);">${fmt(c.date)} · ${esc(c.reporter||'—')}</div>
+        </div>
+        <div style="margin-top:6px;font-size:13px;color:var(--txt);">${linkTag}${esc(c.summary)}</div>
+        <div style="margin-top:4px;font-size:11px;color:var(--mut);">${type} · ${subj} · ${initTag}</div>
+      </div>`;
+    }).join('')}
+  </div>
+  ${S.comms.length>200?`<div style="text-align:center;color:var(--mut);font-size:12px;padding:12px;">Showing latest 200 of ${S.comms.length}</div>`:''}`;
+}
+
+// ══ URL PARAMS (jump-in from MISC) ══
+function checkUrlParams(){
+  const p=new URLSearchParams(window.location.search);
+  const miscId=p.get('misc_id');
+  if(!miscId)return;
+  const student=p.get('student')||'';
+  const summary=p.get('summary')||'';
+  _pendingLinkedMiscId=parseInt(miscId);
+  window._pendingLinkedInfo={student,summary};
+  // Wait for login + sync to finish, then open form
+  const check=setInterval(()=>{
+    if(document.getElementById('s-mgmt').classList.contains('on')){
+      clearInterval(check);
+      setTimeout(()=>openNewComm(),400);
+    }
+  },300);
+  // Clean URL so refresh doesn't retrigger
+  window.history.replaceState({},'',window.location.pathname);
+}
+
+// ══ DOMAIN LOCK ══
+(function(){
+  const allowed=['angelteo.github.io','misc-system.netlify.app','localhost','127.0.0.1'];
+  const host=location.hostname;
+  if(!allowed.some(d=>host===d||host.endsWith('.'+d))){
+    document.body.innerHTML=`<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;font-family:sans-serif;background:#f4f7f5;padding:32px;text-align:center;">
+      <div style="font-size:52px;margin-bottom:16px;">⛔</div>
+      <div style="font-size:18px;font-weight:700;color:#1a2533;margin-bottom:8px;">Unauthorized Access</div>
+      <div style="font-size:13px;color:#8a96a8;">This system is not licensed for use on this domain.</div>
+    </div>`;
+    throw new Error('Domain not authorized');
+  }
+})();
+
+// ══ INIT ══
+load();
+document.getElementById('entry-ini').value=getIni();
+if(!checkSession()){
+  show('s-entry');
+  document.getElementById(getIni()?'pw-input':'entry-ini').focus();
+}
+checkUrlParams();
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
+
+// ── Global click delegation: handles all data-action="view-student" / "open-new" clicks
+//    across Coverage rows, All Comms rows, and modal buttons. Uses data-sid + data-sname
+//    (safe against apostrophes, quotes, XSS in student names).
+document.addEventListener('click',function(e){
+  const el=e.target.closest('[data-action]');
+  if(!el)return;
+  const action=el.dataset.action;
+  const sid=el.dataset.sid||'';
+  const sname=el.dataset.sname||'';
+  if(action==='view-student'){viewStudent(sid,sname);}
+  else if(action==='open-new'){openNewComm(sname,sid);}
+});
+</script>
+</body>
+</html>
