@@ -3496,6 +3496,24 @@ function sendFuWA(recId, entryIdx){
 function openRec(id){
   const r=S.records.find(x=>x.id===id);if(!r)return;
   const f=FORMATS.find(x=>x.id===r.type);const cm=CATS[r.cat];if(!f||!cm)return;
+  // ── Auto-sync parent_notified from cloud (updates from ParentGo) ──
+  // Fires async, updates local + re-opens modal if state changed.
+  // Only for MGMT + synced records. Doesn't block modal open.
+  if(!window._isTeacher&&r.supabase_id){
+    _sb.from('records').select('parent_notified').eq('id',r.supabase_id).single().then(res=>{
+      if(res.error||!res.data)return;
+      const cloudVal=!!res.data.parent_notified;
+      if(cloudVal!==!!r.parentNotified){
+        r.parentNotified=cloudVal;
+        save();
+        // Re-render modal if still showing this record
+        const modalTitle=document.querySelector('.mod-title');
+        if(modalTitle&&document.getElementById('modal').classList.contains('on')){
+          openRec(id); // refresh with new state
+        }
+      }
+    }).catch(()=>{});
+  }
   let fu='';  // Handled by Follow Up / Closed buttons
   // Ensure record fields have defaults
   r.students=r.students||[];
@@ -3560,9 +3578,13 @@ function openRec(id){
       <button onclick="openAddCheckModal('${r.id}','${esc(r.students[0]||'')}')" style="width:100%;margin-top:6px;padding:10px;border-radius:var(--r);border:1.5px solid #f59e0b;background:#fffbeb;color:#92400e;font-weight:700;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">
         ⏰ Add Today Check
       </button>
-      ${window._isTeacher?'':`<button onclick="jumpToParentGo('${r.id}')" style="width:100%;margin-top:6px;padding:10px;border-radius:var(--r);border:1.5px solid #a78bfa;background:#faf5ff;color:#6d28d9;font-weight:700;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">
+      ${window._isTeacher?'':(r.parentNotified
+        ?`<button onclick="jumpToParentGo('${r.id}')" style="width:100%;margin-top:6px;padding:10px;border-radius:var(--r);border:1.5px solid #059669;background:#d1fae5;color:#065f46;font-weight:700;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">
+        ✅ Parent Contacted · Log Another →
+      </button>`
+        :`<button onclick="jumpToParentGo('${r.id}')" style="width:100%;margin-top:6px;padding:10px;border-radius:var(--r);border:1.5px solid #a78bfa;background:#faf5ff;color:#6d28d9;font-weight:700;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">
         📞 Log Parent Comm →
-      </button>`}
+      </button>`)}
     </div>
     <div style="margin-top:14px;"><label style="font-size:12px;font-weight:600;color:var(--txt2);display:block;margin-bottom:5px;">Remarks</label>
     <textarea style="width:100%;border:.5px solid var(--bdr);border-radius:var(--rs);padding:10px;font-family:'DM Sans',sans-serif;font-size:14px;height:65px;outline:none;" placeholder="Add notes…" onchange="setF('${id}','remarks',this.value)">${esc(r.remarks||'')}</textarea></div>
