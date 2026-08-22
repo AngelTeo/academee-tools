@@ -86,7 +86,7 @@ html,body{background:var(--sur2);color:var(--txt);font-family:'DM Sans',sans-ser
 .search-in{flex:1;min-width:200px;border:.5px solid var(--bdr);border-radius:var(--rs);padding:10px 12px;font-family:inherit;font-size:14px;outline:none;background:var(--sur);}
 .search-in:focus{border-color:var(--g);}
 .filter-btn{padding:10px 14px;border-radius:var(--rs);border:1.5px solid var(--bdr);background:var(--sur);color:var(--txt2);font-weight:600;font-size:13px;cursor:pointer;font-family:inherit;}
-.filter-btn.on{background:var(--navy);color:#fff;border-color:var(--navy);}
+.filter-btn.on{background:var(--navy);color:#fff;border-color:var(--navy);font-weight:700;box-shadow:0 2px 8px rgba(26,58,92,.35);}
 
 /* Coverage table */
 .cov-card{background:var(--sur);border-radius:var(--r);box-shadow:var(--sh);border:.5px solid var(--bdr);overflow:hidden;margin-bottom:20px;}
@@ -231,6 +231,8 @@ html,body{background:var(--sur2);color:var(--txt);font-family:'DM Sans',sans-ser
       <button id="filter-never" class="filter-btn" onclick="toggleFilter('never')">⚫ Never</button>
     </div>
 
+    <div id="showing-bar" style="display:none;align-items:center;gap:8px;margin-bottom:10px;font-size:13px;color:var(--txt2);"></div>
+
     <div class="cov-card">
       <div class="cov-head">
         <div>Student</div>
@@ -313,14 +315,29 @@ const OUTCOMES=[
 function isSchoolInitiated(c){return c && c.initiator==='teacher';}
 function isPositiveComm(c){return c && POSITIVE_SUBJECT_IDS.includes(c.subject);}
 
-// Human-friendly initiator label. Anything not explicitly 'teacher' or 'parent'
-// is 'unknown' — including null, undefined, empty string, or unexpected values.
-// Unknown does NOT count as school-initiated for Coverage.
-function initiatorLabel(c){
-  if(!c)return '❔ Initiator Unknown';
-  if(c.initiator==='teacher')return '👨‍🏫 School Initiated';
-  if(c.initiator==='parent')return '👪 Parent Initiated';
-  return '❔ Initiator Unknown';
+// Human-readable status label for a student (used in save toast).
+// Returns e.g. "Never contacted", "Need Attention", "Due Soon", "Covered".
+function statusLabelForStudentId(studentId){
+  if(!studentId)return null;
+  const schoolList=S.comms.filter(c=>c.student_id===studentId&&isSchoolInitiated(c));
+  const sorted=sortCommsByRecency(schoolList);
+  const ws=getWarmthStatus(sorted[0]?.date||null);
+  if(ws.status==='attention')return ws.reason==='never'?'Never':'Need Attention';
+  if(ws.status==='due')return 'Due Soon';
+  return 'Covered';
+}
+// Map a status label to how the active filter would categorize it.
+// Used to decide whether the just-saved student is now hidden by the active filter.
+function filterHidesStatus(activeFilter,statusLabel){
+  if(!activeFilter)return false; // no filter = nothing hidden
+  if(activeFilter==='never')return statusLabel!=='Never';
+  if(activeFilter==='attention')return !(statusLabel==='Need Attention'||statusLabel==='Never');
+  if(activeFilter==='due')return statusLabel!=='Due Soon';
+  // 'awaiting' handled separately (badge, not status) — treat as not hiding by status
+  return false;
+}
+function activeFilterLabel(f){
+  return {attention:'❤️ Need Attention',due:'🟡 Due Soon',awaiting:'👪 Awaiting Reply',never:'⚫ Never'}[f]||'';
 }
 
 // Match a communication to a student. Prefer student_id; fallback to name (legacy).
@@ -626,6 +643,20 @@ function renderCoverage(){
   document.getElementById('filter-attention').classList.toggle('on',_filter==='attention');
   document.getElementById('filter-due').classList.toggle('on',_filter==='due');
   document.getElementById('filter-never').classList.toggle('on',_filter==='never');
+
+  // "Showing:" indicator bar — visible only when a filter is active
+  const showingBar=document.getElementById('showing-bar');
+  if(showingBar){
+    if(_filter){
+      showingBar.style.display='flex';
+      showingBar.innerHTML=`<span style="font-weight:600;">Showing:</span>
+        <span style="background:var(--navy);color:#fff;padding:3px 10px;border-radius:14px;font-weight:700;font-size:12px;">${activeFilterLabel(_filter)}</span>
+        <button onclick="toggleFilter('${_filter}')" style="background:none;border:none;color:var(--blue);font-size:12px;font-weight:600;cursor:pointer;text-decoration:underline;font-family:inherit;">show all</button>`;
+    }else{
+      showingBar.style.display='none';
+      showingBar.innerHTML='';
+    }
+  }
   document.getElementById('filter-awaiting').classList.toggle('on',_filter==='awaiting');
 
   const el=document.getElementById('cov-list');
@@ -977,6 +1008,11 @@ async function saveComm(){
     linked_misc_id:linkedMiscId?parseInt(linkedMiscId):null,
     createdAt:Date.now()
   };
+  // Capture the student's status BEFORE this save, and the active filter,
+  // so we can explain if the student is about to be hidden by the filter.
+  const preSaveStatus=statusLabelForStudentId(studentId);
+  const activeFilterAtSave=_filter;
+
   // Disable Save button + swap label to prevent double-submit
   if(saveBtn){saveBtn.disabled=true;saveBtn.dataset.origHtml=saveBtn.innerHTML;saveBtn.innerHTML='💾 Saving…';}
   try{
@@ -986,11 +1022,18 @@ async function saveComm(){
     closeModal();
     renderCoverage();
     renderLog();
+    // Compute the student's NEW status after this save
+    const postSaveStatus=statusLabelForStudentId(studentId);
+    const firstName=(studentName||'').split(/\s+/)[0]||studentName;
     // If linked to MISC, ask whether to sync back
     if(comm.linked_misc_id){
       askSyncBackToMisc(comm.linked_misc_id,studentName);
+    }else if(activeFilterAtSave&&filterHidesStatus(activeFilterAtSave,postSaveStatus)){
+      // Student just moved out of the active filter → explain the disappearance
+      const filtLabel=activeFilterLabel(activeFilterAtSave).replace(/^[^ ]+ /,''); // strip emoji
+      toast(`✅ Saved! ${firstName} is now ${postSaveStatus}, so she's no longer shown under "${filtLabel}".`);
     }else{
-      toast('✅ Communication logged');
+      toast(`✅ Saved! ${firstName} is now ${postSaveStatus}.`);
     }
   }catch(e){
     console.warn('saveComm error',e);
