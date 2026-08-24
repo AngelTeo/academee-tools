@@ -315,6 +315,15 @@ const OUTCOMES=[
 function isSchoolInitiated(c){return c && c.initiator==='teacher';}
 function isPositiveComm(c){return c && POSITIVE_SUBJECT_IDS.includes(c.subject);}
 
+// Human-friendly initiator label. Anything not explicitly 'teacher' or 'parent'
+// is 'unknown' — including null, undefined, empty string, or unexpected values.
+function initiatorLabel(c){
+  if(!c)return '❔ Initiator Unknown';
+  if(c.initiator==='teacher')return '👨‍🏫 School Initiated';
+  if(c.initiator==='parent')return '👪 Parent Initiated';
+  return '❔ Initiator Unknown';
+}
+
 // Human-readable status label for a student (used in save toast).
 // Returns e.g. "Never contacted", "Need Attention", "Due Soon", "Covered".
 function statusLabelForStudentId(studentId){
