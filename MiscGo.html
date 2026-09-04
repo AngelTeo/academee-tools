@@ -1364,16 +1364,23 @@ function save(){
     // already has a supabase_id, so: keep EVERY unsynced record (the outbox —
     // must never be dropped) and trim the synced tail until it fits.
     const all=S.records||[];
-    const unsynced=all.filter(r=>!r.supabase_id);
-    const synced=all.filter(r=>r.supabase_id);   // already sorted newest-first
+    // TIER 1 — never dropped: not yet pushed to the cloud (the outbox).
+    const outbox=all.filter(r=>!r.supabase_id);
+    // TIER 2 — never dropped: still needs somebody to act on it.
+    //   open / follow_up / flagged cases must stay visible no matter how old.
+    const live=all.filter(r=>r.supabase_id && (r.status!=='closed' || r.flagged===true));
+    // TIER 3 — archivable: closed AND not flagged. Cloud is the source of truth
+    //   for these, so this is the only tier the trimmer is allowed to touch.
+    const archive=all.filter(r=>r.supabase_id && r.status==='closed' && r.flagged!==true);
     for(const keep of [1500,1000,600,300,150,60,0]){
-      const trimmed=[...unsynced,...synced.slice(0,keep)]
+      const trimmed=[...outbox,...live,...archive.slice(0,keep)]
         .sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
       try{
         localStorage.setItem(KEY,JSON.stringify({...S,records:trimmed}));
         S.records=trimmed;
-        console.warn('⚠️ localStorage full — kept '+unsynced.length+' unsynced + '
-          +Math.min(keep,synced.length)+' recent synced records locally. Cloud still has all of them.');
+        console.warn('⚠️ localStorage full — trimmed closed records only. '
+          +'Kept: '+outbox.length+' unsynced (outbox) + '+live.length+' open/follow-up/flagged + '
+          +Math.min(keep,archive.length)+'/'+archive.length+' closed. Cloud still has all '+all.length+'.');
         if(!window._quotaToastShown){
           window._quotaToastShown=true;
           toast('Storage full — showing recent records only. Cloud copy is complete.',true);
