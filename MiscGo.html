@@ -1354,7 +1354,38 @@ const S={records:[],students:[],schedules:[],scheduleGenLog:{},drafts:{TC_ABS:[]
 let curFmt=null,multiState={},forgotState={students:[],items:{}},curMsg='',curCat='ALL',formCaller='teacher';
 let activeFilters=new Set(['ALL']),pendingRecs=[];
 
-function save(){localStorage.setItem(KEY,JSON.stringify(S));}
+function save(){
+  try{ localStorage.setItem(KEY,JSON.stringify(S)); return true; }
+  catch(e){
+    const quota = e && (e.name==='QuotaExceededError' || e.code===22 || e.code===1014
+                        || /quota/i.test(String(e.message||'')));
+    if(!quota){ console.warn('save failed (not a quota error):',e); return false; }
+    // localStorage is full. Supabase is the source of truth for anything that
+    // already has a supabase_id, so: keep EVERY unsynced record (the outbox —
+    // must never be dropped) and trim the synced tail until it fits.
+    const all=S.records||[];
+    const unsynced=all.filter(r=>!r.supabase_id);
+    const synced=all.filter(r=>r.supabase_id);   // already sorted newest-first
+    for(const keep of [1500,1000,600,300,150,60,0]){
+      const trimmed=[...unsynced,...synced.slice(0,keep)]
+        .sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
+      try{
+        localStorage.setItem(KEY,JSON.stringify({...S,records:trimmed}));
+        S.records=trimmed;
+        console.warn('⚠️ localStorage full — kept '+unsynced.length+' unsynced + '
+          +Math.min(keep,synced.length)+' recent synced records locally. Cloud still has all of them.');
+        if(!window._quotaToastShown){
+          window._quotaToastShown=true;
+          toast('Storage full — showing recent records only. Cloud copy is complete.',true);
+        }
+        return true;
+      }catch(e2){ /* still too big — trim harder */ }
+    }
+    console.error('save failed even after trimming to zero synced records:',e);
+    toast('⚠️ Cannot save locally — storage full. Do not close this tab.',true);
+    return false;
+  }
+}
 
 // ══ SUPABASE ══
 const SUPABASE_URL='https://qnpvqsvvsgsantekgfbz.supabase.co';
