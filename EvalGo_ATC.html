@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>EvalGo_ATC — ATC 部 考况 v19.4</title>
+<title>EvalGo_ATC — ATC 部 考况 v19.5</title>
 <style>
 :root{
   /* ══ LAYER ══ RPT = 文档灰 */
@@ -261,7 +261,7 @@ button.chip.sel-w{background:var(--warn);color:#fff}
 
 <!-- ══════ NAV ══════ -->
 <div class="nav">
-  <div class="nav-logo">EvalGo_ATC <span style="font-weight:400;opacity:.75">· ATC 部 考况</span> <span class="ver">v19.4</span></div>
+  <div class="nav-logo">EvalGo_ATC <span style="font-weight:400;opacity:.75">· ATC 部 考况</span> <span class="ver">v19.5</span></div>
   <button class="ntab on" onclick="goPage('home')">工作台</button>
   <button class="ntab" onclick="goPage('f1')">考前观察</button>
   <button class="ntab" onclick="goPage('f2')">考卷分析</button>
@@ -1023,7 +1023,9 @@ function renderF1(){
         <span class="chip chip-muted">${secs.length} 个项目 · ${totalQ()} 题${essaySections().length?' + 写作 '+essaySections().length+' 篇':''}</span>
         <span class="chip ${shared===secs.length?'chip-ok':'chip-warn'}">${shared===secs.length?'✓ 已共用':shared+'/'+secs.length+' 已共用'}</span>
         ${bpLockBadge()}
-        <button class="btn btn-sm" style="margin-left:auto" onclick="bpToggle()">修改考卷结构（管理层）</button>
+        ${bpLocked()&&isAdmin()?`<button class="btn btn-sm" onclick="bpUnlock()">解锁修正…</button>`:''}
+        ${bpLocked()&&!isAdmin()?`<span class="tip" style="margin:0">要改请找管理层解锁</span>`:''}
+        <button class="btn btn-sm" style="margin-left:auto" onclick="bpToggle()">查看 / 修改考卷结构</button>
       </div></div>`;
     c.innerHTML=h+bpRest(secs);
     return;
@@ -1033,7 +1035,8 @@ function renderF1(){
       <span class="tip" style="margin:0">${esc(S.subject)} · Year ${yearOf(S.cls)} —— 同年级同科共用，只需填一次
         ${bpReady?`<button class="btn btn-sm" style="margin-left:8px" onclick="bpToggle()">收起</button>`:''}</span></div>
     <div class="chips-row" style="margin-bottom:8px">${bpLockBadge()}
-      ${bpLocked()?`<button class="btn btn-sm" onclick="bpUnlock()">解锁修正…</button>`:''}
+      ${bpLocked()&&isAdmin()?`<button class="btn btn-sm" onclick="bpUnlock()">解锁修正…</button>`:''}
+      ${bpLocked()&&!isAdmin()?`<span class="tip" style="margin:0">要改请找管理层解锁</span>`:''}
       ${BP_UNLOCK[bpKey()]?`<span class="chip chip-muted">理由：${esc(BP_UNLOCK[bpKey()].why)}</span>`:''}</div>
     <div class="alert alert-info"><div>把整份考卷的项目列出来，例：<b>Bahagian A · 动词 · 填一填</b>。
       登记一次，同年级同科共用。</div></div>`;
@@ -1106,7 +1109,16 @@ function bpToggle(){ if(!bpCanEdit()) return; S.ui.bpOpen=!S.ui.bpOpen; saveData
    「这份卷有几个项目、第几题到第几题、各几分」是一份卷设定一次的事，
    同年级同科全校共用 —— 它属於负责人，不属於每一位科任。
    老师端从此只看到一行状态；改的按钮只有 OWNER/TOP_MGMT/MGMT/ADMIN 看得到。 */
-function bpCanEdit(){ return isAdmin(); }
+/* ══ 谁可以设定考卷结构 ══ Owner 2026-09-07
+   v19.4 把它整个锁给管理层，那是错的 —— **每份考卷都不一样，只有科任知道
+   自己那份卷子有几个项目、第几题到第几题、考什么文法**。管理层填不了 30 份
+   没看过的卷。
+   P0-5 真正要保护的不是「谁来填」，是「有证据之后不准改」。两件事分开：
+     · 谁能填  → 教这个班这一科的科任（她自己的卷），加上管理层
+     · 能不能改 → 由 bpLocked() 管，对【所有人】一视同仁，包括管理层
+   建立一份还不存在的结构永远是安全的（那时候还不可能有证据）；
+   危险的是「已经有证据了还去删项目 / 改题号」—— 那一段照旧锁死。 */
+function bpCanEdit(){ return isAdmin() || isMine(S.cls, S.subject); }
 
 /* ══ Blueprint Freeze ══ Owner Work Order P0-5
    一旦这个 exam + subject + year 的考卷结构底下已经长出证据
@@ -1147,7 +1159,9 @@ function bpLockBadge(){
   return `<span class="chip chip-warn">🔒 已锁定 · ${n} 笔证据挂在这份结构上</span>`;
 }
 function bpUnlock(){
-  if(!bpCanEdit()){ toast('✕ 只有管理层可以修改考卷结构'); return; }
+  /* 解锁仍然只给管理层 —— 这是「明知有证据还要改」的例外通道，
+     不能让填资料的人自己开给自己。 */
+  if(!isAdmin()){ toast('✕ 已经有证据了，要改请找管理层解锁'); return; }
   const n=bpEvidCount();
   const why=prompt('⚠ 这份考卷结构底下已经有 '+n+' 笔证据。\n\n'
     +'改题号范围或删项目，会让这些旧证据对应到错的项目 —— 那是资料漂移，不是修正。\n\n'
@@ -1159,12 +1173,13 @@ function bpUnlock(){
   renderF1();
 }
 function bpGuard(what){
-  if(!bpCanEdit()){ toast('✕ 只有管理层可以修改考卷结构'); return false; }
+  if(!bpCanEdit()){ toast('✕ 这一格不是你教的，不能改考卷结构'); return false; }
   if(bpLocked()){
     alert('🔒 这份考卷结构已经锁定。\n\n'
       + bpEvidCount()+' 笔证据（逐题记码 / 考卷分析）已经挂在上面，'
       + what+'会让旧证据对应到错的项目。\n\n'
-      + '真的要改，请先按「解锁修正」并写明原因。');
+      + (isAdmin() ? '真的要改，请先按「解锁修正」并写明原因。'
+                   : '真的要改，请找管理层解锁 —— 他们要先写明原因才能开。'));
     return false;
   }
   return true;
@@ -1174,13 +1189,13 @@ function bpStatusLine(){
   const secs=sections(), lg=legacySections();
   if(!secs.length) return `<div class="card" style="padding:11px 14px;border-color:var(--warn)">
     <div style="font-size:13.5px"><b style="color:var(--warn)">⚠️ 考卷结构尚未设定</b>
-      —— ${esc(S.subject)} · Year ${yearOf(S.cls)}。<b>请联系负责人</b>设定后再回来，
-      现在还没办法逐题记录。</div>
+      —— ${esc(S.subject)} · Year ${yearOf(S.cls)}。<br>
+      这一格不是你教的，所以你不能设定。<b>请教这一科的科任先登记考卷项目。</b></div>
     <div style="margin-top:8px"><button class="btn btn-sm" onclick="bpEscape()">← 换班级 / 科目</button></div></div>`;
   if(lg.length) return `<div class="card" style="padding:11px 14px;border-color:var(--warn)">
     <div style="font-size:13.5px"><b style="color:var(--warn)">⚠️ 考卷结构还差题号</b>
       —— ${lg.map(x=>esc(x.code)).join('、')} 没有题号范围，这些题在考卷分析里点不到。
-      <b>请联系负责人</b>补上。</div></div>`;
+      <b>请教这一科的科任补上。</b></div></div>`;
   return `<div class="card" style="padding:10px 14px">
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13.5px">
       <span style="color:var(--ok);font-weight:700">✓ ${esc(S.subject)} Year ${yearOf(S.cls)} 考卷已设定</span>
@@ -1552,7 +1567,7 @@ function renderF2(){
     h+=`<div class="alert alert-warn"><div>${bpCanEdit()
       ? `还没登记这份考卷的结构。请先到 <b>考前观察</b> 把项目列出来（含<b>题型</b>与<b>题号范围</b>）
          —— 考卷分析要靠它才知道第几题属于哪个项目。`
-      : `<b>考卷结构尚未设定，请联系负责人。</b>设定好之后，这里的题号格才会出现。`}</div></div></div>`;
+      : `<b>考卷结构尚未设定。</b>这一格不是你教的，请教这一科的科任先登记考卷项目。`}</div></div></div>`;
     c.innerHTML=h; return;
   }
   if(lg.length) h+=`<div class="alert alert-warn"><div><b>${lg.length} 个项目还没有题号范围</b>
@@ -1722,7 +1737,7 @@ function f2Open(sid){
        :`这个科目 / 年级还没有登记任何项目。`}<br><br>
       ${bpCanEdit()
         ? `请到<b>考前观察</b>最上方，把每个项目补上「第 __ 到 __ 题」（写作文填满分），回来这里题号格就会出现。`
-        : `<b>请联系负责人</b>补上考卷结构。这不是你能改的，也不该由你来猜。`}</div></div>`;
+        : `<b>请教这一科的科任</b>补上考卷结构 —— 只有她看过那份卷子。`}</div></div>`;
   }
   if(qs.length){
     b+=`<div class="secbox"><div class="sechd">逐题记录
