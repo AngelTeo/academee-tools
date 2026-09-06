@@ -1,0 +1,3090 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>EvalGo_ATC — ATC 部 考况 v19.4</title>
+<style>
+:root{
+  /* ══ LAYER ══ RPT = 文档灰 */
+  --layer:#5A6470;
+
+  /* ══ 部门色 (永不改) ══ */
+  --d-srk:#C45C5C; --d-gak:#E8A04E; --d-atc:#7AB05A; --d-srt:#8B6CAE;
+
+  /* ══ 中性色 ══ */
+  --sur:#ffffff; --sur2:#f7f6f2; --bdr:#e0ddd6;
+  --txt:#1a1a1a; --mut:#888888; --hint:#bbbbbb;
+
+  /* ══ 语义色 ══ */
+  --ok:#0F6E56; --warn:#854F0B; --danger:#A32D2D; --info:#236FAD;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",Arial,sans-serif;
+  background:var(--sur2);color:var(--txt);font-size:13px;line-height:1.4}
+
+/* ══════ NAV (TOPBAR) ══════ */
+.nav{background:var(--layer);border-bottom:.5px solid rgba(0,0,0,.2);
+  display:flex;align-items:center;padding:0 16px;position:sticky;top:0;z-index:50;
+  overflow-x:auto;gap:0}
+.nav-logo{font-size:13px;font-weight:600;padding:12px 14px 12px 0;
+  border-right:.5px solid rgba(255,255,255,.2);margin-right:4px;white-space:nowrap;
+  flex-shrink:0;color:#fff}
+.ver{background:#F9CB42;color:var(--layer);border-radius:4px;padding:1px 6px;
+  font-size:10px;font-weight:700;margin-left:4px;vertical-align:middle}
+.ntab{padding:11px 14px;font-size:11px;color:rgba(255,255,255,.7);cursor:pointer;
+  border:none;background:transparent;border-bottom:2.5px solid transparent;
+  transition:all .15s;white-space:nowrap;flex-shrink:0;font-family:inherit}
+.ntab:hover{color:#fff}
+.ntab.on{color:#fff;border-bottom-color:#fff;font-weight:600}
+.nav-r{margin-left:auto;display:flex;gap:5px;align-items:center;padding-left:10px;flex-shrink:0}
+.saved{font-size:10px;color:rgba(255,255,255,.55);white-space:nowrap}
+.btn-nav{padding:5px 12px;border-radius:6px;border:.5px solid rgba(255,255,255,.3);
+  background:rgba(255,255,255,.12);color:#fff;font-size:11px;cursor:pointer;
+  font-family:inherit;transition:opacity .15s;white-space:nowrap}
+.btn-nav:hover{opacity:.85}
+
+/* ══════ SUB NAV ══════ */
+.sub-nav{background:var(--sur);border-bottom:.5px solid var(--bdr);
+  padding:0 16px;gap:2px;position:sticky;top:44px;z-index:49;
+  display:flex;overflow-x:auto;align-items:center;min-height:38px}
+.sub-ntab{padding:9px 14px;font-size:11px;color:var(--mut);cursor:pointer;
+  border:none;background:transparent;border-bottom:2px solid transparent;
+  transition:all .15s;white-space:nowrap;flex-shrink:0;font-family:inherit}
+.sub-ntab:hover{color:var(--txt)}
+.sub-ntab.on{color:var(--layer);border-bottom-color:var(--layer);font-weight:600}
+
+/* ══════ PAGES ══════ */
+.page{display:none;padding:16px;max-width:1200px;margin:0 auto}
+.page.on{display:block}
+
+/* ══════ BUTTONS ══════ */
+.btn{padding:5px 12px;border-radius:6px;border:.5px solid var(--bdr);
+  background:var(--sur);color:var(--txt);font-size:11px;cursor:pointer;
+  font-family:inherit;transition:background .15s;white-space:nowrap}
+.btn:hover{background:var(--sur2)}
+.btn-pri{background:var(--layer);color:#fff;border-color:var(--layer);font-weight:600}
+.btn-pri:hover{opacity:.85}
+.btn-dng{background:var(--danger);color:#fff;border-color:var(--danger)}
+.btn-sm{padding:3px 8px;font-size:10px}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+
+/* ══════ CARDS ══════ */
+.card{background:var(--sur);border:.5px solid var(--bdr);border-radius:10px;
+  padding:16px;margin-bottom:12px}
+.card-hdr{display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:12px;flex-wrap:wrap;gap:8px}
+.card-title{font-size:11px;font-weight:500;color:var(--mut);
+  letter-spacing:.05em;text-transform:uppercase}
+
+/* ══════ STAT CARDS ══════ */
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px}
+.stat-card{background:var(--sur);border:.5px solid var(--bdr);border-radius:10px;padding:14px 16px}
+.stat-n{font-size:26px;font-weight:700;font-variant-numeric:tabular-nums}
+.stat-l{font-size:10px;color:var(--mut);margin-top:2px;text-transform:uppercase;letter-spacing:.05em}
+.stat-sub{font-size:10px;color:var(--hint);margin-top:2px}
+
+/* ══════ TABLES ══════ */
+table.data{width:100%;border-collapse:collapse;font-size:12px}
+table.data thead th{background:#2d2d2d;color:#fff;padding:9px 12px;text-align:left;
+  font-size:10px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;white-space:nowrap}
+table.data tbody td{padding:8px 12px;border-bottom:.5px solid var(--bdr);vertical-align:middle}
+table.data tbody tr:nth-child(even){background:var(--sur2)}
+table.data tbody tr:hover{background:#FFF9E6}
+.tw{overflow-x:auto}
+
+/* ══════ INPUTS ══════ */
+input[type=text],input[type=number],input[type=date],select,textarea{
+  border:.5px solid var(--bdr);border-radius:6px;padding:6px 10px;
+  font-size:12px;font-family:inherit;background:var(--sur);color:var(--txt);
+  min-width:120px;box-sizing:border-box}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--layer)}
+textarea{width:100%;resize:vertical}
+
+/* ══════ BADGES ══════ */
+.badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600;white-space:nowrap}
+.b-atc{background:rgba(122,176,90,.12);color:var(--d-atc)}
+.b-active{background:#E1F5EE;color:var(--ok)}
+.b-warn{background:#FFF3CD;color:var(--warn)}
+.b-inactive{background:#FCEBEB;color:var(--danger)}
+
+/* ══════ TOOLBAR ══════ */
+.toolbar{display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap}
+.toolbar input[type=text]{flex:1;min-width:180px}
+.dept-row{display:flex;gap:4px;flex-wrap:wrap}
+.dept-tag{padding:4px 12px;border-radius:14px;border:.5px solid var(--bdr);
+  cursor:pointer;font-size:10px;background:var(--sur);color:var(--mut);font-family:inherit}
+.dept-tag:hover{border-color:var(--layer);color:var(--layer)}
+.dept-tag.on{background:var(--layer);border-color:var(--layer);color:#fff}
+
+/* ══════ MODAL ══════ */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:999;
+  display:flex;align-items:center;justify-content:center;padding:20px}
+.modal{background:var(--sur);border-radius:10px;width:560px;max-width:100%;
+  max-height:88vh;overflow-y:auto;box-shadow:0 4px 20px rgba(0,0,0,.15)}
+.modal-hdr{padding:14px 20px;border-bottom:.5px solid var(--bdr);display:flex;
+  align-items:center;position:sticky;top:0;background:var(--sur);
+  border-radius:10px 10px 0 0;z-index:2}
+.modal-title{font-size:14px;font-weight:600;flex:1}
+.modal-body{padding:16px 20px}
+.modal-foot{padding:12px 20px;border-top:.5px solid var(--bdr);display:flex;
+  justify-content:flex-end;gap:8px;position:sticky;bottom:0;background:var(--sur);
+  border-radius:0 0 10px 10px}
+.x-btn{background:none;border:none;font-size:18px;color:var(--mut);cursor:pointer}
+
+/* ══════ TOAST ══════ */
+.toast{position:fixed;bottom:20px;right:20px;background:var(--txt);color:#fff;
+  padding:8px 16px;border-radius:6px;font-size:12px;opacity:0;
+  transition:opacity .25s;pointer-events:none;z-index:9999}
+.toast.show{opacity:1}
+
+/* ══════ MISC ══════ */
+.empty{text-align:center;padding:40px 20px;color:var(--hint);font-size:12px}
+/* ══ FORM 02 逐题格子 ══ */
+.qgrid{display:flex;flex-wrap:wrap;gap:4px;margin:6px 0 2px}
+/* 连续学生导航条 —— 钉在 modal 顶端，老师不必关掉再找名字 */
+.stunav{display:flex;align-items:center;gap:8px;padding:8px 10px;margin:-2px 0 12px;
+  background:var(--sur2);border:1px solid var(--bdr);border-radius:8px;position:sticky;top:0;z-index:3}
+.stunav-mid{flex:1;text-align:center;font-size:14px;line-height:1.25}
+.stunav-mid span{display:block;font-size:11.5px;color:var(--mut);font-weight:400}
+.stunav .btn{white-space:nowrap}
+.qbtn{width:38px;height:36px;border:1px solid var(--bdr);border-radius:6px;background:var(--sur);
+  cursor:pointer;font-size:12px;font-weight:600;color:var(--mut);
+  display:flex;align-items:center;justify-content:center;padding:0;font-family:inherit}
+.qbtn:hover{border-color:var(--mut)}
+.qbtn.q-star{background:#E1F5EE;border-color:var(--ok);color:var(--ok)}
+.qbtn.q-dk{background:#FCEBEB;border-color:var(--danger);color:var(--danger)}
+.qbtn.q-cl{background:#FFF3CD;border-color:var(--warn);color:var(--warn)}
+.qbtn.q-nr{background:#FFF3CD;border-color:var(--warn);color:var(--warn)}
+.qbtn.q-sos{background:#E8F0F7;border-color:var(--info);color:var(--info)}
+.qbtn.q-blank{background:#FCEBEB;border-color:var(--danger);color:var(--danger);
+  background-image:repeating-linear-gradient(45deg,transparent,transparent 3px,rgba(163,45,45,.13) 3px,rgba(163,45,45,.13) 6px)}
+/* 题号格必须带文字 —— 颜色不能是唯一编码（手机没有 hover，两分钟後分不出 CL 还是 NR） */
+.qbtn{flex-direction:column;line-height:1.05;gap:0}
+.qbtn .qn{font-size:12px;font-weight:700}
+.qbtn .qm{font-size:8px;font-weight:700;letter-spacing:.02em;opacity:.9}
+.qpick{background:var(--sur2);border:2px solid var(--txt);border-radius:8px;padding:10px 12px;margin:2px 0 10px}
+.qpick-t{font-size:12px;font-weight:800;color:var(--txt);margin-bottom:6px}
+.qbtn.picking{outline:3px solid var(--txt);outline-offset:1px}
+.secbox{border:1px solid var(--bdr);border-radius:8px;padding:10px;margin-bottom:10px;background:var(--sur)}
+.sechd{font-size:14px;font-weight:800;letter-spacing:0;color:var(--txt);margin:0 0 8px;
+  padding-bottom:6px;border-bottom:2px solid var(--txt)}
+.sechd .sub{font-size:11px;font-weight:500;color:var(--mut);letter-spacing:0;margin-left:6px}
+.secbox{padding:14px}
+.tip{font-size:11px;color:var(--mut);margin:8px 0}
+
+/* ══════ ALERT ══════ */
+.alert{padding:10px 14px;border-radius:6px;font-size:12px;margin-bottom:10px;
+  display:flex;align-items:flex-start;gap:8px}
+.alert-info{background:#E8F0F7;color:#236FAD;border-left:3px solid #236FAD}
+.alert-warn{background:#FFF3CD;color:var(--warn);border-left:3px solid var(--warn)}
+.alert-danger{background:#FCEBEB;color:var(--danger);border-left:3px solid var(--danger)}
+.alert-ok{background:#E1F5EE;color:var(--ok);border-left:3px solid var(--ok)}
+
+/* ══════ CHIP ══════ */
+.chip{display:inline-block;padding:3px 10px;border-radius:12px;font-size:10px;
+  font-weight:500;margin:2px;border:none;font-family:inherit}
+.chip-layer{background:rgba(90,100,112,.10);color:var(--layer)}
+.chip-ok{background:#E1F5EE;color:var(--ok)}
+.chip-warn{background:#FFF3CD;color:var(--warn)}
+.chip-danger{background:#FCEBEB;color:var(--danger)}
+.chip-info{background:#E8F0F7;color:var(--info)}
+.chip-muted{background:var(--sur2);color:var(--mut)}
+.chips-row{display:flex;flex-wrap:wrap;gap:4px}
+button.chip{cursor:pointer;border:.5px solid transparent}
+button.chip.sel{background:var(--layer);color:#fff}
+button.chip.sel-w{background:var(--warn);color:#fff}
+
+/* ══════ DOT ══════ */
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;vertical-align:middle;margin-right:4px}
+.dot-ok{background:var(--ok)}.dot-warn{background:var(--warn)}
+.dot-danger{background:var(--danger)}.dot-info{background:var(--info)}.dot-muted{background:var(--hint)}
+
+/* ══════ PROGRESS ══════ */
+.progress{height:6px;background:var(--bdr);border-radius:3px;overflow:hidden;margin:4px 0}
+.progress-fill{height:100%;border-radius:3px;transition:width .3s}
+.progress-ok .progress-fill{background:var(--ok)}
+.progress-warn .progress-fill{background:var(--warn)}
+.progress-danger .progress-fill{background:var(--danger)}
+.progress-layer .progress-fill{background:var(--layer)}
+.pct{font-size:11px;font-weight:600;font-variant-numeric:tabular-nums}
+
+/* ══════ FORM GRID ══════ */
+.form-grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.form-grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+.form-row{margin-bottom:12px}
+.form-label{font-size:11px;color:var(--mut);display:block;margin-bottom:4px}
+@media(max-width:480px){.form-grid-2,.form-grid-3{grid-template-columns:1fr}}
+
+/* ══════ STEPPER ══════ */
+.stepper{display:flex;align-items:center;gap:0;margin-bottom:16px;overflow-x:auto}
+.step{display:flex;align-items:center;gap:6px;padding:8px 14px;font-size:11px;color:var(--mut);white-space:nowrap}
+.step-num{width:22px;height:22px;border-radius:50%;background:var(--bdr);color:var(--mut);
+  display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0}
+.step.active{color:var(--txt);font-weight:600}
+.step.active .step-num{background:var(--layer);color:#fff}
+.step.done .step-num{background:var(--ok);color:#fff}
+.step-line{width:24px;height:1.5px;background:var(--bdr);flex-shrink:0}
+.step-line.done{background:var(--ok)}
+
+/* ══════ TAB PILLS / SEGMENTED ══════ */
+.pills{display:inline-flex;border:.5px solid var(--bdr);border-radius:8px;overflow:hidden;background:var(--sur2)}
+.pill{padding:6px 14px;font-size:11px;cursor:pointer;border:none;background:transparent;
+  color:var(--mut);font-family:inherit;transition:all .15s;min-width:44px}
+.pill.on{background:var(--layer);color:#fff;font-weight:600}
+.pills-ind .pill.on{background:var(--info);color:#fff}
+
+/* ══════ QUICK ACTIONS ══════ */
+.quick-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-bottom:16px}
+.quick-card{background:var(--sur);border:.5px solid var(--bdr);border-radius:10px;padding:16px;
+  text-align:center;cursor:pointer;transition:all .15s}
+.quick-card:hover{border-color:var(--layer);box-shadow:0 2px 8px rgba(0,0,0,.06)}
+.quick-icon{font-size:24px;margin-bottom:6px}
+.quick-label{font-size:11px;color:var(--txt);font-weight:500}
+
+/* ══════ RESPONSIVE ══════ */
+@media(max-width:768px){.stat-grid{grid-template-columns:repeat(2,1fr)}.modal{width:100%;margin:10px}}
+@media(max-width:480px){.stat-grid{grid-template-columns:1fr}.ntab{padding:10px 10px;font-size:10px}}
+
+/* ══════ PRINT ══════ */
+@media print{
+  @page{margin:12mm 14mm;size:A4 portrait}
+  .nav,.sub-nav,.btn,.btn-nav,.toast,.toolbar,.no-print{display:none!important}
+  body{font-size:11pt;background:#fff}
+  .card,table{page-break-inside:avoid}
+  table.data thead th{background:#333!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  table.data th,table.data td{border:1px solid #999}
+}
+</style>
+</head>
+<body>
+
+<!-- ══════ NAV ══════ -->
+<div class="nav">
+  <div class="nav-logo">EvalGo_ATC <span style="font-weight:400;opacity:.75">· ATC 部 考况</span> <span class="ver">v19.4</span></div>
+  <button class="ntab on" onclick="goPage('home')">工作台</button>
+  <button class="ntab" onclick="goPage('f1')">考前观察</button>
+  <button class="ntab" onclick="goPage('f2')">考卷分析</button>
+  <button class="ntab" onclick="goPage('coverage')">覆盖追踪</button>
+  <button class="ntab" id="ntab-report" hidden style="display:none" onclick="goPage('report')">考前报告</button>
+  <button class="ntab" id="ntab-manage" hidden style="display:none" onclick="goPage('manage')">管理</button>
+  <div class="nav-r">
+    <span class="saved" id="cloud-state"></span>
+    <span class="saved" id="last-saved" style="display:none"></span>
+  </div>
+</div>
+
+<div class="page on" id="page-home"><div id="c-home"></div></div>
+<div class="page" id="page-f1"><div id="c-f1"></div></div>
+<div class="page" id="page-f2"><div id="c-f2"></div></div>
+<div class="page" id="page-coverage"><div id="c-coverage"></div></div>
+<div class="page" id="page-report"><div id="c-report"></div></div>
+<div class="page" id="page-manage"><div id="c-manage"></div></div>
+
+<div class="modal-bg" id="modal" style="display:none" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <div class="modal-hdr"><span class="modal-title" id="modal-title"></span>
+      <button class="x-btn" onclick="closeModal()">×</button></div>
+    <div class="modal-body" id="modal-body"></div>
+    <div class="modal-foot" id="modal-foot"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<div id="authgate" style="display:none;position:fixed;inset:0;z-index:9999;
+     background:rgba(28,31,35,.93);align-items:center;justify-content:center;padding:20px">
+  <div style="background:#fff;border-radius:10px;max-width:460px;width:100%;padding:26px 28px;
+       box-shadow:0 10px 40px rgba(0,0,0,.35);text-align:center">
+    <div id="ag-icon" style="font-size:34px;line-height:1;margin-bottom:12px">🔒</div>
+    <h2 id="ag-title" style="margin:0 0 8px;font-size:19px">请先登入平台</h2>
+    <p id="ag-msg" style="margin:0 0 18px;font-size:13px;line-height:1.6;color:#4d545c"></p>
+    <button id="ag-btn" class="btn btn-pri" style="width:100%;padding:11px;font-size:15px"></button>
+    <p style="margin:14px 0 0;font-size:11.5px;color:#6b7280;line-height:1.55">
+      没登入的话，看到的是<b>示范名单</b>，填的东西<b>不会送到学校系统</b>。</p>
+  </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script>
+/* ══════════════════════════════════════════════════════════════════
+   EvalGo_ATC — ATC 部 考况记录
+   Academee Universal Standard v2 · Layer RPT (#5A6470)
+   FORM 01 = PROVE 课后现场观察 · FORM 02 = FIX 课后考卷分析
+   资料来源：Owner 考试 SOP 三图 + ATC Exam Prep_Eng Chi.xlsx
+   字典：ATC_Report_v19.html OPTS_BY_YEAR
+         sha256 6a074645cc1eb390bf9de5e32aff43c16084fbe9bcdebe947090fe84f95f2c9c
+   权限码：RPT-EvalGo-ATC
+   ══════════════════════════════════════════════════════════════════ */
+
+const APP_VERSION = 19;
+const STORAGE_KEY = 'evalgo_atc_v1';   /* 沿用 v1 key，旧资料不掉 */
+const SYS_CODE    = 'RPT-EvalGo-ATC';
+const SB_URL      = 'https://qnpvqsvvsgsantekgfbz.supabase.co';
+const SB_KEY      = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFucHZxc3Z2c2dzYW50ZWtnZmJ6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYxNzg4MzIsImV4cCI6MjA5MTc1NDgzMn0.8rfv0BQpWNNSD8yrhHNwCOkcG9q5_uMD7B7z_Y324a0';
+const PLATFORM    = 'https://angelteo.github.io/';
+
+const SUBJECTS = ['数学','华文','英文','马来文','科学'];
+const CLASSES  = ['ATC1','ATC2','ATC3','ATC4','ATC5','ATC6'];
+
+/* FORM 01 七个维度 —— 照纸本 B5/B24 逐字 */
+const DIMS = [
+  {id:'read',        zh:'读题',en:'READ',        hint:'看清题目',        scale:'YSN'},
+  {id:'think',       zh:'思考',en:'THINK',       hint:'先想再做',        scale:'YSN'},
+  {id:'answer',      zh:'作答',en:'ANSWER',      hint:'按要求作答',      scale:'YSN'},
+  {id:'check',       zh:'检查',en:'CHECK',       hint:'主动检查',        scale:'YSN'},
+  {id:'speed',       zh:'时间',en:'SPEED',       hint:'是否在规定时间完成',scale:'YSN'},
+  {id:'handwriting', zh:'书写',en:'HANDWRITING', hint:'是否清楚整齐',    scale:'YSN'},
+  {id:'ind',         zh:'独立',en:'IND',         hint:'是否独立',        scale:'IRH'}
+];
+const YSN=[{v:'Y',lab:'✓',t:'做得到'},{v:'S',lab:'△',t:'不稳定'},{v:'N',lab:'✗',t:'做不到'}];
+const IRH=[{v:'I',lab:'I',t:'独立 Independent'},{v:'R',lab:'R',t:'提醒 Reminder'},{v:'H',lab:'H',t:'帮助 Help'}];
+
+/* FORM 02 五个标记码 —— 照纸本 A5 逐字 */
+/* 六记码，与 evalgo_mark_code 一致。outcome 是【卷面看得见的事实】，
+   记码本身（DK/CL/NR/SOS）是【老师对原因的推断】—— 两层，老师点击数不变。 */
+const MARKS=[
+  {id:'star', lab:'★',  zh:'答对',    outcome:'CORRECT', good:true, chip:'chip-ok'},
+  {id:'dk',   lab:'DK', zh:'不会',    outcome:'WRONG',   chip:'chip-danger'},
+  {id:'cl',   lab:'CL', zh:'粗心',    outcome:'WRONG',   chip:'chip-warn'},
+  {id:'nr',   lab:'NR', zh:'没看清',  outcome:'WRONG',   chip:'chip-warn'},
+  {id:'sos',  lab:'SOS',zh:'需要帮助',outcome:'WRONG',   chip:'chip-info'},
+  {id:'blank',lab:'空', zh:'漏答',    outcome:'BLANK',   chip:'chip-danger'}
+];
+/* CL 第二层 —— 只有点了 CL 才出现，选填。不进主 marker bar。 */
+const CL_SUB=[
+  {v:'CALC',      zh:'算错'},
+  {v:'COPY',      zh:'抄错'},
+  {v:'INCOMPLETE',zh:'没写完'}
+];
+/* ══ 评量状态 ══ Owner 2026-09-06
+   「没有资料」以前同时代表三件事：老师还没做 / 学生缺席 / 证据不足。
+   混在一起，管理层就分不出「系统缺口」与「现实状况」。
+   🔴 ABSENT 与 NOT_ASSESSED **绝不等於**弱、0 分、未掌握 ——
+      它们是「没有资料」的两种已知原因，不是一种表现。
+   工作台：三者都算「已处理」，不再催老师。
+   报告  ：只有 ASSESSED 算数（DB 端由 v_evalgo_assessed 守着）。 */
+const ASTAT={
+  ASSESSED     : {lab:'已完成',   short:'✓',  cls:'b-active'},
+  ABSENT       : {lab:'缺席',     short:'缺', cls:'b-inactive'},
+  NOT_ASSESSED : {lab:'本轮未评', short:'—',  cls:'b-inactive'}
+};
+function aStat(r){ return (r&&r.assess_status)||'ASSESSED'; }
+function isHandled(r){ return !!r && (aStat(r)!=='ASSESSED' || f2State(r)==='done'); }
+function setAStat(sid, v){
+  const r=f2Draft(sid);
+  r.assess_status=v; r.synced=false;
+  if(v!=='ASSESSED'){ r.savedAt=new Date().toLocaleString('en-GB'); stampF2(r,sid); }
+  saveData(); closeModal(); renderF2(); renderHome();
+  toast(v==='ASSESSED'?'✓ 改回已评量':('✓ 记为「'+ASTAT[v].lab+'」'));
+  autoPush();
+}
+/* ══ 连续学生导航 ══ Owner 2026-09-06
+   旧流程：填完一位 → 关 modal → 回名单 → 找下一个名字 → 再点。
+   一班 18 位就是 18 次「关掉再找」。改成 modal 里直接走。
+   「完成并到下一位」只跳还没处理的；缺席／本轮未评的会跳过。 */
+/* ══════════════════════════════════════════════════════════════════
+   三个状态，永远不准合併（Owner Work Order P0-2 / P0-3）
+     ① Operational Resolved  老师今天不用再追这个学生了
+     ② Assessment Complete   这个学生这一科的证据齐了
+     ③ Report Ready          可以进家长/考前报告
+   ABSENT 与 NOT_ASSESSED 只满足 ①。它们不是弱、不是 0 分、不是证据。
+   全系统（工作台 / 覆盖追踪 / 报告 / 连续导航）一律消费这三支，不准各写各的。
+   ══════════════════════════════════════════════════════════════════ */
+function stResolved(sid){ return aStat(S.f2[f2Key(sid)])!=='ASSESSED'; }   /* ① 缺席 / 本轮未评 */
+function opResolved(sid,kind){                                            /* ① 已处理 */
+  if(stResolved(sid)) return true;
+  return kind==='f1' ? f1Complete(sid).length>0
+                     : f2State(S.f2[f2Key(sid)])==='done';
+}
+function assessComplete(sid){                                             /* ② 证据齐 */
+  const r=S.f2[f2Key(sid)];
+  return aStat(r)==='ASSESSED' && f2State(r)==='done';
+}
+function reportReady(sid){                                                /* ③ 可进报告 */
+  const r=S.f2[f2Key(sid)];
+  if(!r) return false;
+  if(aStat(r)!=='ASSESSED') return false;      /* 缺席 / 本轮未评 永不进报告 */
+  return !!(r.paper_checked && r.tp);          /* 老师亲自核对 + 掌握程度 */
+}
+
+function navList(){ return inCls(S.cls); }
+function navIdx(sid){ return navList().findIndex(r=>r.sid===sid); }
+function navStep(sid,d){ const L=navList(), i=navIdx(sid), j=i+d;
+  return (i<0||j<0||j>=L.length)?null:L[j].sid; }
+function navResolved(sid){ return stResolved(sid); }        /* 同一支真相 */
+function navDone(sid,kind){ return opResolved(sid,kind); }  /* 同一支真相 */
+function navTodo(sid,kind){          /* 从当前往後绕一圈，找第一个还没处理的 */
+  const L=navList(), i=navIdx(sid);
+  for(let k=1;k<=L.length;k++){ const r=L[(i+k)%L.length];
+    if(!navDone(r.sid,kind)) return r.sid; }
+  return null;
+}
+function navLeft(kind){ return navList().filter(r=>!navDone(r.sid,kind)).length; }
+function navGo(sid,kind){
+  if(!sid) return;
+  if(saveData(true)===false){ alert(saveFailMsg()); return; }
+  if(kind==='f1'){ renderF1(); f1Open(sid); } else { renderF2(); f2Open(sid); }
+}
+function navBar(sid,kind){
+  const L=navList(), i=navIdx(sid), p=navStep(sid,-1), n=navStep(sid,1), left=navLeft(kind);
+  return `<div class="stunav">
+    <button class="btn btn-sm" ${p?`onclick="navGo('${p}','${kind}')"`:'disabled style="opacity:.35"'}>← 上一位</button>
+    <div class="stunav-mid"><b>${esc(nameOf(L[i]))}</b>
+      <span>第 ${i+1} / ${L.length} 位${left?` · 还剩 ${left} 位没处理`:' · 全班处理完了'}</span></div>
+    <button class="btn btn-sm" ${n?`onclick="navGo('${n}','${kind}')"`:'disabled style="opacity:.35"'}>下一位 →</button>
+    <button class="btn btn-sm" style="font-weight:700" title="缺席 / 本轮未评"
+      onclick="aStatMenu('${sid}')">⋯</button></div>`;
+}
+
+function aStatMenu(sid){
+  const cur=aStat(f2Draft(sid)), nm=nameOf(stuOf(sid));
+  openModal(esc(nm), `
+    <div class="tip" style="margin-top:0">这位学生这一轮要记成什麽？</div>
+    <div style="display:flex;flex-direction:column;gap:8px;margin-top:10px">
+      <button class="btn ${cur==='ABSENT'?'btn-pri':''}" style="padding:12px;text-align:left"
+        onclick="setAStat('${sid}','ABSENT')"><b>缺席</b><br>
+        <span style="font-size:11.5px;color:var(--mut)">学生那天没有来。不会算成弱或 0 分。</span></button>
+      <button class="btn ${cur==='NOT_ASSESSED'?'btn-pri':''}" style="padding:12px;text-align:left"
+        onclick="setAStat('${sid}','NOT_ASSESSED')"><b>本轮未评</b><br>
+        <span style="font-size:11.5px;color:var(--mut)">学生在，但这一轮没有足够证据可以判断。也不会算成弱。</span></button>
+      ${cur!=='ASSESSED'?`<button class="btn" style="padding:12px;text-align:left"
+        onclick="setAStat('${sid}','ASSESSED')"><b>改回「要评量」</b><br>
+        <span style="font-size:11.5px;color:var(--mut)">回到正常流程，继续填。</span></button>`:''}
+    </div>`, `<button class="btn" onclick="closeModal()">取消</button>`);
+}
+
+const FIXOUT=[
+  {v:'FIXED',          lab:'✓ 已经改善',    chip:'chip-ok'},
+  {v:'NEEDS_PRACTICE', lab:'△ 还需要练习',  chip:'chip-warn'},
+  {v:'NEED_HELP',      lab:'! 需要更多帮助',chip:'chip-danger'}
+];
+/* ══ 题型 —— 决定 FORM 02 弹出哪一种输入（Owner 拍板 2026-09-06）══ */
+/* 四种题型（Owner 拍板）。选择题与填写题操作相同，但证据强度不同：
+   选择题有 25% 猜中率底噪，填写题没有 —— 压成同一型等於丢掉鉴别度。 */
+const SECTYPES=[
+  {v:'MCQ',  lab:'选择题', hint:'A / B / C / D 选一个'},
+  {v:'FILL', lab:'填写题', hint:'填空 · 填一填 · 配对 · 计算'},
+  {v:'SUBJ', lab:'理解文', hint:'Pemahaman · 阅读理解 · 短答'},
+  {v:'ESSAY',lab:'写作文', hint:'Karangan · 作文'}
+];
+/* 逐题记码的题型（含 v8 以前的 OBJ，相容用，前端不再产生） */
+const QTYPES=['MCQ','FILL','SUBJ','OBJ'];
+function typeLab(v){ const t=SECTYPES.find(x=>x.v===v); return t?t.lab:(v==='OBJ'?'客观题（旧）':v); }
+/* 写作三面向 —— 顺序由 Owner 指定：格式 / Formula 排第一 */
+const ESSAY_ASPECTS=[
+  {id:'FORMAT', zh:'格式 / Formula'},
+  {id:'VOCAB',  zh:'词汇量'},
+  {id:'CONTENT',zh:'内容 / 篇幅完成度'}
+];
+const TPS=[{v:'TP1',zh:'初步认识'},{v:'TP2',zh:'基本掌握'},{v:'TP3',zh:'达到水准'},
+           {v:'TP4',zh:'表现良好'},{v:'TP5',zh:'表现优秀'},{v:'TP6',zh:'卓越表现'}];
+/* 老师行动 —— 取自 ATC_Report_v19 的 actItems。
+   ⚠️ v5 以前误把 KSSR 强项+弱项当「救援行动」（「加减法熟练」不是一个行动），已修正。 */
+const ACTIONS=['个别辅导','鼓励多发问','额外练习题','考前重点复习',
+               '家长沟通跟进','调整教学方式','情绪支持陪伴','加强基础概念'];
+function markLab(c){const m=MARKS.find(x=>x.id===c);return m?(m.lab+' '+m.zh):'';}
+
+/* KSSR 字典 300 条：[id, year, subjectIdx, kind, zh, en, bm, note] */
+const KSSR_RAW = /*__KSSR__*/[["Y1-MATH-S-01",1,0,"S","加减法熟练","","",""],["Y1-MATH-S-02",1,0,"S","数数正确","","",""],["Y1-MATH-S-03",1,0,"S","数位理解好","","",""],["Y1-MATH-S-04",1,0,"S","图形认识好","","",""],["Y1-MATH-S-05",1,0,"S","解题步骤整洁","","",""],["Y1-MATH-W-01",1,0,"W","进位加法","","",""],["Y1-MATH-W-02",1,0,"W","退位减法","","",""],["Y1-MATH-W-03",1,0,"W","粗心出错","","",""],["Y1-MATH-W-04",1,0,"W","图形分辨","","",""],["Y1-MATH-W-05",1,0,"W","数数顺序","","",""],["Y1-MD-S-01",1,1,"S","笔画笔顺正确","","",""],["Y1-MD-S-02",1,1,"S","识字量好","","",""],["Y1-MD-S-03",1,1,"S","词语朗读流利","","",""],["Y1-MD-S-04",1,1,"S","看图说话好","","",""],["Y1-MD-S-05",1,1,"S","抄写整洁","","",""],["Y1-MD-W-01",1,1,"W","笔画书写","","",""],["Y1-MD-W-02",1,1,"W","识字量","","",""],["Y1-MD-W-03",1,1,"W","朗读流利度","","",""],["Y1-MD-W-04",1,1,"W","看图表达","","",""],["Y1-MD-W-05",1,1,"W","字体整洁","","",""],["Y1-ENG-S-01",1,2,"S","Phonics拼读好","Good Phonics","",""],["Y1-ENG-S-02",1,2,"S","词汇认识多","Rich Vocabulary","",""],["Y1-ENG-S-03",1,2,"S","发音准确","Good Pronunciation","",""],["Y1-ENG-S-04",1,2,"S","字母书写好","Good Letter Writing","",""],["Y1-ENG-S-05",1,2,"S","课堂参与积极","Active in Class","",""],["Y1-ENG-W-01",1,2,"W","Phonics练习","Phonics Practice","",""],["Y1-ENG-W-02",1,2,"W","词汇量","Vocabulary","",""],["Y1-ENG-W-03",1,2,"W","发音","Pronunciation","",""],["Y1-ENG-W-04",1,2,"W","字母书写","Letter Writing","",""],["Y1-ENG-W-05",1,2,"W","听力理解","Listening","",""],["Y1-BM-S-01",1,3,"S","字母认读准确","","Tepat Mengenal Huruf",""],["Y1-BM-S-02",1,3,"S","词汇认识多","","Kosa Kata Luas",""],["Y1-BM-S-03",1,3,"S","短句朗读好","","Baik Membaca Ayat",""],["Y1-BM-S-04",1,3,"S","书写整洁","","Tulisan Kemas",""],["Y1-BM-S-05",1,3,"S","课堂参与积极","","Aktif dalam Kelas",""],["Y1-BM-W-01",1,3,"W","字母认读","","Mengenal Huruf",""],["Y1-BM-W-02",1,3,"W","词汇量","","Kosa Kata",""],["Y1-BM-W-03",1,3,"W","短句朗读","","Membaca Ayat",""],["Y1-BM-W-04",1,3,"W","书写练习","","Latihan Penulisan",""],["Y1-BM-W-05",1,3,"W","听力理解","","Listening","BM_FIELD_CONTAINS_ENGLISH"],["Y1-SCI-S-01",1,4,"S","观察力强","","",""],["Y1-SCI-S-02",1,4,"S","概念理解好","","",""],["Y1-SCI-S-03",1,4,"S","课堂参与积极","","Aktif dalam Kelas",""],["Y1-SCI-S-04",1,4,"S","表达能力好","","",""],["Y1-SCI-S-05",1,4,"S","动手能力强","","",""],["Y1-SCI-W-01",1,4,"W","科学概念","","",""],["Y1-SCI-W-02",1,4,"W","观察记录","","",""],["Y1-SCI-W-03",1,4,"W","词汇表达","","",""],["Y1-SCI-W-04",1,4,"W","专注力","","",""],["Y1-SCI-W-05",1,4,"W","理解能力","","",""],["Y2-MATH-S-01",2,0,"S","加减法熟练","","",""],["Y2-MATH-S-02",2,0,"S","乘法表掌握好","","",""],["Y2-MATH-S-03",2,0,"S","解题步骤整洁","","",""],["Y2-MATH-S-04",2,0,"S","计算速度快","","",""],["Y2-MATH-S-05",2,0,"S","应用题理解好","","",""],["Y2-MATH-W-01",2,0,"W","进位加法/退位减法","","",""],["Y2-MATH-W-02",2,0,"W","乘法表需背熟","","",""],["Y2-MATH-W-03",2,0,"W","应用题理解","","",""],["Y2-MATH-W-04",2,0,"W","分数概念","","",""],["Y2-MATH-W-05",2,0,"W","计算粗心","","",""],["Y2-MD-S-01",2,1,"S","识字量好","","",""],["Y2-MD-S-02",2,1,"S","造句能力好","","",""],["Y2-MD-S-03",2,1,"S","听写表现好","","",""],["Y2-MD-S-04",2,1,"S","阅读流利","","",""],["Y2-MD-S-05",2,1,"S","日记书写好","","",""],["Y2-MD-W-01",2,1,"W","识字量","","",""],["Y2-MD-W-02",2,1,"W","造句","","",""],["Y2-MD-W-03",2,1,"W","听写练习","","",""],["Y2-MD-W-04",2,1,"W","阅读流利度","","",""],["Y2-MD-W-05",2,1,"W","字体书写","","",""],["Y2-ENG-S-01",2,2,"S","词汇量丰富","Rich Vocabulary","",""],["Y2-ENG-S-02",2,2,"S","阅读理解好","Good Comprehension","",""],["Y2-ENG-S-03",2,2,"S","短句造句好","Good Sentence Writing","",""],["Y2-ENG-S-04",2,2,"S","拼写准确","Good Spelling","",""],["Y2-ENG-S-05",2,2,"S","发音准确","Good Pronunciation","",""],["Y2-ENG-W-01",2,2,"W","词汇量","Vocabulary","",""],["Y2-ENG-W-02",2,2,"W","阅读理解","","",""],["Y2-ENG-W-03",2,2,"W","造句结构","Sentence Structure","",""],["Y2-ENG-W-04",2,2,"W","拼写练习","Spelling Practice","",""],["Y2-ENG-W-05",2,2,"W","现在式用法","Present Tense","",""],["Y2-BM-S-01",2,3,"S","Bina Ayat造句好","","Baik Bina Ayat",""],["Y2-BM-S-02",2,3,"S","阅读理解好","","Baik Pemahaman",""],["Y2-BM-S-03",2,3,"S","词汇量丰富","","Kosa Kata Luas",""],["Y2-BM-S-04",2,3,"S","Imlak听写好","","Baik Imlak",""],["Y2-BM-S-05",2,3,"S","书写整洁","","Tulisan Kemas",""],["Y2-BM-W-01",2,3,"W","Bina Ayat造句","","Bina Ayat",""],["Y2-BM-W-02",2,3,"W","阅读理解","","",""],["Y2-BM-W-03",2,3,"W","词汇量","","Kosa Kata",""],["Y2-BM-W-04",2,3,"W","Imlak听写","","Imlak",""],["Y2-BM-W-05",2,3,"W","复合句掌握","","Ayat Majmuk",""],["Y2-SCI-S-01",2,4,"S","概念理解好","","",""],["Y2-SCI-S-02",2,4,"S","观察记录好","","",""],["Y2-SCI-S-03",2,4,"S","课堂参与积极","","Aktif dalam Kelas",""],["Y2-SCI-S-04",2,4,"S","词汇掌握好","","",""],["Y2-SCI-S-05",2,4,"S","逻辑思维好","","",""],["Y2-SCI-W-01",2,4,"W","科学概念","","",""],["Y2-SCI-W-02",2,4,"W","观察记录","","",""],["Y2-SCI-W-03",2,4,"W","科学词汇","","",""],["Y2-SCI-W-04",2,4,"W","理解能力","","",""],["Y2-SCI-W-05",2,4,"W","实验描述","","",""],["Y3-MATH-S-01",3,0,"S","四则运算熟练","","",""],["Y3-MATH-S-02",3,0,"S","应用题理解好","","",""],["Y3-MATH-S-03",3,0,"S","解题步骤整洁","","",""],["Y3-MATH-S-04",3,0,"S","分数概念清晰","","",""],["Y3-MATH-S-05",3,0,"S","计算速度快","","",""],["Y3-MATH-W-01",3,0,"W","乘除法应用","","",""],["Y3-MATH-W-02",3,0,"W","应用题分析","","",""],["Y3-MATH-W-03",3,0,"W","分数加减","","",""],["Y3-MATH-W-04",3,0,"W","进退位计算","","",""],["Y3-MATH-W-05",3,0,"W","粗心出错","","",""],["Y3-MD-S-01",3,1,"S","识字量好","","",""],["Y3-MD-S-02",3,1,"S","阅读理解好","Good Comprehension","",""],["Y3-MD-S-03",3,1,"S","日记/便条书写好","","",""],["Y3-MD-S-04",3,1,"S","朗读流利","","",""],["Y3-MD-S-05",3,1,"S","关联词语用得好","","",""],["Y3-MD-W-01",3,1,"W","识字量","","",""],["Y3-MD-W-02",3,1,"W","阅读理解","","",""],["Y3-MD-W-03",3,1,"W","写作表达","","",""],["Y3-MD-W-04",3,1,"W","听写练习","","",""],["Y3-MD-W-05",3,1,"W","古诗背诵","","",""],["Y3-ENG-S-01",3,2,"S","阅读理解好","Good Comprehension","",""],["Y3-ENG-S-02",3,2,"S","词汇量丰富","Rich Vocabulary","",""],["Y3-ENG-S-03",3,2,"S","口语表达好","Good Speaking","",""],["Y3-ENG-S-04",3,2,"S","短文叙述好","Good Short Narratives","",""],["Y3-ENG-S-05",3,2,"S","发音准确","Good Pronunciation","",""],["Y3-ENG-W-01",3,2,"W","阅读理解","","",""],["Y3-ENG-W-02",3,2,"W","词汇量","Vocabulary","",""],["Y3-ENG-W-03",3,2,"W","口语表达","Speaking","",""],["Y3-ENG-W-04",3,2,"W","短文写作","Essay Writing","",""],["Y3-ENG-W-05",3,2,"W","时态用法","Tense Usage","",""],["Y3-BM-S-01",3,3,"S","阅读理解好","","Baik Pemahaman (tersurat/tersirat)",""],["Y3-BM-S-02",3,3,"S","Bina Ayat造句好","","Baik Bina Ayat",""],["Y3-BM-S-03",3,3,"S","词汇量丰富","","Kosa Kata Luas",""],["Y3-BM-S-04",3,3,"S","口语表达好","","Baik Bertutur",""],["Y3-BM-S-05",3,3,"S","听力理解强","","Baik Mendengar",""],["Y3-BM-W-01",3,3,"W","阅读理解","","",""],["Y3-BM-W-02",3,3,"W","Bina Ayat造句","","Bina Ayat",""],["Y3-BM-W-03",3,3,"W","词汇量","","Kosa Kata",""],["Y3-BM-W-04",3,3,"W","口语表达","","Bertutur",""],["Y3-BM-W-05",3,3,"W","Ayat Majmuk掌握","","Ayat Majmuk",""],["Y3-SCI-S-01",3,4,"S","概念理解强","","",""],["Y3-SCI-S-02",3,4,"S","观察记录好","","",""],["Y3-SCI-S-03",3,4,"S","科学词汇掌握好","","",""],["Y3-SCI-S-04",3,4,"S","逻辑思维好","","",""],["Y3-SCI-S-05",3,4,"S","实验描述好","","",""],["Y3-SCI-W-01",3,4,"W","科学概念","","",""],["Y3-SCI-W-02",3,4,"W","观察记录","","",""],["Y3-SCI-W-03",3,4,"W","科学词汇","","",""],["Y3-SCI-W-04",3,4,"W","实验描述","","",""],["Y3-SCI-W-05",3,4,"W","理解能力","","",""],["Y4-MATH-S-01",4,0,"S","四则混合运算好","","",""],["Y4-MATH-S-02",4,0,"S","分数掌握好","","",""],["Y4-MATH-S-03",4,0,"S","小数计算好","","",""],["Y4-MATH-S-04",4,0,"S","面积/周长计算好","","",""],["Y4-MATH-S-05",4,0,"S","应用题理解好","","",""],["Y4-MATH-W-01",4,0,"W","混合运算顺序","","",""],["Y4-MATH-W-02",4,0,"W","分数通分/约分","","",""],["Y4-MATH-W-03",4,0,"W","小数运算","","",""],["Y4-MATH-W-04",4,0,"W","面积周长应用","","",""],["Y4-MATH-W-05",4,0,"W","多步骤应用题","","",""],["Y4-MD-S-01",4,1,"S","阅读理解好","Good Comprehension","",""],["Y4-MD-S-02",4,1,"S","写作表达好","Good Writing","",""],["Y4-MD-S-03",4,1,"S","成语运用好","","",""],["Y4-MD-S-04",4,1,"S","朗读有感情","","",""],["Y4-MD-S-05",4,1,"S","词语积累丰富","","",""],["Y4-MD-W-01",4,1,"W","写作结构","Writing Structure","",""],["Y4-MD-W-02",4,1,"W","阅读理解深度","","",""],["Y4-MD-W-03",4,1,"W","成语应用","","",""],["Y4-MD-W-04",4,1,"W","词语表达","","",""],["Y4-MD-W-05",4,1,"W","书写速度","","",""],["Y4-ENG-S-01",4,2,"S","阅读理解好","Good Comprehension","",""],["Y4-ENG-S-02",4,2,"S","词汇量丰富","Rich Vocabulary","",""],["Y4-ENG-S-03",4,2,"S","写作表达好","Good Writing","",""],["Y4-ENG-S-04",4,2,"S","时态掌握好","Good Tense Usage","",""],["Y4-ENG-S-05",4,2,"S","口语表达好","Good Speaking","",""],["Y4-ENG-W-01",4,2,"W","阅读理解","","",""],["Y4-ENG-W-02",4,2,"W","词汇量","Vocabulary","",""],["Y4-ENG-W-03",4,2,"W","写作结构","Writing Structure","",""],["Y4-ENG-W-04",4,2,"W","时态用法（过去式）","Past Tense","",""],["Y4-ENG-W-05",4,2,"W","口语流畅度","Oral Fluency","",""],["Y4-BM-S-01",4,3,"S","阅读理解好","","Baik Pemahaman (tersurat/tersirat)",""],["Y4-BM-S-02",4,3,"S","写作表达好","","Baik Penulisan",""],["Y4-BM-S-03",4,3,"S","词汇量丰富","","Kosa Kata Luas",""],["Y4-BM-S-04",4,3,"S","口语表达好","","Baik Bertutur",""],["Y4-BM-S-05",4,3,"S","文章结构好","","Struktur Karangan Baik",""],["Y4-BM-W-01",4,3,"W","阅读理解","","",""],["Y4-BM-W-02",4,3,"W","写作结构","","Struktur Penulisan",""],["Y4-BM-W-03",4,3,"W","词汇量","","Kosa Kata",""],["Y4-BM-W-04",4,3,"W","口语表达","","Bertutur",""],["Y4-BM-W-05",4,3,"W","Imbuhan词缀","","Imbuhan",""],["Y4-SCI-S-01",4,4,"S","概念理解强","","",""],["Y4-SCI-S-02",4,4,"S","实验描述好","","",""],["Y4-SCI-S-03",4,4,"S","科学词汇掌握好","","",""],["Y4-SCI-S-04",4,4,"S","逻辑思维好","","",""],["Y4-SCI-S-05",4,4,"S","应用能力好","","",""],["Y4-SCI-W-01",4,4,"W","科学概念","","",""],["Y4-SCI-W-02",4,4,"W","实验报告","","",""],["Y4-SCI-W-03",4,4,"W","科学词汇","","",""],["Y4-SCI-W-04",4,4,"W","理解能力","","",""],["Y4-SCI-W-05",4,4,"W","分析能力","","",""],["Y5-MATH-S-01",5,0,"S","混合运算好","","",""],["Y5-MATH-S-02",5,0,"S","质数掌握好","","",""],["Y5-MATH-S-03",5,0,"S","百分比计算好","","",""],["Y5-MATH-S-04",5,0,"S","统计图表好","","",""],["Y5-MATH-S-05",5,0,"S","应用题分析强","","",""],["Y5-MATH-W-01",5,0,"W","含括号混合运算","","",""],["Y5-MATH-W-02",5,0,"W","质数辨别","","",""],["Y5-MATH-W-03",5,0,"W","百分比应用","","",""],["Y5-MATH-W-04",5,0,"W","统计图表分析","","",""],["Y5-MATH-W-05",5,0,"W","多步骤应用题","","",""],["Y5-MD-S-01",5,1,"S","阅读理解好","Good Comprehension","",""],["Y5-MD-S-02",5,1,"S","写作表达好","Good Writing","",""],["Y5-MD-S-03",5,1,"S","成语/惯用语运用好","","",""],["Y5-MD-S-04",5,1,"S","讨论发言积极","","",""],["Y5-MD-S-05",5,1,"S","词句积累丰富","","",""],["Y5-MD-W-01",5,1,"W","写作主旨","","",""],["Y5-MD-W-02",5,1,"W","阅读理解深度","","",""],["Y5-MD-W-03",5,1,"W","成语应用","","",""],["Y5-MD-W-04",5,1,"W","讨论表达","","",""],["Y5-MD-W-05",5,1,"W","词语精准度","","",""],["Y5-ENG-S-01",5,2,"S","阅读理解好","Good Comprehension","",""],["Y5-ENG-S-02",5,2,"S","词汇量丰富","Rich Vocabulary","",""],["Y5-ENG-S-03",5,2,"S","写作表达好","Good Writing","",""],["Y5-ENG-S-04",5,2,"S","Present Perfect掌握好","Good Present Perfect","",""],["Y5-ENG-S-05",5,2,"S","口语表达好","Good Speaking","",""],["Y5-ENG-W-01",5,2,"W","阅读理解","","",""],["Y5-ENG-W-02",5,2,"W","词汇量","Vocabulary","",""],["Y5-ENG-W-03",5,2,"W","写作结构","Writing Structure","",""],["Y5-ENG-W-04",5,2,"W","时态综合应用","Overall Tenses","",""],["Y5-ENG-W-05",5,2,"W","口语流畅度","Oral Fluency","",""],["Y5-BM-S-01",5,3,"S","阅读理解好","","Baik Pemahaman (tersurat/tersirat)",""],["Y5-BM-S-02",5,3,"S","写作表达好","","Baik Penulisan",""],["Y5-BM-S-03",5,3,"S","词汇量丰富","","Kosa Kata Luas",""],["Y5-BM-S-04",5,3,"S","口语表达好","","Baik Bertutur",""],["Y5-BM-S-05",5,3,"S","讨论参与积极","","Aktif Perbincangan",""],["Y5-BM-W-01",5,3,"W","阅读深层理解","","Pemahaman Tersirat",""],["Y5-BM-W-02",5,3,"W","写作结构","","Struktur Penulisan",""],["Y5-BM-W-03",5,3,"W","词汇量","","Kosa Kata",""],["Y5-BM-W-04",5,3,"W","口语表达","","Bertutur",""],["Y5-BM-W-05",5,3,"W","综合文法","","Tatabahasa",""],["Y5-SCI-S-01",5,4,"S","概念理解强","","",""],["Y5-SCI-S-02",5,4,"S","实验报告好","","",""],["Y5-SCI-S-03",5,4,"S","科学词汇掌握好","","",""],["Y5-SCI-S-04",5,4,"S","逻辑思维好","","",""],["Y5-SCI-S-05",5,4,"S","分析能力强","","",""],["Y5-SCI-W-01",5,4,"W","科学概念","","",""],["Y5-SCI-W-02",5,4,"W","实验报告写作","","",""],["Y5-SCI-W-03",5,4,"W","科学词汇","","",""],["Y5-SCI-W-04",5,4,"W","理解能力","","",""],["Y5-SCI-W-05",5,4,"W","分析推理","","",""],["Y6-MATH-S-01",6,0,"S","综合运算好","","",""],["Y6-MATH-S-02",6,0,"S","分数/小数/百分比掌握好","","",""],["Y6-MATH-S-03",6,0,"S","应用题分析强","","",""],["Y6-MATH-S-04",6,0,"S","解题步骤完整","","",""],["Y6-MATH-S-05",6,0,"S","备考状态好","Well-Prepared for Exam","",""],["Y6-MATH-W-01",6,0,"W","综合运算","","",""],["Y6-MATH-W-02",6,0,"W","分数小数百分比转换","","",""],["Y6-MATH-W-03",6,0,"W","多步骤应用题","","",""],["Y6-MATH-W-04",6,0,"W","粗心出错","","",""],["Y6-MATH-W-05",6,0,"W","时间管理","Time Management","",""],["Y6-MD-S-01",6,1,"S","阅读理解好（各类体裁）","","",""],["Y6-MD-S-02",6,1,"S","写作表达好","Good Writing","",""],["Y6-MD-S-03",6,1,"S","词语运用丰富","","",""],["Y6-MD-S-04",6,1,"S","备考状态好","Well-Prepared for Exam","",""],["Y6-MD-S-05",6,1,"S","自主学习强","","",""],["Y6-MD-W-01",6,1,"W","写作结构","Writing Structure","",""],["Y6-MD-W-02",6,1,"W","阅读理解深度","","",""],["Y6-MD-W-03",6,1,"W","词语精准度","","",""],["Y6-MD-W-04",6,1,"W","作文审题","","",""],["Y6-MD-W-05",6,1,"W","时间管理","Time Management","",""],["Y6-ENG-S-01",6,2,"S","阅读理解好","Good Comprehension","",""],["Y6-ENG-S-02",6,2,"S","写作表达好","Good Writing","",""],["Y6-ENG-S-03",6,2,"S","词汇量丰富","Rich Vocabulary","",""],["Y6-ENG-S-04",6,2,"S","综合文法掌握好","Good Overall Grammar","",""],["Y6-ENG-S-05",6,2,"S","备考状态好","Well-Prepared for Exam","",""],["Y6-ENG-W-01",6,2,"W","阅读理解","","",""],["Y6-ENG-W-02",6,2,"W","写作结构","Writing Structure","",""],["Y6-ENG-W-03",6,2,"W","词汇量","Vocabulary","",""],["Y6-ENG-W-04",6,2,"W","综合时态","Overall Tenses","",""],["Y6-ENG-W-05",6,2,"W","时间管理","Time Management","",""],["Y6-BM-S-01",6,3,"S","阅读理解好","","Baik Pemahaman",""],["Y6-BM-S-02",6,3,"S","写作表达好","","Baik Penulisan",""],["Y6-BM-S-03",6,3,"S","词汇量丰富","","Kosa Kata Luas",""],["Y6-BM-S-04",6,3,"S","综合文法掌握好","","Baik Tatabahasa",""],["Y6-BM-S-05",6,3,"S","备考状态好","","Bersedia Peperiksaan",""],["Y6-BM-W-01",6,3,"W","阅读理解","","",""],["Y6-BM-W-02",6,3,"W","写作结构","","Struktur Penulisan",""],["Y6-BM-W-03",6,3,"W","词汇量","","Kosa Kata",""],["Y6-BM-W-04",6,3,"W","综合文法","","Tatabahasa",""],["Y6-BM-W-05",6,3,"W","时间管理","","Pengurusan Masa",""],["Y6-SCI-S-01",6,4,"S","概念理解强","","",""],["Y6-SCI-S-02",6,4,"S","综合应用好","","",""],["Y6-SCI-S-03",6,4,"S","实验方法掌握好","","",""],["Y6-SCI-S-04",6,4,"S","备考状态好","","Bersedia Peperiksaan",""],["Y6-SCI-S-05",6,4,"S","分析能力强","","",""],["Y6-SCI-W-01",6,4,"W","科学概念综合","","",""],["Y6-SCI-W-02",6,4,"W","实验方法","","",""],["Y6-SCI-W-03",6,4,"W","科学词汇","","",""],["Y6-SCI-W-04",6,4,"W","理解能力","","",""],["Y6-SCI-W-05",6,4,"W","时间管理","","Pengurusan Masa",""]]/*__END__*/;
+const KSSR = KSSR_RAW.map(r=>({id:r[0],y:r[1],s:SUBJECTS[r[2]],k:r[3],zh:r[4],en:r[5],bm:r[6],note:r[7]}));
+
+/* ══ DSKP 学习领域字典（v16 取代写死的 KSSR 弱项清单）══
+   来源：KPM DSKP KSSR Semakan 2017 原档，五科 × 六年段 30 份全部解析，
+        落在 01_SOURCES\_CORPUS\parsed\ （1456 条学习标准）。
+   这里取的是**学习领域**层，不是学习标准层 —— 学习标准数学 Y3 有 102 条，
+   内容标准也有 52 条，chips 滑不完；领域每格 5–13 个，老师看一眼就找得到。
+   [id, year, subjectIdx, code, zh] */
+const DSKP_DOM_RAW = /*__DSKP__*/[["DSKP-MATH-Y1-D1",1,0,"1.0","100以内的整数"],["DSKP-MATH-Y1-D2",1,0,"2.0","基本运算"],["DSKP-MATH-Y1-D3",1,0,"3.0","分数"],["DSKP-MATH-Y1-D4",1,0,"4.0","钱币"],["DSKP-MATH-Y1-D5",1,0,"5.0","时间与时刻"],["DSKP-MATH-Y1-D6",1,0,"6.0","度量衡"],["DSKP-MATH-Y1-D7",1,0,"7.0","空间"],["DSKP-MATH-Y1-D8",1,0,"8.0","数据处理"],["DSKP-MATH-Y2-D1",2,0,"1.0","1000以内的整数"],["DSKP-MATH-Y2-D2",2,0,"2.0","基本运算"],["DSKP-MATH-Y2-D3",2,0,"3.0","分数与小数"],["DSKP-MATH-Y2-D4",2,0,"4.0","钱币"],["DSKP-MATH-Y2-D5",2,0,"5.0","时间与时刻"],["DSKP-MATH-Y2-D6",2,0,"6.0","度量衡"],["DSKP-MATH-Y2-D7",2,0,"7.0","空间"],["DSKP-MATH-Y2-D8",2,0,"8.0","数据处理"],["DSKP-MATH-Y3-D1",3,0,"1.0","10 000以内的整数"],["DSKP-MATH-Y3-D2",3,0,"2.0","基本运算"],["DSKP-MATH-Y3-D3",3,0,"3.0","分数、小数与百分比"],["DSKP-MATH-Y3-D4",3,0,"4.0","钱币"],["DSKP-MATH-Y3-D5",3,0,"5.0","时间与时刻"],["DSKP-MATH-Y3-D6",3,0,"6.0","度量衡"],["DSKP-MATH-Y3-D7",3,0,"7.0","空间"],["DSKP-MATH-Y3-D8",3,0,"8.0","坐标"],["DSKP-MATH-Y3-D9",3,0,"9.0","数据处理"],["DSKP-MATH-Y4-D1",4,0,"1.0","整数与运算"],["DSKP-MATH-Y4-D2",4,0,"2.0","分数、小数与百分比"],["DSKP-MATH-Y4-D3",4,0,"3.0","钱币"],["DSKP-MATH-Y4-D4",4,0,"4.0","时间与时刻"],["DSKP-MATH-Y4-D5",4,0,"5.0","度量衡"],["DSKP-MATH-Y4-D6",4,0,"6.0","空间"],["DSKP-MATH-Y4-D7",4,0,"7.0","坐标和比与比例"],["DSKP-MATH-Y4-D8",4,0,"8.0","数据处理"],["DSKP-MATH-Y5-D1",5,0,"1.0","整数与基本运算"],["DSKP-MATH-Y5-D2",5,0,"2.0","分数、小数与百分比"],["DSKP-MATH-Y5-D3",5,0,"3.0","钱币"],["DSKP-MATH-Y5-D4",5,0,"4.0","时间与时刻"],["DSKP-MATH-Y5-D5",5,0,"5.0","度量衡"],["DSKP-MATH-Y5-D6",5,0,"6.0","空间"],["DSKP-MATH-Y5-D7",5,0,"7.0","坐标、比与比例"],["DSKP-MATH-Y5-D8",5,0,"8.0","数据处理"],["DSKP-MATH-Y6-D1",6,0,"1.0","整数与基本运算"],["DSKP-MATH-Y6-D2",6,0,"2.0","分数、小数与百分比"],["DSKP-MATH-Y6-D3",6,0,"3.0","钱币"],["DSKP-MATH-Y6-D4",6,0,"4.0","时间与时刻"],["DSKP-MATH-Y6-D5",6,0,"5.0","度量衡"],["DSKP-MATH-Y6-D6",6,0,"6.0","空间"],["DSKP-MATH-Y6-D7",6,0,"7.0","坐标、比与比例"],["DSKP-MATH-Y6-D8",6,0,"8.0","数据处理与可能性"],["DSKP-MD-Y1-D1",1,1,"1.0","听说技能"],["DSKP-MD-Y1-D2",1,1,"2.0","阅读技能"],["DSKP-MD-Y1-D3",1,1,"3.0","书写技能"],["DSKP-MD-Y1-D4",1,1,"4.0","趣味语文"],["DSKP-MD-Y1-D5",1,1,"5.0","语文基础知识"],["DSKP-MD-Y2-D1",2,1,"1.0","听说技能"],["DSKP-MD-Y2-D2",2,1,"2.0","阅读技能"],["DSKP-MD-Y2-D3",2,1,"3.0","书写技能"],["DSKP-MD-Y2-D4",2,1,"4.0","趣味语文"],["DSKP-MD-Y2-D5",2,1,"5.0","语文基础知识"],["DSKP-MD-Y3-D1",3,1,"1.0","听说技能"],["DSKP-MD-Y3-D2",3,1,"2.0","阅读技能"],["DSKP-MD-Y3-D3",3,1,"3.0","书写技能"],["DSKP-MD-Y3-D4",3,1,"4.0","趣味语文"],["DSKP-MD-Y3-D5",3,1,"5.0","语文基础知识"],["DSKP-MD-Y4-D1",4,1,"1.0","听说技能"],["DSKP-MD-Y4-D2",4,1,"2.0","阅读技能"],["DSKP-MD-Y4-D3",4,1,"3.0","书写技能"],["DSKP-MD-Y4-D4",4,1,"4.0","趣味语文"],["DSKP-MD-Y4-D5",4,1,"5.0","语文基础知识"],["DSKP-MD-Y5-D1",5,1,"1.0","听说技能"],["DSKP-MD-Y5-D2",5,1,"2.0","阅读技能"],["DSKP-MD-Y5-D3",5,1,"3.0","书写技能"],["DSKP-MD-Y5-D4",5,1,"4.0","趣味语文"],["DSKP-MD-Y5-D5",5,1,"5.0","语文基础知识"],["DSKP-MD-Y6-D1",6,1,"1.0","听说技能"],["DSKP-MD-Y6-D2",6,1,"2.0","阅读技能"],["DSKP-MD-Y6-D3",6,1,"3.0","书写技能"],["DSKP-MD-Y6-D4",6,1,"4.0","趣味语文"],["DSKP-MD-Y6-D5",6,1,"5.0","语文基础知识"],["DSKP-ENG-Y1-D1",1,2,"1.0","Listening Skills"],["DSKP-ENG-Y1-D2",1,2,"2.0","Speaking Skills"],["DSKP-ENG-Y1-D3",1,2,"3.0","Reading Skills"],["DSKP-ENG-Y1-D4",1,2,"4.0","Writing Skills"],["DSKP-ENG-Y1-D5",1,2,"5.0","LANGUAGE ARTS"],["DSKP-ENG-Y2-D1",2,2,"1.0","Listening Skills"],["DSKP-ENG-Y2-D2",2,2,"2.0","Speaking Skills"],["DSKP-ENG-Y2-D3",2,2,"3.0","Reading Skills"],["DSKP-ENG-Y2-D4",2,2,"4.0","Writing Skills"],["DSKP-ENG-Y2-D5",2,2,"5.0","LANGUAGE ARTS"],["DSKP-ENG-Y3-D1",3,2,"1.0","Listening Skills"],["DSKP-ENG-Y3-D2",3,2,"2.0","Speaking Skills"],["DSKP-ENG-Y3-D3",3,2,"3.0","Reading Skills"],["DSKP-ENG-Y3-D4",3,2,"4.0","Writing Skills"],["DSKP-ENG-Y3-D5",3,2,"5.0","Language Arts"],["DSKP-ENG-Y4-D1",4,2,"1.0","Listening Skills"],["DSKP-ENG-Y4-D2",4,2,"2.0","Speaking Skills"],["DSKP-ENG-Y4-D3",4,2,"3.0","Reading Skills"],["DSKP-ENG-Y4-D4",4,2,"4.0","Writing Skills"],["DSKP-ENG-Y4-D5",4,2,"5.0","Language Arts"],["DSKP-ENG-Y5-D1",5,2,"1.0","Listening Skills"],["DSKP-ENG-Y5-D2",5,2,"2.0","Speaking Skills"],["DSKP-ENG-Y5-D3",5,2,"3.0","Reading Skills"],["DSKP-ENG-Y5-D4",5,2,"4.0","Writing Skills"],["DSKP-ENG-Y5-D5",5,2,"5.0","Language Arts"],["DSKP-ENG-Y6-D1",6,2,"1.0","Listening Skills"],["DSKP-ENG-Y6-D2",6,2,"2.0","Speaking Skills"],["DSKP-ENG-Y6-D3",6,2,"3.0","Reading Skills"],["DSKP-ENG-Y6-D4",6,2,"4.0","Writing Skills"],["DSKP-ENG-Y6-D5",6,2,"5.0","Language Arts"],["DSKP-BM-Y1-D1",1,3,"1.0","Kemahiran Mendengar dan Bertutur"],["DSKP-BM-Y1-D2",1,3,"2.0","Kemahiran Membaca"],["DSKP-BM-Y1-D3",1,3,"3.0","Kemahiran Menulis"],["DSKP-BM-Y1-D4",1,3,"4.0","Aspek Seni Bahasa"],["DSKP-BM-Y1-D5",1,3,"5.0","Aspek Tatabahasa"],["DSKP-BM-Y2-D1",2,3,"1.0","Kemahiran Mendengar dan Bertutur"],["DSKP-BM-Y2-D2",2,3,"2.0","Kemahiran Membaca"],["DSKP-BM-Y2-D3",2,3,"3.0","Kemahiran Menulis"],["DSKP-BM-Y2-D4",2,3,"4.0","Aspek Seni Bahasa"],["DSKP-BM-Y2-D5",2,3,"5.0","Aspek Tatabahasa"],["DSKP-BM-Y3-D1",3,3,"1.0","Kemahiran Mendengar dan Bertutur"],["DSKP-BM-Y3-D2",3,3,"2.0","Kemahiran Membaca"],["DSKP-BM-Y3-D3",3,3,"3.0","Kemahiran Menulis"],["DSKP-BM-Y3-D4",3,3,"4.0","Aspek Seni Bahasa"],["DSKP-BM-Y3-D5",3,3,"5.0","Aspek Tatabahasa"],["DSKP-BM-Y4-D1",4,3,"1.0","Kemahiran Mendengar dan Bertutur"],["DSKP-BM-Y4-D2",4,3,"2.0","Kemahiran Membaca"],["DSKP-BM-Y4-D3",4,3,"3.0","Kemahiran Menulis"],["DSKP-BM-Y4-D4",4,3,"4.0","Aspek Seni Bahasa"],["DSKP-BM-Y4-D5",4,3,"5.0","Aspek Tatabahasa"],["DSKP-BM-Y5-D1",5,3,"1.0","Kemahiran Mendengar dan Bertutur"],["DSKP-BM-Y5-D2",5,3,"2.0","Kemahiran Membaca"],["DSKP-BM-Y5-D3",5,3,"3.0","Kemahiran Menulis"],["DSKP-BM-Y5-D4",5,3,"4.0","Aspek Seni Bahasa"],["DSKP-BM-Y5-D5",5,3,"5.0","Aspek Tatabahasa"],["DSKP-BM-Y6-D1",6,3,"1.0","Kemahiran Mendengar dan Bertutur"],["DSKP-BM-Y6-D2",6,3,"2.0","Kemahiran Membaca"],["DSKP-BM-Y6-D3",6,3,"3.0","Kemahiran Menulis"],["DSKP-BM-Y6-D4",6,3,"4.0","Aspek Seni Bahasa"],["DSKP-BM-Y6-D5",6,3,"5.0","Aspek Tatabahasa"],["DSKP-SCI-Y1-S1_1",1,4,"1.1","科学程序技能"],["DSKP-SCI-Y1-S1_2",1,4,"1.2","操纵性技能"],["DSKP-SCI-Y1-S2_1",1,4,"2.1","科学室的规则"],["DSKP-SCI-Y1-S3_1",1,4,"3.1","生物和非生物"],["DSKP-SCI-Y1-S3_2",1,4,"3.2","生物的基本需求"],["DSKP-SCI-Y1-S4_1",1,4,"4.1","人类的感觉官能"],["DSKP-SCI-Y1-S5_1",1,4,"5.1","动物的身体部位"],["DSKP-SCI-Y1-S6_1",1,4,"6.1","植物的部位"],["DSKP-SCI-Y1-S7_1",1,4,"7.1","磁铁"],["DSKP-SCI-Y1-S8_1",1,4,"8.1","材料的吸水力"],["DSKP-SCI-Y1-S9_1",1,4,"9.1","地球表面的形状"],["DSKP-SCI-Y1-S9_2",1,4,"9.2","土壤"],["DSKP-SCI-Y1-S10_1",1,4,"10.1","以基本立体形状创作模型"],["DSKP-SCI-Y2-S1_1",2,4,"1.1","科学程序技能"],["DSKP-SCI-Y2-S1_2",2,4,"1.2","操纵性技能"],["DSKP-SCI-Y2-S2_1",2,4,"2.1","科学室的规则"],["DSKP-SCI-Y2-S3_1",2,4,"3.1","人类的繁殖和成长"],["DSKP-SCI-Y2-S4_1",2,4,"4.1","动物的成长和繁殖"],["DSKP-SCI-Y2-S5_1",2,4,"5.1","植物的成长"],["DSKP-SCI-Y2-S6_1",2,4,"6.1","光和暗"],["DSKP-SCI-Y2-S7_1",2,4,"7.1","电路"],["DSKP-SCI-Y2-S8_1",2,4,"8.1","混合物"],["DSKP-SCI-Y2-S9_1",2,4,"9.1","水"],["DSKP-SCI-Y2-S9_2",2,4,"9.2","空气"],["DSKP-SCI-Y2-S10_1",2,4,"10.1","模型组件"],["DSKP-SCI-Y3-D1",3,4,"1.0","科学技能"],["DSKP-SCI-Y3-D2",3,4,"2.0","科学室的规则"],["DSKP-SCI-Y3-D3",3,4,"3.0","人类"],["DSKP-SCI-Y3-D4",3,4,"4.0","动物"],["DSKP-SCI-Y3-D5",3,4,"5.0","植物"],["DSKP-SCI-Y3-D6",3,4,"6.0","测量"],["DSKP-SCI-Y3-D7",3,4,"7.0","密度"],["DSKP-SCI-Y3-D8",3,4,"8.0","酸与碱"],["DSKP-SCI-Y3-D9",3,4,"9.0","太阳系"],["DSKP-SCI-Y3-D10",3,4,"10.0","机械"],["DSKP-SCI-Y4-D1",4,4,"1.0","科学技能"],["DSKP-SCI-Y4-D2",4,4,"2.0","人类"],["DSKP-SCI-Y4-D3",4,4,"3.0","动物"],["DSKP-SCI-Y4-D4",4,4,"4.0","植物"],["DSKP-SCI-Y4-D5",4,4,"5.0","光的特性"],["DSKP-SCI-Y4-D6",4,4,"6.0","声音"],["DSKP-SCI-Y4-D7",4,4,"7.0","能"],["DSKP-SCI-Y4-D8",4,4,"8.0","材料"],["DSKP-SCI-Y4-D9",4,4,"9.0","地球"],["DSKP-SCI-Y4-D10",4,4,"10.0","机械"],["DSKP-SCI-Y5-D1",5,4,"1.0","科学技能"],["DSKP-SCI-Y5-D2",5,4,"2.0","人类"],["DSKP-SCI-Y5-D3",5,4,"3.0","动物"],["DSKP-SCI-Y5-D4",5,4,"4.0","植物"],["DSKP-SCI-Y5-D5",5,4,"5.0","电"],["DSKP-SCI-Y5-D6",5,4,"6.0","热"],["DSKP-SCI-Y5-D7",5,4,"7.0","生锈"],["DSKP-SCI-Y5-D8",5,4,"8.0","物质"],["DSKP-SCI-Y5-D9",5,4,"9.0","月相与星座"],["DSKP-SCI-Y5-D10",5,4,"10.0","机械"],["DSKP-SCI-Y6-D1",6,4,"1.0","科学技能"],["DSKP-SCI-Y6-D2",6,4,"2.0","人类"],["DSKP-SCI-Y6-D3",6,4,"3.0","微生物"],["DSKP-SCI-Y6-D4",6,4,"4.0","生物之间的相互关系"],["DSKP-SCI-Y6-D5",6,4,"5.0","保护和复育"],["DSKP-SCI-Y6-D6",6,4,"6.0","力"],["DSKP-SCI-Y6-D7",6,4,"7.0","速度"],["DSKP-SCI-Y6-D8",6,4,"8.0","食物保存科技"],["DSKP-SCI-Y6-D9",6,4,"9.0","废物"],["DSKP-SCI-Y6-D10",6,4,"10.0","日食与月食"],["DSKP-SCI-Y6-D11",6,4,"11.0","星系"],["DSKP-SCI-Y6-D12",6,4,"12.0","平稳性和坚固性"],["DSKP-SCI-Y6-D13",6,4,"13.0","工艺"]]/*__END_DSKP__*/;
+const DSKP_DOM = DSKP_DOM_RAW.map(r=>({id:r[0],y:r[1],s:SUBJECTS[r[2]],code:r[3],zh:r[4]}));
+/* 旧草稿存的是 KSSR 的 id，新的是 DSKP 的 id —— 两边都要认得，
+   否则老师窗口前填的东西上传时会变成空白。 */
+/* ══ weak_manual 的词汇（vocabulary）══ Owner 2026-09-06
+   这一栏的内容【依年份不同】，不是单一来源，写死成任何一个都是错的：
+     v16 – v19.0  chips 来源是 KPM DSKP 学习领域 → 存的是字典 id（DSKP-ENG-Y2-D1）
+     v19.1 起     chips 来源是这份考卷 evalgo_paper_section.topic → 存的是考点原文（文法）
+   老师浏览器里此刻可能还留着 v16–v19.0 时期的草稿，v9 上线后会一起送上去。
+   所以不推断、不假设：逐值检查它认不认得是字典 id，把结论明写成一栏送上云端。 */
+const WEAK_VOCAB={NONE:'NONE',DSKP:'DSKP_DOMAIN',PAPER:'PAPER_TOPIC',MIX:'MIXED'};
+function isDictId(x){
+  return DSKP_DOM.some(o=>o.id===x) || KSSR.some(o=>o.id===x);
+}
+function weakVocabOf(r){
+  const v=(r&&r.weak_manual)||[];
+  if(!v.length) return WEAK_VOCAB.NONE;
+  const n=v.filter(isDictId).length;
+  if(n===v.length) return WEAK_VOCAB.DSKP;
+  if(n>0)          return WEAK_VOCAB.MIX;
+  return WEAK_VOCAB.PAPER;
+}
+function optText(id){
+  const d=DSKP_DOM.find(o=>o.id===id); if(d) return d.zh;
+  const k=KSSR.find(o=>o.id===id);     if(k) return k.zh;
+  /* v19.1 起「较弱项目」直接存这份考卷的考点原文（不是字典 id）——
+     认不得就原样送出，绝不吞成空字串。 */
+  return String(id||'');
+}
+
+/* ══ 这份考卷的考点 ══ Owner 2026-09-06
+   v16 这里挂的是 KPM DSKP「学习领域」（Listening / Speaking / Reading / Writing…）。
+   Owner 指出那一层跟「这份考卷」没有关系 —— 考卷考的是文法、连接词、写作这些具体考点。
+   他说对了：学习领域是「整年教什么」，考卷分析要回答的是「这张卷他弱在哪」。
+   唯一诚实的来源是考卷结构里负责人自己填的「文法 / 主题」，不是我另外发明一套分类。
+   一个项目可以填多个考点，用 、 ， / ； 分开，这里会拆成多颗。 */
+function paperWeakOpts(){
+  const out=[], seen={};
+  sections().forEach(sec=>{
+    const raw=String(sec.topic||'').trim();
+    const parts = raw ? raw.split(/[、,，\/／;；]+/).map(x=>x.trim()).filter(Boolean) : [];
+    if(!parts.length) parts.push(String(sec.code||'').trim());
+    parts.forEach(t=>{ if(!t||seen[t]) return; seen[t]=1; out.push(t); });
+  });
+  return out;
+}
+
+const DEMO_ROSTER=[
+  {sid:'demo-1',cls:'ATC1',no:1,en:'DEMO STUDENT A',cn:'示范甲',year:1},
+  {sid:'demo-2',cls:'ATC1',no:2,en:'DEMO STUDENT B',cn:'示范乙',year:1},
+  {sid:'demo-3',cls:'ATC1',no:3,en:'DEMO STUDENT C',cn:'示范丙',year:1},
+  {sid:'demo-4',cls:'ATC2',no:1,en:'DEMO STUDENT D',cn:'示范丁',year:2},
+  {sid:'demo-5',cls:'ATC2',no:2,en:'DEMO STUDENT E',cn:'示范戊',year:2}
+];
+
+const SEED = { me:'', subject:'', cls:'',
+  examCode:'', examLabel:'', examTerm:'', roster:[], rosterSource:'demo',
+  sections:{}, teacherByUid:{}, meName:'', wi:{}, es:{}, focus:{}, assign:{},
+  f1:{}, f2:{}, ui:{extraOpen:false}, meta:{version:'v13'} };
+let S = JSON.parse(JSON.stringify(SEED));
+
+const CLOUD={ pushErr:'', checked:false, hasV8:false, hasV9:false, bpEvid:{}, idErr:'', idFrom:'', role:'', hasWI:false, hasV4:false, hasPS:false, hasV5:false, hasES:false, hasV6:null, hasTA:false,lib:false,session:null,perm:null,exam:null,teachers:[],err:'',busy:false,lastSync:''};
+let _sb=null;
+
+/* ══ 基礎 ══ */
+/* 管理页只给管理层。老师不需要知道 Storage Key / 同步 / 备份 这些内部设定，
+   更不该让她去改。role 来自 internal.users_meta，前端只读。 */
+const ADMIN_ROLES=['OWNER','TOP_MGMT','MGMT','ADMIN'];
+function isAdmin(){ return ADMIN_ROLES.indexOf(String(CLOUD.role||'').toUpperCase())>=0; }
+function paintNav(){
+  const on=isAdmin();
+  ['ntab-manage','ntab-report'].forEach(id=>{
+    const t=document.getElementById(id); if(!t) return;
+    t.hidden=!on; t.style.display=on?'':'none';
+  });
+}
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function uid(){return 'c_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,8);}
+/* 真 uuid v4 —— client_uid 用的 uid() 不是 uuid，不能拿去当 nonce。 */
+function uuid4(){
+  try{ if(window.crypto&&crypto.randomUUID) return crypto.randomUUID(); }catch(e){}
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{
+    const r=Math.random()*16|0, v=(c==='x')?r:((r&0x3)|0x8); return v.toString(16);});
+}
+function today(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+function stamp(){const d=new Date();return today()+'_'+String(d.getHours()).padStart(2,'0')+String(d.getMinutes()).padStart(2,'0');}
+function yearOf(cls){const m=/ATC(\d)/.exec(cls||'');return m?+m[1]:1;}
+function stuOf(sid){return S.roster.find(r=>r.sid===sid)||null;}
+function inCls(c){return S.roster.filter(r=>r.cls===c).sort((a,b)=>(a.no||0)-(b.no||0));}
+function nameOf(r){return r?(r.en+(r.cn?(' '+r.cn):'')):'—';}
+function toast(m,ms){const el=document.getElementById('toast');el.textContent=m;el.classList.add('show');
+  clearTimeout(el._t);el._t=setTimeout(()=>el.classList.remove('show'),ms||2000);}
+
+let _saveT=null;
+/* ⚠️ Persistence Truth Rule —— saveData 必须回传真假，caller 必须检查。
+   v7 以前：写入失败 toast('✕ 储存失败') 之後，caller 仍无条件 toast('✓ Saved')，
+   而两句用【同一个 #toast 元素】—— 红的会被绿的盖掉，老师永远看不到失败。
+   这是假绿的根，本版修掉。延后写入（debounce）回传 null = 结果未知，
+   任何要显示「已保存」的地方一律用 saveData(true)。 */
+function saveData(now){
+  const go=()=>{
+    S.meta.last_updated=new Date().toISOString();
+    try{ localStorage.setItem(STORAGE_KEY,JSON.stringify(S)); }
+    catch(e){
+      S.meta.save_failed=true;
+      toast(isAdmin()?'✕ 储存失败，请立刻 Export 备份':'✕ 这一笔没存进去 —— 先别关页面，截图找管理层',7000);
+      console.error(e);
+      paintCloud(); return false;
+    }
+    S.meta.save_failed=false;
+    const el=document.getElementById('last-saved');
+    if(el) el.textContent='Saved '+new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+    paintCloud();
+    return true;
+  };
+  if(now){ clearTimeout(_saveT); return go(); }
+  clearTimeout(_saveT); _saveT=setTimeout(go,800);
+  return null;
+}
+/* 存档成功才报喜；失败时不覆盖失败讯息，並把 modal 留着让老师能 Export。 */
+function saveThen(okMsg){
+  const ok=saveData(true);
+  if(ok===false) return false;
+  if(okMsg) toast(okMsg);
+  return true;
+}
+/* 老师可能先离线填（examCode 空 → 前缀 NOEXAM），之後才连上云端拿到考试码。
+   若不迁移，那些资料会像凭空消失。连线取得 exam 时呼叫一次。
+   同时把 v7 以前【完全没有 exam 前缀】的旧资料一并搬进当前考试。 */
+/* 🔴 v10 把【所有】没有 exam 前缀的旧资料一律塞进当前考试 —— 那是猜 provenance。
+   9 月的旧纪录有机会被算成 10 月这一轮。违反 migration contract：
+   「无法证明 provenance 的旧记录 → UNRESOLVED，禁止猜配」。
+
+   v11 只迁移【本次浏览器 session、离线时产生】的资料（有 ses 戳记且等于本次）。
+   其余一律不动，计入 unresolved 由管理层处理。 */
+const SESSION_ID='ses_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,8);
+function stampSes(o){ if(o&&typeof o==='object'&&!o.ses) o.ses=SESSION_ID; return o; }
+function migrateExamKeys(toEx){
+  if(!toEx) return {moved:0,unresolved:0};
+  let moved=0, unresolved=0;
+  const move=bag=>{
+    Object.keys(bag).forEach(k=>{
+      const parts=k.split('|');
+      if(parts[0]===toEx) return;                     /* 已经是本轮 */
+      const rec=bag[k];
+      const provable = parts[0]==='NOEXAM' && rec && rec.ses===SESSION_ID;
+      if(!provable){ unresolved++; return; }           /* 不猜 */
+      const nk=[toEx].concat(parts.slice(1)).join('|');
+      if(bag[nk]) return;
+      bag[nk]=rec; delete bag[k];
+      rec.exam=toEx; rec.synced=false; moved++;
+    });
+  };
+  move(S.f1); move(S.f2); move(S.wi); move(S.es);
+  Object.keys(S.sections||{}).forEach(k=>{
+    const parts=k.split('|');
+    if(parts[0]===toEx) return;
+    if(parts[0]!=='NOEXAM'){ unresolved++; return; }
+    const arr=S.sections[k]||[];
+    if(!arr.length || !arr.every(x=>x.ses===SESSION_ID)){ unresolved++; return; }
+    const nk=[toEx].concat(parts.slice(1)).join('|');
+    if(S.sections[nk]) return;
+    S.sections[nk]=arr; delete S.sections[k];
+    arr.forEach(x=>{ x.synced=false; x.cloud_id=null; });
+    moved++;
+  });
+  S.meta.unresolved=unresolved;
+  if(moved||unresolved) saveData(true);
+  return {moved,unresolved};
+}
+function loadData(){
+  let raw=null; try{ raw=localStorage.getItem(STORAGE_KEY); }catch(e){}
+  if(!raw){ S.roster=DEMO_ROSTER.slice(); return false; }
+  try{
+    const p=JSON.parse(raw);
+    Object.keys(SEED).forEach(k=>{ if(p[k]!=null) S[k]=p[k]; });
+    if(!S.roster||!S.roster.length){ S.roster=DEMO_ROSTER.slice(); S.rosterSource='demo'; }
+    if(!S.meta) S.meta={};
+    S.meta.version='v'+APP_VERSION;
+    return true;
+  }catch(e){ console.error(e); S.roster=DEMO_ROSTER.slice(); return false; }
+}
+window.addEventListener('beforeunload',()=>{ clearTimeout(_saveT);
+  try{ localStorage.setItem(STORAGE_KEY,JSON.stringify(S)); }catch(e){} });
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape') closeModal();
+  if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='s'){ e.preventDefault(); saveThen('✓ Saved'); }
+});
+
+/* ══ 導覽 ══ */
+const PAGES=['home','f1','f2','coverage','report','manage'];
+function goPage(p){
+  if((p==='manage'||p==='report') && !isAdmin()) p='home';
+  if(gateOpen() && p!=='manage' && p!=='home'){ p='home'; }
+  document.querySelectorAll('.page').forEach(el=>el.classList.remove('on'));
+  document.querySelectorAll('.ntab').forEach(el=>el.classList.remove('on'));
+  document.getElementById('page-'+p).classList.add('on');
+  const i=PAGES.indexOf(p); if(i>=0) document.querySelectorAll('.ntab')[i].classList.add('on');
+  render(p); window.scrollTo(0,0);
+}
+function render(p){
+  ({home:renderHome,f1:renderF1,f2:renderF2,
+    coverage:renderCoverage,report:renderReport,manage:renderManage}[p]||function(){})();
+  if(p==='home'){ asgGate(); return; }
+  if((p==='f1'||p==='f2') && !gateOpen()) bpGate();
+}
+function refreshAll(){ PAGES.forEach(p=>{ if(document.getElementById('page-'+p).classList.contains('on')) render(p); }); }
+
+/* ══ 進入閘門 ══ */
+function gateOpen(){ return !(S.subject && S.cls); }
+
+/* 考卷结构（Paper Blueprint）：项目 / 文法 / 作答方式 */
+/* ══ Exam scoping ══
+   v7 以前 key 是 sid|subject|... 没有考试。9 月这一轮和 10 月下一轮
+   同一个学生同一科同一题，key 完全一样 → 本机资料会互相覆盖，
+   而且上传时会用「当前 active exam」把旧证据送进新考试。
+   v8 起所有本机 key 一律以 exam 开头。 */
+function EXK(){ return S.examCode||'NOEXAM'; }
+function bpKey(){ return EXK()+'|'+S.subject+'|'+yearOf(S.cls); }
+function sections(){ return (S.sections[bpKey()]||[]); }
+/* ⚠️ v9 用 hidden 属性 + inline display —— inline style 会盖掉 hidden，
+   所以「满分」栏在选择题时也一直看得到。改成直接控制 display。 */
+function bpTypeChg(){
+  /* 满分**每一种题型都要填**，不是只有写作文。
+     v14 以前只在写作文时显示满分栏，选择题／填写题填了也会被丢掉。 */
+  const t=(document.getElementById('bpType')||{}).value||'MCQ';
+  const r=document.getElementById('bpRange'), sc=document.getElementById('bpScore');
+  if(r)  r.style.display  = (t==='ESSAY')?'none':'inline-flex';
+  if(sc) sc.style.display = 'inline-flex';
+}
+function addSection(){
+  const g=id=>String(((document.getElementById(id)||{}).value)||'').trim();
+  const code=g('bpCode'), topic=g('bpTopic'), fmt=g('bpFmt');
+  const type=g('bpType')||'MCQ';
+  const qf=parseInt(g('bpQf'),10), qt=parseInt(g('bpQt'),10), mx=parseFloat(g('bpMax'));
+  if(!code){ toast('✕ 项目不能空'); return; }
+  const arr=S.sections[bpKey()]||(S.sections[bpKey()]=[]);
+  if(arr.some(x=>x.code===code)){ toast('✕ 这个项目已经有了'); return; }
+  if(!(mx>0)){ toast('✕ 请填这个项目共几分'); return; }
+  if(type!=='ESSAY'){
+    if(!(qf>=1)||!(qt>=qf)){ toast('✕ 题号范围不对（例：1 到 10）'); return; }
+    const clash=arr.filter(x=>QTYPES.indexOf(x.type||'MCQ')>=0 && +x.qf>=1)
+                   .find(x=>!(qt<(+x.qf)||qf>(+x.qt)));
+    if(clash){ toast(`✕ 题号 ${qf}-${qt} 与「${clash.code}」(${clash.qf}-${clash.qt}) 重叠`); return; }
+  }
+  arr.push({id:uid(),client_uid:uid(),ses:SESSION_ID,code,topic,fmt,type,
+    qf:type==='ESSAY'?null:qf, qt:type==='ESSAY'?null:qt,
+    max:mx,                       /* 每一种题型都存满分，不再只存写作文 */
+    sort:arr.length, by:S.me, synced:false, cloud_id:null});
+  ['bpCode','bpTopic','bpFmt','bpQf','bpQt','bpMax'].forEach(i=>{const e=document.getElementById(i);if(e)e.value='';});
+  if(saveThen('✓ 已加入')){ renderF1(); autoPush(); }
+}
+function delSection(id){
+  if(!bpGuard('删除项目')) return;
+  const arr=S.sections[bpKey()]||[];
+  const s=arr.find(x=>x.id===id); if(!s) return;
+  const used=Object.values(S.f1).filter(r=>r.subject===S.subject&&r.bahagian===s.code).length;
+  const wq=Object.values(S.wi).filter(w=>w.subject===S.subject&&w.sec_code===s.code).length;
+  if((used||wq) && !confirm(`已经有 ${used} 笔 FORM 01 观察、${wq} 题 FORM 02 记码用了「${s.code}」。`+
+     `删掉项目不会删纪录，但纪录会对不上。确定？`)) return;
+  if(s.cloud_id && _sb && CLOUD.exam){
+    /* 云端已有这笔 —— 只在本机删会在下次 pull 长回来，必须诚实处理 */
+    _sb.from('evalgo_paper_section').delete().eq('id',s.cloud_id).then(res=>{
+      if(res.error){
+        alert('这个项目已经上传到云端，你的帐号没有删除权限（需要 can_approve）。\n\n'
+            + '本机已移除，但下次「从云端拉回」会长回来。请找管理层删除。\n\n'
+            + '错误：'+res.error.message);
+      }else toast('✓ 云端也已删除');
+    });
+  }
+  S.sections[bpKey()]=arr.filter(x=>x.id!==id);
+  if(saveThen('✓ Deleted')){ renderF1(); renderF2(); }
+}
+function secOf(code){ return sections().find(x=>x.code===code)||null; }
+const SUBJ_EN={'数学':'Mathematics','英文':'English','马来文':'BM','华文':'Mandarin','科学':'Science'};
+function pickClass(v){ S.cls=v; saveData(true);
+  if(!gateOpen()) goPage('f1'); else renderHome(); }
+function pickSubject(v){ S.subject=v; saveData(true);
+  if(!gateOpen()) goPage('f1'); else renderHome(); }
+function gateHTML(){
+  const done=Object.keys(S.f1).length+Object.keys(S.f2).length;
+  return `<div class="card">
+    <div class="card-hdr"><span class="card-title">选择班级和科目</span>
+      ${done?`<span class="tip" style="margin:0">已填 ${done} 笔 · 换班级／科目可继续未完成的输入</span>`:''}</div>
+    <div class="form-row"><label class="form-label">班级 / Class</label>
+      <div class="dept-row">${CLASSES.map(x=>
+        `<span class="dept-tag${x===S.cls?' on':''}" style="padding:8px 18px;font-size:12px"
+           onclick="pickClass('${x}')">${x.replace('ATC','ATC ')}</span>`).join('')}</div></div>
+    <div class="form-row" style="margin-bottom:0"><label class="form-label">科目 / Subject</label>
+      <div class="quick-grid" style="grid-template-columns:repeat(auto-fill,minmax(130px,1fr));margin-bottom:0">
+        ${SUBJECTS.map(x=>`<div class="quick-card${x===S.subject?' on':''}"
+          style="padding:12px;${x===S.subject?'border-color:var(--layer);background:rgba(90,100,112,.07)':''}"
+          onclick="pickSubject('${x}')">
+          <div class="quick-label" style="font-size:13px;font-weight:600">${x}</div>
+          <div class="stat-sub">${SUBJ_EN[x]}</div></div>`).join('')}
+      </div></div>
+    ${gateOpen()?`<div class="tip">班级和科目都选好，就会自动进入填写画面。</div>`:''}
+  </div>`;
+}
+/* 顶部工作情境列：随时可换班级／科目 */
+function ctxBar(){
+  const st=cellStat(S.cls,S.subject);
+  return `<div class="card" style="padding:10px 14px;margin-bottom:10px">
+    <div class="toolbar" style="margin:0">
+      <span class="chip chip-layer" style="font-size:13px;font-weight:700">${esc(S.cls)} · ${esc(S.subject)}</span>
+      <span class="chip chip-muted">Year ${yearOf(S.cls)} · ${st.n} 人</span>
+      ${st.state==='done'?'<span class="chip chip-ok">✓ 这班这科全部完成</span>'
+        :`<span class="chip ${st.prog?'chip-warn':'chip-muted'}">考卷 ${st.done} / ${st.n}${st.prog?` · ${st.prog} 位填一半`:''}</span>`}
+      <span style="flex:1"></span>
+      <button class="btn btn-pri" style="padding:9px 18px;font-size:14px;font-weight:700"
+        onclick="goPage('home')">← 换班级 / 科目</button>
+    </div></div>`;
+}
+
+/* ══ 今天 ══ */
+/* ══════════════════════════════════════════════════════════════════
+   班级登记记录表 —— 老师一进来就看到「我还有哪几班哪几科没做完」
+   一格 = 一个班 × 一科。点一格直接进去填。
+   取代 v9 的「今天」页：那一页上面全是同步状态、示范名单警告这些
+   老师不需要知道的内部事务，对院长和老师都没有意义。
+   ══════════════════════════════════════════════════════════════════ */
+/* ══ 老师任教登记 ══
+   Owner：「让老师只选择属於自己任教的科目与年段，并标记上自己的名字，
+           如此一眼就看得到哪个老师还没有完成。」
+   关键在後半句：要回答「谁还没做」，必须先知道「谁该做」。
+   现有资料只能回答「谁做了」—— 一个完全没动手的老师在系统里等於不存在。 */
+function asgKey(tid,cls,subj){ return EXK()+'|'+tid+'|'+cls+'|'+subj; }
+function asgAll(){ return Object.keys(S.assign||{}).map(k=>S.assign[k]).filter(a=>a&&a.exam===EXK()); }
+function asgFor(cls,subj){ return asgAll().filter(a=>a.cls===cls&&a.subject===subj); }
+function asgMine(){ return asgAll().filter(a=>a.teacher_id===S.me); }
+function isMine(cls,subj){ return asgFor(cls,subj).some(a=>a.teacher_id===S.me); }
+function asgToggle(cls,subj){
+  if(!S.me){ toast('✕ 还没认出你是谁，先连上系统'); return; }
+  const k=asgKey(S.me,cls,subj);
+  if(S.assign[k]) delete S.assign[k];
+  else S.assign[k]={client_uid:uid(),ses:SESSION_ID,exam:EXK(),teacher_id:S.me,
+    teacher_name:S.meName||'',cls,subject:subj,savedAt:new Date().toLocaleString('en-GB'),synced:false};
+  saveData(); asgModal(MODAL_LOCK);
+}
+function asgGate(){
+  /* 没登记就不给进。不解释、不劝，直接挡在前面。 */
+  if(asgMine().length) return false;
+  asgModal(true); return true;
+}
+function asgModal(lock){
+  const body=`
+    <div class="tip" style="margin-top:0">勾选你这一轮<b>负责的班级和科目</b>。
+      勾了之后首页会标上你的名字，管理层也才知道这一格该由谁完成。</div>
+    <div class="tw" style="margin-top:10px"><table class="data"><thead><tr>
+      <th style="min-width:80px">班级</th>
+      ${SUBJECTS.map(x=>`<th style="min-width:86px;text-align:center">${esc(x)}</th>`).join('')}
+    </tr></thead><tbody>
+    ${CLASSES.map(cls=>`<tr><td><strong>${esc(cls)}</strong>
+        <div style="font-size:11px;color:var(--mut)">Year ${yearOf(cls)}</div></td>
+      ${SUBJECTS.map(subj=>{const on=isMine(cls,subj);
+        const other=asgFor(cls,subj).filter(a=>a.teacher_id!==S.me);
+        return `<td style="text-align:center">
+          <button class="chip ${on?'sel':'chip-muted'}" style="min-width:52px"
+            onclick="asgToggle('${cls}','${esc(subj)}')">${on?'✓ 我教':'　'}</button>
+          ${other.length?`<div style="font-size:10px;color:var(--mut);margin-top:2px">${
+            other.map(a=>esc(a.teacher_id)).join(' ')}</div>`:''}</td>`;}).join('')}
+    </tr>`).join('')}
+    </tbody></table></div>`;
+  const n=asgMine().length;
+  openModal('你教哪几个班、哪几科？', body,
+    `<span class="tip" style="margin:0;flex:1">已选 ${n} 个</span>
+     <button class="btn btn-pri" ${n?'':'disabled style="opacity:.4"'}
+       onclick="closeModal(true);renderHome();autoPush()">${n?'开始':'请先选至少一个'}</button>`,
+    lock);
+}
+function cellKey(cls,subj){ return EXK()+'|'+cls+'|'+subj; }
+function clsRoster(cls){ return S.roster.filter(r=>r.cls===cls); }
+function cellStat(cls,subj){
+  const list=clsRoster(cls), n=list.length;
+  const pre=EXK()+'|';
+  let obs=0, done=0, prog=0;
+  let resolved=0;
+  list.forEach(r=>{
+    const p=S.f2[pre+r.sid+'|'+subj];
+    const st=f2State(p);
+    if(st==='absent'||st==='notassessed'){ resolved++; return; }  /* 已处理，不再催 */
+    if(f1Complete(r.sid,subj).length) obs++;
+    if(st==='done') done++; else if(st==='progress') prog++;
+  });
+  const secs=(S.sections[EXK()+'|'+subj+'|'+yearOf(cls)]||[]);
+  const handled=done+resolved;
+  return {n,obs,done,prog,resolved,handled,secs:secs.length,
+          state: n&&handled===n ? 'done' : (obs||done||prog||resolved||secs.length ? 'prog' : 'none')};
+}
+/* ══ 工作台 ══ Owner 2026-09-06
+   旧版是「6 班 × 5 科」的 30 格大表 —— 老师只教 1–2 个班科，
+   28 格是灰的，纯粹噪音；而且它回答的是院长的问题（谁没做完），
+   不是老师的问题（我还剩谁没填）。整张表移除。
+   新版只列老师自己勾的班科，一个班科一张卡，卡里直接给「还剩谁」。 */
+function cardStat(cls,subj){
+  const list=inCls(cls), pre=EXK()+'|';
+  const obsLeft=[], papLeft=[];
+  let obsDone=0, papDone=0, absent=0, na=0, prog=0;
+  list.forEach(r=>{
+    const st=f2State(S.f2[pre+r.sid+'|'+subj]);
+    /* ① Operational Resolved —— 不再催，但绝不等於有证据（见 reportReady） */
+    if(st==='absent'){ absent++; obsDone++; papDone++; return; }
+    if(st==='notassessed'){ na++; obsDone++; papDone++; return; }
+    if(f1Complete(r.sid,subj).length) obsDone++; else obsLeft.push(r);
+    if(st==='done') papDone++; else { papLeft.push(r); if(st==='progress') prog++; }
+  });
+  return {n:list.length, obsDone, papDone, obsLeft, papLeft, absent, na, prog,
+          secs:(S.sections[EXK()+'|'+subj+'|'+yearOf(cls)]||[]).length};
+}
+/* Owner 2026-09-06：卡片上不列学生名字。
+   一班 14 人，两行各印一次名单 = 28 个名字，把「还剩几个」这个唯一重点淹掉了。
+   名字在班内名单页上本来就看得到。 */
+function taskRow(cls,subj,lab,done,total,left,page,ready){
+  const ok = done>=total && total>0;
+  return `<div style="display:flex;align-items:flex-start;gap:12px;padding:11px 0;
+       border-top:1px solid var(--bdr)">
+    <div style="min-width:76px;font-size:13px;color:var(--mut);padding-top:2px">${lab}</div>
+    <div style="flex:1;min-width:0">
+      <div style="font-size:16px;font-weight:700;${ok?'color:var(--ok)':''}">${ok?'✓ ':''}${done} / ${total}</div>
+      ${left.length?`<div style="font-size:12px;color:var(--warn);margin-top:3px">还剩 ${left.length} 位</div>`
+        :(total?`<div style="font-size:12px;color:var(--ok);margin-top:3px">全部处理完了</div>`
+               :`<div style="font-size:12px;color:var(--hint);margin-top:3px">这个班没有学生</div>`)}
+    </div>
+    <button class="btn ${ok?'':'btn-pri'}" style="padding:8px 18px;font-weight:700;white-space:nowrap"
+      onclick="enterCell('${cls}','${esc(subj)}','${page}')">${ok?'查看':'继续'}</button>
+  </div>`;
+}
+function renderHome(){
+  const c=document.getElementById('c-home');
+  const mine=S.meName||S.me||'';
+  const my=asgMine().sort((a,b)=>(a.cls+a.subject).localeCompare(b.cls+b.subject));
+
+  let h=`<div class="card" style="padding:12px 16px;margin-bottom:12px">
+    <div class="toolbar" style="margin:0">
+      <span class="tip" style="margin:0;flex:1">${esc(S.examLabel||'本轮考试')}${
+        S.examTerm?` · <b>${esc(termLabel(S.examTerm))}</b>`:''}${mine?' · 科任 '+esc(mine):''}</span>
+      <button class="btn" style="padding:8px 16px;font-size:13.5px;font-weight:700"
+        onclick="asgModal()">我教 ${my.length} 个班科 · 修改</button>
+    </div></div>`;
+
+  /* 连线状态一律留在工作台顶部 —— 老师看到「假名单」三个字就该停手。 */
+  if(S.rosterSource!=='cloud') h+=`<div class="card"><div class="alert alert-danger"><div>
+    <b>还没连上系统，现在看到的是练习用的假名单。</b>
+    这里填的东西不会保留。请重新整理页面；还是不行就找管理层。</div></div></div>`;
+  else if(!CLOUD.session) h+=`<div class="card"><div class="alert alert-warn"><div>
+    <b>目前离线</b> —— 你还是可以填，资料先存在这台电脑，连上网路会自动送出。</div></div></div>`;
+
+  if(!my.length){
+    h+=`<div class="card"><div class="empty" style="padding:30px">
+      还没登记你教哪几个班、哪几科。<br>
+      <button class="btn btn-pri" style="margin-top:12px;padding:10px 22px;font-weight:700"
+        onclick="asgModal()">现在登记</button></div></div>`;
+    c.innerHTML=h; paintNav(); return;
+  }
+
+  h+=`<div style="display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(340px,1fr))">`;
+  my.forEach(a=>{
+    const st=cardStat(a.cls,a.subject);
+    const allDone = st.n>0 && st.obsDone>=st.n && st.papDone>=st.n;
+    h+=`<div class="card" style="margin:0;${allDone?'border-color:var(--ok)':''}">
+      <div style="display:flex;align-items:baseline;gap:8px">
+        <span style="font-size:17px;font-weight:800">${esc(a.cls)} · ${esc(a.subject)}</span>
+        ${allDone?'<span class="badge b-active">✓ 全部处理完</span>':''}
+      </div>
+      <div style="font-size:12px;color:var(--mut);margin-top:2px">Year ${yearOf(a.cls)} · ${st.n} 人${
+        st.absent?` · 缺席 ${st.absent}`:''}${st.na?` · 本轮未评 ${st.na}`:''}</div>
+      ${st.secs?'':`<div class="alert alert-warn" style="margin:10px 0 0;padding:7px 10px">
+        <div style="font-size:12px">考卷项目还没登记 —— 进去会先请你填。</div></div>`}
+      ${taskRow(a.cls,a.subject,'考前观察',st.obsDone,st.n,st.obsLeft,'f1')}
+      ${taskRow(a.cls,a.subject,'考卷分析',st.papDone,st.n,st.papLeft,'f2')}
+      ${st.prog?`<div style="font-size:11.5px;color:var(--warn);padding:6px 0 0;border-top:1px dashed var(--bdr)">
+        其中 <b>${st.prog} 位填了一半</b> —— 没按「完成」不算数，也不会进报告。</div>`:''}
+    </div>`;
+  });
+  h+=`</div>`;
+
+  const tot=my.reduce((o,a)=>{const s2=cardStat(a.cls,a.subject);
+    o.n+=s2.n; o.obs+=s2.obsDone; o.pap+=s2.papDone; return o;},{n:0,obs:0,pap:0});
+  if(tot.n){
+    const pct=Math.round((tot.obs+tot.pap)/(tot.n*2)*100);
+    h+=`<div class="card" style="margin-top:12px">
+      <div class="card-hdr"><span class="card-title">我的总进度</span>
+        <span class="tip" style="margin:0">考前观察 ${tot.obs}/${tot.n} · 考卷分析 ${tot.pap}/${tot.n}</span></div>
+      <div class="progress ${pct>=100?'progress-ok':'progress-layer'}">
+        <div class="progress-fill" style="width:${pct}%"></div></div></div>`;
+  }
+  c.innerHTML=h;
+  paintNav();
+}
+function enterCell(cls,subj,page){
+  /* Owner：路径应该「考前观察」先 —— 现场观察在第二节 PROVE 课后，
+     考卷分析在第 3/4 次 FIX 课后，时间上观察在前。
+     但工作台上两行各有自己的「继续」，所以要能指定进哪一页。 */
+  S.cls=cls; S.subject=subj; saveData(true); goPage(page||'f1');
+}
+
+function f1Key(sid,bah){ return EXK()+'|'+sid+'|'+S.subject+'|'+bah; }
+/* 🔴 v10：老师点一个评分就建立了 S.f1[k]，关掉不按「完成」也算已观察。
+   FORM 02 已经分了 progress / done，FORM 01 却还留着同样的问题。
+   统一：存在 = DRAFT；有 savedAt = COMPLETE。所有统计只认 COMPLETE。 */
+function f1Complete(sid,subject,exam){
+  const pre=(exam||EXK())+'|'+sid+'|'+(subject||S.subject)+'|';
+  return Object.keys(S.f1).filter(k=>k.indexOf(pre)===0&&S.f1[k]&&S.f1[k].savedAt).map(k=>S.f1[k]);
+}
+function f1Done(sid){ return f1Complete(sid).length; }
+function renderF1(){
+  const c=document.getElementById('c-f1');
+  if(gateOpen()){ c.innerHTML=gateHTML(); return; }
+  const secs=sections();
+  /* 考卷结构是「一份卷一次性 setup」，不是老师每天的工作。
+     已经设好就折叠，只留一行摘要；还没设好才自动展开。 */
+  const bpReady = bpReadyNow();
+  if(S.ui.bpOpen===undefined) S.ui.bpOpen = !bpReady;
+  const open = bpCanEdit() && (!bpReady || !!S.ui.bpOpen);
+  let h=ctxBar();
+  if(bpCanEdit() && CLOUD.bpEvid[bpKey()]===undefined){ CLOUD.bpEvid[bpKey()]=-1; bpProbe(); }
+  if(!bpCanEdit()){                       /* 老师端：一行状态，没有编辑入口 */
+    h+=bpStatusLine();
+    c.innerHTML = secs.length ? h+bpRest(secs) : h;
+    return;
+  }
+  if(!open){
+    const shared=secs.filter(x=>x.synced).length;
+    h+=`<div class="card" style="padding:10px 14px">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <span>📄 <b>${esc(S.subject)} · Year ${yearOf(S.cls)}</b></span>
+        <span class="chip chip-muted">${secs.length} 个项目 · ${totalQ()} 题${essaySections().length?' + 写作 '+essaySections().length+' 篇':''}</span>
+        <span class="chip ${shared===secs.length?'chip-ok':'chip-warn'}">${shared===secs.length?'✓ 已共用':shared+'/'+secs.length+' 已共用'}</span>
+        ${bpLockBadge()}
+        <button class="btn btn-sm" style="margin-left:auto" onclick="bpToggle()">修改考卷结构（管理层）</button>
+      </div></div>`;
+    c.innerHTML=h+bpRest(secs);
+    return;
+  }
+  h+=`<div class="card">
+    <div class="card-hdr"><span class="card-title">这份考卷有哪些项目</span>
+      <span class="tip" style="margin:0">${esc(S.subject)} · Year ${yearOf(S.cls)} —— 同年级同科共用，只需填一次
+        ${bpReady?`<button class="btn btn-sm" style="margin-left:8px" onclick="bpToggle()">收起</button>`:''}</span></div>
+    <div class="chips-row" style="margin-bottom:8px">${bpLockBadge()}
+      ${bpLocked()?`<button class="btn btn-sm" onclick="bpUnlock()">解锁修正…</button>`:''}
+      ${BP_UNLOCK[bpKey()]?`<span class="chip chip-muted">理由：${esc(BP_UNLOCK[bpKey()].why)}</span>`:''}</div>
+    <div class="alert alert-info"><div>把整份考卷的项目列出来，例：<b>Bahagian A · 动词 · 填一填</b>。
+      登记一次，同年级同科共用。</div></div>`;
+  if(secs.length){
+    h+=`<div class="tw"><table class="data"><thead><tr>
+      <th style="width:34px">#</th><th>项目 BAHAGIAN</th><th style="width:80px">题型</th>
+      <th style="width:88px">题号</th><th style="width:62px">满分</th><th>文法 / 主题</th><th>作答方式</th>
+      <th style="width:90px">已观察</th><th style="width:56px">完整</th>
+      <th style="width:60px"></th></tr></thead><tbody>`;
+    secs.forEach((s,i)=>{
+      const used=Object.values(S.f1).filter(r=>r.subject===S.subject&&r.bahagian===s.code).length;
+      const ty=SECTYPES.find(t=>t.v===(s.type||'MCQ'))||{lab:typeLab(s.type)};
+      const rng=(s.type==='ESSAY')?'—'
+        : (hasRange(s)?`第 ${s.qf}–${s.qt} 题`
+          :`<span style="display:inline-flex;gap:3px;align-items:center">
+              <input type="number" id="rf_${s.id}" min="1" placeholder="第" style="width:48px;padding:2px 4px">
+              <input type="number" id="rt_${s.id}" min="1" placeholder="到" style="width:48px;padding:2px 4px">
+              <button class="btn btn-sm btn-pri" onclick="setSecRange('${s.id}')">✓</button></span>`);
+      h+=`<tr><td style="color:var(--hint)">${i+1}</td>
+        <td><strong>${esc(s.code)}</strong></td>
+        <td><span class="chip chip-layer">${ty.lab}</span></td>
+        <td>${(s.type==='ESSAY'||hasRange(s))?esc(rng):rng}</td>
+        <td>${(s.max!=null&&s.max!=='')?esc(s.max)+' 分'
+             :'<span class="chip chip-warn">缺分数</span>'}</td>
+        <td>${s.topic?esc(s.topic):'<span style="color:var(--hint)">—</span>'}</td>
+        <td>${s.fmt?esc(s.fmt):'<span style="color:var(--hint)">—</span>'}</td>
+        <td>${used?`<span class="badge b-active">${used} 人次</span>`:'<span style="color:var(--hint)">未开始</span>'}</td>
+        <td>${!secComplete(s)?'<span class="chip chip-warn">缺题号</span>'
+             :'<span class="chip chip-ok">✓</span>'}</td>
+        <td>${bpLocked()?'<span title="已锁定 —— 底下已有证据">🔒</span>'
+          :`<button class="btn btn-sm btn-dng" onclick="delSection('${s.id}')">×</button>`}</td></tr>`;
+    });
+    h+=`</tbody></table></div>`;
+  } else h+=`<div class="empty">还没有项目 — 先加第一个</div>`;
+  const lg=legacySections();
+  if(lg.length) h+=`<div class="alert alert-warn"><div><b>${lg.length} 个项目还没有题号范围</b>
+     —— ${lg.map(x=>esc(x.code)).join('、')}。FORM 02 靠题号才知道第几题属于哪个项目，
+     <b>没补上的项目不会计入总题数</b>。请在上表就地填「第 __ 到 __ 题」。</div></div>`;
+  h+=`<div class="toolbar" style="margin-top:10px;flex-wrap:wrap">
+      <input type="text" id="bpCode"  placeholder="项目，例：Bahagian A" style="flex:1;min-width:140px">
+      <select id="bpType" onchange="bpTypeChg()" style="min-width:110px">
+        ${SECTYPES.map(t=>`<option value="${t.v}">${t.lab}</option>`).join('')}
+      </select>
+      <span id="bpRange" style="display:inline-flex;gap:4px;align-items:center">
+        <input type="number" id="bpQf" min="1" placeholder="第" style="width:64px">
+        <span style="color:var(--mut)">–</span>
+        <input type="number" id="bpQt" min="1" placeholder="到" style="width:64px">
+        <span style="color:var(--mut);font-size:11px">题</span>
+      </span>
+      <span id="bpScore" style="display:inline-flex;gap:4px;align-items:center">
+        <input type="number" id="bpMax" min="1" step="0.5" placeholder="满分" style="width:80px">
+        <span style="color:var(--mut);font-size:11px">分</span>
+      </span>
+      <input type="text" id="bpTopic" placeholder="文法 / 主题，例：动词" style="flex:1;min-width:140px">
+      <input type="text" id="bpFmt"   placeholder="作答方式，例：填一填" style="flex:1;min-width:140px">
+      <button class="btn btn-pri" onclick="addSection()">+ 加入项目</button>
+    </div>
+    </div>`;
+
+  if(!secs.length){ c.innerHTML=h; return; }
+  c.innerHTML=h+bpRest(secs);
+}
+function bpEscape(){
+  S.cls=''; S.subject=''; saveData(true);
+  closeModal(true); goPage('home');
+  toast('已回到班级登记记录表');
+}
+function bpToggle(){ if(!bpCanEdit()) return; S.ui.bpOpen=!S.ui.bpOpen; saveData(true); renderF1(); }
+/* ══ 考卷结构的归属 ══ Owner 2026-09-06
+   「这份卷有几个项目、第几题到第几题、各几分」是一份卷设定一次的事，
+   同年级同科全校共用 —— 它属於负责人，不属於每一位科任。
+   老师端从此只看到一行状态；改的按钮只有 OWNER/TOP_MGMT/MGMT/ADMIN 看得到。 */
+function bpCanEdit(){ return isAdmin(); }
+
+/* ══ Blueprint Freeze ══ Owner Work Order P0-5
+   一旦这个 exam + subject + year 的考卷结构底下已经长出证据
+   （逐题记码 / 考卷分析 / 作文结果），就不能再随便删项目、改题号范围 ——
+   旧证据的 q_no 会跟新结构对不上，整批错题漂移到别的项目去。
+   本轮只做最小 freeze：锁「删除」与「改题号」；新增项目不锁（不会动到旧证据）。
+   真的要修，走 bpUnlock() 的 controlled correction，必须写明理由。 */
+const BP_UNLOCK={};
+function bpEvidLocal(){
+  const ex=EXK(), su=S.subject, yr=yearOf(S.cls); let n=0;
+  Object.keys(S.wi).forEach(k=>{const w=S.wi[k];
+    if(w&&w.exam===ex&&w.subject===su&&(+w.year||0)===yr) n++;});
+  Object.keys(S.es).forEach(k=>{const e=S.es[k];
+    if(e&&e.exam===ex&&e.subject===su&&(+e.year||0)===yr) n++;});
+  Object.keys(S.f2).forEach(k=>{const r=S.f2[k];
+    if(r&&r.exam===ex&&r.subject===su&&(+r.year||0)===yr&&f2Started(r)) n++;});
+  return n;
+}
+function bpEvidCount(){ const c=CLOUD.bpEvid[bpKey()]; return bpEvidLocal()+(c>0?c:0); }
+function bpLocked(){ return bpEvidCount()>0 && !BP_UNLOCK[bpKey()]; }
+/* 云端也要看 —— 证据可能是别台电脑、别位老师产生的 */
+async function bpProbe(){
+  if(!_sb||!CLOUD.exam||!CLOUD.session) return;
+  const k=bpKey(), su=S.subject, yr=yearOf(S.cls);
+  try{
+    const a=await _sb.from('evalgo_wrong_item').select('id',{count:'exact',head:true})
+      .eq('exam_id',CLOUD.exam.id).eq('subject',su).eq('year_level',yr);
+    const b=await _sb.from('evalgo_paper_analysis').select('id',{count:'exact',head:true})
+      .eq('exam_id',CLOUD.exam.id).eq('subject',su).eq('year_level',yr);
+    const n=(a.count||0)+(b.count||0);
+    if(CLOUD.bpEvid[k]!==n){ CLOUD.bpEvid[k]=n; renderF1(); }
+  }catch(e){ console.warn('bpProbe',e); }
+}
+function bpLockBadge(){
+  const n=bpEvidCount();
+  if(!n) return '<span class="chip chip-ok">可修改 · 还没有证据挂在上面</span>';
+  if(BP_UNLOCK[bpKey()]) return `<span class="chip chip-warn">⚠ 已解锁修正中 · ${n} 笔证据受影响</span>`;
+  return `<span class="chip chip-warn">🔒 已锁定 · ${n} 笔证据挂在这份结构上</span>`;
+}
+function bpUnlock(){
+  if(!bpCanEdit()){ toast('✕ 只有管理层可以修改考卷结构'); return; }
+  const n=bpEvidCount();
+  const why=prompt('⚠ 这份考卷结构底下已经有 '+n+' 笔证据。\n\n'
+    +'改题号范围或删项目，会让这些旧证据对应到错的项目 —— 那是资料漂移，不是修正。\n\n'
+    +'如果确定要改，请写下原因（会记在这份结构上）：');
+  if(!(why||'').trim()) { toast('已取消 — 没有写原因就不解锁'); return; }
+  BP_UNLOCK[bpKey()]={by:S.me||'', at:new Date().toISOString(), why:why.trim()};
+  console.warn('BLUEPRINT UNLOCK', bpKey(), BP_UNLOCK[bpKey()]);
+  toast('⚠ 已解锁 —— 改完请立刻核对受影响的学生',6000);
+  renderF1();
+}
+function bpGuard(what){
+  if(!bpCanEdit()){ toast('✕ 只有管理层可以修改考卷结构'); return false; }
+  if(bpLocked()){
+    alert('🔒 这份考卷结构已经锁定。\n\n'
+      + bpEvidCount()+' 笔证据（逐题记码 / 考卷分析）已经挂在上面，'
+      + what+'会让旧证据对应到错的项目。\n\n'
+      + '真的要改，请先按「解锁修正」并写明原因。');
+    return false;
+  }
+  return true;
+}
+function bpReadyNow(){ return sections().length>0 && legacySections().length===0; }
+function bpStatusLine(){
+  const secs=sections(), lg=legacySections();
+  if(!secs.length) return `<div class="card" style="padding:11px 14px;border-color:var(--warn)">
+    <div style="font-size:13.5px"><b style="color:var(--warn)">⚠️ 考卷结构尚未设定</b>
+      —— ${esc(S.subject)} · Year ${yearOf(S.cls)}。<b>请联系负责人</b>设定后再回来，
+      现在还没办法逐题记录。</div>
+    <div style="margin-top:8px"><button class="btn btn-sm" onclick="bpEscape()">← 换班级 / 科目</button></div></div>`;
+  if(lg.length) return `<div class="card" style="padding:11px 14px;border-color:var(--warn)">
+    <div style="font-size:13.5px"><b style="color:var(--warn)">⚠️ 考卷结构还差题号</b>
+      —— ${lg.map(x=>esc(x.code)).join('、')} 没有题号范围，这些题在考卷分析里点不到。
+      <b>请联系负责人</b>补上。</div></div>`;
+  return `<div class="card" style="padding:10px 14px">
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13.5px">
+      <span style="color:var(--ok);font-weight:700">✓ ${esc(S.subject)} Year ${yearOf(S.cls)} 考卷已设定</span>
+      <span class="chip chip-muted">${secs.length} 个项目</span>
+      <span class="chip chip-muted">${totalQ()} 题${
+        essaySections().length?' + 写作 '+essaySections().length+' 篇':''}</span>
+    </div></div>`;
+}
+/* 没登记考卷结构就得先设定 —— 没有它，FORM 02 根本无法逐题记录。
+   但设定的人是负责人；老师碰到这一格只会被告知，不会被丢进一张空表。 */
+function bpGate(){
+  if(sections().length) return false;
+  if(!bpCanEdit()) return true;      /* 老师：renderF1 会显示状态行，不弹窗 */
+  bpModal(true); return true;
+}
+function bpModal(lock){
+  const secs=sections();
+  const body=`
+    <div class="tip" style="margin-top:0">${esc(S.subject)} · Year ${yearOf(S.cls)} —— 把这份考卷的项目一行一行加进去。
+      同年级同科只需填一次。</div>
+    ${secs.length?`<div class="tw" style="margin:10px 0"><table class="data"><thead><tr>
+      <th>项目</th><th style="width:78px">题型</th><th style="width:96px">题号/满分</th>
+      <th style="width:60px">分数</th><th>文法/主题</th><th style="width:40px"></th></tr></thead><tbody>
+      ${secs.map(x=>`<tr><td><strong>${esc(x.code)}</strong></td>
+        <td><span class="chip chip-layer">${esc(typeLab(x.type||'MCQ'))}</span></td>
+        <td>${x.type==='ESSAY'?'—':(hasRange(x)?`第 ${x.qf}–${x.qt} 题`:'<span class="chip chip-warn">缺题号</span>')}</td>
+        <td>${x.max!=null&&x.max!==''?x.max+' 分':'<span style="color:var(--hint)">—</span>'}</td>
+        <td>${esc(x.topic||'—')}${x.fmt?' · '+esc(x.fmt):''}</td>
+        <td>${bpLocked()?'🔒':`<button class="btn btn-sm btn-dng"
+          onclick="delSection('${x.id}');bpModal(MODAL_LOCK)">×</button>`}</td></tr>`).join('')}
+      </tbody></table></div>`:'<div class="empty" style="padding:18px">还没有项目 — 加第一个</div>'}
+    <div class="secbox" style="padding:12px">
+      <div class="form-grid-2" style="gap:8px">
+        <div class="form-row" style="margin:0"><label class="form-label">项目名称 *</label>
+          <input type="text" id="mCode" placeholder="例：Bahagian A"></div>
+        <div class="form-row" style="margin:0"><label class="form-label">题型 *</label>
+          <select id="mType" onchange="bpMType()">
+            ${SECTYPES.map(t=>`<option value="${t.v}">${t.lab}</option>`).join('')}</select></div>
+      </div>
+      <div class="form-grid-2" style="gap:8px;margin-top:8px">
+        <div class="form-row" style="margin:0" id="mRangeRow"><label class="form-label">题号 第 __ 到 __ 题 *</label>
+          <div style="display:flex;gap:6px;align-items:center">
+            <input type="number" id="mQf" min="1" placeholder="第" style="width:80px">
+            <span style="color:var(--mut)">–</span>
+            <input type="number" id="mQt" min="1" placeholder="到" style="width:80px"></div></div>
+        <div class="form-row" style="margin:0"><label class="form-label">这个项目共几分 *</label>
+          <input type="number" id="mMax" min="1" step="0.5" placeholder="例：20"></div>
+      </div>
+      <div class="form-grid-2" style="gap:8px;margin-top:8px">
+        <div class="form-row" style="margin:0"><label class="form-label">文法 / 主题</label>
+          <input type="text" id="mTopic" placeholder="例：动词（可留空）"></div>
+        <div class="form-row" style="margin:0"><label class="form-label">作答方式</label>
+          <input type="text" id="mFmt" placeholder="例：填一填（可留空）"></div>
+      </div>
+      <button class="btn btn-pri" style="margin-top:10px;width:100%" onclick="bpAdd()">+ 加入这个项目</button>
+    </div>`;
+  /* 这个弹窗是锁定的（不填考卷项目就无法逐题记录），但**必须留一条退路** ——
+     老师点错班级／科目进来，不该被困在里面。退路不是「取消」（那等於跳过），
+     而是「换班级／科目」：这一格还是得填，只是可以换去填别的。 */
+  openModal(`这份考卷有哪些项目 · ${esc(S.cls)} ${esc(S.subject)}`, body,
+    `<button class="btn" onclick="bpEscape()">← 换班级 / 科目</button>
+     <span class="tip" style="margin:0;flex:1">已加 ${secs.length} 个项目</span>
+     <button class="btn btn-pri" ${secs.length?'':'disabled style="opacity:.4"'}
+       onclick="closeModal(true);renderF1()">${secs.length?'开始填学生':'请先加至少一个项目'}</button>`, lock);
+  bpMType();
+}
+function bpMType(){
+  const t=(document.getElementById('mType')||{}).value||'MCQ';
+  const r=document.getElementById('mRangeRow');
+  if(r) r.style.display=(t==='ESSAY')?'none':'';
+}
+function bpAdd(){
+  const g=id=>String(((document.getElementById(id)||{}).value)||'').trim();
+  const code=g('mCode'), type=g('mType')||'MCQ', topic=g('mTopic'), fmt=g('mFmt');
+  const qf=parseInt(g('mQf'),10), qt=parseInt(g('mQt'),10), mx=parseFloat(g('mMax'));
+  if(!code){ toast('✕ 项目名称不能空'); return; }
+  const arr=S.sections[bpKey()]||(S.sections[bpKey()]=[]);
+  if(arr.some(x=>x.code===code)){ toast('✕ 这个项目已经有了'); return; }
+  if(!(mx>0)){ toast('✕ 请填这个项目共几分'); return; }
+  if(type!=='ESSAY'){
+    if(!(qf>=1)||!(qt>=qf)){ toast('✕ 题号范围不对（例：1 到 10）'); return; }
+    const clash=arr.filter(x=>QTYPES.indexOf(x.type||'MCQ')>=0&&+x.qf>=1)
+                   .find(x=>!(qt<(+x.qf)||qf>(+x.qt)));
+    if(clash){ toast(`✕ 题号 ${qf}-${qt} 与「${clash.code}」重叠`); return; }
+  }
+  arr.push({id:uid(),client_uid:uid(),ses:SESSION_ID,code,topic,fmt,type,
+    qf:type==='ESSAY'?null:qf, qt:type==='ESSAY'?null:qt, max:mx,
+    sort:arr.length, by:S.me, synced:false, cloud_id:null});
+  if(saveThen('✓ 已加入')){ bpModal(MODAL_LOCK); autoPush(); }
+}
+function bpRest(secs){
+  let h='';
+  /* ⚠️ v10 拿掉「今天重点必填」。
+     强制老师每次都评某一项，会逼她填一个【她根本没观察到】的项目 ——
+     那是制造假证据，违反本系统的 Evidence Rule（记录行为，不记录猜测）。
+     老师看到什么记什么；空的就是「没观察到」，不是「好」。 */
+  const list=inCls(S.cls);
+  h+=`<div class="card"><div class="card-hdr">
+      <span class="card-title">${esc(S.cls)} · 点学生开始填</span>
+      <span class="tip" style="margin:0">第二节 PROVE 课后填 · 一位学生可观察多个项目</span></div>`;
+  if(!list.length) h+=`<div class="empty">这个班没有学生</div>`;
+  else{
+    h+=`<div class="tw"><table class="data"><thead><tr>
+      <th style="width:36px">#</th><th>学生</th><th>已观察的项目</th><th style="width:90px"></th>
+    </tr></thead><tbody>`;
+    list.forEach((r,i)=>{
+      const mine=f1Complete(r.sid).map(x=>x.bahagian).filter(Boolean);
+      const draft=Object.keys(S.f1).filter(k=>k.indexOf(EXK()+'|'+r.sid+'|'+S.subject+'|')===0
+        &&S.f1[k]&&!S.f1[k].savedAt).length;
+      h+=`<tr><td style="color:var(--hint)">${i+1}</td>
+        <td><strong>${esc(r.en)}</strong>${r.cn?` <span style="color:var(--hint);font-size:11px">${esc(r.cn)}</span>`:''}</td>
+        <td>${(()=>{const st=f2State(S.f2[f2Key(r.sid)]);
+             if(st==='absent'||st==='notassessed')
+               return `<span class="badge b-inactive">${F2STATE[st].lab}</span>`;
+             return (mine.length?mine.map(x=>`<span class="chip chip-ok">${esc(x)}</span>`).join('')
+                    :`<span class="chip chip-muted">未观察</span>`)
+                  + (draft?`<span class="chip chip-warn">${draft} 项填一半</span>`:'');})()}</td>
+        <td style="white-space:nowrap">${(()=>{const st=f2State(S.f2[f2Key(r.sid)]);
+          const resolved=(st==='absent'||st==='notassessed');
+          return `<button class="btn btn-sm ${mine.length||resolved?'':'btn-pri'}"
+            ${resolved?'disabled style="opacity:.45"':''}
+            onclick="f1Open('${r.sid}')">${mine.length?'再加一项':'填写'}</button>
+          <button class="btn btn-sm" title="缺席 / 本轮未评"
+            style="padding:4px 9px;font-weight:700" onclick="aStatMenu('${r.sid}')">⋯</button>`;})()}
+        </td></tr>`;
+    });
+    h+=`</tbody></table></div>`;
+  }
+  h+=`</div>`;
+  return h;
+}
+function f1Draft(k){ if(!S.f1[k]) S.f1[k]={client_uid:uid(),ses:SESSION_ID}; return stampSes(S.f1[k]); }
+function f1Open(sid,preset){
+  const r=stuOf(sid); if(!r) return;
+  const secs=sections();
+  if(!secs.length){ toast('✕ 先在上面加考卷项目'); return; }
+  const done=Object.keys(S.f1).filter(k=>k.startsWith(EXK()+'|'+sid+'|'+S.subject+'|')).map(k=>S.f1[k].bahagian);
+  const cur = preset || done[0] || secs[0].code;
+  const sec = secOf(cur) || secs[0];
+  const k=f1Key(sid,sec.code), rec=S.f1[k]||{};
+  const ysn=DIMS.filter(d=>d.scale==='YSN'), ind=DIMS.find(d=>d.scale==='IRH');
+  const seg=(d,val)=>{
+    const opts=d.scale==='YSN'?YSN:IRH;
+    return `<div class="pills ${d.scale==='IRH'?'pills-ind':''}">${opts.map(o=>
+      `<button class="pill${val===o.v?' on':''}" title="${esc(o.t)}"
+        onclick="f1Set('${k}','${d.id}','${o.v}','${sid}')">${o.lab}</button>`).join('')}</div>`;
+  };
+  let b=navBar(sid,'f1')+`<div class="form-row">
+      <label class="form-label">观察哪一个项目 *</label>
+      <div class="dept-row">${secs.map(s=>{
+        const filled=!!S.f1[f1Key(sid,s.code)];
+        return `<span class="dept-tag${s.code===sec.code?' on':''}" style="padding:6px 14px"
+          onclick="f1Open('${sid}','${s.code.replace(/'/g,"\\'")}')">${esc(s.code)}${filled?' ✓':''}</span>`;
+      }).join('')}</div>
+      <div class="tip" style="margin-top:6px">
+        文法／主题 <b>${sec.topic?esc(sec.topic):'—'}</b> &nbsp;·&nbsp;
+        作答方式 <b>${sec.fmt?esc(sec.fmt):'—'}</b>
+        <span class="chip chip-info">自动带出</span></div>
+    </div>
+    <div class="tw"><table class="data"><thead><tr>
+      <th>观察项目</th><th style="width:150px">评定</th><th>说明</th></tr></thead><tbody>`;
+  ysn.forEach(d=>{ b+=`<tr><td><strong>${d.zh}</strong>
+      <span style="color:var(--hint)">${d.en}</span></td>
+    <td>${seg(d,rec[d.id]||'')}</td><td style="color:var(--mut)">${esc(d.hint)}</td></tr>`; });
+  b+=`</tbody></table></div>
+    <div class="alert alert-info" style="margin-top:12px">
+      <div style="flex:1"><b>独立程度的刻度和上面不一样</b> —— I = 独立 · R = 提醒 · H = 帮助
+<br>
+      <span style="display:inline-block;margin-top:6px">${seg(ind,rec.ind||'')}</span></div>
+    </div>
+    <div class="form-row"><label class="form-label">主要问题 / 卡住位置（可留空）</label>
+      <textarea rows="2" placeholder="例：第 3 题卡住，读了两次还是跳过"
+        oninput="f1Draft('${k}').issue=this.value;f1Draft('${k}').synced=false;saveData()">${esc(rec.issue||'')}</textarea></div>
+    <div class="form-row"><label class="form-label">日期</label>
+      <input type="date" id="f1date" value="${esc(rec.obs_date||today())}"></div>
+    <div class="tip">观察过程中<b>不提示、不教答案</b>；观察结束才指导。</div>`;
+  /* ⚠️ Autosave —— 点一下就已经进本机。
+     v7 写「Cancel」是骗人的（老师以为不算，其实已经存了，Coverage 还会当成观察过）。
+     改成「关闭」，另设一个明确的完成动作。 */
+  openModal(`${esc(nameOf(r))} · ${esc(sec.code)}`, b,
+    `${rec.savedAt?`<button class="btn btn-dng btn-sm" style="margin-right:auto" onclick="f1Del('${k}')">删除这一项</button>`:''}
+     <span class="tip" style="margin:0;flex:1">点了就存 — 关掉不会掉资料</span>
+     <button class="btn btn-sm" onclick="closeModal()">关闭</button>
+     <button class="btn btn-sm" onclick="f1Save('${k}','${sid}')">只完成</button>
+     <button class="btn btn-pri" onclick="f1Save('${k}','${sid}',1)">${
+       rec.savedAt?'✓ 已完成 · 到下一位':'✓ 完成并到下一位'}</button>`);
+}
+function f1Set(k,dim,v,sid){
+  /* 🔴 v10 BUG：k.split('|')[0] 是 exam、[2] 是 subject。
+     老师正在填 Bahagian C，点一下评分会跳回 Bahagian A —— 错位证据。 */
+  const kp=k.split('|');
+  const r=f1Draft(k); r[dim]=(r[dim]===v)?'':v; r.synced=false;
+  saveData(); f1Open(sid||kp[1], kp[3]);
+}
+function f1Save(k,sid,goNext){
+  const r=f1Draft(k);
+  if(!DIMS.filter(d=>r[d.id]).length){ toast('✕ 至少评一项'); return; }
+  /* 🔴 v10 BUG：加了 exam 前缀後索引没跟着改，
+     key = exam|student|subject|bahagian，v10 却still取 p[1]/p[2]
+     → subject 被写成 student_id、bahagian 被写成 subject。资料污染级。
+     改用具名解构，之後再改 key 结构也不会再错位。 */
+  const [kEx,kSid,kSubj,kBah]=k.split('|');
+  const st=stuOf(sid)||{};
+  const sec=secOf(kBah);
+  r.sid=sid||kSid; r.subject=kSubj; r.bahagian=kBah; r.cls=st.cls||S.cls;
+  r.topic=sec?sec.topic:''; r.fmt=sec?sec.fmt:'';
+  r.year=st.year||yearOf(r.cls); r.class_id=st.class_id||null;
+  r.obs_date=(document.getElementById('f1date')||{}).value||today();
+  r.by=S.me; r.exam=S.examCode; r.savedAt=new Date().toLocaleString('en-GB'); r.synced=false;
+  /* ⚠️ 存档成功才报喜。v7 是无条件 toast('✓ Saved')，
+     会把 saveData 内部的「✕ 储存失败」用同一个元素盖掉，老师永远看不到失败。 */
+  if(saveData(true)===false){
+    alert(saveFailMsg());
+    return;
+  }
+  if(goNext){
+    const nx=navTodo(sid,'f1');
+    if(nx && nx!==sid){ renderF1(); toast('✓ 已完成 · '+kBah); autoPush(); f1Open(nx); return; }
+    closeModal(); renderF1(); autoPush();
+    toast('✓ 已完成 · '+kBah+(nx?'':' —— 这一班考前观察全部处理完了 🎉'),4000);
+    return;
+  }
+  closeModal(); renderF1(); toast('✓ 已完成 · '+kBah); autoPush();
+}
+function f1Del(k){
+  if(!confirm('删除这笔观察纪录？')) return;
+  const bak=S.f1[k]; delete S.f1[k]; saveData(true); closeModal(); renderF1();
+  toast('✓ Deleted · 30 秒内可复原', 6000);
+  const t=setTimeout(()=>{},1); clearTimeout(t);
+  window._undo={fn:()=>{S.f1[k]=bak; if(saveThen('✓ 已复原')) renderF1();}};
+  setTimeout(()=>{ window._undo=null; },30000);
+  const el=document.getElementById('toast');
+  el.innerHTML=`✓ Deleted <button class="btn btn-sm" style="margin-left:8px"
+    onclick="if(window._undo)window._undo.fn();document.getElementById('toast').classList.remove('show')">Undo</button>`;
+  el.style.pointerEvents='auto';
+  setTimeout(()=>{el.style.pointerEvents='none';el.textContent='';},6000);
+}
+
+/* ══ FORM 02 ══ */
+function f2Key(sid){ return EXK()+'|'+sid+'|'+S.subject; }
+function f2Draft(sid){ const k=f2Key(sid); if(!S.f2[k]) S.f2[k]={client_uid:uid(),ses:SESSION_ID}; return stampSes(S.f2[k]); }
+
+/* ══════════════════════════════════════════════════════════════════
+   FORM 02 逐题资料层
+   老师只点错的题；没点到 = 答对。图 4 的所有数字由此算出，不再手填。
+   ══════════════════════════════════════════════════════════════════ */
+function hasRange(x){ return +x.qf>=1 && +x.qt>=+x.qf; }
+/* ⚠️ 只有「有合法题号范围」的项目才算题。
+   v5 以前建立的项目没有 qf/qt —— 若放进来，(0-0+1) 会被当成 1 题，总题数灌水。 */
+function qSections(){ return sections().filter(x=>QTYPES.indexOf(x.type||'MCQ')>=0 && hasRange(x)); }
+function legacySections(){ return sections().filter(x=>QTYPES.indexOf(x.type||'MCQ')>=0 && !hasRange(x)); }
+function setSecRange(id){
+  if(!bpGuard('改题号范围')) return;
+  const arr=S.sections[bpKey()]||[], sec=arr.find(x=>x.id===id); if(!sec) return;
+  const f=parseInt((document.getElementById('rf_'+id)||{}).value,10);
+  const t=parseInt((document.getElementById('rt_'+id)||{}).value,10);
+  if(!(f>=1)||!(t>=f)){ toast('✕ 题号范围不对'); return; }
+  const clash=arr.filter(x=>x.id!==id&&QTYPES.indexOf(x.type||'MCQ')>=0&&hasRange(x))
+                 .find(x=>!(t<+x.qf||f>+x.qt));
+  if(clash){ toast(`✕ 与「${clash.code}」(${clash.qf}-${clash.qt}) 重叠`); return; }
+  sec.qf=f; sec.qt=t; if(!sec.type) sec.type='MCQ';
+  markSecDirty(sec);
+  if(saveThen('✓ 已补上题号')){ renderF1(); renderF2(); }
+}
+function essaySections(){ return sections().filter(x=>x.type==='ESSAY'); }
+function totalQ(){ return qSections().reduce((a,x)=>a+((+x.qt||0)-(+x.qf||0)+1),0); }
+function secOfQ(q){ return qSections().find(x=>q>=+x.qf&&q<=+x.qt)||null; }
+
+function wiKey(sid,q){ return EXK()+'|'+sid+'|'+S.subject+'|'+q; }
+function wiGet(sid,q){ return S.wi[wiKey(sid,q)]||null; }
+function wiOf(sid){
+  const pre=EXK()+'|'+sid+'|'+S.subject+'|';
+  return Object.keys(S.wi).filter(k=>k.indexOf(pre)===0).map(k=>S.wi[k]);
+}
+function wiSet(sid,q,code,diag){
+  const k=wiKey(sid,q), cur=S.wi[k];
+  if(code===null){ if(cur) delete S.wi[k]; }
+  else{
+    const sec=secOfQ(q)||{}, st=stuOf(sid)||{};
+    S.wi[k]={ client_uid:(cur&&cur.client_uid)||uid(), ses:SESSION_ID,
+      sid, subject:S.subject, q:+q, code,
+      diag:(diag!==undefined?diag:(cur?cur.diag:''))||'',
+      topic:sec.topic||'', fmt:sec.fmt||'', sec_code:sec.code||'', sec_type:sec.type||'MCQ',
+      cls:st.cls||S.cls, class_id:st.class_id||null, year:st.year||yearOf(S.cls),
+      by:S.me, exam:S.examCode,
+      savedAt:new Date().toLocaleString('en-GB'), synced:false,
+      cloud_id:(cur&&cur.cloud_id)||null };
+  }
+  const r=f2Draft(sid); r.synced=false; stampF2(r,sid); saveData();
+}
+function wiDiag(sid,q,v){
+  const w=wiGet(sid,q); if(!w) return;
+  w.diag=v; w.synced=false; w.savedAt=new Date().toLocaleString('en-GB');
+  const r=f2Draft(sid); r.synced=false; saveData();
+}
+function markCounts(sid){
+  const o={star:0,dk:0,cl:0,nr:0,sos:0,blank:0};
+  wiOf(sid).forEach(w=>{ if(o[w.code]!=null) o[w.code]++; });
+  o.wrong  = o.dk+o.cl+o.nr+o.sos+o.blank;   /* 漏答本来就没得分，算错 */
+  o.marked = o.wrong+o.star;
+  o.total  = totalQ();
+  o.checked= !!(S.f2[f2Key(sid)]||{}).paper_checked;
+  /* ⚠️ 未核对整份考卷之前，没标记的题是 UNKNOWN，不是答对。
+     所以答对数与答对率【只有核对後才存在】。这是 Owner 的 Evidence Truth 要求。 */
+  o.right = o.checked ? Math.max(0,o.total-o.wrong) : null;
+  o.rate  = (o.checked && o.total) ? Math.round(o.right/o.total*100) : null;
+  return o;
+}
+function mainIssue(m){
+  const cand=[{k:'dk',lab:'知识缺口'},{k:'cl',lab:'粗心'},{k:'nr',lab:'审题'},
+              {k:'sos',lab:'依赖'},{k:'blank',lab:'漏答'}];
+  let best=null,bv=0; cand.forEach(c=>{const v=+m[c.k]||0; if(v>bv){bv=v;best=c;}});
+  if(!best||!bv) return null;
+  return {lab:best.lab,n:bv,tie:cand.filter(c=>(+m[c.k]||0)===bv).length>1};
+}
+function topicDiag(sid){
+  const per={};
+  const touch=t=>{ if(!per[t]) per[t]={topic:t,total:0,wrong:0,star:0,dk:0,cl:0,nr:0,sos:0,blank:0}; return per[t]; };
+  qSections().forEach(x=>{ touch(x.topic||x.code).total += (+x.qt||0)-(+x.qf||0)+1; });
+  wiOf(sid).forEach(w=>{ const t=touch(w.topic||w.sec_code||'—');
+    if(w.code==='star') t.star++; else { t.wrong++; if(t[w.code]!=null) t[w.code]++; } });
+  const chk=!!(S.f2[f2Key(sid)]||{}).paper_checked;
+  return Object.keys(per).map(k=>{const x=per[k];
+      x.rate = (chk && x.total)? Math.round((x.total-x.wrong)/x.total*100) : null; return x;})
+    .sort((a,b)=>(b.wrong-a.wrong)||((a.rate==null?101:a.rate)-(b.rate==null?101:b.rate)));
+}
+/* ⚠️ v8 移除「建议 TP」。
+   Owner 确认 TP 由老师自己判，教务没有对照标准。
+   先前 90/80/65/50/35 → TP6..TP1 的映射是 Claude 自行发明，无学术依据，已撤销。
+   系统只呈现事实（答对率），不代替老师下判断。 */
+function autoWeak(sid){ return topicDiag(sid).filter(t=>t.wrong>0); }
+function autoStrong(sid){
+  /* 「全对」这个结论只有核对过整份卷才成立 */
+  if(!(S.f2[f2Key(sid)]||{}).paper_checked) return [];
+  return topicDiag(sid).filter(t=>t.total>0&&t.wrong===0);
+}
+
+/* ══ 写作结果：一篇一列（Owner 确认一份卷可能两篇）══ */
+function esKey(sid,code){ return EXK()+'|'+sid+'|'+S.subject+'|'+code; }
+function esDraft(sid,code){
+  const k=esKey(sid,code);
+  if(!S.es[k]) S.es[k]={client_uid:uid(),ses:SESSION_ID,weak:[],star:false,score:null};
+  return S.es[k];
+}
+function esOf(sid){
+  const pre=EXK()+'|'+sid+'|'+S.subject+'|';
+  return Object.keys(S.es).filter(k=>k.indexOf(pre)===0).map(k=>S.es[k]);
+}
+function esStamp(sid,code,sec){
+  const r=esDraft(sid,code), st=stuOf(sid)||{};
+  r.sid=sid; r.subject=S.subject; r.sec_code=code;
+  r.sec_cloud_id=(sec&&sec.cloud_id)||null;
+  r.max=sec?(+sec.max||null):r.max;
+  r.cls=st.cls||S.cls; r.class_id=st.class_id||null; r.year=st.year||yearOf(S.cls);
+  r.by=S.me; r.exam=S.examCode;
+  r.savedAt=new Date().toLocaleString('en-GB'); r.synced=false;
+  return r;
+}
+
+/* ══ FORM 02 列表 ══ */
+function renderF2(){
+  const c=document.getElementById('c-f2');
+  if(gateOpen()){ c.innerHTML=gateHTML(); return; }
+  const secs=sections(), tq=totalQ(), es=essaySections(), lg=legacySections();
+  let h=ctxBar()+`<div class="card">
+    <div class="card-hdr"><span class="card-title">考卷分析</span>
+      <span class="tip" style="margin:0">${esc(S.subject)} · ${esc(S.cls)}</span></div>`;
+  if(!secs.length){
+    h+=`<div class="alert alert-warn"><div>${bpCanEdit()
+      ? `还没登记这份考卷的结构。请先到 <b>考前观察</b> 把项目列出来（含<b>题型</b>与<b>题号范围</b>）
+         —— 考卷分析要靠它才知道第几题属于哪个项目。`
+      : `<b>考卷结构尚未设定，请联系负责人。</b>设定好之后，这里的题号格才会出现。`}</div></div></div>`;
+    c.innerHTML=h; return;
+  }
+  if(lg.length) h+=`<div class="alert alert-warn"><div><b>${lg.length} 个项目还没有题号范围</b>
+    —— ${lg.map(x=>esc(x.code)).join('、')}。这些题在下面<b>点不到</b>。请先回<b>考前观察</b>补上。</div></div>`;
+  h+=`<div class="alert alert-info"><div><b>只点错的题</b>，没点到的先当「还没看」。
+      批完整份卷按一次 <b>✓ 已核对整份</b>，系统才把没点的题算成答对
+      —— 所以<b>全对的学生你一题都不用点</b>，只按那一下就完成。</div></div>
+    <div class="chips-row" style="margin-top:8px">
+      <span class="chip chip-muted">客观 / 理解共 ${tq} 题</span>
+      ${es.length?`<span class="chip chip-muted">写作 ${es.length} 篇</span>`:''}
+      ${MARKS.map(m=>`<span class="chip ${m.chip}">${m.lab} ${m.zh}</span>`).join('')}
+    </div>
+    <div class="form-row" style="margin-top:10px"><label class="form-label">日期</label>
+      <input type="date" id="f2date" style="max-width:200px" value="${today()}"></div>
+  </div>`;
+  const list=inCls(S.cls);
+  if(!list.length){ c.innerHTML=h+`<div class="card"><div class="empty">这个班没有学生</div></div>`; return; }
+
+  h+=`<div class="card" style="padding:0;overflow:hidden"><div class="tw"><table class="data"><thead><tr>
+      <th style="min-width:150px">学生</th><th style="width:78px">状态</th>
+      ${MARKS.map(m=>`<th style="width:48px" title="${esc(m.zh)}">${m.lab}</th>`).join('')}
+      <th style="width:80px">答对率</th><th style="min-width:110px">主问题</th>
+      <th style="min-width:130px">最弱技能</th><th style="width:80px"></th>
+    </tr></thead><tbody>`;
+  list.forEach(r=>{
+    const m=markCounts(r.sid), mi=mainIssue(m), td=autoWeak(r.sid);
+    h+=`<tr>
+      <td><strong>${esc(r.en)}</strong>${r.cn?` <span style="color:var(--hint);font-size:11px">${esc(r.cn)}</span>`:''}</td>
+      <td>${(()=>{const st=f2State(S.f2[f2Key(r.sid)]);
+        if(st==='none') return '<span style="color:var(--hint)">未开始</span>';
+        const pre = st==='done'?'✓ ' : (st==='progress'?'⚠ ' : '');
+        return `<span class="badge ${F2STATE[st].cls}">${pre}${F2STATE[st].lab}</span>`;})()}</td>
+      ${MARKS.map(mk=>`<td style="text-align:center">${m[mk.id]?`<strong>${m[mk.id]}</strong>`:'<span style="color:var(--hint)">·</span>'}</td>`).join('')}
+      <td>${m.rate==null?'<span style="color:var(--hint)" title="未核对整份卷，没点的题还不能算答对">—</span>':
+          `<span class="badge ${m.rate>=75?'b-active':(m.rate>=50?'b-warn':'b-inactive')}">${m.rate}%</span>`}</td>
+      <td>${mi?`<span class="chip chip-muted">${esc(mi.lab)}${mi.tie?' ?':''} · ${mi.n}</span>`:'<span style="color:var(--hint)">—</span>'}</td>
+      <td>${td.length?`<span class="chip chip-warn">${esc(td[0].topic)} ${td[0].wrong}/${td[0].total||'?'}</span>`:'<span style="color:var(--hint)">—</span>'}</td>
+      <td style="white-space:nowrap">${(()=>{const st=f2State(S.f2[f2Key(r.sid)]);
+        const resolved = (st==='absent'||st==='notassessed');
+        return `<button class="btn btn-sm ${st==='done'||resolved?'':'btn-pri'}"
+          ${resolved?'disabled style="opacity:.45"':''}
+          onclick="f2Open('${r.sid}')">${st==='done'?'查看':'填写'}</button>
+        <button class="btn btn-sm" title="缺席 / 本轮未评"
+          style="padding:4px 9px;font-weight:700" onclick="aStatMenu('${r.sid}')">⋯</button>`;})()}
+      </td></tr>`;
+  });
+  h+=`</tbody></table></div></div>`;
+  const nDone=list.filter(r=>f2State(S.f2[f2Key(r.sid)])==='done').length;
+  const nProg=list.filter(r=>f2State(S.f2[f2Key(r.sid)])==='progress').length;
+  const nAbs =list.filter(r=>f2State(S.f2[f2Key(r.sid)])==='absent').length;
+  const nNA  =list.filter(r=>f2State(S.f2[f2Key(r.sid)])==='notassessed').length;
+  const nHandled=nDone+nAbs+nNA;              /* 老师端看「已处理」 */
+  const pct=list.length?Math.round(nHandled/list.length*100):0;
+  h+=`<div class="card"><div class="card-hdr">
+      <span class="card-title">${esc(S.cls)} · ${esc(S.subject)} 进度</span>
+      <span class="tip" style="margin:0"><b>${nHandled} / ${list.length} 已处理</b>${
+        nProg?` · <b style="color:var(--warn)">${nProg} 位填一半</b>`:''}</span></div>
+    <div class="progress ${pct>=100?'progress-ok':'progress-layer'}"><div class="progress-fill" style="width:${pct}%"></div></div>
+    <div class="tip" style="margin-top:8px">已处理 ${nHandled} = 完成 ${nDone}${
+        nAbs?` + 缺席 ${nAbs}`:''}${nNA?` + 本轮未评 ${nNA}`:''}。
+      ${(nAbs||nNA)?`<b>缺席与本轮未评不会进报告，也不算弱或 0 分</b> —— 报告只看有证据的 ${nDone} 位。`:''}</div>
+    ${nProg?`<div class="alert alert-warn" style="margin-top:10px"><div><b>${nProg} 位学生只填了一半</b>
+       —— 追踪只认「已完成」。填一半的不会进报告，请回去按完成。</div></div>`
+      :(pct>=100?`<div class="alert alert-ok" style="margin-top:10px"><div><b>这个班全部处理完了 🎉</b>
+       要换下一班就按右上角「换班级 / 科目」。</div></div>`:'')}
+    <div class="tip">表格里的数字<b>不能手改</b> —— 全部由「填写」里的逐题记码算出来。</div></div>`;
+  c.innerHTML=h;
+}
+function stampF2(r,sid){
+  const st=stuOf(sid)||{};
+  r.sid=sid; r.subject=S.subject; r.cls=st.cls||S.cls; r.year=st.year||yearOf(r.cls);
+  r.class_id=st.class_id||null; r.by=S.me; r.exam=S.examCode;
+  r.paper_date=r.paper_date||((document.getElementById('f2date')||{}).value||today());
+  if(r.subject===S.subject){
+    r.weak_options  = autoWeak(sid).map(t=>t.topic);
+    r.strong_topics = autoStrong(sid).map(t=>t.topic);
+  }
+  r.savedAt=new Date().toLocaleString('en-GB');
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   细节 modal —— 三型共用；Autosave（点了就存），关闭不会掉资料
+   ══════════════════════════════════════════════════════════════════ */
+/* ══════════════════════════════════════════════════════════════════
+   细节 modal —— 先点题号，再选记码（Owner 指定顺序）
+   v8 是反过来的（先选记码再连点）—— 快，但老师看着第 3 题却要先想「这是什么码」，
+   而且选定的记码会跟着走，容易整串点错。改成：点题号 → 就地弹出六个记码。
+   ══════════════════════════════════════════════════════════════════ */
+let PICKQ=null;
+function qBtnHTML(sid,q){
+  const w=wiGet(sid,q), mk=w?MARKS.find(x=>x.id===w.code):null;
+  return `<span class="qn">${q}</span>`+(mk?`<span class="qm">${esc(mk.lab)}</span>`:'');
+}
+function paintQ(sid,q){
+  const el=document.getElementById('q_'+q); if(!el) return;
+  const w=wiGet(sid,q);
+  el.className='qbtn'+(w?(' q-'+w.code):'')+(PICKQ===q?' picking':'');
+  el.title=w?markLab(w.code):'还没点';
+  el.innerHTML=qBtnHTML(sid,q);
+}
+function qClick(sid,q){
+  PICKQ = (PICKQ===q ? null : q);
+  paintPick(sid);
+}
+function paintPick(sid){
+  document.querySelectorAll('.qpick').forEach(e=>e.remove());
+  document.querySelectorAll('.qbtn.picking').forEach(e=>e.classList.remove('picking'));
+  if(PICKQ==null) return;
+  const btn=document.getElementById('q_'+PICKQ); if(!btn) return;
+  btn.classList.add('picking');
+  const grid=btn.closest('.qgrid'); if(!grid) return;
+  const cur=wiGet(sid,PICKQ), sec=secOfQ(PICKQ)||{};
+  const d=document.createElement('div');
+  d.className='qpick';
+  d.innerHTML=`<div class="qpick-t">第 ${PICKQ} 题${sec.topic?' · '+esc(sec.topic):''} — 这题怎么了？</div>
+    <div class="chips-row">${MARKS.map(m=>`<button class="chip ${cur&&cur.code===m.id?'sel':m.chip}"
+      onclick="qPick('${sid}',${PICKQ},'${m.id}')">${m.lab} ${m.zh}</button>`).join('')}
+      ${cur?`<button class="chip chip-muted" onclick="qPick('${sid}',${PICKQ},null)">✕ 取消这题</button>`
+           :`<button class="chip chip-muted" onclick="qPick('${sid}',${PICKQ},'__close')">收起</button>`}</div>`;
+  grid.insertAdjacentElement('afterend', d);
+}
+function qPick(sid,q,code){
+  if(code!=='__close') wiSet(sid,q,code);
+  PICKQ=null; paintPick(sid); paintQ(sid,q); paintLive(sid); paintTail(sid);
+}
+/* CL 第二层 —— 点了 CL 才出现，选填。不进主流程。 */
+function clSub(sid,q,v){
+  const w=wiGet(sid,q); if(!w) return;
+  w.cl_subtype = w.cl_subtype===v?null:v;
+  w.synced=false; w.savedAt=new Date().toLocaleString('en-GB');
+  const r=f2Draft(sid); r.synced=false; saveData(); paintLive(sid);
+}
+
+/* ══ 完成状态：三态。追踪只认「已完成」 ══ */
+function f2State(p){
+  if(!p) return 'none';
+  const a=aStat(p);
+  if(a==='ABSENT')       return 'absent';
+  if(a==='NOT_ASSESSED') return 'notassessed';
+  if(p.paper_checked && p.tp) return 'done';
+  if(f2Started(p)) return 'progress';
+  return 'none';
+}
+const F2STATE={ none:{lab:'未开始',cls:''}, progress:{lab:'进行中',cls:'b-warn'},
+                done:{lab:'已完成',cls:'b-active'},
+                absent:{lab:'缺席',cls:'b-inactive'}, notassessed:{lab:'本轮未评',cls:'b-inactive'} };
+/* 还差什么 —— 老师要看得到自己离「完成」还有多远，才不会填一半就走 */
+function f2Missing(sid){
+  const r=f2Draft(sid), out=[];
+  if(!r.paper_checked) out.push('先亲自按「整份都看过了」');
+  if(!r.tp)            out.push('选掌握程度 TP');
+  return out;
+}
+
+function f2Open(sid){
+  const r=stuOf(sid); if(!r) return;
+  if(window._f2cur!==sid) PICKQ=null;
+  window._f2cur=sid;
+  const rec=f2Draft(sid), y=r.year||yearOf(r.cls);
+  const qs=qSections(), es=essaySections(), lg=legacySections();
+  let b=navBar(sid,'f2');
+
+  if(!qs.length && !es.length){
+    b+=`<div class="alert alert-danger"><div><b>这份考卷还没办法逐题记录。</b><br>
+      ${lg.length?`已登记的 ${lg.length} 个项目（${lg.map(x=>esc(x.code)).join('、')}）
+        <b>没有填题号范围</b>，系统不知道第几题属於哪个项目。`
+       :`这个科目 / 年级还没有登记任何项目。`}<br><br>
+      ${bpCanEdit()
+        ? `请到<b>考前观察</b>最上方，把每个项目补上「第 __ 到 __ 题」（写作文填满分），回来这里题号格就会出现。`
+        : `<b>请联系负责人</b>补上考卷结构。这不是你能改的，也不该由你来猜。`}</div></div>`;
+  }
+  if(qs.length){
+    b+=`<div class="secbox"><div class="sechd">逐题记录
+      <span class="sub">点题号 → 选这题怎么了 · 没点的题先当「还没看」</span></div>`;
+    qs.forEach(sec=>{
+      b+=`<div style="margin-bottom:12px">
+        <div style="font-weight:700;margin-bottom:4px">${esc(sec.code)}
+          <span class="chip chip-muted">${esc(typeLab(sec.type||'MCQ'))}</span>
+          ${sec.topic?`<span class="chip chip-layer">${esc(sec.topic)}</span>`:''}
+          ${sec.fmt?`<span class="chip chip-muted">${esc(sec.fmt)}</span>`:''}
+          <span style="color:var(--mut);font-size:11px">第 ${sec.qf}–${sec.qt} 题</span></div>
+        <div class="qgrid">`;
+      for(let q=+sec.qf;q<=+sec.qt;q++){
+        const w=wiGet(sid,q);
+        b+=`<button class="qbtn${w?(' q-'+w.code):''}" id="q_${q}" title="${w?esc(markLab(w.code)):'还没点'}"
+              onclick="qClick('${sid}',${q})">${qBtnHTML(sid,q)}</button>`;
+      }
+      b+=`</div></div>`;
+    });
+    b+=`</div>`;
+  }
+
+  es.forEach(sec=>{
+    const er=esDraft(sid,sec.code), sel=er.weak||[];
+    b+=`<div class="secbox"><div class="sechd">写作文 · ${esc(sec.code)}
+      <span class="sub">不逐题 · 三个面向 + 得分</span></div>
+      <label class="form-label">弱在哪（可多选）</label>
+      <div class="chips-row" id="esw_${esc(sec.id)}">
+        ${ESSAY_ASPECTS.map(a=>`<button class="chip ${sel.indexOf(a.id)>=0?'sel-w':'chip-warn'}"
+          data-asp="${a.id}" onclick="esTog('${sid}','${esc(sec.code)}','${sec.id}','${a.id}')">${esc(a.zh)}</button>`).join('')}
+        <button class="chip ${er.star?'sel':'chip-ok'}" id="ess_${esc(sec.id)}"
+          onclick="esStar('${sid}','${esc(sec.code)}','${sec.id}')">★ 写得特别好</button></div>
+      <div class="form-row" style="margin-top:8px"><label class="form-label">得分</label>
+        <div style="display:flex;align-items:center;gap:6px">
+          <input type="number" min="0" step="0.5" max="${sec.max}" style="width:90px"
+            value="${er.score!=null?er.score:''}"
+            oninput="esScore('${sid}','${esc(sec.code)}','${sec.id}',this.value,${sec.max})">
+          <span style="color:var(--mut)">/ ${sec.max}</span></div></div></div>`;
+  });
+
+  b+=`<div id="f2live"></div><div id="f2tail"></div>`;
+
+  openModal(`${esc(nameOf(r))} · Year ${y} · ${esc(S.subject)}`, b,
+    `<span id="f2foot" class="tip" style="margin:0;flex:1"></span>
+     <button class="btn btn-sm" onclick="closeModal()">先关掉</button>
+     <button class="btn btn-sm" id="f2done1" onclick="f2Finish('${sid}')">只完成</button>
+     <button class="btn btn-pri" id="f2done" onclick="f2Finish('${sid}',1)">✓ 完成并到下一位</button>`);
+  paintLive(sid); paintTail(sid); paintFoot(sid);
+}
+
+/* 系统算出来的 + 已核对整份 —— 点题号即时刷新 */
+function paintLive(sid){
+  const el=document.getElementById('f2live'); if(!el) return;
+  const rec=f2Draft(sid), m=markCounts(sid), td=topicDiag(sid);
+  const weak=autoWeak(sid), strong=autoStrong(sid);
+  const subjQ=wiOf(sid).filter(w=>w.sec_type==='SUBJ').sort((a,b)=>a.q-b.q);
+  const clQ=wiOf(sid).filter(w=>w.code==='cl').sort((a,b)=>a.q-b.q);
+  let h='';
+
+  h+=`<div class="secbox" style="border-color:${rec.paper_checked?'var(--ok)':'var(--warn)'};border-width:2px">
+    <div class="sechd">整份考卷看完了吗
+      <span class="sub">按了这一下，没点的题才算答对</span></div>
+    <button class="chip ${rec.paper_checked?'sel':'chip-warn'}" style="font-size:14px;padding:9px 18px"
+      onclick="f2Checked('${sid}')">${rec.paper_checked?'✓ 整份都看过了':'○ 按这里：整份都看过了'}</button>
+    <div class="tip" style="margin-top:8px">${rec.paper_checked
+      ? `没点到的 ${Math.max(0,m.total-m.marked)} 题 = <b>答对</b>。答对率 ${m.rate==null?'—':m.rate+'%'}。`
+      : `现在没点到的题算「<b>还没看</b>」，不是答对 —— 所以还没有答对率。
+         <b>全对的学生你一题都不用点，直接按上面这一下。</b>`}</div></div>`;
+
+  h+=`<div class="secbox"><div class="sechd">系统算出来的<span class="sub">老师不用填</span></div>
+    <div class="chips-row">
+      ${MARKS.map(k=>`<span class="chip ${m[k.id]?k.chip:'chip-muted'}">${k.lab} ${m[k.id]}</span>`).join('')}
+      <span class="chip chip-muted">${m.checked?`答对 ${m.right} / ${m.total}`:`已点 ${m.marked} / ${m.total} 题`}</span>
+      ${m.rate==null?'':`<span class="badge ${m.rate>=75?'b-active':(m.rate>=50?'b-warn':'b-inactive')}">${m.rate}%</span>`}
+    </div>`;
+  if(td.some(t=>t.wrong||t.star)){
+    h+=`<div class="tw" style="margin-top:8px"><table class="data"><thead><tr>
+      <th>技能 / 主题</th><th style="width:80px">错 / 共</th><th style="width:56px">不会</th>
+      <th style="width:56px">粗心</th><th style="width:56px">漏答</th><th style="width:70px">正确率</th></tr></thead><tbody>`;
+    td.forEach(t=>{ h+=`<tr><td><strong>${esc(t.topic)}</strong>${t.star?` <span class="chip chip-ok">★${t.star}</span>`:''}</td>
+      <td>${t.wrong} / ${t.total||'?'}</td>
+      <td>${t.dk?`<span style="color:var(--danger);font-weight:600">${t.dk}</span>`:'<span style="color:var(--hint)">·</span>'}</td>
+      <td>${t.cl?`<span style="color:var(--warn);font-weight:600">${t.cl}</span>`:'<span style="color:var(--hint)">·</span>'}</td>
+      <td>${t.blank?`<span style="color:var(--danger);font-weight:600">${t.blank}</span>`:'<span style="color:var(--hint)">·</span>'}</td>
+      <td>${t.rate==null?'<span style="color:var(--hint)">—</span>':`<span class="badge ${t.rate>=75?'b-active':(t.rate>=50?'b-warn':'b-inactive')}">${t.rate}%</span>`}</td></tr>`; });
+    h+=`</tbody></table></div>`;
+  }else h+=`<div class="tip">还没点任何题 — 上面点错的题，这里就会长出真数据。</div>`;
+  /* Owner：系统推导只看得到「错在哪一题」，看不到老师现场看到的其他东西 —— 两者并存。 */
+  {
+    const kw=paperWeakOpts();
+    const sel=rec.weak_manual||[];
+    h+=`<div style="margin-top:10px">
+      <span class="form-label" style="display:inline">老师补充：这份卷他弱在哪
+        <span style="color:var(--mut);font-size:10px">选填 · 这份考卷登记的考点</span></span>
+      ${kw.length?`<div class="chips-row">${kw.map(t=>`<button class="chip ${sel.indexOf(t)>=0?'sel-w':'chip-warn'}"
+        onclick="f2TogL(this,'${sid}','weak_manual')" data-v="${esc(t)}">${esc(t)}</button>`).join('')}</div>`
+      :`<div class="tip" style="margin:4px 0 0">这份考卷的项目还没填「文法 / 主题」，所以没有考点可以勾。
+         直接写在下面就行；要出现在这里，请负责人在考卷结构里把每个项目的「文法 / 主题」补上
+         （一个项目可以填多个，用「、」分开）。</div>`}
+      <textarea rows="2" style="margin-top:6px" placeholder="其他（可留空）"
+        oninput="f2Field('${sid}','weak_note',this.value)">${esc(rec.weak_note||'')}</textarea></div>`;
+  }
+  if(weak.length||strong.length){
+    h+=`<div style="margin-top:8px">
+      ${weak.length?`<div style="margin-bottom:4px"><span class="form-label" style="display:inline">📌 需加强</span>
+        ${weak.map(t=>`<span class="chip chip-warn">${esc(t.topic)} ${t.wrong}/${t.total||'?'}</span>`).join('')}</div>`:''}
+      ${strong.length?`<div><span class="form-label" style="display:inline">✅ 强项</span>
+        ${strong.map(t=>`<span class="chip chip-ok">${esc(t.topic)} 全对</span>`).join('')}</div>`:''}</div>`;
+  }
+  h+=`</div>`;
+
+  if(clQ.length){
+    h+=`<div class="secbox"><div class="sechd">粗心是哪一种<span class="sub">选填 · 算错 / 抄错 / 没写完，教法完全不同</span></div>`;
+    clQ.forEach(w=>{ h+=`<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:5px">
+        <span class="chip chip-warn">第 ${w.q} 题</span>
+        ${CL_SUB.map(c=>`<button class="chip ${w.cl_subtype===c.v?'sel':'chip-muted'}"
+          onclick="clSub('${sid}',${w.q},'${c.v}')">${c.zh}</button>`).join('')}</div>`; });
+    h+=`</div>`;
+  }
+  if(subjQ.length){
+    h+=`<div class="secbox"><div class="sechd">理解文 · 老师诊断<span class="sub">写一句就好，这是报告里最有用的一段</span></div>`;
+    subjQ.forEach(w=>{ h+=`<div class="form-row" style="margin-bottom:6px">
+        <label class="form-label">第 ${w.q} 题 · ${esc(markLab(w.code))}${w.topic?' · '+esc(w.topic):''}</label>
+        <input type="text" value="${esc(w.diag||'')}" placeholder="例：抄了不相干的句子 / 只答了一半 / 看不懂 tersirat"
+          oninput="wiDiag('${sid}',${w.q},this.value)"></div>`; });
+    h+=`</div>`;
+  }
+
+  h+=`<div class="secbox" style="${rec.tp?'':'border-color:var(--warn);border-width:2px'}">
+    <div class="sechd">掌握程度 TP<span class="sub">老师判断 · 系统不代替你判</span></div>
+    <div class="tip" style="margin-top:0">${m.rate==null
+      ?'这份卷还没有答对率（要先按「整份都看过了」）。'
+      :`这份卷答对率 <b>${m.rate}%</b>。`}</div>
+    <div class="chips-row" id="chipsTP">${TPS.map(t=>`<button class="chip ${rec.tp===t.v?'sel':'chip-layer'}"
+      data-v="${t.v}" onclick="f2TPL(this,'${sid}','${t.v}')">${t.v} ${t.zh}</button>`).join('')}
+      ${rec.tp?`<button class="chip chip-muted" onclick="f2TPL(null,'${sid}',null)">✕ 清除</button>`:''}</div></div>`;
+
+  el.innerHTML=h;
+  paintFoot(sid);
+}
+
+/* 下半部：已做 / 会做 / 订正结果 / 学生的话 / 家长 —— 可独立重画 */
+function paintTail(sid){
+  const el=document.getElementById('f2tail'); if(!el) return;
+  const rec=f2Draft(sid);
+  const selD=rec.done_options||[], selN=rec.next_options||[];
+  /* NEXT 自动展开的条件：已经有计划，或结果是「还需要练习 / 需要更多帮助」 */
+  const nextOpen = needsNext(rec) || selN.length>0 || !!(rec.next_note||'').trim();
+  el.innerHTML=`
+  <!-- ══ 教学动作链：DID → RESULT → NEXT ══
+       Owner 2026-09-06：「老师会感觉『我刚刚已经说做了什么，为什么下面又问一次』。」
+       旧版把 done / next 塞在同一个盒子（老师做了什么），再另开一个「FIX 模块」问
+       订正结果 —— 老师要同时理解两套概念。现在改成她自然的思考顺序：
+         DID   我已经做了什么   （FACT，不可与 PLAN 混）
+         RESULT 学生现在怎样    （承接 FIX / 再测证据）
+         NEXT  还需要继续做什么 （选填；只有还需要跟进时才自动展开）
+       ⚠️ 资料库栏位一栏没动 —— done_* / fix_* / next_* 语义不变。
+          这次只减少老师的理解负担，不动 Evidence 语义。 -->
+  <div class="secbox"><div class="sechd"><span style="color:var(--mut)">1</span> 我已经做了什么
+      <span class="sub">DID · 已经发生的事实</span></div>
+    <div class="chips-row" id="chipsDone">${ACTIONS.map(a=>`<button class="chip ${selD.indexOf(a)>=0?'sel':'chip-layer'}"
+      data-v="${esc(a)}" onclick="f2TogL(this,'${sid}','done_options')">${esc(a)}</button>`).join('')}</div>
+    <textarea rows="2" style="margin-top:6px" placeholder="其他已经做的（可留空）"
+      oninput="f2Field('${sid}','done_note',this.value)">${esc(rec.done_note||'')}</textarea>
+  </div>
+
+  <div class="secbox"><div class="sechd"><span style="color:var(--mut)">2</span> 学生现在怎样
+      <span class="sub">RESULT · 讲解 + 订正后，让他再做一题同类型的 · 选填</span></div>
+    <div class="chips-row" id="chipsFix">${FIXOUT.map(f=>`<button class="chip ${rec.fix_outcome===f.v?'sel':f.chip}"
+      data-v="${f.v}" onclick="f2FixL(this,'${sid}','${f.v}')">${f.lab}</button>`).join('')}
+      ${rec.fix_outcome?`<button class="chip chip-muted" onclick="f2FixL(null,'${sid}',null)">✕ 清除</button>`:''}</div>
+    <div id="fixTgt" style="margin-top:8px;${rec.fix_outcome?'':'display:none'}">
+      <label class="form-label">针对哪一项？<span style="color:var(--mut);font-size:10px">留空 = 整份卷</span></label>
+      <input type="text" placeholder="例：进位加法"
+        value="${esc(rec.fix_target||'')}" oninput="f2Field('${sid}','fix_target',this.value)"></div>
+  </div>
+
+  <div class="secbox" id="nextBox"><div class="sechd" style="cursor:pointer" onclick="tglNext()">
+      <span style="color:var(--mut)">3</span> 还需要继续做什么
+      <span class="sub">NEXT · 计划 · 选填 <span id="nextCaret">▸</span></span></div>
+    <div id="nextBody" style="display:${nextOpen?'block':'none'}">
+      <div class="chips-row" id="chipsNext">${ACTIONS.map(a=>`<button class="chip ${selN.indexOf(a)>=0?'sel':'chip-layer'}"
+        data-v="${esc(a)}" onclick="f2TogL(this,'${sid}','next_options')">${esc(a)}</button>`).join('')}</div>
+      <textarea rows="2" style="margin-top:6px" placeholder="其他计划（可留空）"
+        oninput="f2Field('${sid}','next_note',this.value)">${esc(rec.next_note||'')}</textarea>
+    </div>
+  </div>
+
+  <div class="secbox"><div class="sechd" style="cursor:pointer" onclick="tglExtra()">补充资料
+      <span class="sub">学生的话 · 家长配合 · 全部选填 <span id="extraCaret">${S.ui.extraOpen?'▾':'▸'}</span></span></div>
+    <div id="extraBody" style="display:${S.ui.extraOpen?'block':'none'}">
+      <label class="form-label">学生自己讲的话<span style="color:var(--mut);font-size:10px"> · 用他的原话</span></label>
+      <div class="form-grid-2">
+        <div class="form-row"><label class="form-label">「刚才我会错 ___」</label>
+          <textarea rows="2" placeholder="例：我把 3 看成 8"
+            oninput="f2Field('${sid}','reflect_was_wrong',this.value)">${esc(rec.reflect_was_wrong||'')}</textarea></div>
+        <div class="form-row"><label class="form-label">「现在我知道要 ___」</label>
+          <textarea rows="2" placeholder="例：我要先把数字圈起来才算"
+            oninput="f2Field('${sid}','reflect_now_know',this.value)">${esc(rec.reflect_now_know||'')}</textarea></div>
+      </div>
+      <label class="form-label" style="margin-top:10px">考前家长可以配合</label>
+      <textarea rows="2" placeholder="例：考前两天让他早点睡，不需要额外加练习。"
+        oninput="f2Field('${sid}','parent_support',this.value)">${esc(rec.parent_support||'')}</textarea>
+    </div>
+  </div>`;
+  paintFoot(sid);
+}
+/* 底部永远告诉老师「还差什么」—— 防止填一半就走 */
+function paintFoot(sid){
+  const f=document.getElementById('f2foot'); if(!f) return;
+  const miss=f2Missing(sid);
+  f.innerHTML = miss.length
+    ? `<span style="color:var(--warn);font-weight:700">还差 ${miss.length} 项：</span>
+       <span style="color:var(--warn)">${miss.join(' · ')}</span>`
+    : `<span style="color:var(--ok);font-weight:700">✓ 都填好了，可以按完成</span>`;
+  const btn=document.getElementById('f2done');
+  if(btn) btn.textContent = miss.length? `✓ 完成（还差 ${miss.length} 项）` : '✓ 完成并到下一位';
+}
+function f2Finish(sid,goNext){
+  const r=f2Draft(sid);
+  /* 🔴 P0-1 Evidence Truth：v19 以前这里会自动补上
+       r.paper_checked = true
+     —— 老师只按了「完成这个学生」，系统却替她声称「整份考卷我都核对过了」。
+     那是系统伪造老师的 attestation。已删除。
+     paper_checked 只能由 f2Checked() 里老师亲手那一下产生。 */
+  const miss=f2Missing(sid);
+  if(miss.length){
+    if(saveData(true)===false){ alert(saveFailMsg()); return; }
+    paintLive(sid); paintFoot(sid);
+    toast('还差：'+miss.join(' · '),4000);
+    const tp=document.getElementById('chipsTP');
+    if(tp) tp.scrollIntoView({behavior:'smooth',block:'center'});
+    return;
+  }
+  if(saveData(true)===false){ alert(saveFailMsg()); return; }
+  const nm=nameOf(stuOf(sid));
+  if(goNext){
+    const nx=navTodo(sid,'f2');
+    if(nx && nx!==sid){ renderF2(); toast('✓ '+nm+' 完成'); autoPush(); f2Open(nx); return; }
+  }
+  closeModal(); renderF2(); toast('✓ '+nm+' 完成');
+  autoPush(); classDoneCheck();
+}
+/* 整班都完成 → 主动问要不要换下一班（老师教多班多年段） */
+function classDoneCheck(){
+  const list=inCls(S.cls); if(!list.length) return;
+  const done=list.filter(r=>f2State(S.f2[f2Key(r.sid)])==='done').length;
+  if(done!==list.length) return;
+  openModal('这个班完成了 🎉',
+    `<div class="alert alert-ok"><div><b>${esc(S.cls)} · ${esc(S.subject)}</b> —— ${done} / ${list.length} 位学生全部完成。</div></div>
+     <div class="tip">资料已经自己送上去了，你不用做任何上传动作。接下来要输入哪一班？</div>
+     <div class="form-grid-2" style="margin-top:10px">
+       <div class="form-row"><label class="form-label">班级</label>
+         <div class="dept-row">${CLASSES.map(c=>`<span class="dept-tag${c===S.cls?' on':''}"
+           onclick="pickClass('${c}');closeModal();goPage('f2')">${c}</span>`).join('')}</div></div>
+       <div class="form-row"><label class="form-label">科目</label>
+         <div class="dept-row">${SUBJECTS.map(x=>`<span class="dept-tag${x===S.subject?' on':''}"
+           onclick="pickSubject('${x}');closeModal();goPage('f2')">${esc(x)}</span>`).join('')}</div></div>
+     </div>`,
+    `<button class="btn" onclick="closeModal()">留在这一班</button>
+     <button class="btn btn-pri" onclick="closeModal();goPage('home')">← 回工作台</button>`);
+}
+
+/* ══ 局部更新的 chips —— 不重建 modal，滚动位置不跳 ══ */
+function f2TogL(btn,sid,field){
+  const r=f2Draft(sid), v=btn.getAttribute('data-v');
+  const a=r[field]||(r[field]=[]);
+  const i=a.indexOf(v); if(i>=0)a.splice(i,1); else a.push(v);
+  btn.classList.toggle('sel'); btn.classList.toggle('chip-layer');
+  r.synced=false; stampF2(r,sid); saveData();
+}
+function f2FixL(btn,sid,v){
+  const r=f2Draft(sid);
+  r.fix_outcome = (v===null||r.fix_outcome===v)?null:v;
+  r.synced=false; stampF2(r,sid); saveData(); paintTail(sid);
+}
+/* NEXT 预设折叠。只有「还需要练习 / 需要更多帮助」才自动展开 ——
+   已经改善的学生不需要再问计划，多一个问题就是多一次犹豫。 */
+function needsNext(r){ return r.fix_outcome==='NEEDS_PRACTICE'||r.fix_outcome==='NEED_HELP'; }
+function tglNext(){
+  const b=document.getElementById('nextBody'), c=document.getElementById('nextCaret');
+  if(!b) return; const on=b.style.display==='none';
+  b.style.display=on?'block':'none'; if(c) c.textContent=on?'▾':'▸';
+}
+function tglExtra(){
+  S.ui.extraOpen=!S.ui.extraOpen; saveData(true);
+  const b=document.getElementById('extraBody'), c=document.getElementById('extraCaret');
+  if(b) b.style.display=S.ui.extraOpen?'block':'none';
+  if(c) c.textContent=S.ui.extraOpen?'▾':'▸';
+}
+function f2TPL(btn,sid,v){
+  const r=f2Draft(sid);
+  r.tp = (v===null||r.tp===v)?null:v;
+  r.synced=false; stampF2(r,sid); saveData(); paintLive(sid);
+}
+function f2Field(sid,field,v){
+  const r=f2Draft(sid); r[field]=v; r.synced=false; stampF2(r,sid); saveData();
+}
+function f2Checked(sid){
+  const r=f2Draft(sid);
+  r.paper_checked = !r.paper_checked;
+  r.paper_checked_at = r.paper_checked ? new Date().toISOString() : null;
+  r.synced=false; stampF2(r,sid);
+  if(saveData(true)===false){ alert(saveFailMsg()); return; }
+  paintLive(sid); renderF2(); autoPush();
+  toast(r.paper_checked?'✓ 没点的题算答对了':'已取消 — 没点的题回到「还没看」');
+}
+function esTog(sid,code,secId,asp){
+  const sec=sections().find(x=>x.id===secId);
+  const r=esStamp(sid,code,sec), a=r.weak||(r.weak=[]);
+  const i=a.indexOf(asp); if(i>=0)a.splice(i,1); else a.push(asp);
+  const btn=document.querySelector(`#esw_${secId} [data-asp="${asp}"]`);
+  if(btn){ btn.classList.toggle('sel-w'); btn.classList.toggle('chip-warn'); }
+  saveData();
+}
+function esStar(sid,code,secId){
+  const sec=sections().find(x=>x.id===secId);
+  const r=esStamp(sid,code,sec); r.star=!r.star;
+  const btn=document.getElementById('ess_'+secId);
+  if(btn) btn.className='chip '+(r.star?'sel':'chip-ok');
+  saveData();
+}
+function esScore(sid,code,secId,v,mx){
+  const sec=sections().find(x=>x.id===secId);
+  const r=esStamp(sid,code,sec);
+  r.score = v===''? null : Math.min(+mx,Math.max(0,parseFloat(v)||0));
+  r.max=+mx; saveData();
+}
+
+/* ══ 覆蓋追踪 ══ */
+function renderCoverage(){
+  const c=document.getElementById('c-coverage');
+  if(gateOpen()){ c.innerHTML=gateHTML(); return; }
+  const myCls=asgMine().filter(a=>a.subject===S.subject).map(a=>a.cls);
+  let h=ctxBar()+`<div class="card"><div class="card-hdr"><span class="card-title">轮换覆盖追踪 · ${esc(S.subject)}</span>
+      <span class="tip" style="margin:0">${myCls.length?('我教的 '+myCls.join('、')):'（还没登记任教班级 — 显示全部）'}</span></div>
+    <div class="alert alert-info">SOP 图6：<b>一直轮换，直到全班都被观察到。</b>这一页只看这台机器上本科目的资料；${
+      isAdmin()?'上传后可在云端看到全部科任的合并结果。':'全部科任的合并结果由管理层那边看。'}<br>
+      <b>缺席 / 本轮未评 = 已处理，不会再催</b> —— 但它们<b>不是</b>观察证据，也不会进报告。</div></div>`;
+  CLASSES.forEach(cl=>{
+    const list=inCls(cl); if(!list.length) return;
+    /* 🔴 P0-3：旧版只看 f1Complete，於是工作台说「Jason 缺席·已处理」，
+       这一页却说「Jason 还没观察」。两页说的话不一样 = 老师不信系统。
+       改成消费 opResolved（同一支真相）。 */
+    const none=list.filter(r=>!opResolved(r.sid,'f1'));
+    const res =list.filter(r=>stResolved(r.sid));
+    const pct=Math.round((list.length-none.length)/list.length*100);
+    h+=`<div class="card"><div class="card-hdr">
+        <span class="card-title">${esc(cl)}${cl===S.cls?' · 我的班':''}</span>
+        <span class="tip" style="margin:0">已处理 ${list.length-none.length} / ${list.length}
+          ${none.length?`<span class="badge b-warn">还剩 ${none.length} 位</span>`:`<span class="badge b-active">全班都处理完了</span>`}
+          ${res.length?`<span class="badge b-inactive">其中 ${res.length} 位缺席 / 本轮未评</span>`:''}</span></div>
+      <div class="progress ${pct>=100?'progress-ok':'progress-layer'}"><div class="progress-fill" style="width:${pct}%"></div></div>
+      <div class="chips-row" style="margin-top:10px">`;
+    list.forEach(r=>{
+      const n=f1Complete(r.sid).length;
+      const p=S.f2[f2Key(r.sid)];
+      const st=f2State(p);
+      if(st==='absent'||st==='notassessed'){
+        h+=`<span class="chip chip-muted" style="opacity:.6">${esc(r.en)} · ${
+          st==='absent'?'缺席':'本轮未评'}</span>`; return;
+      }
+      h+=`<span class="chip ${n?'chip-ok':'chip-muted'}">${esc(r.en)}${n?' · '+n:''}${
+        st==='done'?' ✓':(st==='progress'?' ⚠':'')}</span>`;
+    });
+    h+=`</div></div>`;
+  });
+  c.innerHTML=h;
+}
+
+/* ══ 考前報告 ══ */
+function renderReport(){
+  const c=document.getElementById('c-report');
+  if(gateOpen()){ c.innerHTML=gateHTML(); return; }
+  let h=ctxBar()+`<div class="card">
+    <div class="card-hdr"><span class="card-title">考前报告 · ${esc(S.examLabel||'本轮')}</span>
+      <button class="btn btn-sm no-print" onclick="printReport()">🖨 Print</button></div>
+    <div class="alert alert-warn"><b>一份完整报告要 5 科合并。</b>这台机器只有 <b>${esc(S.subject)}</b> 一科的资料 ——
+      完整报告要等所有科任上传后由系统合并，这一页只是单科预览。</div>
+    <div class="toolbar no-print">
+      <select id="rptCls" onchange="renderReportBody()">
+        ${CLASSES.map(x=>`<option${x===S.cls?' selected':''}>${x}</option>`).join('')}
+      </select>
+      <input type="text" id="rptSearch" placeholder="搜学生姓名…" oninput="renderReportBody()">
+    </div>
+  </div><div id="rpt-body"></div>`;
+  c.innerHTML=h; renderReportBody();
+}
+function reportRows(){
+  const cl=(document.getElementById('rptCls')||{}).value||S.cls;
+  const q=((document.getElementById('rptSearch')||{}).value||'').toLowerCase();
+  /* 🔴 P0-2：旧版 gate 是「f2 不是 none 或有观察」——
+     那会让「填一半」「缺席」「本轮未评」全部漏进报告。
+     报告只认 reportReady()：ASSESSED + 老师亲自核对整份 + TP。 */
+  return inCls(cl).filter(r=>!q||(r.en+' '+(r.cn||'')).toLowerCase().includes(q)).map(r=>{
+    const p=S.f2[f2Key(r.sid)]||{};
+    const obs=f1Complete(r.sid);
+    return {r,p,obs};
+  }).filter(x=>reportReady(x.r.sid));
+}
+/* 被挡在报告外的人 —— 必须看得见，否则管理层以为「就这几个」 */
+function reportHeld(){
+  const cl=(document.getElementById('rptCls')||{}).value||S.cls;
+  const out={absent:[],na:[],half:[],none:[]};
+  inCls(cl).forEach(r=>{
+    if(reportReady(r.sid)) return;
+    const st=f2State(S.f2[f2Key(r.sid)]);
+    if(st==='absent') out.absent.push(r);
+    else if(st==='notassessed') out.na.push(r);
+    else if(st==='progress'||st==='done'||f1Complete(r.sid).length) out.half.push(r);
+    else out.none.push(r);
+  });
+  return out;
+}
+function renderReportBody(){
+  const el=document.getElementById('rpt-body'); if(!el) return;
+  const rows=reportRows(), held=reportHeld();
+  const heldBox=(()=>{
+    const n=held.absent.length+held.na.length+held.half.length+held.none.length;
+    if(!n) return '';
+    const line=(lab,arr,why)=>arr.length?`<div style="margin-top:4px"><b>${lab} ${arr.length} 位</b>
+      <span style="color:var(--mut)">${esc(arr.map(r=>r.en).join('、'))}</span>
+      <span style="color:var(--mut)">—— ${why}</span></div>`:'';
+    return `<div class="card"><div class="alert alert-warn"><div>
+      <b>${n} 位不在下面的报告里。</b>报告只收「已评量 + 老师亲自核对整份卷 + 有掌握程度 TP」的学生。
+      ${line('缺席',held.absent,'不是弱、不是 0 分，只是没有证据')}
+      ${line('本轮未评',held.na,'学生在，但这一轮证据不足')}
+      ${line('资料未齐',held.half,'有填但还没按「整份都看过了」或还没选 TP')}
+      ${line('还没开始',held.none,'')}
+    </div></div></div>`;
+  })();
+  if(!rows.length){ el.innerHTML=heldBox+`<div class="card"><div class="empty">
+    这个班还没有任何学生达到报告门槛</div></div>`; return; }
+  let h=heldBox;
+  rows.forEach(({r,p,obs})=>{
+    const ms=recStats(p), rate=ms.rate;
+    const mi=mainIssue(ms);
+    /* v6：weak_options 是技能名（系统推导），next_options 是老师行动 —— 两者都已是可读字串 */
+    const wk=(p.weak_options||[]).slice();
+    const nx=(p.next_options||[]).slice();
+    const fo=FIXOUT.find(f=>f.v===p.fix_outcome);
+    h+=`<div class="card">
+      <div class="card-hdr"><span style="font-size:14px;font-weight:600">${esc(nameOf(r))}</span>
+        <span class="badge b-atc">${esc(r.cls)} · ${esc(S.subject)}</span></div>
+      <div class="stat-grid" style="margin-bottom:10px">
+        <div class="stat-card"><div class="stat-n">${rate==null?'—':rate+'%'}</div>
+          <div class="stat-l">答对率</div>
+          <div class="stat-sub">${ms.total?ms.right+' / '+ms.total+' 题':'未填'}</div></div>
+        <div class="stat-card"><div class="stat-n" style="font-size:15px">${mi?esc(mi.lab):'—'}</div>
+          <div class="stat-l">主问题 · 老师端参考</div><div class="stat-sub">${mi?mi.n+' 题':''}</div></div>
+        <div class="stat-card"><div class="stat-n" style="font-size:15px">${fo?fo.lab:'—'}</div>
+          <div class="stat-l">FIX 结果</div></div>
+        <div class="stat-card"><div class="stat-n" style="font-size:15px">${p.tp?esc(p.tp):'—'}</div>
+          <div class="stat-l">掌握程度 TP</div>
+          <div class="stat-sub">${p.tp?esc((TPS.find(t=>t.v===p.tp)||{}).zh||''):''}</div></div>
+        <div class="stat-card"><div class="stat-n">${obs.length}</div>
+          <div class="stat-l">现场观察</div><div class="stat-sub">个 bahagian</div></div>
+      </div>
+      ${(()=>{ /* 🔴 v10 报告还在读已 deprecated 的 paper_analysis.essay_*，
+                    但 v10 的输入端已经改写 evalgo_essay_result（S.es）——
+                    老师填了两篇作文，报告却看不到。改读真来源，逐篇列出。 */
+        const es=esForRec(p); if(!es.length) return '';
+        return `<div style="margin-bottom:8px"><span class="form-label" style="display:inline">写作：</span>`
+          + es.map(e=>`<span class="chip chip-muted">${esc(e.sec_code)} ${e.score!=null?e.score:'—'} / ${e.max||'?'}</span>`
+            + (e.star?'<span class="chip chip-ok">★</span>':'')
+            + (e.weak||[]).map(id=>`<span class="chip chip-warn">${esc((ESSAY_ASPECTS.find(a=>a.id===id)||{}).zh||id)}</span>`).join('')
+            ).join(' ') + `</div>`;
+      })()}
+      ${(p.strong_topics||[]).length?`<div style="margin-bottom:8px">
+        <span class="form-label" style="display:inline">✅ 强项：</span>
+        ${(p.strong_topics||[]).map(t=>`<span class="chip chip-ok">${esc(t)} 全对</span>`).join('')}</div>`:''}
+      ${obs.length?`<div style="margin-bottom:8px"><span class="form-label" style="display:inline">作答过程：</span>
+        ${DIMS.map(d=>{const v=obs.map(o=>o[d.id]).filter(Boolean); if(!v.length)return'';
+          const bad=v.filter(x=>x==='N'||x==='H').length, mid=v.filter(x=>x==='S'||x==='R').length;
+          return `<span class="chip ${bad?'chip-danger':(mid?'chip-warn':'chip-ok')}">${d.zh}</span>`;}).join('')}</div>`:''}
+      ${(()=>{
+        /* 🔴 P0-6：报告以前只读 weak / fix_outcome / next，漏掉老师亲手填的 DID
+           （done_options / done_note）—— 於是「我们做了什么」整段消失，
+           报告变成「发现问题 → 下一步」，中间那一节不见了。
+           Guardrail：没有 DID evidence 就整节不出现，绝不替老师声称她做过什么。 */
+        const wkA=(p.weak_options||[]);                 /* AUTO   系统从错题推导 */
+        const wkM=(p.weak_manual||[]).map(optText).filter(Boolean); /* MANUAL 老师手填 */
+        const did=(p.done_options||[]); const didN=(p.done_note||'').trim();
+        const nxo=(p.next_options||[]); const nxN=(p.next_note||'').trim();
+        const fo2=FIXOUT.find(f=>f.v===p.fix_outcome);
+        const row=(lab,inner)=>inner?`<div style="display:flex;gap:8px;padding:5px 0;
+            border-top:1px solid var(--bdr)"><div style="min-width:104px;color:var(--mut);
+            font-size:11.5px;padding-top:2px">${lab}</div><div style="flex:1">${inner}</div></div>`:'';
+        const found = [
+          wkA.length?`<span class="form-label" style="display:inline;font-size:10px">系统推导</span> `
+            +wkA.map(t=>`<span class="chip chip-warn">${esc(t)}</span>`).join(''):'',
+          wkM.length?`<span class="form-label" style="display:inline;font-size:10px">老师补充</span> `
+            +wkM.map(t=>`<span class="chip chip-layer">${esc(t)}</span>`).join(''):'',
+          p.weak_note?`<div style="font-size:12px;color:var(--mut);margin-top:3px">${esc(p.weak_note)}</div>`:''
+        ].filter(Boolean).join(' ');
+        const didHtml = (did.length||didN)
+          ? did.map(t=>`<span class="chip chip-ok">${esc(t)}</span>`).join('')
+            +(didN?`<div style="font-size:12px;color:var(--mut);margin-top:3px">${esc(didN)}</div>`:'')
+          : '';
+        const resHtml = fo2 ? `<span class="chip ${fo2.chip}">${esc(fo2.lab)}</span>`
+            +(p.fix_target?` <span class="chip chip-muted">针对：${esc(p.fix_target)}</span>`:'') : '';
+        const nextHtml = (nxo.length||nxN)
+          ? nxo.map(t=>`<span class="chip chip-layer">${esc(t)}</span>`).join('')
+            +(nxN?`<div style="font-size:12px;color:var(--mut);margin-top:3px">${esc(nxN)}</div>`:'')
+          : '';
+        const body = row('WE FOUND<br>发现什么',found) + row('WE DID<br>我们做了',didHtml)
+                   + row('现在怎样<br>RESULT',resHtml) + row('NEXT<br>下一步',nextHtml);
+        if(!body) return '';
+        return `<div style="margin-top:8px;border:1px solid var(--bdr);border-radius:8px;padding:8px 10px">
+          ${body}${(!didHtml&&(resHtml||nextHtml))?`<div class="tip" style="margin:6px 0 0">
+            老师没有填「我已经做了什么」—— 报告不会替她声称做过任何补救。</div>`:''}</div>`;
+      })()}
+    </div>`;
+  });
+  h+=`<div class="tip">「主问题」目前只在老师端显示 —— 给家长看的措辞尚未定案，不会印进家长报告。</div>`;
+  el.innerHTML=h;
+}
+function printReport(){
+  const rows=reportRows();
+  if(!rows.length){ toast('✕ 没有资料可印'); return; }
+  const cl=(document.getElementById('rptCls')||{}).value||S.cls;
+  let body=`<h1>ATC 部 考前报告 · ${esc(S.subject)}</h1>
+    <div class="meta">${esc(cl)} · 科任 ${esc(S.me)} · ${esc(S.examLabel||'')} · 列印日期 ${today()}</div>
+    <table><thead><tr><th>学生</th><th>答对率</th><th>TP</th><th>主问题</th>
+      <th>较弱（系统）</th><th>较弱（老师）</th><th>已经做了</th><th>结果</th><th>下一步</th></tr></thead><tbody>`;
+  rows.forEach(({r,p})=>{
+    const ms=recStats(p), rate=ms.rate==null?'—':(ms.rate+'%');
+    const mi=mainIssue(ms), fo=FIXOUT.find(f=>f.v===p.fix_outcome);
+    const wk=(p.weak_options||[]).join('、');
+    const wm=(p.weak_manual||[]).map(optText).filter(Boolean).join('、');
+    const dd=(p.done_options||[]).join('、');
+    const nx=(p.next_options||[]).join('、');
+    body+=`<tr><td>${esc(nameOf(r))}</td><td>${rate}</td><td>${esc(p.tp||'—')}</td><td>${mi?esc(mi.lab):'—'}</td>
+      <td>${esc(wk||'—')}</td><td>${esc(wm||p.weak_note||'—')}</td>
+      <td>${esc(dd||p.done_note||'—')}</td><td>${fo?esc(fo.lab):'—'}</td>
+      <td>${esc(nx||p.next_note||'—')}</td></tr>`;
+  });
+  body+=`</tbody></table>
+    <div class="footer"><div>科任签名<div class="sig-line"></div></div>
+      <div>主任审阅<div class="sig-line"></div></div><div>日期<div class="sig-line"></div></div></div>
+    <div style="margin-top:10px;font-size:9px;color:#777">EvalGo_ATC v${APP_VERSION} · ${esc(cl)} · ${today()} · 第 1 页</div>`;
+  const w=window.open('','_blank','width=820,height=1000');
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>ATC 部 考前报告</title><style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Segoe UI','PingFang SC',Arial,sans-serif;padding:28px 32px;color:#222;font-size:11px}
+    h1{font-size:18px;font-weight:700}
+    .meta{font-size:11px;color:#555;margin-top:3px;margin-bottom:16px}
+    table{width:100%;border-collapse:collapse}
+    th{font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#555;
+       padding:5px 8px;border:1px solid #999;text-align:left;background:#eee}
+    td{padding:6px 8px;border:1px solid #ccc;vertical-align:top}
+    .footer{margin-top:22px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;font-size:10px}
+    .sig-line{border-bottom:1px solid #bbb;height:22px;margin-top:8px}
+    @media print{@page{margin:12mm 14mm;size:A4 portrait}}
+  </style></head><body>${body}
+  <script>window.print();window.onafterprint=()=>window.close();<\/script></body></html>`);
+  w.document.close();
+}
+
+/* ══ MANAGE ══ */
+function renderManage(){
+  const c=document.getElementById('c-manage');
+  const n1=Object.keys(S.f1).length, n2=Object.keys(S.f2).length, pend=pendingCount();
+  c.innerHTML=`
+  <div class="card">
+    <div class="alert alert-info"><div><b>这一页只有管理层看得到。</b>
+      老师端不显示同步、备份、系统设定 —— 那些是系统该自己处理的事。</div></div>
+    <div class="card-hdr"><span class="card-title">我的身份</span>
+      ${CLOUD.idFrom==='users_meta'?'':`<button class="btn btn-sm" onclick="askTeacher()">换老师</button>`}</div>
+    <div class="chips-row">
+      <span class="chip ${S.me?'chip-layer':'chip-warn'}">科任 ${esc(S.me||'未设定')}${S.meName?' · '+esc(S.meName):''}</span>
+      <span class="chip ${S.subject?'chip-layer':'chip-muted'}">${esc(S.subject||'未选科目')}</span>
+      <span class="chip ${S.cls?'chip-layer':'chip-muted'}">${esc(S.cls||'未选班级')}</span>
+      <button class="chip chip-muted" onclick="goPage('home')">换班级／科目</button>
+    </div>
+    ${CLOUD.idFrom==='users_meta'
+      ? `<div class="alert alert-ok" style="margin-top:10px"><div>
+           身份由<b>平台帐号自动认出</b>，不需要你选，也不会认错。</div></div>`
+      : (authUid()
+         ? `<div class="alert alert-warn" style="margin-top:10px"><div>
+              <b>没能从帐号认出你是谁</b>${CLOUD.idErr?('（'+esc(CLOUD.idErr)+'）'):''}，
+              目前用的是这台电脑上暂存的选择。请回报管理层。</div></div>`
+         : `<div class="alert alert-info" style="margin-top:10px"><div>
+              还没登入平台，所以是本机暂存的身份。连上云端后会自动认出你。</div></div>`)}
+  </div>
+
+  <div class="card">
+    <div class="card-hdr"><span class="card-title">云端连线</span>
+      <span class="tip" style="margin:0">${CLOUD.exam?esc(CLOUD.exam.code):'未连线'}</span></div>
+    ${CLOUD.exam&&CLOUD.session
+      ? `<div class="alert alert-ok"><div><b>已连上。</b>${esc(CLOUD.exam.label)} ·
+           输入到 ${esc(CLOUD.exam.input_closes||'—')} ·
+           权限 ${CLOUD.perm&&CLOUD.perm.can_edit?'可填写':'唯读'}${CLOUD.lastSync?(' · 上次上传 '+esc(CLOUD.lastSync)):''}</div></div>`
+      : `<div class="alert alert-warn"><div><b>还没连上云端。</b>${esc(CLOUD.err||'未尝试')}<br>
+           没连上时资料只存在这台电脑，请务必天天 Export 备份。</div></div>`}
+    <div class="toolbar">
+      <button class="btn" onclick="cloudInit()">重新连线</button>
+      ${!CLOUD.session?`<button class="btn btn-pri" onclick="cloudLogin()">去平台登入</button>`:''}
+      <button class="btn" onclick="cloudRoster(false)" ${CLOUD.exam?'':'disabled'}>重新载入名单</button>
+      <button class="btn btn-pri" id="c-push" onclick="cloudPush()" ${CLOUD.exam?'':'disabled'}>${pend?('上传 '+pend+' 笔'):'全部已上传'}</button>
+      <button class="btn" onclick="cloudPull(false)" ${CLOUD.exam?'':'disabled'}>拉回云端资料</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-hdr"><span class="card-title">学生名单</span>
+      <span class="tip" style="margin:0">${S.rosterSource==='cloud'?'来自资料库':(S.rosterSource==='demo'?'示范名单（假资料）':'手动汇入')} · ${S.roster.length} 人</span></div>
+    ${S.rosterSource==='demo'?`<div class="alert alert-warn"><div>目前是练习用的假名单（连线后会自动换成真实名单）。<b>假资料不会上传。</b></div></div>`:''}
+  </div>
+
+  <div class="card">
+    <div class="card-hdr"><span class="card-title">资料备份</span>
+      <span class="tip" style="margin:0">FORM 01 ${n1} 笔 · FORM 02 ${n2} 笔</span></div>
+    ${CLOUD.exam&&CLOUD.session&&pend===0
+      ? `<div class="alert alert-ok"><div><b>全部已上传云端。</b>就算这台电脑资料没了也救得回来。</div></div>`
+      : `<div class="alert alert-danger"><div><b>还有 ${pend} 笔只存在这台电脑的浏览器里。</b>
+         清除浏览器资料这些就消失，救不回来。请按上面的「上传」，或先 Export 备份。</div></div>`}
+    <div class="toolbar">
+      <button class="btn btn-pri" onclick="exportData()">↓ Export JSON</button>
+      <button class="btn" onclick="exportCSV()">↓ Export CSV</button>
+      <label class="btn" style="cursor:pointer">↑ Import
+        <input type="file" accept=".json" onchange="importData(event)" style="display:none"></label>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-hdr"><span class="card-title">进阶 · 管理员用</span>
+      <button class="btn btn-sm" onclick="S.ui.advOpen=!S.ui.advOpen;saveData(true);renderManage()">${S.ui.advOpen?'收起':'展开'}</button></div>
+    <div ${S.ui.advOpen?'':'hidden'} style="font-size:12px;line-height:2.2">
+      <div>System: <strong>EvalGo_ATC</strong>（ATC 部 · 考况记录）</div>
+      <div>Version: <strong>v${APP_VERSION}</strong></div>
+      <div>Layer: <strong>RPT</strong> · 权限码 <code style="font-size:11px;background:var(--sur2);padding:2px 6px;border-radius:3px">${SYS_CODE}</code></div>
+      <div>Storage Key: <code style="font-size:11px;background:var(--sur2);padding:2px 6px;border-radius:3px">${STORAGE_KEY}</code></div>
+      <div>weak_manual 栏（delta v9）: <strong>${CLOUD.hasV9?'✓ 已就绪':'✕ 未跑 — 老师手填弱项暂留本机'}</strong></div>
+      <div>本机 weak_manual 词汇分布: <strong>${(()=>{const c={};
+        Object.keys(S.f2).forEach(k=>{const v=weakVocabOf(S.f2[k]); if(v!=='NONE')c[v]=(c[v]||0)+1;});
+        const ks=Object.keys(c); return ks.length?ks.map(x=>x+' '+c[x]+' 笔').join(' · '):'（还没有）';})()}</strong></div>
+      <div>DSKP 学习领域: <strong>${DSKP_DOM.length}</strong> 条（五科 × 六年段）——
+        <span style="color:var(--mut)">参考资料，v19.1 起不再接到老师端的「较弱项目」</span></div>
+      <div>KSSR 旧字典: <strong>${KSSR.length}</strong> 条（保留，供旧资料解析）</div>
+    </div>
+  </div>
+
+    <div style="margin-top:16px">
+      <button style="font-size:11px;color:var(--danger);background:none;border:none;cursor:pointer"
+        onclick="resetAll()">⚠ Reset — 清空这台电脑的全部资料</button></div>
+    </div>
+  </div>`;
+}
+function resetAll(){
+  if(!confirm('清空这台机器上的全部 FORM 01 / FORM 02 资料？\n执行前会先自动 Export 一份备份。')) return;
+  const t=prompt('确认请输入 RESET');
+  if(t!=='RESET'){ toast('✕ 已取消'); return; }
+  exportData();
+  S.f1={}; S.f2={}; S.wi={}; S.es={}; if(saveThen('✓ Reset complete')) renderManage();
+}
+
+/* ══ MODAL ══ */
+let MODAL_LOCK=false;
+function openModal(title,body,foot,lock){
+  MODAL_LOCK=!!lock;
+  document.getElementById('modal-title').innerHTML=title;
+  document.getElementById('modal-body').innerHTML=body;
+  document.getElementById('modal-foot').innerHTML=foot||'<button class="btn" onclick="closeModal()">Close</button>';
+  const x=document.querySelector('#modal .x-btn'); if(x) x.style.display=lock?'none':'';
+  document.getElementById('modal').style.display='flex';
+}
+function closeModal(force){
+  if(MODAL_LOCK&&!force) return;
+  MODAL_LOCK=false;
+  document.getElementById('modal').style.display='none';
+}
+
+/* ══ EXPORT / IMPORT ══ */
+function dl(name,text,type){
+  const b=new Blob([text],{type:type||'application/json;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download=name;
+  document.body.appendChild(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},400);
+}
+function exportData(){
+  const payload={...S, meta:{...S.meta, version:'v'+APP_VERSION, exportTime:new Date().toISOString(),
+    itemCount:Object.keys(S.f1).length+Object.keys(S.f2).length
+             +Object.keys(S.wi).length+Object.keys(S.es).length}};
+  dl(`EvalGo_ATC_${stamp()}.json`, JSON.stringify(payload,null,2));
+  toast('✓ Exported');
+}
+function csvCell(v){const s=String(v==null?'':v);return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;}
+function exportCSV(){
+  const L1=[['form','exam','teacher','subject','class','year','student_id','student','bahagian','obs_date']
+    .concat(DIMS.map(d=>d.en)).concat(['issue','client_uid','synced']).map(csvCell).join(',')];
+  Object.values(S.f1).forEach(r=>{const st=stuOf(r.sid)||{};
+    L1.push(['FORM01',r.exam,r.by,r.subject,r.cls,r.year,r.sid,st.en,r.bahagian,r.obs_date]
+      .concat(DIMS.map(d=>r[d.id]||'')).concat([r.issue||'',r.client_uid,r.synced?'Y':'N']).map(csvCell).join(','));});
+  const L2=[['form','exam','teacher','subject','class','year','student_id','student','paper_date','total_q']
+    .concat(MARKS.map(m=>m.lab))
+    .concat(['rate','tp','assess_status','paper_checked','paper_checked_at',
+             'weak_auto','weak_manual','weak_note','strong_topics',
+             'done_actions','done_note','next_actions','next_note','fix_target','fix_outcome',
+             'reflect_was_wrong','reflect_now_know','parent_support','client_uid','synced'])
+    .map(csvCell).join(',')];
+  Object.values(S.f2).forEach(r=>{const st=stuOf(r.sid)||{}; const ms=recStats(r);
+    L2.push(['FORM02',r.exam,r.by,r.subject,r.cls,r.year,r.sid,st.en,r.paper_date,ms.total]
+      .concat(MARKS.map(m=>ms[m.id]))
+      .concat([ms.rate==null?'':ms.rate,r.tp||'',aStat(r),
+        r.paper_checked?'Y':'N',r.paper_checked_at||'',
+        (r.weak_options||[]).join(' '),
+        (r.weak_manual||[]).map(optText).filter(Boolean).join(' '),
+        r.weak_note||'',(r.strong_topics||[]).join(' '),
+        (r.done_options||[]).join(' '),r.done_note||'',
+        (r.next_options||[]).join(' '),r.next_note||'',
+        r.fix_target||'',r.fix_outcome||'',
+        r.reflect_was_wrong||'',r.reflect_now_know||'',
+        r.parent_support||'',r.client_uid,r.synced?'Y':'N']).map(csvCell).join(','));});
+  const L3=[['form','exam','teacher','subject','class','year','student_id','student','q_no','mark_code',
+    'cl_subtype','topic','answer_format','diagnosis','client_uid','synced'].map(csvCell).join(',')];
+  Object.keys(S.wi).sort().forEach(k=>{const w=S.wi[k];const st=stuOf(w.sid)||{};
+    L3.push(['WRONG_ITEM',w.exam,w.by,w.subject,w.cls,w.year,w.sid,st.en,w.q,
+      String(w.code||'').toUpperCase(),w.cl_subtype||'',w.topic||'',w.fmt||'',w.diag||'',
+      w.client_uid,w.synced?'Y':'N'].map(csvCell).join(','));});
+  const L4=[['form','exam','teacher','subject','class','year','student_id','student',
+    'section_code','score','max_score','weak','is_star','client_uid','synced'].map(csvCell).join(',')];
+  Object.keys(S.es).sort().forEach(k=>{const e=S.es[k];const st=stuOf(e.sid)||{};
+    L4.push(['ESSAY_RESULT',e.exam,e.by,e.subject,e.cls,e.year,e.sid,st.en,e.sec_code,
+      e.score!=null?e.score:'',e.max!=null?e.max:'',(e.weak||[]).join(' '),e.star?'Y':'',
+      e.client_uid,e.synced?'Y':'N'].map(csvCell).join(','));});
+  dl(`EvalGo_ATC_${stamp()}.csv`,
+     '﻿'+L1.join('\n')+'\n\n'+L2.join('\n')+'\n\n'+L3.join('\n')+'\n\n'+L4.join('\n'),
+     'text/csv;charset=utf-8');
+  toast('✓ Exported CSV');
+}
+function importData(e){
+  const f=e.target.files[0]; if(!f) return;
+  const rd=new FileReader();
+  rd.onload=()=>{
+    try{
+      const p=JSON.parse(rd.result);
+      if(!p||typeof p!=='object'||(!p.f1&&!p.f2&&!p.wi)) { toast('✕ 格式不对，资料未变动'); return; }
+      let nw=0,up=0,un=0;
+      const scan=(src,dst)=>Object.keys(src||{}).forEach(k=>{
+        if(!dst[k]) nw++; else if(JSON.stringify(dst[k])!==JSON.stringify(src[k])) up++; else un++; });
+      scan(p.f1,S.f1); scan(p.f2,S.f2); scan(p.wi,S.wi); scan(p.es,S.es);
+      if(!confirm(`汇入预览（永远是合并，不会整份取代）：\n新增 ${nw} 笔 · 更新 ${up} 笔 · 不变 ${un} 笔\n\n继续？`)) { toast('✕ 已取消'); return; }
+      exportData();  /* 汇入前自动备份 */
+      const backup=JSON.parse(JSON.stringify(S));
+      try{
+        Object.keys(p.f1||{}).forEach(k=>{ if(!S.f1[k]||!S.f1[k].synced) S.f1[k]=p.f1[k]; });
+        Object.keys(p.f2||{}).forEach(k=>{ if(!S.f2[k]||!S.f2[k].synced) S.f2[k]=p.f2[k]; });
+        Object.keys(p.wi||{}).forEach(k=>{ if(!S.wi[k]||!S.wi[k].synced) S.wi[k]=p.wi[k]; });
+        Object.keys(p.es||{}).forEach(k=>{ if(!S.es[k]||!S.es[k].synced) S.es[k]=p.es[k]; });
+        if(saveThen('✓ Imported')){ refreshAll(); renderManage(); }
+      }catch(err){ S=backup; saveData(true); toast('✕ 汇入失败，已回滚'); }
+    }catch(err){ toast('✕ 无法解析，资料未变动'); }
+  };
+  rd.readAsText(f); e.target.value='';
+}
+
+/* ══ CLOUD ══ */
+function cloudLibReady(){ return typeof window.supabase!=='undefined' && !!window.supabase.createClient; }
+async function cloudInit(silent){
+  CLOUD.err=''; CLOUD.checked=false;
+  if(!cloudLibReady()){ CLOUD.err='连不到 Supabase 程式库（可能没网路）'; paintCloud(); return false; }
+  try{
+    if(!_sb) _sb=window.supabase.createClient(SB_URL,SB_KEY);
+    const {data:{session},error}=await _sb.auth.getSession();
+    if(error) throw error;
+    CLOUD.session=session||null;
+    if(!session){ CLOUD.err='还没登入'; paintCloud(); return false; }
+    const pr=await _sb.rpc('can_access',{p_system:SYS_CODE});
+    if(pr.error) throw pr.error;
+    const row=Array.isArray(pr.data)?pr.data[0]:pr.data;
+    CLOUD.perm=row||null;
+    if(!CLOUD.perm||CLOUD.perm.can_see!==true){ CLOUD.err='这个帐号没有 EvalGo_ATC 权限（权限码 RPT-EvalGo-ATC）——请找院长开通'; paintCloud(); return false; }
+    const ex=await _sb.from('evalgo_exam').select('*').eq('department','ATC').eq('is_active',true)
+                      .order('report_due',{ascending:true}).limit(1);
+    if(ex.error) throw ex.error;
+    if(!ex.data||!ex.data.length){ CLOUD.err='资料库没有进行中的考试'; paintCloud(); return false; }
+    CLOUD.exam=ex.data[0];
+    const prevEx=S.examCode;
+    S.examCode=CLOUD.exam.code; S.examLabel=CLOUD.exam.label;
+    /* 上下半年由 evalgo_exam.term 决定（MID / FINAL），**不是**从月份猜。
+       考试那一列是权威；只有当它没填时，才退而用输入开始的月份推断。 */
+    S.examTerm = CLOUD.exam.term || termFromMonth(CLOUD.exam.input_opens);
+    /* 老师可能离线先填过（前缀 NOEXAM），或还是 v7 的无前缀旧资料 —— 搬进本轮考试 */
+    const mig=migrateExamKeys(S.examCode);
+    if(mig.moved) toast(`已把 ${mig.moved} 笔离线资料归入「${S.examLabel}」`,5000);
+    if(mig.unresolved) console.warn('UNRESOLVED（无法证明属於哪一轮考试，未迁移）:',mig.unresolved);
+    if(prevEx && prevEx!==S.examCode)
+      console.warn('exam changed', prevEx, '→', S.examCode);
+    const th=await _sb.from('teachers').select('id,name').eq('status','active').order('id');
+    if(!th.error&&th.data) CLOUD.teachers=th.data;
+    /* 能力探测 —— 前端对 delta 版本向前相容：
+       delta v3 未跑 → 逐题资料留本机；delta v4 未跑 → TP / 家长配合留本机。
+       两者都不会让上传整批失败。 */
+    CLOUD.hasWI = !(await _sb.from('evalgo_wrong_item').select('id').limit(1)).error;
+    CLOUD.hasPS = !(await _sb.from('evalgo_paper_section').select('id').limit(1)).error;
+    CLOUD.hasV4 = !(await _sb.from('evalgo_paper_analysis').select('tp').limit(1)).error;
+    CLOUD.hasV5 = !(await _sb.from('evalgo_paper_analysis').select('paper_checked').limit(1)).error;
+    CLOUD.hasES = !(await _sb.from('evalgo_essay_result').select('id').limit(1)).error;
+    CLOUD.hasTA = !(await _sb.from('evalgo_teacher_assign').select('id').limit(1)).error;
+    CLOUD.hasV8 = !(await _sb.from('evalgo_paper_analysis').select('assess_status').limit(1)).error;
+    CLOUD.hasV9 = !(await _sb.from('evalgo_paper_analysis').select('weak_manual').limit(1)).error;
+    /* v9 上线后，把当初因为没栏位而扣住的老师手填弱项重新排队送出 */
+    if(CLOUD.hasV9){ let n=0;
+      Object.keys(S.f2).forEach(k=>{ const r=S.f2[k];
+        if(r&&r.needV9){ r.needV9=false; r.synced=false; n++; } });
+      if(n){ saveData(true); console.info('v9 上线，重送 '+n+' 笔老师手填弱项'); }
+    }
+    await resolveTeacher();
+    await pullAssign();               /* 谁负责哪一格 —— 首页要显示 */
+    const nPS=await pullSections();   /* 换装置 / 别的老师已登记过 → 直接带出来 */
+    await cloudRoster(true);          /* 名单自动载入，不用老师按 */
+    await cloudPull(true);            /* 已经填过的自动带回来 */
+    paintNav();
+    paintCloud(); if(!silent) toast('✓ 已连上');
+    refreshAll();
+    if(needTeacherBind()) askTeacher();
+    return true;
+  }catch(e){ CLOUD.err=(e&&e.message)?e.message:String(e); paintCloud(); return false; }
+}
+/* 老师身份 —— 平台已经认得她是谁
+   internal.users_meta.display_name === public.teachers.id（17/17 实测全中）
+   public.users_meta 是 security_invoker view，policy users_read_own_meta
+   允许每位登入者读自己那一笔 → 前端一句 select 就解析完毕，不必问老师。 */
+function authUid(){ return (CLOUD.session&&CLOUD.session.user)?CLOUD.session.user.id:''; }
+async function resolveTeacher(){
+  const u=authUid(); if(!u) return;
+  try{
+    const r=await _sb.from('users_meta')
+      .select('user_id,display_name,role,is_active').eq('user_id',u).maybeSingle();
+    if(r.error) throw r.error;
+    const code=r.data && r.data.display_name ? String(r.data.display_name).trim().toUpperCase() : '';
+    CLOUD.role = r.data ? (r.data.role||'') : '';
+    if(code){
+      const hit=(CLOUD.teachers||[]).find(t=>String(t.id).trim().toUpperCase()===code);
+      if(hit){ S.me=hit.id; S.meName=hit.name; CLOUD.idFrom='users_meta'; saveData(true); return; }
+      CLOUD.idErr='帐号代号「'+code+'」在 teachers 表找不到对应';
+    }else{
+      CLOUD.idErr='users_meta 读不到 display_name';
+    }
+  }catch(e){ CLOUD.idErr=(e&&e.message)?e.message:String(e); }
+  if(S.teacherByUid && S.teacherByUid[u]) S.me=S.teacherByUid[u];   // 旧资料相容
+}
+function needTeacherBind(){ return !!authUid() && !S.me; }
+function bindTeacher(id){
+  if(!id) return;
+  S.me=id; const u=authUid(); if(u) S.teacherByUid[u]=id;
+  const h=(CLOUD.teachers||[]).find(t=>t.id===id); S.meName=h?h.name:'';
+  if(!saveThen('✓ 已记住')) return;
+  closeModal(); refreshAll(); renderManage();
+}
+function askTeacher(){
+  const opts=CLOUD.teachers.length
+    ? `<select id="tSel" style="width:100%">
+         <option value="">— 请选 —</option>
+         ${CLOUD.teachers.map(t=>`<option value="${esc(t.id)}"${t.id===S.me?' selected':''}>${esc(t.id)} · ${esc(t.name)}</option>`).join('')}
+       </select>`
+    : `<input type="text" id="tSel" style="width:100%" value="${esc(S.me)}" placeholder="例：MT">`;
+  openModal('认不出你的身份',
+    `<div class="alert alert-warn"><div><b>这不该发生。</b>系统本来会自动从平台帐号认出你。
+       原因：${esc(CLOUD.idErr||'未知')}<br>请先选一次，并把这个讯息回报给管理层。</div></div>
+     <div class="form-row"><label class="form-label">老师</label>${opts}</div>`,
+    `<button class="btn btn-pri" onclick="bindTeacher(document.getElementById('tSel').value.trim())">暂时用这个</button>`);
+}
+
+/* 把云端的考卷结构合并进本机。回传新带回的笔数。
+   规则：本机同 client_uid 且未上传 → 保留本机（老师正在改）；其余以云端为准。 */
+/* 拉回全部老师的任教登记 —— 首页要显示每一格该由谁负责 */
+async function pullAssign(){
+  if(!CLOUD.hasTA||!CLOUD.exam||!_sb) return 0;
+  try{
+    const r=await _sb.from('evalgo_teacher_assign').select('*').eq('exam_id',CLOUD.exam.id);
+    if(r.error) throw r.error;
+    let n=0;
+    (r.data||[]).forEach(x=>{
+      const k=asgKey(x.teacher_id,x.class_name,x.subject);
+      if(S.assign[k]&&!S.assign[k].synced) return;
+      const t=(CLOUD.teachers||[]).find(y=>y.id===x.teacher_id);
+      S.assign[k]={client_uid:x.client_uid||uid(),exam:CLOUD.exam.code,teacher_id:x.teacher_id,
+        teacher_name:t?t.name:'',cls:x.class_name,subject:x.subject,
+        savedAt:'(云端)',synced:true,cloud_id:x.id}; n++; });
+    if(n) saveData(true);
+    return n;
+  }catch(e){ console.warn('pullAssign:',e.message||e); return 0; }
+}
+async function pullSections(){
+  if(!CLOUD.hasPS||!CLOUD.exam||!_sb) return 0;
+  try{
+    const r=await _sb.from('evalgo_paper_section').select('*')
+      .eq('exam_id',CLOUD.exam.id).order('sort_order');
+    if(r.error) throw r.error;
+    let n=0;
+    (r.data||[]).forEach(x=>{
+      const k=bpKeyOf(x.subject,x.year_level);
+      const arr=S.sections[k]||(S.sections[k]=[]);
+      const mine=arr.find(a=>(a.client_uid&&a.client_uid===x.client_uid)
+                          || a.cloud_id===x.id
+                          || (a.code===x.code));
+      if(mine&&mine.synced===false) return;          /* 本机有未上传的修改，不覆盖 */
+      const row={id:(mine&&mine.id)||uid(), client_uid:x.client_uid||uid(),
+        code:x.code, topic:x.topic||'', fmt:x.answer_format||'',
+        type:x.section_type||'OBJ',
+        qf:x.q_from, qt:x.q_to, max:x.max_score,
+        sort:x.sort_order||0, by:x.created_by||'',
+        synced:true, cloud_id:x.id};
+      if(mine) Object.assign(mine,row); else { arr.push(row); n++; }
+    });
+    if(r.data&&r.data.length) saveData(true);
+    return n;
+  }catch(e){ console.warn('pullSections:',e.message||e); return 0; }
+}
+/* ══ 登入闸门 ══
+   v14 的「去平台登入」按钮只长在【管理】页 —— 而管理页对老师是隐藏的。
+   结果：没登入的老师看不到任何登入入口，只会看到角落一行小字「未连线」，
+   然后对着 5 个示范学生填一整天，资料永远上不了云。
+   这是本系统最严重的一个洞，v15 把它挡在最前面。 */
+function authGate(){
+  const el=document.getElementById('authgate'); if(!el) return;
+  const T=document.getElementById('ag-title'), M=document.getElementById('ag-msg'),
+        B=document.getElementById('ag-btn'), I=document.getElementById('ag-icon');
+  if(!CLOUD.checked){ el.style.display='none'; return; }
+  let show=true;
+  if(!cloudLibReady()){
+    I.textContent='📡'; T.textContent='连不到学校系统';
+    M.textContent='可能是网路问题。连上网路后按下面重试。';
+    B.textContent='重新连线'; B.onclick=()=>{ CLOUD.checked=false; authGate(); cloudInit(false).then(authGate); };
+  }else if(!CLOUD.session){
+    I.textContent='🔒'; T.textContent='请先登入平台';
+    M.textContent='EvalGo_ATC 不另外设帐号，用你平常登入学校平台的那一个。按下面会跳去登入，登好会自动回来。';
+    B.textContent='去平台登入'; B.onclick=cloudLogin;
+  }else if(!CLOUD.perm||CLOUD.perm.can_see!==true){
+    I.textContent='🚫'; T.textContent='这个帐号还没有开通';
+    M.textContent='你已经登入了，但这个帐号还没有 EvalGo_ATC 的权限（权限码 RPT-EvalGo-ATC）。请找院长开通 —— 不是你的问题。';
+    B.textContent='重新检查'; B.onclick=()=>{ cloudInit(false).then(authGate); };
+  }else if(!CLOUD.exam){
+    I.textContent='📅'; T.textContent='目前没有进行中的考试';
+    M.textContent='资料库里没有开放中的 ATC 考试。请找院长确认。';
+    B.textContent='重新检查'; B.onclick=()=>{ cloudInit(false).then(authGate); };
+  }else show=false;
+  el.style.display = show?'flex':'none';
+}
+/* ══ 学期 ══
+   ⚠️ DSKP **本身没有上下半年之分** —— KPM 出的是一整年一份，
+   把学习标准切到週次／月份的是 RPT（Rancangan Pengajaran Tahunan），
+   那是**校本文件**，本机与网路都没有（见 OPEN-3）。
+   所以这里只做两件诚实的事：把这一轮是年中还是年终**显示出来**，
+   以及在年中考时提醒老师自行避开还没教到的领域。**不自动过滤** ——
+   凭空切一半会造出没有依据的范围，那是假证据。 */
+function termFromMonth(d){
+  const m = d ? new Date(d).getMonth()+1 : new Date().getMonth()+1;
+  return m<=6 ? 'MID' : 'FINAL';
+}
+function termLabel(t){
+  return t==='MID' ? '年中考 · 涵盖上半年'
+       : t==='FINAL' ? '年终考 · 涵盖全年' : '';
+}
+function cloudLogin(){ location.href=PLATFORM+'?returnTo='+encodeURIComponent(location.href); }
+/* 名单不该由老师去按。连上就自动载入整个 ATC 名单（不分科目），
+   因为班级登记记录表要显示所有班所有科的进度。 */
+async function cloudRoster(silent){
+  if(!CLOUD.exam){ if(!silent) toast('✕ 还没连上'); return false; }
+  try{
+    const r=await _sb.from('v_evalgo_coverage')
+      .select('student_id,student_name_en,student_name_cn,class_id,class_name,year_level')
+      .eq('exam_id',CLOUD.exam.id)
+      .order('class_name').order('student_name_en');
+    if(r.error) throw r.error;
+    if(!r.data||!r.data.length){ if(!silent) toast('✕ 云端没有名单'); return false; }
+    const seen={}, byCls={}, out=[];
+    r.data.forEach(x=>{ if(seen[x.student_id]) return; seen[x.student_id]=1;
+      byCls[x.class_name]=(byCls[x.class_name]||0)+1;
+      out.push({sid:x.student_id,cls:x.class_name,no:byCls[x.class_name],
+        en:x.student_name_en||'',cn:x.student_name_cn||'',class_id:x.class_id,year:x.year_level}); });
+    S.roster=out; S.rosterSource='cloud'; saveData(true);
+    if(!silent){ refreshAll(); renderManage(); toast('✓ 已载入 '+out.length+' 位学生'); }
+    return true;
+  }catch(e){ if(!silent) alert('载入名单失败：'+(e.message||e)); return false; }
+}
+function pendingCount(){
+  return Object.values(S.f1).filter(r=>r.savedAt&&!r.synced).length
+       + Object.values(S.f2).filter(r=>r.savedAt&&!r.synced).length
+       + Object.values(S.wi).filter(w=>w.savedAt&&!w.synced).length
+       + Object.values(S.es).filter(e=>e.savedAt&&!e.synced).length
+       + Object.values(S.assign||{}).filter(a=>a.savedAt&&!a.synced).length
+       + pendingSections().length;
+}
+/* payload 专用：不依赖当前选到的科目（上传时可能已切走） */
+/* 🔴 v10 BUG：少了 exam 筛选，9 月的错题会被算进 10 月那一轮。
+   这正是加 exam scoping 要解决的问题，却漏在这一行。 */
+function wiForRec(r){
+  return Object.values(S.wi).filter(w=>w.sid===r.sid&&w.subject===r.subject&&w.exam===r.exam);
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   考卷结构的云端层（v7 新增）
+   ⚠️ 为何非有不可 —— v6 把 blueprint 只存在 localStorage，导致三件事都不成立：
+     ① 「同年级同科的科任共用，只需登记一次」→ 实际上每台装置都要重登记
+     ② 换装置 / 清浏览器资料 → FORM 02 直接打不开（说「还没登记考卷结构」）
+     ③ v_evalgo_topic_diag 的 q_total 读的是 evalgo_paper_section ——
+        云端那张表永远是空的，伺服器端汇总全部回 NULL
+   ══════════════════════════════════════════════════════════════════ */
+function bpKeyOf(subject,year){ return EXK()+'|'+subject+'|'+year; }
+function allSections(){
+  const out=[];
+  Object.keys(S.sections||{}).forEach(k=>{
+    const parts=k.split('|');
+    if(parts.length<3) return;                     /* v7 旧格式，由 migrateExamKeys 处理 */
+    const [ex,subject,yr]=parts;
+    if(ex!==EXK()) return;                          /* 别轮考试的结构不参与本轮 */
+    (S.sections[k]||[]).forEach(x=>out.push(Object.assign({_subject:subject,_year:+yr},x)));
+  });
+  return out;
+}
+function psType(t){
+  /* v6 未跑 → 资料库只认 OBJ/SUBJ/ESSAY。MCQ/FILL 先退回 OBJ 上传，
+     本机仍保留四型；v6 跑完之后重新上传就会写入正确值。 */
+  const v=t||'MCQ';
+  if(CLOUD.hasV6===false && (v==='MCQ'||v==='FILL')) return 'OBJ';
+  return v;
+}
+function psPayload(sec){
+  const isEssay=sec.type==='ESSAY';
+  return {exam_id:CLOUD.exam.id, subject:sec._subject, year_level:sec._year,
+    code:sec.code, topic:sec.topic||null, answer_format:sec.fmt||null,
+    section_type:psType(sec.type),
+    q_from:isEssay?null:(+sec.qf||null), q_to:isEssay?null:(+sec.qt||null),
+    max_score:isEssay?(+sec.max||null):null,
+    sort_order:+sec.sort||0, created_by:sec.by||S.me||null, client_uid:sec.client_uid};
+}
+/* 逐题纪录挂回它所属的 section（需要 section 先上云拿到 id） */
+function secCloudIdFor(w){
+  const arr=S.sections[bpKeyOf(w.subject,w.year)]||[];
+  const hit=arr.find(x=>QTYPES.indexOf(x.type||'MCQ')>=0 && +w.q>=+x.qf && +w.q<=+x.qt);
+  return hit&&hit.cloud_id?hit.cloud_id:null;
+}
+function markSecDirty(sec){ sec.synced=false; if(!sec.client_uid) sec.client_uid=uid(); }
+function secComplete(x){
+  return x.type==='ESSAY' ? +x.max>0
+       : (+x.qf>=1 && +x.qt>=+x.qf);
+}
+/* ⚠️ 只上传结构完整的。缺题号的项目会撞 evalgo_paper_section_range_ck，
+   一笔失败不该拖垮整批 —— 在前端就先挡掉，并在 UI 明说。 */
+function pendingSections(){ return allSections().filter(x=>!x.synced && secComplete(x)); }
+function incompleteSections(){ return allSections().filter(x=>!secComplete(x)); }
+function totalQFor(subject,year){
+  /* 🔴 v10 BUG：bpKey 已经是 exam|subject|year，这里还在拼 subject|year
+     → 永远取不到，totalQ=0 → 答对率、total_q、报告分母全错。
+     统一走 bpKeyOf()，不再手拼。 */
+  const arr=S.sections[bpKeyOf(subject,year)]||[];
+  return arr.filter(x=>QTYPES.indexOf(x.type||'MCQ')>=0 && +x.qf>=1 && +x.qt>=+x.qf)
+            .reduce((a,x)=>a+((+x.qt||0)-(+x.qf||0)+1),0);
+}
+/* 任一 FORM 02 纪录的派生统计 —— 不依赖当前选到的科目 */
+function recStats(p){
+  const c={star:0,dk:0,cl:0,nr:0,sos:0,blank:0};
+  if(p&&p.sid) Object.keys(S.wi).forEach(k=>{const w=S.wi[k];
+    if(w.sid===p.sid&&w.subject===p.subject&&w.exam===p.exam&&c[w.code]!=null) c[w.code]++; });
+  const wrong=c.dk+c.cl+c.nr+c.sos+c.blank;
+  const total=(p?totalQFor(p.subject,p.year):0)||0;
+  const checked=!!(p&&p.paper_checked);
+  /* ⚠️ 未核对整份 → 没点的题是 UNKNOWN，答对数与答对率不存在 */
+  const right=checked?Math.max(0,total-wrong):null;
+  return Object.assign(c,{wrong,total,right,checked,marked:wrong+c.star,
+    rate:(checked&&total)?Math.round(right/total*100):null});
+}
+/* ⚠️ 全对的学生老师一题都不用点 —— 只按「已核对整份」。
+   所以 paper_checked 本身就是「开始了而且做完了」的证据。 */
+function f2Started(p){
+  if(!p) return false;
+  if(p.paper_checked) return true;
+  if(recStats(p).marked>0) return true;
+  return !!(p.fix_outcome||p.tp||p.fix_target||p.parent_support
+         ||p.reflect_was_wrong||p.reflect_now_know
+         ||(p.next_options||[]).length||(p.done_options||[]).length);
+}
+function esForRec(p){
+  return Object.keys(S.es).map(k=>S.es[k])
+    .filter(e=>e.sid===p.sid&&e.subject===p.subject&&e.exam===p.exam);
+}
+function wiPayload(w){ const st=stuOf(w.sid)||{};
+  return {exam_id:CLOUD.exam.id,student_id:w.sid,class_id:st.class_id||w.class_id,
+    subject:w.subject,year_level:st.year||w.year,q_no:w.q,
+    section_id:secCloudIdFor(w),
+    mark_code:String(w.code||'').toUpperCase(),
+    cl_subtype:(w.code==='cl'?(w.cl_subtype||null):null),
+    diagnosis:w.diag||null,topic:w.topic||null,answer_format:w.fmt||null,
+    entered_by:w.by||S.me,client_uid:w.client_uid}; }
+function asgPayload(a){
+  return {exam_id:CLOUD.exam.id, teacher_id:a.teacher_id, class_name:a.cls,
+    subject:a.subject, created_by:S.me||a.teacher_id, client_uid:a.client_uid}; }
+function esPayload(e){ const st=stuOf(e.sid)||{};
+  return {exam_id:CLOUD.exam.id,student_id:e.sid,class_id:st.class_id||e.class_id,
+    subject:e.subject,year_level:st.year||e.year,
+    section_id:e.sec_cloud_id||null,section_code:e.sec_code,
+    score:(e.score!=null?e.score:null),max_score:(e.max!=null?e.max:null),
+    weak:e.weak||[],is_star:!!e.star,
+    entered_by:e.by||S.me,client_uid:e.client_uid}; }
+function f1Payload(r){ const st=stuOf(r.sid)||{};
+  const p={exam_id:CLOUD.exam.id,student_id:r.sid,class_id:st.class_id||r.class_id,
+    subject:r.subject,year_level:st.year||r.year,bahagian:r.bahagian,obs_date:r.obs_date||today(),
+    read_v:r.read||null,think_v:r.think||null,answer_v:r.answer||null,check_v:r.check||null,
+    ind_v:r.ind||null,speed_v:r.speed||null,handwriting_v:r.handwriting||null,
+    issue:r.issue||null,entered_by:r.by||S.me,client_uid:r.client_uid};
+  /* focus_dim：Owner 於 2026-09-06 决定移除「今天重点必填」，
+     理由是会逼老师填她没观察到的维度 = 制造假证据。
+     DB 栏位保留（v5 已建），前端不再产生值，故不送。 */
+  return p; }
+function f2Payload(r){ const st=stuOf(r.sid)||{};
+  /* 评量状态一起上云 —— 没有它，DB 端就分不出「老师没做」与「学生缺席」 */
+  /* ⚠️ n_star … n_sos 与 total_q 由系统自逐题资料算出，老师不再手填。 */
+  const c={star:0,dk:0,cl:0,nr:0,sos:0,blank:0};
+  wiForRec(r).forEach(w=>{ if(c[w.code]!=null) c[w.code]++; });
+  const yr=st.year||r.year;
+  const p={exam_id:CLOUD.exam.id,student_id:r.sid,class_id:st.class_id||r.class_id,
+    subject:r.subject,year_level:yr,paper_date:r.paper_date||today(),
+    total_q:totalQFor(r.subject,yr)||null,
+    /* ⚠️ paper_analysis.n_* 没有 BLANK 栏（v5 起 BLANK 只存在 wrong_item）。
+       所以这几个数字【不是权威来源】—— 权威是 evalgo_wrong_item 与
+       v_evalgo_mark_summary（那里有 n_blank）。此处仅为相容保留。
+       为了不让总数对不上，把 BLANK 併入 n_nr 以外的任何一栏都会说谎，
+       因此维持原样并在栏位注解标明非权威。 */
+    n_star:c.star,n_dk:c.dk,n_cl:c.cl,n_nr:c.nr,n_sos:c.sos,
+    /* 🔴 P0-4 Evidence Provenance：v19 以前这里把老师手填的弱项 concat 进
+       weak_options，云端从此分不出「系统从错题推导的」与「老师自己加的」。
+       那是在 authoritative layer 抹掉来源。已拆开。
+       weak_options = AUTO / DERIVED（系统从逐题记码推导）
+       weak_manual  = MANUAL / TEACHER（老师亲手勾的）—— 需要 delta v9 的栏位
+       ⚠️ weak_manual 的【词汇】不是固定的：v16–v19.0 是 DSKP 学习领域 id，
+          v19.1 起是这份考卷的考点原文。由 weakVocabOf() 逐值判定后随 payload 送出，
+          云端不准自己推断。 */
+    weak_options:(r.weak_options||[]),
+    weak_note:r.weak_note||null,
+    next_options:r.next_options||[],next_note:r.next_note||null,
+    fix_outcome:r.fix_outcome||null,reflect_was_wrong:r.reflect_was_wrong||null,
+    reflect_now_know:r.reflect_now_know||null,
+    entered_by:r.by||S.me,client_uid:r.client_uid};
+  if(CLOUD.hasV8) p.assess_status = aStat(r);
+  if(CLOUD.hasV9){
+    p.weak_manual            = (r.weak_manual||[]).map(optText).filter(Boolean);
+    p.weak_manual_vocab      = weakVocabOf(r);   /* 这些值是哪一套词汇 */
+    p.weak_provenance_state  = 'SPLIT';          /* 本客户端保证 auto / manual 已分开 */
+    /* 每次写入都换一颗 nonce —— 这才是「我这次有重新声明契约」的凭证。
+       只比对 state / vocab 是不够的：同一位学生第二次修改，分类很可能还是
+       SPLIT + DSKP_DOMAIN，两栏一模一样，DB 会误以为没人声明而降级。 */
+    p.weak_provenance_nonce  = uuid4();
+    /* 交叉一致性：DB 端有 CHECK 把关，前端先自我修正，不把矛盾资料送出去 */
+    if(!p.weak_manual.length) p.weak_manual_vocab='NONE';
+    else if(p.weak_manual_vocab==='NONE') p.weak_manual_vocab='MIXED';
+  }
+  /* ⚠️ essay_* 四栏 v5 起 DEPRECATED（只能存一篇）。改写 evalgo_essay_result，此处不再写入。 */
+  if(CLOUD.hasV4){ p.tp=r.tp||null; p.parent_support=r.parent_support||null; }
+  if(aStat(r)!=='ASSESSED'){
+    /* 缺席 / 本轮未评：不能同时又说「已核对整份卷」「掌握程度 TP」。
+       没有证据就是没有证据，送 0 与 null，不送假的完成讯号。 */
+    p.total_q=null; p.n_star=0; p.n_dk=0; p.n_cl=0; p.n_nr=0; p.n_sos=0;
+    p.weak_options=[]; p.next_options=[]; p.weak_note=null; p.next_note=null;
+    if(CLOUD.hasV9){ p.weak_manual=[]; p.weak_manual_vocab='NONE';
+                     p.weak_provenance_state='SPLIT';
+                     p.weak_provenance_nonce=uuid4(); }
+    p.fix_outcome=null; p.reflect_was_wrong=null; p.reflect_now_know=null;
+    if(CLOUD.hasV4){ p.tp=null; p.parent_support=null; }
+    if(CLOUD.hasV5){ p.paper_checked=false; p.paper_checked_at=null;
+                     p.done_options=[]; p.done_note=null; p.fix_target=null; }
+    return p;
+  }
+  if(CLOUD.hasV5){
+    p.paper_checked    = !!r.paper_checked;
+    p.paper_checked_at = r.paper_checked_at||null;
+    p.done_options     = r.done_options||[];
+    p.done_note        = r.done_note||null;
+    p.fix_target       = r.fix_target||null;
+  }
+  return p; }
+/* 老师完成一个学生就自动上传。
+   v9 要老师自己记得去 Manage 按「上传 N 笔」，还在首页红字提醒 ——
+   那是把我的工程问题变成她的日常负担。同步是系统的事。 */
+let _autoT=null;
+function autoPush(){
+  if(!_sb||!CLOUD.exam||!CLOUD.session) return;
+  if(!CLOUD.perm||CLOUD.perm.can_edit!==true) return;
+  if(S.rosterSource!=='cloud') return;     /* 示范名单绝不上传 */
+  clearTimeout(_autoT);
+  _autoT=setTimeout(()=>{ if(!CLOUD.busy && pendingCount()) cloudPush(true); }, 1500);
+}
+async function cloudPush(silent){
+  if(CLOUD.busy){ if(!silent) toast('上传进行中'); return; }
+  if(!CLOUD.exam){ if(!silent) toast('✕ 还没连上'); return; }
+  if(S.rosterSource!=='cloud'){ if(!silent) alert('还在用示范名单，不会上传。'); return; }
+  if(!CLOUD.perm||CLOUD.perm.can_edit!==true){ if(!silent) alert('这个帐号没有填写权限。'); return; }
+  CLOUD.busy=true; paintCloud();
+  let ok=0,fail=0; const errs=[];
+  const held=[];
+  /* ① 考卷结构先上 —— 逐题纪录要靠它拿 section_id，顺序不可颠倒 */
+  let secOk=0, secFail=0;
+  if(CLOUD.hasPS){
+    for(const sec of pendingSections()){
+      try{
+        if(!sec.client_uid) sec.client_uid=uid();
+        let res=await _sb.from('evalgo_paper_section')
+          .upsert(psPayload(sec),{onConflict:'client_uid'}).select('id').single();
+        if(res.error && /section_type|check constraint/i.test(res.error.message||'')){
+          /* delta v6 还没跑 —— 降级重试一次，并记住，不要每一列都撞一次 */
+          CLOUD.hasV6=false;
+          held.push('题型「选择题 / 填写题」暂时以旧的「客观题」上传 —— delta v6 未跑。跑完再上传一次即可写入正确题型。');
+          res=await _sb.from('evalgo_paper_section')
+            .upsert(psPayload(sec),{onConflict:'client_uid'}).select('id').single();
+        }
+        if(res.error) throw res.error;
+        const live=(S.sections[bpKeyOf(sec._subject,sec._year)]||[]).find(x=>x.id===sec.id);
+        if(live){ live.cloud_id=res.data.id; live.synced=true; }
+        secOk++;
+      }catch(e){ secFail++; }
+    }
+    if(secOk) saveData(true);
+  }else if(pendingSections().length){
+    held.push(`考卷结构 ${pendingSections().length} 笔 —— 资料库还没有 evalgo_paper_section。`);
+  }
+  const inc=incompleteSections();
+  if(inc.length) held.push(`考卷结构 ${inc.length} 个项目缺题号 / 满分，没有上传：`
+    +inc.map(x=>x.code).join('、')+'。补齐后会自动一起上传。');
+
+  const jobs=[]
+    .concat(Object.entries(S.f1).filter(([k,r])=>r.savedAt&&!r.synced).map(([k,r])=>({t:'evalgo_live_obs',k,r,p:()=>f1Payload(r)})))
+    .concat(Object.entries(S.f2).filter(([k,r])=>r.savedAt&&!r.synced).map(([k,r])=>({t:'evalgo_paper_analysis',k,r,p:()=>f2Payload(r)})));
+  const wiJobs=Object.entries(S.wi).filter(([k,w])=>w.savedAt&&!w.synced);
+  if(CLOUD.hasWI) wiJobs.forEach(([k,w])=>jobs.push({t:'evalgo_wrong_item',k,r:w,p:()=>wiPayload(w)}));
+  const taJobs=Object.entries(S.assign||{}).filter(([k,a])=>a.savedAt&&!a.synced);
+  if(CLOUD.hasTA) taJobs.forEach(([k,a])=>jobs.push({t:'evalgo_teacher_assign',k,r:a,p:()=>asgPayload(a)}));
+  else if(taJobs.length) held.push(`任教登记 ${taJobs.length} 笔暂留本机 —— 资料库还没有 evalgo_teacher_assign（delta v7 未跑）。`);
+  const esJobs=Object.entries(S.es).filter(([k,e])=>e.savedAt&&!e.synced);
+  if(CLOUD.hasES) esJobs.forEach(([k,e])=>jobs.push({t:'evalgo_essay_result',k,r:e,p:()=>esPayload(e)}));
+  else if(esJobs.length) held.push(`写作结果 ${esJobs.length} 笔 —— 资料库还没有 evalgo_essay_result（delta v5 未跑）。`);
+  /* 🔴 v10 BUG：把「v5 有没有跑」和「wrong_item 在不在」串成 if/else，
+     结果 hasV5=true 且有逐题资料时，会谎报「资料库还没有 evalgo_wrong_item」。
+     两件事互不相干，必须各判各的。 */
+  if(!CLOUD.hasV5) held.push('「已核对整份 / 已做 / FIX 针对」暂留本机 —— delta v5 未跑。');
+  if(!CLOUD.hasV8) held.push('「缺席 / 本轮未评」只留在本机 —— 资料库还没有 assess_status（delta v8 未跑）。');
+  if(!CLOUD.hasV9){
+    const nWM=Object.keys(S.f2).filter(k=>((S.f2[k]||{}).weak_manual||[]).length).length;
+    if(nWM) held.push(`老师手填的弱项 ${nWM} 笔暂留本机 —— 资料库还没有 weak_manual 栏（delta v9 未跑）。`
+      +'绝不会併进 weak_options 冒充系统推导；v9 一上线会自动重送。');
+  }
+  if(!CLOUD.hasWI && wiJobs.length) held.push(`逐题资料 ${wiJobs.length} 笔暂留本机 —— 资料库还没有 evalgo_wrong_item。`);
+  if(!CLOUD.hasV4) held.push('TP 与「家长配合」暂留本机 —— 资料库还没有这两栏（delta v4 未跑）。');
+  for(const j of jobs){
+    try{
+      const pl=j.p();
+      if(!pl.class_id){ fail++; errs.push('缺 class_id（请重新载入名单）：'+j.k); continue; }
+      const res=await _sb.from(j.t).upsert(pl,{onConflict:'client_uid'}).select('id').single();
+      if(res.error) throw res.error;
+      j.r.synced=true; j.r.cloud_id=res.data.id; ok++;
+      /* v9 未跑 → 老师手填的弱项这次没有栏位可放。不冒充系统推导，也不丢：
+         标记起来，v9 一上线就自动重送（见 cloudConnect）。 */
+      if(j.t==='evalgo_paper_analysis' && !CLOUD.hasV9 && (j.r.weak_manual||[]).length)
+        j.r.needV9=true;
+    }catch(e){ fail++; errs.push(e.message||String(e)); }
+  }
+  CLOUD.busy=false; CLOUD.lastSync=new Date().toLocaleString('en-GB');
+  saveData(true); paintCloud();
+  /* 自动上传失败不能静静吞掉 —— 老师会以为「✓ 已储存」代表送上去了。 */
+  CLOUD.pushErr = fail ? (errs[0]||'上传失败') : '';
+  if(silent){ if(fail){ console.warn('autoPush 失败',errs[0]); paintCloud(); } return; }
+  refreshAll(); renderManage();
+  const held2=held.filter((x,i)=>held.indexOf(x)===i);
+  held.length=0; held2.forEach(x=>held.push(x));
+  if(errs.length) console.warn('push errors:',errs);
+  alert(`上传完成\n考卷结构 ${secOk} 笔`+(secFail?`（失败 ${secFail}）`:'')+`\n资料 ${ok} 笔`
+    +(fail?`\n失败 ${fail} 笔（资料仍留在本机，可再试）\n\n第一个错误：${errs[0]}`:'')
+    +(held.length?`\n\n⏸ 暂缓：\n· ${held.join('\n· ')}`:''));
+}
+async function cloudPull(silent){
+  if(!CLOUD.exam){ if(!silent) toast('✕ 还没连上'); return; }
+  try{
+    const a=await _sb.from('evalgo_live_obs').select('*').eq('exam_id',CLOUD.exam.id);
+    if(a.error) throw a.error;
+    const b=await _sb.from('evalgo_paper_analysis').select('*').eq('exam_id',CLOUD.exam.id);
+    if(b.error) throw b.error;
+    const nPS=await pullSections();
+    let e2={data:[]};
+    if(CLOUD.hasES){
+      e2=await _sb.from('evalgo_essay_result').select('*').eq('exam_id',CLOUD.exam.id);
+      if(e2.error) throw e2.error;
+    }
+    let d={data:[]};
+    if(CLOUD.hasWI){
+      d=await _sb.from('evalgo_wrong_item').select('*').eq('exam_id',CLOUD.exam.id);
+      if(d.error) throw d.error;
+    }
+    let n1=0,n2=0,n3=0;
+    (a.data||[]).forEach(x=>{ const k=CLOUD.exam.code+'|'+x.student_id+'|'+x.subject+'|'+x.bahagian;
+      if(S.f1[k]&&!S.f1[k].synced) return;
+      S.f1[k]={client_uid:x.client_uid||uid(),sid:x.student_id,subject:x.subject,bahagian:x.bahagian,
+        focus_dim:x.focus_dim||null,
+        cls:'',class_id:x.class_id,year:x.year_level,obs_date:x.obs_date,by:x.entered_by,exam:CLOUD.exam.code,
+        read:x.read_v||'',think:x.think_v||'',answer:x.answer_v||'',check:x.check_v||'',
+        ind:x.ind_v||'',speed:x.speed_v||'',handwriting:x.handwriting_v||'',issue:x.issue||'',
+        savedAt:'(云端)',synced:true,cloud_id:x.id}; n1++; });
+    (b.data||[]).forEach(x=>{ const k=CLOUD.exam.code+'|'+x.student_id+'|'+x.subject;
+      if(S.f2[k]&&!S.f2[k].synced) return;
+      S.f2[k]={client_uid:x.client_uid||uid(),sid:x.student_id,subject:x.subject,class_id:x.class_id,
+        year:x.year_level,paper_date:x.paper_date,by:x.entered_by,exam:CLOUD.exam.code,
+        weak_options:x.weak_options||[],weak_note:x.weak_note||'',
+        next_options:x.next_options||[],next_note:x.next_note||'',fix_outcome:x.fix_outcome||null,
+        reflect_was_wrong:x.reflect_was_wrong||'',reflect_now_know:x.reflect_now_know||'',
+        essay_score:(x.essay_score!=null?x.essay_score:null),essay_max:(x.essay_max!=null?x.essay_max:null),
+        essay_weak:x.essay_weak||[],essay_star:!!x.essay_star,
+        tp:x.tp||null,parent_support:x.parent_support||'',
+        paper_checked:!!x.paper_checked,paper_checked_at:x.paper_checked_at||null,
+        done_options:x.done_options||[],done_note:x.done_note||'',fix_target:x.fix_target||'',
+        savedAt:'(云端)',synced:true,cloud_id:x.id}; n2++; });
+    (d.data||[]).forEach(x=>{ const k=CLOUD.exam.code+'|'+x.student_id+'|'+x.subject+'|'+x.q_no;
+      if(S.wi[k]&&!S.wi[k].synced) return;
+      S.wi[k]={client_uid:x.client_uid||uid(),sid:x.student_id,subject:x.subject,q:x.q_no,
+        code:String(x.mark_code||'').toLowerCase(),diag:x.diagnosis||'',
+        topic:x.topic||'',fmt:x.answer_format||'',sec_code:'',sec_type:x.diagnosis?'SUBJ':'OBJ',
+        cls:'',class_id:x.class_id,year:x.year_level,by:x.entered_by,exam:CLOUD.exam.code,
+        savedAt:'(云端)',synced:true,cloud_id:x.id}; n3++; });
+    let n4=0;
+    (e2.data||[]).forEach(x=>{ const k=CLOUD.exam.code+'|'+x.student_id+'|'+x.subject+'|'+x.section_code;
+      if(S.es[k]&&!S.es[k].synced) return;
+      S.es[k]={client_uid:x.client_uid||uid(),sid:x.student_id,subject:x.subject,
+        sec_code:x.section_code,sec_cloud_id:x.section_id,score:x.score,max:x.max_score,
+        weak:x.weak||[],star:!!x.is_star,cls:'',class_id:x.class_id,year:x.year_level,
+        by:x.entered_by,exam:CLOUD.exam.code,savedAt:'(云端)',synced:true,cloud_id:x.id}; n4++; });
+    saveData(true); refreshAll(); renderManage();
+    if(silent) return;
+    alert(`已拉回 考卷项目 ${nPS} 个 · FORM 01 ${n1} 笔 · FORM 02 ${n2} 笔 · 逐题 ${n3} 笔 · 写作 ${n4} 笔`
+      +(CLOUD.hasWI?'':'\n（逐题表尚未建立，跳过）')
+      +'\n（本机还没上传的资料不会被盖掉）');
+  }catch(e){ if(silent) console.warn('pull:',e.message||e); else alert('拉回失败：'+(e.message||e)); }
+}
+/* 失败讯息必须「老师做得到」。叫老师去按 Export 是假的出口 ——
+   那颗按钮在管理页，老师根本看不到。 */
+function saveFailMsg(){
+  return isAdmin()
+    ? '资料没有存进这台电脑（浏览器空间可能满了）。\n\n请先按 Manage → Export 备份，再重试。'
+    : '这一笔没有存进这台电脑（浏览器空间可能满了）。\n\n'
+    + '请先不要关掉这个页面，也不要重复输入。\n'
+    + '截图这个讯息，直接找管理层处理。';
+}
+function paintCloud(){
+  const el=document.getElementById('cloud-state'); if(!el) return;
+  const p=pendingCount();
+  if(CLOUD.busy)                       el.textContent='储存中…';
+  else if(CLOUD.exam&&CLOUD.session)   el.textContent = CLOUD.pushErr ? ('⚠ 有 '+p+' 笔还没送出')
+                                                     : (p?'储存中…':'✓ 已储存');
+  else                                 el.textContent='⚠ 未连线 · 资料只在这台电脑';
+  el.title = CLOUD.pushErr ? '资料还在这台电脑里，没有掉。请重新整理页面；还是这样就截图找管理层。'
+           : (CLOUD.err||(CLOUD.exam?('考试 '+CLOUD.exam.code):'尚未连线'));
+  el.style.color = (CLOUD.pushErr||!(CLOUD.exam&&CLOUD.session)) ? 'var(--warn)' : '';
+  const btn=document.getElementById('c-push');
+  if(btn) btn.textContent = p?('上传 '+p+' 笔'):'全部已上传';
+  authGate();
+}
+
+/* ══ BOOT ══ */
+loadData();
+renderHome();
+paintCloud();
+window.addEventListener('load',()=>{
+  cloudInit(true).then(()=>{ CLOUD.checked=true; authGate(); })
+                 .catch(()=>{ CLOUD.checked=true; authGate(); });
+});
+</script>
+</body>
+</html>
