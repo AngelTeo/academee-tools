@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>EvalGo_ATC — ATC 部 考况 v19.7</title>
+<title>EvalGo_ATC — ATC 部 考况 v19.9</title>
 <style>
 :root{
   /* ══ LAYER ══ RPT = 文档灰 */
@@ -269,7 +269,7 @@ button.chip.sel-w{background:var(--warn);color:#fff}
 
 <!-- ══════ NAV ══════ -->
 <div class="nav">
-  <div class="nav-logo">EvalGo_ATC <span style="font-weight:400;opacity:.75">· ATC 部 考况</span> <span class="ver">v19.7</span></div>
+  <div class="nav-logo">EvalGo_ATC <span style="font-weight:400;opacity:.75">· ATC 部 考况</span> <span class="ver">v19.9</span></div>
   <button class="ntab on" onclick="goPage('home')">工作台</button>
   <button class="ntab" onclick="goPage('f1')">考前观察</button>
   <button class="ntab" onclick="goPage('f2')">考卷分析</button>
@@ -563,7 +563,7 @@ const SEED = { me:'', subject:'', cls:'',
   f1:{}, f2:{}, ui:{extraOpen:false}, meta:{version:'v13'} };
 let S = JSON.parse(JSON.stringify(SEED));
 
-const CLOUD={ pushErr:'', checked:false, hasV8:false, hasV9:false, bpEvid:{}, idErr:'', idFrom:'', role:'', hasWI:false, hasV4:false, hasPS:false, hasV5:false, hasES:false, hasV6:null, hasTA:false,lib:false,session:null,perm:null,exam:null,teachers:[],err:'',busy:false,lastSync:''};
+const CLOUD={ pushErr:'', checked:false, hasV8:false, hasV9:false, hasV10:false, bpEvid:{}, idErr:'', idFrom:'', role:'', hasWI:false, hasV4:false, hasPS:false, hasV5:false, hasES:false, hasV6:null, hasTA:false,lib:false,session:null,perm:null,exam:null,teachers:[],err:'',busy:false,lastSync:''};
 let _sb=null;
 
 /* ══ 基礎 ══ */
@@ -737,6 +737,7 @@ function addSection(){
   const code=g('bpCode'), topic=g('bpTopic'), fmt=g('bpFmt');
   const type=g('bpType')||'MCQ';
   const qf=parseInt(g('bpQf'),10), qt=parseInt(g('bpQt'),10), mx=parseFloat(g('bpMax'));
+  const even=g('bpEven');
   if(!code){ toast('✕ 项目不能空'); return; }
   const arr=S.sections[bpKey()]||(S.sections[bpKey()]=[]);
   if(arr.some(x=>x.code===code)){ toast('✕ 这个项目已经有了'); return; }
@@ -750,10 +751,38 @@ function addSection(){
   arr.push({id:uid(),client_uid:uid(),ses:SESSION_ID,code,topic,fmt,type,
     qf:type==='ESSAY'?null:qf, qt:type==='ESSAY'?null:qt,
     max:mx,                       /* 每一种题型都存满分，不再只存写作文 */
+    even:(type==='ESSAY'?'':even), /* 每题同分？未声明就不算分（fail-closed）*/
     sort:arr.length, by:S.me, synced:false, cloud_id:null});
-  ['bpCode','bpTopic','bpFmt','bpQf','bpQt','bpMax'].forEach(i=>{const e=document.getElementById(i);if(e)e.value='';});
+  ['bpCode','bpTopic','bpFmt','bpQf','bpQt','bpMax','bpEven'].forEach(i=>{const e=document.getElementById(i);if(e)e.value='';});
   if(saveThen('✓ 已加入')){ renderF1(); autoPush(); }
 }
+/* 声明「每题同分」—— 不锁：改这个不会让旧证据漂移，
+   它只影响分数怎么算，不影响任何一题挂在哪个项目。 */
+function setEven(id,v){
+  if(!bpCanEdit()){ toast('✕ 这一格不是你教的'); return; }
+  const arr=S.sections[bpKey()]||[]; const sec=arr.find(x=>x.id===id); if(!sec) return;
+  sec.even = (sec.even===v) ? '' : v;      /* 再点一次 = 取消声明 */
+  markSecDirty(sec);
+  if(saveThen(sec.even==='Y'?'✓ 记为每题同分':(sec.even==='N'?'✓ 记为每题不同分':'已取消声明'))){
+    renderF1(); autoPush(); }
+}
+function evenCell(sec){
+  if((sec.type||'MCQ')==='ESSAY')
+    return '<span style="color:var(--hint);font-size:11px">写作 · 填实得分</span>';
+  const v=sec.even||'';
+  const b=(val,lab,t)=>`<button class="btn btn-sm${v===val?' btn-pri':''}"
+     style="padding:3px 8px;font-size:11px" title="${t}"
+     onclick="setEven('${sec.id}','${val}')">${lab}</button>`;
+  const pq=secPerQ(sec);
+  return `<div style="display:flex;gap:4px">${b('Y','同分','这个项目每一题分数一样')}${
+    b('N','不同','每题分数不一样，这个项目不算分')}</div>${
+    (v==='Y'&&pq!=null)
+      ? `<div style="font-size:10.5px;color:var(--mut);margin-top:2px">每题 ${
+          Math.round(pq*100)/100} 分</div>`
+      : (v===''?'<div style="font-size:10.5px;color:var(--warn);margin-top:2px">未声明 · 不算分</div>'
+              :'<div style="font-size:10.5px;color:var(--mut);margin-top:2px">不参与算分</div>')}`;
+}
+
 function delSection(id){
   if(!bpGuard('删除项目')) return;
   const arr=S.sections[bpKey()]||[];
@@ -1052,7 +1081,9 @@ function renderF1(){
   if(secs.length){
     h+=`<div class="tw"><table class="data"><thead><tr>
       <th style="width:34px">#</th><th>项目 BAHAGIAN</th><th style="width:80px">题型</th>
-      <th style="width:88px">题号</th><th style="width:62px">满分</th><th>文法 / 主题</th><th>作答方式</th>
+      <th style="width:88px">题号</th><th style="width:62px">满分</th>
+      <th style="width:100px" title="每题同分才算得出分数">每题同分？</th>
+      <th>文法 / 主题</th><th>作答方式</th>
       <th style="width:90px">已观察</th><th style="width:56px">完整</th>
       <th style="width:60px"></th></tr></thead><tbody>`;
     secs.forEach((s,i)=>{
@@ -1070,6 +1101,7 @@ function renderF1(){
         <td>${(s.type==='ESSAY'||hasRange(s))?esc(rng):rng}</td>
         <td>${(s.max!=null&&s.max!=='')?esc(s.max)+' 分'
              :'<span class="chip chip-warn">缺分数</span>'}</td>
+        <td>${evenCell(s)}</td>
         <td>${s.topic?esc(s.topic):'<span style="color:var(--hint)">—</span>'}</td>
         <td>${s.fmt?esc(s.fmt):'<span style="color:var(--hint)">—</span>'}</td>
         <td>${used?`<span class="badge b-active">${used} 人次</span>`:'<span style="color:var(--hint)">未开始</span>'}</td>
@@ -1099,6 +1131,11 @@ function renderF1(){
         <input type="number" id="bpMax" min="1" step="0.5" placeholder="满分" style="width:80px">
         <span style="color:var(--mut);font-size:11px">分</span>
       </span>
+      <select id="bpEven" title="每题同分才算得出分数" style="min-width:118px">
+        <option value="">每题同分？未定</option>
+        <option value="Y">每题同分</option>
+        <option value="N">每题不同分</option>
+      </select>
       <input type="text" id="bpTopic" placeholder="文法 / 主题，例：动词" style="flex:1;min-width:140px">
       <input type="text" id="bpFmt"   placeholder="作答方式，例：填一填" style="flex:1;min-width:140px">
       <button class="btn btn-pri" onclick="addSection()">+ 加入项目</button>
@@ -1485,6 +1522,63 @@ function setSecRange(id){
   if(saveThen('✓ 已补上题号')){ renderF1(); renderF2(); }
 }
 function essaySections(){ return sections().filter(x=>x.type==='ESSAY'); }
+
+/* ══ 得分 ══ Owner 2026-09-07 拍板（方案 D）
+   「自动算分」= 项目满分 ÷ 题数 = 每题分数。这个算法只在
+   【同一个项目内每题同分】时成立，而那是关于这份卷的事实 ——
+   只有看过卷的老师知道。所以不推断：她在考卷结构里声明一次（sec.even），
+   之后全班自动算。未声明 / 声明不同分 → 该项目不算分，且总分一定标涵盖率。
+   ⚠️ 分数只给老师与管理层参考，不进家长报告。 */
+function secPerQ(sec){
+  if(!sec || sec.even!=='Y') return null;          /* 没声明 = 不算，fail-closed */
+  if((sec.type||'MCQ')==='ESSAY') return null;     /* 写作用老师亲填的实得分 */
+  const n=(+sec.qt||0)-(+sec.qf||0)+1;
+  if(!(n>0) || !(+sec.max>0)) return null;
+  return (+sec.max)/n;
+}
+function paperScore(sid){
+  const rec=S.f2[f2Key(sid)];
+  if(!rec || aStat(rec)!=='ASSESSED' || !rec.paper_checked) return null;
+  const wi=wiOf(sid);
+  let got=0, max=0, covered=0; const secs=sections(), missing=[];
+  secs.forEach(sec=>{
+    if((sec.type||'MCQ')==='ESSAY'){
+      const er=S.es[esKey(sid,sec.code)];
+      if(er && er.score!=null && er.score!=='' && +sec.max>0){
+        got+=+er.score; max+=+sec.max; covered++;
+      } else missing.push(esc(sec.code)+'（写作还没填得分）');
+      return;
+    }
+    const pq=secPerQ(sec);
+    if(pq==null){
+      missing.push(esc(sec.code)+(sec.even==='N'?'（每题不同分）':'（还没声明每题同分）'));
+      return;
+    }
+    const wrong=wi.filter(w=>+w.q>=+sec.qf && +w.q<=+sec.qt && w.code!=='star').length;
+    got += Math.max(0, (+sec.max) - wrong*pq);
+    max += (+sec.max); covered++;
+  });
+  if(!covered) return {got:null,max:0,covered:0,total:secs.length,missing};
+  return {got:Math.round(got*10)/10, max:Math.round(max*10)/10,
+          covered, total:secs.length, missing};
+}
+/* 显示用：永远把涵盖率讲出来，绝不给一个偷偷漏掉项目的总分 */
+function scoreLine(sid,small){
+  const r=paperScore(sid);
+  if(!r) return '';
+  const full = r.covered===r.total && !r.missing.length;
+  if(r.got==null) return `<div class="tip" style="margin:${small?'4px 0 0':'6px 0 0'}">
+    得分：<b>算不出来</b> —— ${esc(r.missing.join('、'))}</div>`;
+  const pct = r.max? Math.round(r.got/r.max*100) : null;
+  return `<div class="tip" style="margin:${small?'4px 0 0':'6px 0 0'}">
+    得分 <b style="font-size:14px">${r.got} / ${r.max}</b>${pct!=null?` · ${pct}%`:''}
+    ${full ? '<span class="chip chip-ok">涵盖全部项目</span>'
+           : `<span class="chip chip-warn">只涵盖 ${r.covered} / ${r.total} 个项目</span>
+              <div style="font-size:11.5px;color:var(--mut);margin-top:2px">
+                没算进去：${esc(r.missing.join('、'))}</div>`}
+    <div style="font-size:11px;color:var(--hint);margin-top:2px">
+      这个分数只给老师与管理层参考，不会进家长报告。</div></div>`;
+}
 function totalQ(){ return qSections().reduce((a,x)=>a+((+x.qt||0)-(+x.qf||0)+1),0); }
 function secOfQ(q){ return qSections().find(x=>q>=+x.qf&&q<=+x.qt)||null; }
 
@@ -1613,6 +1707,7 @@ function renderF2(){
   h+=`<div class="card" style="padding:0;overflow:hidden"><div class="tw"><table class="data"><thead><tr>
       <th style="min-width:150px">学生</th><th style="width:78px">状态</th>
       ${MARKS.map(m=>`<th style="width:48px" title="${esc(m.zh)}">${m.lab}</th>`).join('')}
+      <th style="width:96px" title="只涵盖已声明「每题同分」的项目 + 写作实得分">得分</th>
       <th style="width:80px">答对率</th><th style="min-width:110px">主问题</th>
       <th style="min-width:130px">最弱技能</th><th style="width:80px"></th>
     </tr></thead><tbody>`;
@@ -1625,6 +1720,15 @@ function renderF2(){
         const pre = st==='done'?'✓ ' : (st==='progress'?'⚠ ' : '');
         return `<span class="badge ${F2STATE[st].cls}">${pre}${F2STATE[st].lab}</span>`;})()}</td>
       ${MARKS.map(mk=>`<td style="text-align:center">${m[mk.id]?`<strong>${m[mk.id]}</strong>`:'<span style="color:var(--hint)">·</span>'}</td>`).join('')}
+      <td>${(()=>{
+        const q=paperScore(r.sid);
+        if(!q) return '<span style="color:var(--hint)">—</span>';
+        if(q.got==null) return `<span class="chip chip-warn" title="${esc(q.missing.join('、'))}">算不出</span>`;
+        const full=q.covered===q.total;
+        return `<b>${q.got}</b><span style="color:var(--mut)"> / ${q.max}</span>`
+          + (full?'' : `<span class="chip chip-warn" style="margin-left:4px;padding:0 5px"
+               title="没算进去：${esc(q.missing.join('、'))}">${q.covered}/${q.total} 项</span>`);
+      })()}</td>
       <td>${m.rate==null?'<span style="color:var(--hint)" title="未核对整份卷，没点的题还不能算答对">—</span>':
           `<span class="badge ${m.rate>=75?'b-active':(m.rate>=50?'b-warn':'b-inactive')}">${m.rate}%</span>`}</td>
       <td>${mi?`<span class="chip chip-muted">${esc(mi.lab)}${mi.tie?' ?':''} · ${mi.n}</span>`:'<span style="color:var(--hint)">—</span>'}</td>
@@ -1849,6 +1953,7 @@ function paintLive(sid){
       <td>${t.rate==null?'<span style="color:var(--hint)">—</span>':`<span class="badge ${t.rate>=75?'b-active':(t.rate>=50?'b-warn':'b-inactive')}">${t.rate}%</span>`}</td></tr>`; });
     h+=`</tbody></table></div>`;
   }else h+=`<div class="tip">还没点任何题 — 上面点错的题，这里就会长出真数据。</div>`;
+  h+=scoreLine(sid,true);
   /* Owner：系统推导只看得到「错在哪一题」，看不到老师现场看到的其他东西 —— 两者并存。 */
   {
     const kw=paperWeakOpts();
@@ -2237,6 +2342,7 @@ function renderReportBody(){
         ${DIMS.map(d=>{const v=obs.map(o=>o[d.id]).filter(Boolean); if(!v.length)return'';
           const bad=v.filter(x=>x==='N'||x==='H').length, mid=v.filter(x=>x==='S'||x==='R').length;
           return `<span class="chip ${bad?'chip-danger':(mid?'chip-warn':'chip-ok')}">${d.zh}</span>`;}).join('')}</div>`:''}
+      ${scoreLine(r.sid)}
       ${(()=>{
         /* 🔴 P0-6：报告以前只读 weak / fix_outcome / next，漏掉老师亲手填的 DID
            （done_options / done_note）—— 於是「我们做了什么」整段消失，
@@ -2285,7 +2391,7 @@ function printReport(){
   const cl=(document.getElementById('rptCls')||{}).value||S.cls;
   let body=`<h1>ATC 部 考前报告 · ${esc(S.subject)}</h1>
     <div class="meta">${esc(cl)} · 科任 ${esc(S.me)} · ${esc(S.examLabel||'')} · 列印日期 ${today()}</div>
-    <table><thead><tr><th>学生</th><th>答对率</th><th>TP</th><th>主问题</th>
+    <table><thead><tr><th>学生</th><th>得分</th><th>答对率</th><th>TP</th><th>主问题</th>
       <th>较弱（系统）</th><th>较弱（老师）</th><th>已经做了</th><th>结果</th><th>下一步</th></tr></thead><tbody>`;
   rows.forEach(({r,p})=>{
     const ms=recStats(p), rate=ms.rate==null?'—':(ms.rate+'%');
@@ -2294,12 +2400,18 @@ function printReport(){
     const wm=(p.weak_manual||[]).map(optText).filter(Boolean).join('、');
     const dd=(p.done_options||[]).join('、');
     const nx=(p.next_options||[]).join('、');
-    body+=`<tr><td>${esc(nameOf(r))}</td><td>${rate}</td><td>${esc(p.tp||'—')}</td><td>${mi?esc(mi.lab):'—'}</td>
+    const ps=paperScore(r.sid);
+    const scoreCell = !ps ? '—'
+      : (ps.got==null ? '算不出'
+        : `${ps.got} / ${ps.max}${ps.covered===ps.total?'':' *'}`);
+    body+=`<tr><td>${esc(nameOf(r))}</td><td>${scoreCell}</td><td>${rate}</td><td>${esc(p.tp||'—')}</td><td>${mi?esc(mi.lab):'—'}</td>
       <td>${esc(wk||'—')}</td><td>${esc(wm||p.weak_note||'—')}</td>
       <td>${esc(dd||p.done_note||'—')}</td><td>${fo?esc(fo.lab):'—'}</td>
       <td>${esc(nx||p.next_note||'—')}</td></tr>`;
   });
   body+=`</tbody></table>
+    <div class="meta" style="margin-top:6px">得分栏带 <b>*</b> = 只涵盖部分项目（有项目未声明「每题同分」或写作未填分）。
+      此分数供校内参考，<b>不进家长报告</b>。</div>
     <div class="footer"><div>科任签名<div class="sig-line"></div></div>
       <div>主任审阅<div class="sig-line"></div></div><div>日期<div class="sig-line"></div></div></div>
     <div style="margin-top:10px;font-size:9px;color:#777">EvalGo_ATC v${APP_VERSION} · ${esc(cl)} · ${today()} · 第 1 页</div>`;
@@ -2396,6 +2508,7 @@ function renderManage(){
       <div>Layer: <strong>RPT</strong> · 权限码 <code style="font-size:11px;background:var(--sur2);padding:2px 6px;border-radius:3px">${SYS_CODE}</code></div>
       <div>Storage Key: <code style="font-size:11px;background:var(--sur2);padding:2px 6px;border-radius:3px">${STORAGE_KEY}</code></div>
       <div>weak_manual 栏（delta v9）: <strong>${CLOUD.hasV9?'✓ 已就绪':'✕ 未跑 — 老师手填弱项暂留本机'}</strong></div>
+      <div>even_marks 栏（delta v10）: <strong>${CLOUD.hasV10?'✓ 已就绪':'✕ 未跑 — 每题同分声明暂留本机'}</strong></div>
       <div>本机 weak_manual 词汇分布: <strong>${(()=>{const c={};
         Object.keys(S.f2).forEach(k=>{const v=weakVocabOf(S.f2[k]); if(v!=='NONE')c[v]=(c[v]||0)+1;});
         const ks=Object.keys(c); return ks.length?ks.map(x=>x+' '+c[x]+' 笔').join(' · '):'（还没有）';})()}</strong></div>
@@ -2457,7 +2570,8 @@ function exportCSV(){
       .concat(DIMS.map(d=>r[d.id]||'')).concat([r.issue||'',r.client_uid,r.synced?'Y':'N']).map(csvCell).join(','));});
   const L2=[['form','exam','teacher','subject','class','year','student_id','student','paper_date','total_q']
     .concat(MARKS.map(m=>m.lab))
-    .concat(['rate','tp','assess_status','paper_checked','paper_checked_at',
+    .concat(['score_got','score_max','score_covered_sections','score_total_sections',
+             'rate','tp','assess_status','paper_checked','paper_checked_at',
              'weak_auto','weak_manual','weak_note','strong_topics',
              'done_actions','done_note','next_actions','next_note','fix_target','fix_outcome',
              'reflect_was_wrong','reflect_now_know','parent_support','client_uid','synced'])
@@ -2465,6 +2579,9 @@ function exportCSV(){
   Object.values(S.f2).forEach(r=>{const st=stuOf(r.sid)||{}; const ms=recStats(r);
     L2.push(['FORM02',r.exam,r.by,r.subject,r.cls,r.year,r.sid,st.en,r.paper_date,ms.total]
       .concat(MARKS.map(m=>ms[m.id]))
+      .concat((()=>{const q=paperScore(r.sid)||{};
+        return [q.got==null?'':q.got, q.max==null?'':q.max,
+                q.covered==null?'':q.covered, q.total==null?'':q.total];})())
       .concat([ms.rate==null?'':ms.rate,r.tp||'',aStat(r),
         r.paper_checked?'Y':'N',r.paper_checked_at||'',
         (r.weak_options||[]).join(' '),
@@ -2563,6 +2680,7 @@ async function cloudInit(silent){
     CLOUD.hasTA = !(await _sb.from('evalgo_teacher_assign').select('id').limit(1)).error;
     CLOUD.hasV8 = !(await _sb.from('evalgo_paper_analysis').select('assess_status').limit(1)).error;
     CLOUD.hasV9 = !(await _sb.from('evalgo_paper_analysis').select('weak_manual').limit(1)).error;
+    CLOUD.hasV10 = !(await _sb.from('evalgo_paper_section').select('even_marks').limit(1)).error;
     /* v9 上线后，把当初因为没栏位而扣住的老师手填弱项重新排队送出 */
     if(CLOUD.hasV9){ let n=0;
       Object.keys(S.f2).forEach(k=>{ const r=S.f2[k];
@@ -2783,12 +2901,16 @@ function psType(t){
 }
 function psPayload(sec){
   const isEssay=sec.type==='ESSAY';
+  /* even_marks 需要 delta v10；没跑就不送，云端维持 UNKNOWN（fail-closed） */
   return {exam_id:CLOUD.exam.id, subject:sec._subject, year_level:sec._year,
     code:sec.code, topic:sec.topic||null, answer_format:sec.fmt||null,
     section_type:psType(sec.type),
     q_from:isEssay?null:(+sec.qf||null), q_to:isEssay?null:(+sec.qt||null),
-    max_score:isEssay?(+sec.max||null):null,
-    sort_order:+sec.sort||0, created_by:sec.by||S.me||null, client_uid:sec.client_uid};
+    /* 🔴 修：v19.7 以前写成 isEssay?max:null —— 客观题的满分老师明明填了，
+       却在 payload 这一步被丢掉，云端永远是 NULL。每一种题型都要送。 */
+    max_score:(+sec.max||null),
+    sort_order:+sec.sort||0, created_by:sec.by||S.me||null, client_uid:sec.client_uid,
+    ...(CLOUD.hasV10 ? {even_marks: sec.even==='Y'?'YES':(sec.even==='N'?'NO':'UNKNOWN')} : {})};
 }
 /* 逐题纪录挂回它所属的 section（需要 section 先上云拿到 id） */
 function secCloudIdFor(w){
@@ -2998,6 +3120,10 @@ async function cloudPush(silent){
      两件事互不相干，必须各判各的。 */
   if(!CLOUD.hasV5) held.push('「已核对整份 / 已做 / FIX 针对」暂留本机 —— delta v5 未跑。');
   if(!CLOUD.hasV8) held.push('「缺席 / 本轮未评」只留在本机 —— 资料库还没有 assess_status（delta v8 未跑）。');
+  if(!CLOUD.hasV10){
+    const nEv=Object.keys(S.sections).reduce((a,k)=>a+(S.sections[k]||[]).filter(x=>x.even).length,0);
+    if(nEv) held.push(`「每题同分」声明 ${nEv} 个项目暂留本机 —— 资料库还没有 even_marks（delta v10 未跑）。`);
+  }
   if(!CLOUD.hasV9){
     const nWM=Object.keys(S.f2).filter(k=>((S.f2[k]||{}).weak_manual||[]).length).length;
     if(nWM) held.push(`老师手填的弱项 ${nWM} 笔暂留本机 —— 资料库还没有 weak_manual 栏（delta v9 未跑）。`
