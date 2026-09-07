@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>EvalGo_ATC — ATC 部 考况 v19.6</title>
+<title>EvalGo_ATC — ATC 部 考况 v19.7</title>
 <style>
 :root{
   /* ══ LAYER ══ RPT = 文档灰 */
@@ -190,6 +190,14 @@ textarea{width:100%;resize:vertical}
 .chip-danger{background:#FCEBEB;color:var(--danger)}
 .chip-info{background:#E8F0F7;color:var(--info)}
 .chip-muted{background:var(--sur2);color:var(--mut)}
+/* 🔴 任教登记的勾选钮不能用 .chip-muted：它的底色就是 --sur2，
+   跟 table.data 偶数行的斑马纹底色一模一样，在 ATC2/4/6 那三行上完全隐形。
+   改成「空框 / 打勾框」，靠边框与文字辨识，不靠底色。 */
+.asg-box{display:inline-block;min-width:56px;padding:5px 10px;border-radius:8px;
+  border:1.5px solid #8a8279;background:#fff;color:#5c554d;
+  font-size:12px;font-weight:700;cursor:pointer;line-height:1.2;transition:.12s}
+.asg-box:hover{border-color:var(--layer);color:var(--layer);background:#fff}
+.asg-box.on{background:var(--layer);border-color:var(--layer);color:#fff}
 .chips-row{display:flex;flex-wrap:wrap;gap:4px}
 button.chip{cursor:pointer;border:.5px solid transparent}
 button.chip.sel{background:var(--layer);color:#fff}
@@ -261,7 +269,7 @@ button.chip.sel-w{background:var(--warn);color:#fff}
 
 <!-- ══════ NAV ══════ -->
 <div class="nav">
-  <div class="nav-logo">EvalGo_ATC <span style="font-weight:400;opacity:.75">· ATC 部 考况</span> <span class="ver">v19.6</span></div>
+  <div class="nav-logo">EvalGo_ATC <span style="font-weight:400;opacity:.75">· ATC 部 考况</span> <span class="ver">v19.7</span></div>
   <button class="ntab on" onclick="goPage('home')">工作台</button>
   <button class="ntab" onclick="goPage('f1')">考前观察</button>
   <button class="ntab" onclick="goPage('f2')">考卷分析</button>
@@ -851,8 +859,9 @@ function asgModal(lock){
       ${SUBJECTS.map(subj=>{const on=isMine(cls,subj);
         const other=asgFor(cls,subj).filter(a=>a.teacher_id!==S.me);
         return `<td style="text-align:center">
-          <button class="chip ${on?'sel':'chip-muted'}" style="min-width:52px"
-            onclick="asgToggle('${cls}','${esc(subj)}')">${on?'✓ 我教':'　'}</button>
+          <button class="asg-box${on?' on':''}"
+            title="${on?'点一下取消':'点一下勾选：我教这一格'}"
+            onclick="asgToggle('${cls}','${esc(subj)}')">${on?'✓ 我教':'＋'}</button>
           ${other.length?`<div style="font-size:10px;color:var(--mut);margin-top:2px">${
             other.map(a=>esc(a.teacher_id)).join(' ')}</div>`:''}</td>`;}).join('')}
     </tr>`).join('')}
