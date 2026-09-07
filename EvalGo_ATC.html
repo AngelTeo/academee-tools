@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>EvalGo_ATC — ATC 部 考况 v19.5</title>
+<title>EvalGo_ATC — ATC 部 考况 v19.6</title>
 <style>
 :root{
   /* ══ LAYER ══ RPT = 文档灰 */
@@ -261,7 +261,7 @@ button.chip.sel-w{background:var(--warn);color:#fff}
 
 <!-- ══════ NAV ══════ -->
 <div class="nav">
-  <div class="nav-logo">EvalGo_ATC <span style="font-weight:400;opacity:.75">· ATC 部 考况</span> <span class="ver">v19.5</span></div>
+  <div class="nav-logo">EvalGo_ATC <span style="font-weight:400;opacity:.75">· ATC 部 考况</span> <span class="ver">v19.6</span></div>
   <button class="ntab on" onclick="goPage('home')">工作台</button>
   <button class="ntab" onclick="goPage('f1')">考前观察</button>
   <button class="ntab" onclick="goPage('f2')">考卷分析</button>
@@ -1187,15 +1187,30 @@ function bpGuard(what){
 function bpReadyNow(){ return sections().length>0 && legacySections().length===0; }
 function bpStatusLine(){
   const secs=sections(), lg=legacySections();
-  if(!secs.length) return `<div class="card" style="padding:11px 14px;border-color:var(--warn)">
-    <div style="font-size:13.5px"><b style="color:var(--warn)">⚠️ 考卷结构尚未设定</b>
-      —— ${esc(S.subject)} · Year ${yearOf(S.cls)}。<br>
-      这一格不是你教的，所以你不能设定。<b>请教这一科的科任先登记考卷项目。</b></div>
-    <div style="margin-top:8px"><button class="btn btn-sm" onclick="bpEscape()">← 换班级 / 科目</button></div></div>`;
+  if(!secs.length){
+    /* 🔴 v19.6：老师忘了勾任教登记 → isMine() 为 false → 她连【自己的班】都设定不了，
+       而旧文案还叫她「去找这一科的科任」—— 那个人就是她本人，死路一条。
+       所以要分清楚：这一格到底有没有人认领。 */
+    const who=asgFor(S.cls,S.subject);
+    if(!who.length) return `<div class="card" style="padding:11px 14px;border-color:var(--warn)">
+      <div style="font-size:13.5px"><b style="color:var(--warn)">⚠️ 考卷结构尚未设定</b>
+        —— ${esc(S.subject)} · Year ${yearOf(S.cls)}。<br>
+        这一格<b>还没有人登记是谁教的</b>。如果是你教的，按下面这颗，就可以开始登记考卷项目。</div>
+      <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-pri" style="padding:8px 16px;font-weight:700"
+          onclick="asgToggle('${S.cls}','${esc(S.subject)}');renderF1()">✓ 这一格我教，我来登记</button>
+        <button class="btn btn-sm" onclick="bpEscape()">← 换班级 / 科目</button></div></div>`;
+    return `<div class="card" style="padding:11px 14px;border-color:var(--warn)">
+      <div style="font-size:13.5px"><b style="color:var(--warn)">⚠️ 考卷结构尚未设定</b>
+        —— ${esc(S.subject)} · Year ${yearOf(S.cls)}。<br>
+        这一格登记的是 <b>${who.map(a=>esc(a.teacher_name||a.teacher_id)).join('、')}</b>，
+        请她先登记考卷项目。<b>如果其实是你教的</b>，到工作台按「我教 N 个班科 · 修改」勾上自己。</div>
+      <div style="margin-top:8px"><button class="btn btn-sm" onclick="bpEscape()">← 换班级 / 科目</button></div></div>`;
+  }
   if(lg.length) return `<div class="card" style="padding:11px 14px;border-color:var(--warn)">
     <div style="font-size:13.5px"><b style="color:var(--warn)">⚠️ 考卷结构还差题号</b>
       —— ${lg.map(x=>esc(x.code)).join('、')} 没有题号范围，这些题在考卷分析里点不到。
-      <b>请教这一科的科任补上。</b></div></div>`;
+      这一格登记的是 <b>${(asgFor(S.cls,S.subject).map(a=>esc(a.teacher_name||a.teacher_id)).join('、'))||'（还没有人登记）'}</b>，请她补上。</div></div>`;
   return `<div class="card" style="padding:10px 14px">
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13.5px">
       <span style="color:var(--ok);font-weight:700">✓ ${esc(S.subject)} Year ${yearOf(S.cls)} 考卷已设定</span>
