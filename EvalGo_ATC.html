@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>EvalGo_ATC — ATC 部 考况 v20</title>
+<title>EvalGo_ATC — ATC 部 考况 v21</title>
 <style>
 :root{
   /* ══ LAYER ══ RPT = 文档灰 */
@@ -270,7 +270,7 @@ button.chip.sel-w{background:var(--warn);color:#fff}
 
 <!-- ══════ NAV ══════ -->
 <div class="nav">
-  <div class="nav-logo">EvalGo_ATC <span style="font-weight:400;opacity:.75">· ATC 部 考况</span> <span class="ver">v20</span></div>
+  <div class="nav-logo">EvalGo_ATC <span style="font-weight:400;opacity:.75">· ATC 部 考况</span> <span class="ver">v21</span></div>
   <button class="ntab on" onclick="goPage('home')">工作台</button>
   <button class="ntab" onclick="goPage('f1')">考前观察</button>
   <button class="ntab" onclick="goPage('f2')">考卷分析</button>
@@ -325,7 +325,7 @@ button.chip.sel-w{background:var(--warn);color:#fff}
    权限码：RPT-EvalGo-ATC
    ══════════════════════════════════════════════════════════════════ */
 
-const APP_VERSION = 20;
+const APP_VERSION = 21;
 const STORAGE_KEY = 'evalgo_atc_v1';   /* 沿用 v1 key，旧资料不掉 */
 const SYS_CODE    = 'RPT-EvalGo-ATC';
 const SB_URL      = 'https://qnpvqsvvsgsantekgfbz.supabase.co';
@@ -3071,6 +3071,9 @@ async function cloudInit(silent){
     const nPS=await pullSections();   /* 换装置 / 别的老师已登记过 → 直接带出来 */
     await cloudRoster(true);          /* 名单自动载入，不用老师按 */
     await cloudPull(true);            /* 已经填过的自动带回来 */
+    /* ⚠️ 顺序不可颠倒：一定要在 pullSections / cloudPull **之後**才送 ——
+       逐题纪录要靠 section 的 cloud_id 才挂得回它所属的项目。 */
+    await flushPendingAfterLogin();
     paintNav();
     paintCloud(); if(!silent) toast('✓ 已连上');
     refreshAll();
@@ -3451,6 +3454,34 @@ function autoPush(){
   if(S.rosterSource!=='cloud') return;     /* 示范名单绝不上传 */
   clearTimeout(_autoT);
   _autoT=setTimeout(()=>{ if(!CLOUD.busy && pendingCount()) cloudPush(true); }, 1500);
+}
+/* ══════════════════════════════════════════════════════════════════
+   登入之后，把离线时填的自动送出去（v21）
+   ------------------------------------------------------------------
+   🔴 v20 以前 cloudInit **只 pull 不 push**。老师离线填了一整天，
+   隔天登入回来，系统会把云端资料拉下来，却**不会**把她本机积压的送上去 ——
+   要等她下一次「存东西」触发 autoPush 才顺便带上去。
+   她如果只是登入、看一眼、关掉页面，那些资料就一直留在本机。
+   （2026-09-08 LIM 的 15 笔就是卡在这一步。）
+
+   三个条件都满足才送，缺一不送：
+     ① 真的有积压（pendingCount > 0）
+     ② 这个帐号有填写权限（can_edit）
+     ③ 名单是云端的 —— 示范名单绝不上传
+   送完一定给老师一句话，成功或失败都说，不静静吞掉。
+   ══════════════════════════════════════════════════════════════════ */
+async function flushPendingAfterLogin(){
+  const n = pendingCount();
+  if(!n)                                        return {n:0, sent:0, left:0, why:'没有积压'};
+  if(!CLOUD.perm || CLOUD.perm.can_edit!==true)  return {n, sent:0, left:n, why:'这个帐号没有填写权限'};
+  if(S.rosterSource!=='cloud')                   return {n, sent:0, left:n, why:'还在用示范名单'};
+  toast('正在送出之前离线时填的 '+n+' 笔…', 4000);
+  await cloudPush(true);
+  const left = pendingCount();
+  paintCloud();
+  if(left===0) toast('✓ 之前离线填的 '+n+' 笔已经送出', 6000);
+  else         toast('⚠ 还有 '+left+' 笔没送出 —— 请截图找管理层', 9000);
+  return {n, sent:n-left, left, why:''};
 }
 async function cloudPush(silent){
   if(CLOUD.busy){ if(!silent) toast('上传进行中'); return; }
