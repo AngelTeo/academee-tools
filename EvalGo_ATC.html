@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>EvalGo_ATC — ATC 部 考况 v19.9</title>
+<title>EvalGo_ATC — ATC 部 考况 v20</title>
 <style>
 :root{
   /* ══ LAYER ══ RPT = 文档灰 */
@@ -163,6 +163,7 @@ textarea{width:100%;resize:vertical}
 .qbtn{flex-direction:column;line-height:1.05;gap:0}
 .qbtn .qn{font-size:12px;font-weight:700}
 .qbtn .qm{font-size:8px;font-weight:700;letter-spacing:.02em;opacity:.9}
+.qbtn .qs{font-size:8px;font-weight:700;opacity:.85}
 .qpick{background:var(--sur2);border:2px solid var(--txt);border-radius:8px;padding:10px 12px;margin:2px 0 10px}
 .qpick-t{font-size:12px;font-weight:800;color:var(--txt);margin-bottom:6px}
 .qbtn.picking{outline:3px solid var(--txt);outline-offset:1px}
@@ -269,7 +270,7 @@ button.chip.sel-w{background:var(--warn);color:#fff}
 
 <!-- ══════ NAV ══════ -->
 <div class="nav">
-  <div class="nav-logo">EvalGo_ATC <span style="font-weight:400;opacity:.75">· ATC 部 考况</span> <span class="ver">v19.9</span></div>
+  <div class="nav-logo">EvalGo_ATC <span style="font-weight:400;opacity:.75">· ATC 部 考况</span> <span class="ver">v20</span></div>
   <button class="ntab on" onclick="goPage('home')">工作台</button>
   <button class="ntab" onclick="goPage('f1')">考前观察</button>
   <button class="ntab" onclick="goPage('f2')">考卷分析</button>
@@ -324,7 +325,7 @@ button.chip.sel-w{background:var(--warn);color:#fff}
    权限码：RPT-EvalGo-ATC
    ══════════════════════════════════════════════════════════════════ */
 
-const APP_VERSION = 19;
+const APP_VERSION = 20;
 const STORAGE_KEY = 'evalgo_atc_v1';   /* 沿用 v1 key，旧资料不掉 */
 const SYS_CODE    = 'RPT-EvalGo-ATC';
 const SB_URL      = 'https://qnpvqsvvsgsantekgfbz.supabase.co';
@@ -732,6 +733,8 @@ function bpTypeChg(){
   if(r)  r.style.display  = (t==='ESSAY')?'none':'inline-flex';
   if(sc) sc.style.display = 'inline-flex';
 }
+/* ⚠️ v20 起不再有呼叫点 —— 表格底下那排 inline 输入已换成 bpModal()。
+   留着不删：旧版页面若还开在某台装置上，函式消失会直接报错。 */
 function addSection(){
   const g=id=>String(((document.getElementById(id)||{}).value)||'').trim();
   const code=g('bpCode'), topic=g('bpTopic'), fmt=g('bpFmt');
@@ -1090,7 +1093,7 @@ function renderF1(){
       const used=Object.values(S.f1).filter(r=>r.subject===S.subject&&r.bahagian===s.code).length;
       const ty=SECTYPES.find(t=>t.v===(s.type||'MCQ'))||{lab:typeLab(s.type)};
       const rng=(s.type==='ESSAY')?'—'
-        : (hasRange(s)?`第 ${s.qf}–${s.qt} 题`
+        : (hasRange(s)?rangeCell(s)
           :`<span style="display:inline-flex;gap:3px;align-items:center">
               <input type="number" id="rf_${s.id}" min="1" placeholder="第" style="width:48px;padding:2px 4px">
               <input type="number" id="rt_${s.id}" min="1" placeholder="到" style="width:48px;padding:2px 4px">
@@ -1098,7 +1101,7 @@ function renderF1(){
       h+=`<tr><td style="color:var(--hint)">${i+1}</td>
         <td><strong>${esc(s.code)}</strong></td>
         <td><span class="chip chip-layer">${ty.lab}</span></td>
-        <td>${(s.type==='ESSAY'||hasRange(s))?esc(rng):rng}</td>
+        <td>${rng}</td>
         <td>${(s.max!=null&&s.max!=='')?esc(s.max)+' 分'
              :'<span class="chip chip-warn">缺分数</span>'}</td>
         <td>${evenCell(s)}</td>
@@ -1116,29 +1119,13 @@ function renderF1(){
   if(lg.length) h+=`<div class="alert alert-warn"><div><b>${lg.length} 个项目还没有题号范围</b>
      —— ${lg.map(x=>esc(x.code)).join('、')}。FORM 02 靠题号才知道第几题属于哪个项目，
      <b>没补上的项目不会计入总题数</b>。请在上表就地填「第 __ 到 __ 题」。</div></div>`;
-  h+=`<div class="toolbar" style="margin-top:10px;flex-wrap:wrap">
-      <input type="text" id="bpCode"  placeholder="项目，例：Bahagian A" style="flex:1;min-width:140px">
-      <select id="bpType" onchange="bpTypeChg()" style="min-width:110px">
-        ${SECTYPES.map(t=>`<option value="${t.v}">${t.lab}</option>`).join('')}
-      </select>
-      <span id="bpRange" style="display:inline-flex;gap:4px;align-items:center">
-        <input type="number" id="bpQf" min="1" placeholder="第" style="width:64px">
-        <span style="color:var(--mut)">–</span>
-        <input type="number" id="bpQt" min="1" placeholder="到" style="width:64px">
-        <span style="color:var(--mut);font-size:11px">题</span>
-      </span>
-      <span id="bpScore" style="display:inline-flex;gap:4px;align-items:center">
-        <input type="number" id="bpMax" min="1" step="0.5" placeholder="满分" style="width:80px">
-        <span style="color:var(--mut);font-size:11px">分</span>
-      </span>
-      <select id="bpEven" title="每题同分才算得出分数" style="min-width:118px">
-        <option value="">每题同分？未定</option>
-        <option value="Y">每题同分</option>
-        <option value="N">每题不同分</option>
-      </select>
-      <input type="text" id="bpTopic" placeholder="文法 / 主题，例：动词" style="flex:1;min-width:140px">
-      <input type="text" id="bpFmt"   placeholder="作答方式，例：填一填" style="flex:1;min-width:140px">
-      <button class="btn btn-pri" onclick="addSection()">+ 加入项目</button>
+  /* v20：这里原本是一整排 inline 输入框（项目/题型/题号/满分/同分/主题/作答方式）。
+     在手机与窄萤幕上会挤成一团，老师看不完就按下去，常常漏填。
+     改成一颗按钮开弹窗 —— 跟第一次设定考卷时走**同一个**表单，
+     栏位、验证、提示全部一致，不会两个地方两套规矩。 */
+  h+=`<div class="toolbar" style="margin-top:10px">
+      <button class="btn btn-pri" onclick="bpModal(false)">+ 加入项目</button>
+      <span class="tip" style="margin:0">开一个视窗，一次填一个项目</span>
     </div>
     </div>`;
 
@@ -1282,7 +1269,7 @@ function bpModal(lock){
       <th style="width:60px">分数</th><th>文法/主题</th><th style="width:40px"></th></tr></thead><tbody>
       ${secs.map(x=>`<tr><td><strong>${esc(x.code)}</strong></td>
         <td><span class="chip chip-layer">${esc(typeLab(x.type||'MCQ'))}</span></td>
-        <td>${x.type==='ESSAY'?'—':(hasRange(x)?`第 ${x.qf}–${x.qt} 题`:'<span class="chip chip-warn">缺题号</span>')}</td>
+        <td>${x.type==='ESSAY'?'—':(hasRange(x)?rangeLabel(x):'<span class="chip chip-warn">缺题号</span>')}</td>
         <td>${x.max!=null&&x.max!==''?x.max+' 分':'<span style="color:var(--hint)">—</span>'}</td>
         <td>${esc(x.topic||'—')}${x.fmt?' · '+esc(x.fmt):''}</td>
         <td>${bpLocked()?'🔒':`<button class="btn btn-sm btn-dng"
@@ -1306,11 +1293,18 @@ function bpModal(lock){
           <input type="number" id="mMax" min="1" step="0.5" placeholder="例：20"></div>
       </div>
       <div class="form-grid-2" style="gap:8px;margin-top:8px">
+        <div class="form-row" style="margin:0" id="mEvenRow">
+          <label class="form-label">每题同分？</label>
+          <select id="mEven">
+            <option value="">未定 —— 这个项目不参与算分</option>
+            <option value="Y">每题同分</option>
+            <option value="N">每题不同分 —— 不参与算分</option>
+          </select></div>
         <div class="form-row" style="margin:0"><label class="form-label">文法 / 主题</label>
           <input type="text" id="mTopic" placeholder="例：动词（可留空）"></div>
-        <div class="form-row" style="margin:0"><label class="form-label">作答方式</label>
-          <input type="text" id="mFmt" placeholder="例：填一填（可留空）"></div>
       </div>
+      <div class="form-row" style="margin:8px 0 0"><label class="form-label">作答方式</label>
+        <input type="text" id="mFmt" placeholder="例：填一填（可留空）"></div>
       <button class="btn btn-pri" style="margin-top:10px;width:100%" onclick="bpAdd()">+ 加入这个项目</button>
     </div>`;
   /* 这个弹窗是锁定的（不填考卷项目就无法逐题记录），但**必须留一条退路** ——
@@ -1327,10 +1321,14 @@ function bpMType(){
   const t=(document.getElementById('mType')||{}).value||'MCQ';
   const r=document.getElementById('mRangeRow');
   if(r) r.style.display=(t==='ESSAY')?'none':'';
+  /* 写作文用老师亲填的实得分，没有「每题同分」这回事 —— 藏起来，不要问。 */
+  const e=document.getElementById('mEvenRow');
+  if(e) e.style.display=(t==='ESSAY')?'none':'';
 }
 function bpAdd(){
   const g=id=>String(((document.getElementById(id)||{}).value)||'').trim();
   const code=g('mCode'), type=g('mType')||'MCQ', topic=g('mTopic'), fmt=g('mFmt');
+  const even=g('mEven');
   const qf=parseInt(g('mQf'),10), qt=parseInt(g('mQt'),10), mx=parseFloat(g('mMax'));
   if(!code){ toast('✕ 项目名称不能空'); return; }
   const arr=S.sections[bpKey()]||(S.sections[bpKey()]=[]);
@@ -1344,8 +1342,11 @@ function bpAdd(){
   }
   arr.push({id:uid(),client_uid:uid(),ses:SESSION_ID,code,topic,fmt,type,
     qf:type==='ESSAY'?null:qf, qt:type==='ESSAY'?null:qt, max:mx,
+    even:(type==='ESSAY'?'':even),   /* 未声明就不算分（fail-closed），与 addSection 同规矩 */
     sort:arr.length, by:S.me, synced:false, cloud_id:null});
-  if(saveThen('✓ 已加入')){ bpModal(MODAL_LOCK); autoPush(); }
+  /* 弹窗重画（可以接着加下一个）+ 背后的表格也要同步，
+     否则关掉弹窗才看得到刚加的那一列。 */
+  if(saveThen('✓ 已加入')){ bpModal(MODAL_LOCK); renderF1(); autoPush(); }
 }
 function bpRest(secs){
   let h='';
@@ -1504,6 +1505,57 @@ function f2Draft(sid){ const k=f2Key(sid); if(!S.f2[k]) S.f2[k]={client_uid:uid(
    老师只点错的题；没点到 = 答对。图 4 的所有数字由此算出，不再手填。
    ══════════════════════════════════════════════════════════════════ */
 function hasRange(x){ return +x.qf>=1 && +x.qt>=+x.qf; }
+
+/* ══════════════════════════════════════════════════════════════════
+   卷面题号 vs 内部流水号（v20 · 刀一）
+   ------------------------------------------------------------------
+   系统内部用「全卷流水号」q 当题目身份 —— 它是 wiKey 的一部分，
+   一动，所有已记的证据就挂到别题去。所以 qf/qt 永远不改。
+   但**考卷上印的不是这个号**：马来西亚的卷每个 Bahagian 从 1 重新编，
+   C 部分第 3 题在系统里叫「第 15 题」，老师拿卷根本对不上。
+   v20 把两者分开：资料库里是流水号，老师与报告看到的一律是卷面号。
+   未声明就退回流水号（= 整份卷连续编号），**绝不推断**。
+   ══════════════════════════════════════════════════════════════════ */
+const SUBQ=['a','b','c','d','e','f'];
+function pfOf(s){ const v=+s.pf; return v>=1?v:(+s.qf||1); }
+function toPaper(s,q){ return pfOf(s)+(+q-(+s.qf||1)); }
+function rangeLabel(s){
+  const a=pfOf(s), b=a+((+s.qt||0)-(+s.qf||0));
+  return `第 ${a}\u2013${b} 题`;
+}
+function rangeCell(s){
+  return `<span style="display:inline-flex;gap:4px;align-items:center;white-space:nowrap">`
+    +`${rangeLabel(s)}<button class="btn btn-sm" style="padding:0 5px;font-size:10px"`
+    +` title="改考卷上印的题号 \u2014 只改显示，不动任何已记的资料"`
+    +` onclick="setPaperFrom('${s.id}')">\u270e</button></span>`;
+}
+/* 改「卷面起始号」**不锁**：它不动 q，没有任何一笔证据会挂到别题去。
+   （对照 setSecRange 改 qf/qt \u2014 那个会漂移，所以要 bpGuard。） */
+function setPaperFrom(id){
+  if(!bpCanEdit()){ toast('\u2715 这一格不是你教的'); return; }
+  const arr=S.sections[bpKey()]||[], sec=arr.find(x=>x.id===id); if(!sec) return;
+  const v=prompt('考卷上，「'+sec.code+'」的第一题印的是第几题？\n\n'
+    +'\u2022 每个部分从 1 重新编号的卷（大部分马来西亚卷）\u2192 填 1\n'
+    +'\u2022 整份卷一路连续编下去的 \u2192 填卷面看到的那个数字\n\n'
+    +'只改显示，不会动到任何已经记好的资料。', String(pfOf(sec)));
+  if(v===null) return;
+  const k=parseInt(String(v).trim(),10);
+  if(!(k>=1)){ toast('\u2715 要填 1 以上的整数'); return; }
+  sec.pf=k; markSecDirty(sec);
+  if(saveThen('\u2713 卷面题号已更新')){ renderF1(); renderF2(); autoPush(); }
+}
+function qsubHas(w,x){ return String((w&&w.qsub)||'').split(',').indexOf(x)>=0; }
+function qSub(sid,q,x){
+  const w=wiGet(sid,q); if(!w) return;
+  const set=String(w.qsub||'').split(',').filter(Boolean);
+  const i=set.indexOf(x);
+  if(i>=0) set.splice(i,1); else set.push(x);
+  set.sort();
+  w.qsub=set.join(',')||null;
+  w.synced=false; w.savedAt=new Date().toLocaleString('en-GB');
+  const r=f2Draft(sid); r.synced=false; saveData();
+  paintPick(sid); paintQ(sid,q); autoPush();
+}
 /* ⚠️ 只有「有合法题号范围」的项目才算题。
    v5 以前建立的项目没有 qf/qt —— 若放进来，(0-0+1) 会被当成 1 题，总题数灌水。 */
 function qSections(){ return sections().filter(x=>QTYPES.indexOf(x.type||'MCQ')>=0 && hasRange(x)); }
@@ -1595,6 +1647,7 @@ function wiSet(sid,q,code,diag){
     const sec=secOfQ(q)||{}, st=stuOf(sid)||{};
     S.wi[k]={ client_uid:(cur&&cur.client_uid)||uid(), ses:SESSION_ID,
       sid, subject:S.subject, q:+q, code,
+      qsub:(cur?cur.qsub:null)||null,
       diag:(diag!==undefined?diag:(cur?cur.diag:''))||'',
       topic:sec.topic||'', fmt:sec.fmt||'', sec_code:sec.code||'', sec_type:sec.type||'MCQ',
       cls:st.cls||S.cls, class_id:st.class_id||null, year:st.year||yearOf(S.cls),
@@ -1787,7 +1840,11 @@ function stampF2(r,sid){
 let PICKQ=null;
 function qBtnHTML(sid,q){
   const w=wiGet(sid,q), mk=w?MARKS.find(x=>x.id===w.code):null;
-  return `<span class="qn">${q}</span>`+(mk?`<span class="qm">${esc(mk.lab)}</span>`:'');
+  /* 按钮上印卷面号；内部一律还是流水号 q（id、事件、资料都不变） */
+  const sec=secOfQ(q), lab=sec?toPaper(sec,q):q;
+  return `<span class="qn">${lab}</span>`
+       +(mk?`<span class="qm">${esc(mk.lab)}</span>`:'')
+       +(w&&w.qsub?`<span class="qs">(${esc(w.qsub)})</span>`:'');
 }
 function paintQ(sid,q){
   const el=document.getElementById('q_'+q); if(!el) return;
@@ -1810,11 +1867,16 @@ function paintPick(sid){
   const cur=wiGet(sid,PICKQ), sec=secOfQ(PICKQ)||{};
   const d=document.createElement('div');
   d.className='qpick';
-  d.innerHTML=`<div class="qpick-t">第 ${PICKQ} 题${sec.topic?' · '+esc(sec.topic):''} — 这题怎么了？</div>
+  const plab=sec&&sec.qf?toPaper(sec,PICKQ):PICKQ;
+  d.innerHTML=`<div class="qpick-t">${esc(sec.code||'')} · 第 ${plab} 题${sec.topic?' · '+esc(sec.topic):''} — 这题怎么了？</div>
     <div class="chips-row">${MARKS.map(m=>`<button class="chip ${cur&&cur.code===m.id?'sel':m.chip}"
       onclick="qPick('${sid}',${PICKQ},'${m.id}')">${m.lab} ${m.zh}</button>`).join('')}
       ${cur?`<button class="chip chip-muted" onclick="qPick('${sid}',${PICKQ},null)">✕ 取消这题</button>`
-           :`<button class="chip chip-muted" onclick="qPick('${sid}',${PICKQ},'__close')">收起</button>`}</div>`;
+           :`<button class="chip chip-muted" onclick="qPick('${sid}',${PICKQ},'__close')">收起</button>`}</div>
+    ${cur?`<div class="qpick-t" style="margin-top:10px;font-weight:400;opacity:.85">
+      错在哪个小题？(a)(b)(c)… 可多选 · <b>没有小题就不用点</b></div>
+    <div class="chips-row">${SUBQ.map(x=>`<button class="chip ${qsubHas(cur,x)?'sel':'chip-muted'}"
+      onclick="qSub('${sid}',${PICKQ},'${x}')">(${x})</button>`).join('')}</div>`:''}`;
   grid.insertAdjacentElement('afterend', d);
 }
 function qPick(sid,q,code){
@@ -1876,7 +1938,7 @@ function f2Open(sid){
           <span class="chip chip-muted">${esc(typeLab(sec.type||'MCQ'))}</span>
           ${sec.topic?`<span class="chip chip-layer">${esc(sec.topic)}</span>`:''}
           ${sec.fmt?`<span class="chip chip-muted">${esc(sec.fmt)}</span>`:''}
-          <span style="color:var(--mut);font-size:11px">第 ${sec.qf}–${sec.qt} 题</span></div>
+          <span style="color:var(--mut);font-size:11px">${rangeLabel(sec)}</span></div>
         <div class="qgrid">`;
       for(let q=+sec.qf;q<=+sec.qt;q++){
         const w=wiGet(sid,q);
@@ -2240,20 +2302,127 @@ function renderCoverage(){
 /* ══ 考前報告 ══ */
 function renderReport(){
   const c=document.getElementById('c-report');
-  if(gateOpen()){ c.innerHTML=gateHTML(); return; }
-  let h=ctxBar()+`<div class="card">
-    <div class="card-hdr"><span class="card-title">考前报告 · ${esc(S.examLabel||'本轮')}</span>
-      <button class="btn btn-sm no-print" onclick="printReport()">🖨 Print</button></div>
-    <div class="alert alert-warn"><b>一份完整报告要 5 科合并。</b>这台机器只有 <b>${esc(S.subject)}</b> 一科的资料 ——
-      完整报告要等所有科任上传后由系统合并，这一页只是单科预览。</div>
+  /* 跨科报告**不需要**先选科目 —— 它读的是整场考试的资料，不是当下这一格。
+     所以这一页不再走 gateOpen() 挡人；单科预览才需要选了班+科。 */
+  const cl=(document.getElementById('rptCls')||{}).value||S.cls||CLASSES[0];
+  let h=`<div class="card">
+    <div class="card-hdr"><span class="card-title">出报告 · ${esc(S.examLabel||'本轮')}</span>
+      <span class="tip" style="margin:0">五科合并 · 资料来自云端</span></div>
     <div class="toolbar no-print">
-      <select id="rptCls" onchange="renderReportBody()">
-        ${CLASSES.map(x=>`<option${x===S.cls?' selected':''}>${x}</option>`).join('')}
+      <select id="rptCls" onchange="renderReport()">
+        ${CLASSES.map(x=>`<option${x===cl?' selected':''}>${x}</option>`).join('')}
       </select>
-      <input type="text" id="rptSearch" placeholder="搜学生姓名…" oninput="renderReportBody()">
+      <button class="btn btn-pri" onclick="printParent()">🖨 家长版 · 每生一页 · 无分数</button>
+      <button class="btn" onclick="printInternal()">🖨 内部版 · 全班五科 · 有分数</button>
+      <button class="btn btn-sm" onclick="rptPull()">↻ 重新从云端拉资料</button>
     </div>
-  </div><div id="rpt-body"></div>`;
-  c.innerHTML=h; renderReportBody();
+  </div>` + rptReadyHTML(cl);
+  if(!gateOpen()){
+    h+=`<div class="card">
+      <div class="card-hdr"><span class="card-title">单科预览 · ${esc(S.subject)}</span>
+        <button class="btn btn-sm no-print" onclick="printReport()">🖨 单科表</button></div>
+      <div class="toolbar no-print">
+        <input type="text" id="rptSearch" placeholder="搜学生姓名…" oninput="renderReportBody()">
+      </div>
+    </div><div id="rpt-body"></div>`;
+  }
+  c.innerHTML=h;
+  if(!gateOpen()) renderReportBody();
+}
+/* 拉完再重画。cloudPull 不会盖掉本机还没上传的资料（它自己有守门）。 */
+function rptPull(){
+  Promise.resolve(cloudPull(false)).then(()=>renderReport());
+}
+/* ══════════════════════════════════════════════════════════════════
+   跨科报告资料层（v20）
+   ------------------------------------------------------------------
+   既有的 recStats / paperScore / reportRows 全部读 **当下选到的** S.subject，
+   只算得出一科。一份报告要五科合并，所以这一层每个函式都**明写 (sid, subject)**，
+   一个环境变数都不碰。不改旧函式 —— 老师端那几页仍照旧走。
+
+   资料来源：S.f1 / S.f2 / S.wi / S.es / S.sections。
+   cloudPull() 抓的是整场考试（`.eq('exam_id', …)`，没有科目筛选），
+   所以拉一次就有全班全科；报告页按「重新拉资料」就是跑它。
+   ══════════════════════════════════════════════════════════════════ */
+function rpF2(sid,su){ return S.f2[EXK()+'|'+sid+'|'+su]||null; }
+function rpObs(sid,su){ return f1Complete(sid,su); }
+function rpWI(sid,su){
+  const pre=EXK()+'|'+sid+'|'+su+'|';
+  return Object.keys(S.wi).filter(k=>k.indexOf(pre)===0).map(k=>S.wi[k]);
+}
+function rpES(sid,su,code){ return S.es[EXK()+'|'+sid+'|'+su+'|'+code]||null; }
+function rpSecs(su,yr){
+  return (S.sections[EXK()+'|'+su+'|'+yr]||[]).slice()
+         .sort((a,b)=>(+a.sort||0)-(+b.sort||0));
+}
+/* 进报告的门槛与单科版一致：已评量 + 老师亲自核对整份 + 有掌握程度 TP。
+   ⛔ ABSENT / NOT_ASSESSED 永远不进报告，也**不当成弱项**。 */
+function rpReady(sid,su){
+  const r=rpF2(sid,su);
+  return !!(r && aStat(r)==='ASSESSED' && r.paper_checked && r.tp);
+}
+function rpTotalQ(su,yr){
+  return rpSecs(su,yr).filter(x=>QTYPES.indexOf(x.type||'MCQ')>=0 && +x.qf>=1 && +x.qt>=+x.qf)
+         .reduce((a,x)=>a+((+x.qt||0)-(+x.qf||0)+1),0);
+}
+function rpStats(sid,su,yr){
+  const c={star:0,dk:0,cl:0,nr:0,sos:0,blank:0};
+  rpWI(sid,su).forEach(w=>{ if(c[w.code]!=null) c[w.code]++; });
+  const wrong=c.dk+c.cl+c.nr+c.sos+c.blank;
+  const total=rpTotalQ(su,yr)||0;
+  const p=rpF2(sid,su); const checked=!!(p&&p.paper_checked);
+  const right=checked?Math.max(0,total-wrong):null;
+  return Object.assign(c,{wrong,total,right,checked,
+    rate:(checked&&total)?Math.round(right/total*100):null});
+}
+/* 得分：与 paperScore 同一套规矩 —— 只有声明「每题同分」的项目才算得出，
+   写作用老师亲填的实得分。算不满整份就标 *，绝不外推。 */
+function rpScore(sid,su,yr){
+  if(!rpReady(sid,su)) return null;
+  const wi=rpWI(sid,su), secs=rpSecs(su,yr);
+  let got=0,max=0,covered=0; const missing=[];
+  secs.forEach(sec=>{
+    if((sec.type||'MCQ')==='ESSAY'){
+      const er=rpES(sid,su,sec.code);
+      if(er && er.score!=null && er.score!=='' && +sec.max>0){
+        got+=+er.score; max+=+sec.max; covered++;
+      } else missing.push(sec.code+'（写作未填分）');
+      return;
+    }
+    const pq=secPerQ(sec);
+    if(pq==null){ missing.push(sec.code+(sec.even==='N'?'（每题不同分）':'（未声明每题同分）')); return; }
+    const wrong=wi.filter(w=>+w.q>=+sec.qf && +w.q<=+sec.qt && w.code!=='star').length;
+    got+=Math.max(0,(+sec.max)-wrong*pq); max+=(+sec.max); covered++;
+  });
+  if(!covered) return {got:null,max:0,covered:0,total:secs.length,missing};
+  return {got:Math.round(got*10)/10,max:Math.round(max*10)/10,
+          covered,total:secs.length,missing};
+}
+/* 一位学生的五科总览。没资料的科目回 state，不留空白也不编造。 */
+function rpStudent(sid,yr){
+  return SUBJECTS.map(su=>{
+    const p=rpF2(sid,su);
+    const st=f2State(p);
+    return {su, p, st, ready:rpReady(sid,su), obs:rpObs(sid,su),
+            stats:rpStats(sid,su,yr), score:rpScore(sid,su,yr)};
+  });
+}
+/* 七维度 → 家长看得懂的话。只列老师**真的填过**的，没填的不出现。 */
+function rpDimWords(obs){
+  const agg={};
+  obs.forEach(o=>DIMS.forEach(d=>{ const v=o[d.id]; if(v) (agg[d.id]=agg[d.id]||[]).push(v); }));
+  const out=[];
+  DIMS.forEach(d=>{
+    const vs=agg[d.id]; if(!vs||!vs.length) return;
+    const tally={}; vs.forEach(v=>tally[v]=(tally[v]||0)+1);
+    const top=Object.keys(tally).sort((a,b)=>tally[b]-tally[a])[0];
+    /* IRH 的 t 是「独立 Independent」这种中英并列 —— 那是给老师端看的。
+       家长版只给中文，且不重复维度名（维度已经叫「独立」了）。 */
+    const PW={Y:'做得到',S:'不稳定',N:'做不到',I:'能独立完成',R:'需要提醒',H:'需要帮助'};
+    const opt=(d.scale==='IRH'?IRH:YSN).find(x=>x.v===top);
+    out.push({zh:d.zh, word:PW[top]||(opt?opt.t:top)});
+  });
+  return out;
 }
 function reportRows(){
   const cl=(document.getElementById('rptCls')||{}).value||S.cls;
@@ -2268,6 +2437,43 @@ function reportRows(){
   }).filter(x=>reportReady(x.r.sid));
 }
 /* 被挡在报告外的人 —— 必须看得见，否则管理层以为「就这几个」 */
+/* 出报告之前先看这张：哪一科、几位学生达到门槛。
+   数字是数出来的，不估算。0 就印 0，不用「大致」这种字。 */
+function rptReadyHTML(cl){
+  const list=inCls(cl);
+  if(!list.length) return `<div class="card"><div class="empty">
+    ${esc(cl)} 名单是空的 —— 先按「重新从云端拉资料」。</div></div>`;
+  const rows=SUBJECTS.map(su=>{
+    let ok=0,ab=0,na=0,half=0,none=0;
+    list.forEach(r=>{
+      if(rpReady(r.sid,su)){ ok++; return; }
+      const st=f2State(rpF2(r.sid,su));
+      if(st==='absent') ab++;
+      else if(st==='notassessed') na++;
+      else if(st==='progress'||st==='done'||rpObs(r.sid,su).length) half++;
+      else none++;
+    });
+    return {su,ok,ab,na,half,none};
+  });
+  const tot=rows.reduce((a,x)=>a+x.ok,0);
+  return `<div class="card">
+    <div class="card-hdr"><span class="card-title">${esc(cl)} · ${list.length} 位 · 达标概况</span>
+      <span class="tip" style="margin:0">门槛 = 已评量 + 核对整份卷 + 已选 TP</span></div>
+    ${tot===0?`<div class="alert alert-danger"><div><b>这个班五科都还没有资料。</b>
+      多半是老师还没登入 —— 没登入时填的东西只留在她自己的装置，不会上云。</div></div>`:''}
+    <div class="tw"><table class="data"><thead><tr>
+      <th>科目</th><th style="width:74px">可进报告</th><th style="width:60px">缺席</th>
+      <th style="width:74px">本轮未评</th><th style="width:74px">资料未齐</th>
+      <th style="width:74px">还没开始</th></tr></thead><tbody>
+      ${rows.map(x=>`<tr><td><strong>${esc(x.su)}</strong></td>
+        <td>${x.ok?`<span class="chip chip-ok">${x.ok}</span>`:'<span class="chip chip-warn">0</span>'}</td>
+        <td>${x.ab||'—'}</td><td>${x.na||'—'}</td>
+        <td>${x.half?`<span class="chip chip-warn">${x.half}</span>`:'—'}</td>
+        <td>${x.none||'—'}</td></tr>`).join('')}
+    </tbody></table></div>
+    <div class="tip">缺席与本轮未评 <b>不是弱项</b>，不进报告也不算 0 分。</div>
+  </div>`;
+}
 function reportHeld(){
   const cl=(document.getElementById('rptCls')||{}).value||S.cls;
   const out={absent:[],na:[],half:[],none:[]};
@@ -2385,6 +2591,177 @@ function renderReportBody(){
   h+=`<div class="tip">「主问题」目前只在老师端显示 —— 给家长看的措辞尚未定案，不会印进家长报告。</div>`;
   el.innerHTML=h;
 }
+/* ══════════════════════════════════════════════════════════════════
+   A · 家长版 —— 每生一页 A4
+   ⛔ 绝不出现：分数、答对率、题数、错题计数、排名、其他学生。
+      Owner 2026-09-08 拍板 D：「家长不看分数，但是内部需要看分数。」
+      掌握程度只印中文（「达到水准」），不印 TP3 这种代号 —— 那是给内部的。
+   ══════════════════════════════════════════════════════════════════ */
+function printParent(){
+  const cl=(document.getElementById('rptCls')||{}).value||S.cls;
+  const list=inCls(cl);
+  if(!list.length){ toast('✕ 这个班没有学生'); return; }
+  const pages=[]; let skipped=0;
+  list.forEach(r=>{
+    const subs=rpStudent(r.sid, r.year).filter(x=>x.ready);
+    if(!subs.length){ skipped++; return; }
+    let body='';
+    subs.forEach(x=>{
+      const tp=(TPS.find(t=>t.v===x.p.tp)||{}).zh||'';
+      const dims=rpDimWords(x.obs);
+      /* 弱项：系统推导 + 老师手填，两个来源分开保留（provenance 不压扁），
+         但对家长只印标签本身，不印是谁判的。 */
+      const weak=[].concat(x.p.weak_options||[])
+                   .concat((x.p.weak_manual||[]).map(optText).filter(Boolean));
+      const wnote=(x.p.weak_note||'').trim();
+      /* 🔴 家长版**不得**放 next_options —— 那一栏是「老师的行动」
+         （个别辅导 / 额外练习题 / 调整教学方式…），家长做不到「个别辅导」。
+         把它写进「在家可以这样配合」= 把两种不同主体的行动压成一种，
+         违反 Evidence semantics。家长栏只用 parent_support（本来就是为家长设的）
+         与老师亲手写的 next_note。两栏都空就整行不出现，不硬凑。 */
+      const care=[(x.p.parent_support||'').trim(),
+                  (x.p.next_note||'').trim()].filter(Boolean).join('；');
+      body+='<div class="sub">'
+        +'<div class="sub-h">'+esc(x.su)+(tp?'<span class="tp">'+esc(tp)+'</span>':'')+'</div>'
+        +(dims.length?'<div class="row"><span class="lb">考试时的表现</span><span class="vl">'
+            +dims.map(d=>esc(d.zh)+'：'+esc(d.word)).join('　·　')+'</span></div>':'')
+        +(weak.length?'<div class="row"><span class="lb">这次要加强</span><span class="vl">'
+            +weak.map(esc).join('、')+'</span></div>':'')
+        +(wnote?'<div class="row"><span class="lb">老师的话</span><span class="vl">'+esc(wnote)+'</span></div>':'')
+        +(care?'<div class="row"><span class="lb">在家可以这样配合</span><span class="vl">'+esc(care)+'</span></div>':'')
+        +'</div>';
+    });
+    const miss=SUBJECTS.filter(su=>!subs.some(x=>x.su===su));
+    if(miss.length) body+='<div class="note">'+esc(miss.join('、'))
+      +'：这一轮还没有完成的评量记录，所以本报告不列。</div>';
+    pages.push('<section class="pg">'
+      +'<div class="hd"><div class="t1">ATC 部 · 考前学习报告</div>'
+      +'<div class="t2">'+esc(S.examLabel||'')+(S.examTerm?' · '+esc(termLabel(S.examTerm)):'')+'</div></div>'
+      +'<div class="who"><b>'+esc(nameOf(r))+'</b><span>'+esc(r.cls)+'</span><span>'+today()+'</span></div>'
+      +body
+      +'<div class="ft"><div>科任签名<div class="ln"></div></div>'
+      +'<div>主任审阅<div class="ln"></div></div>'
+      +'<div>家长签收<div class="ln"></div></div></div>'
+      +'</section>');
+  });
+  if(!pages.length){ alert('✕ 这个班还没有任何学生达到报告门槛。\n\n'
+    +'门槛 = 已评量 + 老师亲自核对整份卷 + 已选掌握程度 TP。'); return; }
+  rpOpen('家长版 · '+cl, PARENT_CSS, pages.join(''),
+    skipped?('共 '+pages.length+' 位；'+skipped+' 位尚未达门槛，未列印。'):'');
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   B · 内部版 —— 每班一份，五科各一张表，**有分数**
+   给主管 / 老师，不给家长。每一科都印「未列入」名单，缺席与未评分开列。
+   ══════════════════════════════════════════════════════════════════ */
+function printInternal(){
+  const cl=(document.getElementById('rptCls')||{}).value||S.cls;
+  const list=inCls(cl);
+  if(!list.length){ toast('✕ 这个班没有学生'); return; }
+  let body='<div class="hd"><div class="t1">ATC 部 · 考前报告（内部版）</div>'
+    +'<div class="t2">'+esc(cl)+' · '+esc(S.examLabel||'')
+    +(S.examTerm?' · '+esc(termLabel(S.examTerm)):'')+' · '+today()+'</div></div>';
+  SUBJECTS.forEach((su,si)=>{
+    const rows=list.filter(r=>rpReady(r.sid,su));
+    const held={absent:[],na:[],half:[],none:[]};
+    list.forEach(r=>{
+      if(rpReady(r.sid,su)) return;
+      const st=f2State(rpF2(r.sid,su));
+      if(st==='absent') held.absent.push(r);
+      else if(st==='notassessed') held.na.push(r);
+      else if(st==='progress'||st==='done'||rpObs(r.sid,su).length) held.half.push(r);
+      else held.none.push(r);
+    });
+    body+='<section class="sec'+(si?' brk':'')+'"><h2>'+esc(su)+'</h2>';
+    if(!rows.length){ body+='<div class="empty">本科尚无学生达到报告门槛</div>'; }
+    else{
+      body+='<table><thead><tr><th>#</th><th>学生</th><th>得分</th><th>答对率</th>'
+        +'<th>TP</th><th>主问题</th><th>较弱（系统）</th>'
+        +'<th>较弱（老师）</th><th>下一步</th></tr></thead><tbody>';
+      rows.forEach((r,i)=>{
+        const x=rpF2(r.sid,su), ms=rpStats(r.sid,su,r.year), ps=rpScore(r.sid,su,r.year);
+        const mi=mainIssue(ms);
+        const sc=!ps?'—':(ps.got==null?'算不出'
+                 :(ps.got+' / '+ps.max+(ps.covered===ps.total?'':' *')));
+        body+='<tr><td>'+(i+1)+'</td><td>'+esc(nameOf(r))+'</td><td>'+sc+'</td>'
+          +'<td>'+(ms.rate==null?'—':ms.rate+'%')+'</td>'
+          +'<td>'+esc(x.tp||'—')+'</td>'
+          +'<td>'+(mi?esc(mi.lab)+' '+mi.n+' 题':'—')+'</td>'
+          +'<td>'+esc((x.weak_options||[]).join('、')||'—')+'</td>'
+          +'<td>'+esc((x.weak_manual||[]).map(optText).filter(Boolean).join('、')||x.weak_note||'—')+'</td>'
+          +'<td>'+esc((x.next_options||[]).join('、')||x.next_note||'—')+'</td></tr>';
+      });
+      body+='</tbody></table>';
+    }
+    const ln=(lab,arr,why)=>arr.length?('<div><b>'+lab+' '+arr.length+' 位</b>：'
+      +esc(arr.map(r=>nameOf(r)).join('、'))+' —— '+why+'</div>'):'';
+    const hb=ln('缺席',held.absent,'不是弱、不是 0 分，只是没有证据')
+      +ln('本轮未评',held.na,'学生在，但这一轮证据不足')
+      +ln('资料未齐',held.half,'有填但还没按「整份都看过了」或还没选 TP')
+      +ln('还没开始',held.none,'');
+    if(hb) body+='<div class="held"><b>未列入本科报告：</b>'+hb+'</div>';
+    body+='</section>';
+  });
+  body+='<div class="note">得分栏带 <b>*</b> = 只涵盖部分项目'
+    +'（有项目未声明「每题同分」或写作未填分）。'
+    +'<b>此页含分数，不得交给家长。</b></div>'
+    +'<div class="ft"><div>科任签名<div class="ln"></div></div>'
+    +'<div>主任审阅<div class="ln"></div></div>'
+    +'<div>日期<div class="ln"></div></div></div>';
+  rpOpen('内部版 · '+cl, INTERNAL_CSS, body, '');
+}
+
+/* 共用开窗 —— 两版唯一的差别是 CSS 与内容，流程一样。 */
+function rpOpen(title, css, body, foot){
+  const w=window.open('','_blank','width=900,height=1000');
+  if(!w){ alert('✕ 浏览器挡了弹窗。请允许弹窗后重试。'); return; }
+  w.document.write('<!DOCTYPE html><html><head><meta charset="utf-8"><title>'
+    +title+'</title><style>'+css+'</style></head><body>'+body
+    +(foot?'<div class="note">'+foot+'</div>':'')
+    +'<scr'+'ipt>window.print();window.onafterprint=()=>window.close();</scr'+'ipt>'
+    +'</body></html>');
+  w.document.close();
+}
+
+const RP_BASE = "*{box-sizing:border-box;margin:0;padding:0}"
+ +"body{font-family:'Segoe UI','PingFang SC','Microsoft YaHei',Arial,sans-serif;color:#222}"
+ +".hd{border-bottom:2px solid #1a3a5c;padding-bottom:8px;margin-bottom:14px}"
+ +".t1{font-size:17px;font-weight:700;color:#1a3a5c}"
+ +".t2{font-size:11px;color:#555;margin-top:3px}"
+ +".ft{margin-top:24px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px;font-size:10px}"
+ +".ln{border-bottom:1px solid #bbb;height:24px;margin-top:8px}"
+ +".note{margin-top:10px;font-size:9.5px;color:#666;line-height:1.5}";
+
+const PARENT_CSS = RP_BASE
+ +"body{padding:0;font-size:12px}"
+ +".pg{padding:18mm 16mm;page-break-after:always;min-height:297mm}"
+ +".pg:last-of-type{page-break-after:auto}"
+ +".who{display:flex;gap:14px;align-items:baseline;margin-bottom:14px;font-size:13px}"
+ +".who b{font-size:16px}"
+ +".who span{font-size:11px;color:#666}"
+ +".sub{border:1px solid #d8dee6;border-radius:6px;padding:10px 12px;margin-bottom:9px;page-break-inside:avoid}"
+ +".sub-h{font-weight:700;font-size:13px;color:#1a3a5c;margin-bottom:6px;"
+ +"border-bottom:1px solid #eef1f5;padding-bottom:4px}"
+ +".tp{float:right;font-size:11px;font-weight:600;color:#1a6c3a;background:#e8f5ec;"
+ +"border-radius:10px;padding:1px 10px}"
+ +".row{display:flex;gap:8px;margin-top:5px;font-size:11.5px;line-height:1.55}"
+ +".lb{flex:0 0 86px;color:#667;font-size:10.5px;padding-top:1px}"
+ +".vl{flex:1}"
+ +"@media print{@page{margin:0;size:A4 portrait}}";
+
+const INTERNAL_CSS = RP_BASE
+ +"body{padding:12mm 10mm;font-size:10px}"
+ +".sec{margin-bottom:16px}.sec.brk{page-break-before:always}"
+ +"h2{font-size:13px;color:#1a3a5c;margin-bottom:6px;border-left:4px solid #1a3a5c;padding-left:7px}"
+ +"table{width:100%;border-collapse:collapse;page-break-inside:auto}"
+ +"tr{page-break-inside:avoid}"
+ +"th{font-size:8.5px;font-weight:600;letter-spacing:.04em;color:#444;padding:4px 6px;"
+ +"border:1px solid #999;text-align:left;background:#eceff3}"
+ +"td{padding:4px 6px;border:1px solid #ccc;vertical-align:top}"
+ +".empty{font-size:10px;color:#888;padding:8px 0}"
+ +".held{margin-top:5px;font-size:9px;color:#555;line-height:1.6}"
+ +"@media print{@page{margin:10mm;size:A4 portrait}}";
+
 function printReport(){
   const rows=reportRows();
   if(!rows.length){ toast('✕ 没有资料可印'); return; }
@@ -2674,6 +3051,8 @@ async function cloudInit(silent){
        两者都不会让上传整批失败。 */
     CLOUD.hasWI = !(await _sb.from('evalgo_wrong_item').select('id').limit(1)).error;
     CLOUD.hasPS = !(await _sb.from('evalgo_paper_section').select('id').limit(1)).error;
+    /* delta v12 —— 卷面题号 paper_from/paper_to 与小题 q_sub */
+    CLOUD.hasV12 = !(await _sb.from('evalgo_paper_section').select('paper_from').limit(1)).error;
     CLOUD.hasV4 = !(await _sb.from('evalgo_paper_analysis').select('tp').limit(1)).error;
     CLOUD.hasV5 = !(await _sb.from('evalgo_paper_analysis').select('paper_checked').limit(1)).error;
     CLOUD.hasES = !(await _sb.from('evalgo_essay_result').select('id').limit(1)).error;
@@ -2782,6 +3161,7 @@ async function pullSections(){
         code:x.code, topic:x.topic||'', fmt:x.answer_format||'',
         type:x.section_type||'OBJ',
         qf:x.q_from, qt:x.q_to, max:x.max_score,
+        pf:(x.paper_from!=null?x.paper_from:(mine?mine.pf:null)),
         sort:x.sort_order||0, by:x.created_by||'',
         synced:true, cloud_id:x.id};
       if(mine) Object.assign(mine,row); else { arr.push(row); n++; }
@@ -2910,6 +3290,10 @@ function psPayload(sec){
        却在 payload 这一步被丢掉，云端永远是 NULL。每一种题型都要送。 */
     max_score:(+sec.max||null),
     sort_order:+sec.sort||0, created_by:sec.by||S.me||null, client_uid:sec.client_uid,
+    /* 卷面题号：只在老师声明过才送。没声明就留 NULL —— 云端的 CHECK 会挡住
+       半套（paper_from 有、paper_to 没有）的资料。 */
+    ...(CLOUD.hasV12 && !isEssay && +sec.pf>=1
+        ? {paper_from:+sec.pf, paper_to:+sec.pf+((+sec.qt||0)-(+sec.qf||0))} : {}),
     ...(CLOUD.hasV10 ? {even_marks: sec.even==='Y'?'YES':(sec.even==='N'?'NO':'UNKNOWN')} : {})};
 }
 /* 逐题纪录挂回它所属的 section（需要 section 先上云拿到 id） */
@@ -2969,6 +3353,7 @@ function wiPayload(w){ const st=stuOf(w.sid)||{};
     mark_code:String(w.code||'').toUpperCase(),
     cl_subtype:(w.code==='cl'?(w.cl_subtype||null):null),
     diagnosis:w.diag||null,topic:w.topic||null,answer_format:w.fmt||null,
+    ...(CLOUD.hasV12 ? {q_sub:w.qsub||null} : {}),
     entered_by:w.by||S.me,client_uid:w.client_uid}; }
 function asgPayload(a){
   return {exam_id:CLOUD.exam.id, teacher_id:a.teacher_id, class_name:a.cls,
@@ -3130,6 +3515,12 @@ async function cloudPush(silent){
       +'绝不会併进 weak_options 冒充系统推导；v9 一上线会自动重送。');
   }
   if(!CLOUD.hasWI && wiJobs.length) held.push(`逐题资料 ${wiJobs.length} 笔暂留本机 —— 资料库还没有 evalgo_wrong_item。`);
+  if(!CLOUD.hasV12){
+    const nPF=allSections().filter(x=>+x.pf>=1).length;
+    const nQS=Object.values(S.wi).filter(w=>w&&w.qsub).length;
+    if(nPF||nQS) held.push(`卷面题号 ${nPF} 个项目、小题 ${nQS} 笔只留在本机 —— `
+      +`资料库还没有 paper_from / q_sub（delta v12 未跑）。跑完会自动重送。`);
+  }
   if(!CLOUD.hasV4) held.push('TP 与「家长配合」暂留本机 —— 资料库还没有这两栏（delta v4 未跑）。');
   for(const j of jobs){
     try{
@@ -3200,6 +3591,7 @@ async function cloudPull(silent){
     (d.data||[]).forEach(x=>{ const k=CLOUD.exam.code+'|'+x.student_id+'|'+x.subject+'|'+x.q_no;
       if(S.wi[k]&&!S.wi[k].synced) return;
       S.wi[k]={client_uid:x.client_uid||uid(),sid:x.student_id,subject:x.subject,q:x.q_no,
+        qsub:x.q_sub||null,
         code:String(x.mark_code||'').toLowerCase(),diag:x.diagnosis||'',
         topic:x.topic||'',fmt:x.answer_format||'',sec_code:'',sec_type:x.diagnosis?'SUBJ':'OBJ',
         cls:'',class_id:x.class_id,year:x.year_level,by:x.entered_by,exam:CLOUD.exam.code,
