@@ -1427,7 +1427,7 @@ function buildVisitInterpretations(v){
    本区块负责：硬闸登入 · Supabase 名单 · 幂等上传 · 作废 · 介面
    ⛔ 档内不写死任何学生姓名或班级 —— 一律从 Supabase 读
    ═══════════════════════════════════════════════════════════════════ */
-const APP_VERSION = 6;
+const APP_VERSION = 7;   /* 顶栏徽章、设定页、Export payload 共用这一个数字 */
 const STORAGE_KEY = 'obsgo_v2';
 const SYSTEM_CODE = 'OPR-ObsGo';
 
@@ -1492,7 +1492,7 @@ const state = {
   ui:{advOpen:false},
   meta:{created:null, last_updated:null}
 };
-const CLOUD = {ready:false, perm:null, who:null, busy:false, lastErr:null};
+const CLOUD = {ready:false, perm:null, who:null, busy:false, lastErr:null, readErr:'', storeErr:'', slimmed:false};
 const TARGET_STUDENTS = 5;
 const UIH = {dept:'ALL'};   /* 纪录页的筛选状态（§4-14 切页保留） */
 
@@ -1517,16 +1517,47 @@ function sObj(sid){ return state.roster.students.find(x=>x.id===sid)||null; }
 /* ══════════ 存档 ══════════ */
 let _saveT=null;
 const BACKUP_KEY = STORAGE_KEY+'_backup';
-function save(now){
-  if(!now){ clearTimeout(_saveT); _saveT=setTimeout(()=>save(true),800); return; }   /* §4-05 800ms debounce */
-  state.meta.last_updated=new Date().toISOString();
-  const payload=JSON.stringify({meta:state.meta, roster:state.roster, visit:state.visit, records:state.records, ui:state.ui});
+/* 全平台 18 套系统共用 angelteo.github.io 这一个网域的 localStorage 配额（约 5MB）。
+   别人塞满了，我们一样写不进去。所以写不进去时不能只弹 6 秒 toast 就 return ——
+   那等於静默丢掉这次巡班。三段式退让：宁可丢「可以从云端重拉的名单」，
+   也绝不丢「只存在这台机器上的巡班纪录」。 */
+function writeLocal(payload){
   try{
     /* 存新的之前先把上一份好的留成 backup —— JSON 损坏时可以救回来（§4-08） */
     const prev=localStorage.getItem(STORAGE_KEY);
     if(prev) localStorage.setItem(BACKUP_KEY, prev);
     localStorage.setItem(STORAGE_KEY, payload);
-  }catch(e){ toast('⚠ 本机空间不足 —— 请先 Export 备份', 6000); return; }
+    return {ok:true, level:0};
+  }catch(e){}
+  try{                                   /* ① 先牺牲备份 */
+    localStorage.removeItem(BACKUP_KEY);
+    localStorage.setItem(STORAGE_KEY, payload);
+    return {ok:true, level:1};
+  }catch(e){}
+  try{                                   /* ② 再牺牲名单（约 166KB，可从云端重拉） */
+    localStorage.removeItem(BACKUP_KEY);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      meta:state.meta, roster:{source:'',classes:[],students:[],enroll:[],pulled_at:null},
+      visit:state.visit, records:state.records, ui:state.ui}));
+    return {ok:true, level:2};
+  }catch(e){ return {ok:false, level:3, error:e.message||String(e)}; }
+}
+function save(now){
+  if(!now){ clearTimeout(_saveT); _saveT=setTimeout(()=>save(true),800); return; }   /* §4-05 800ms debounce */
+  state.meta.last_updated=new Date().toISOString();
+  const payload=JSON.stringify({meta:state.meta, roster:state.roster, visit:state.visit, records:state.records, ui:state.ui});
+  const w=writeLocal(payload);
+  if(!w.ok){
+    /* 铁则七：这是会掉资料的一态，不准只用 6 秒 toast 打发。常驻红条 + 长 toast + 设定页都要看得到。 */
+    CLOUD.storeErr=w.error||'本机空间不足';
+    toast('⚠ 存不进这台机器 —— 资料只在画面上，关掉就没了。请立刻按顶栏 ↓ Export 备份，并找管理层清理本机空间。', 15000);
+    paintSync(); return;
+  }
+  if(w.level>=2 && !CLOUD.slimmed){
+    CLOUD.slimmed=true;
+    toast('⚠ 本机空间不足 —— 已暂时清掉本机名单来保住巡班纪录。名单会自动重新载入，巡班不受影响。', 12000);
+  }
+  CLOUD.storeErr='';
   const el2=el('last-saved');
   if(el2) el2.textContent='已存 '+new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
   paintSync();
@@ -1681,6 +1712,12 @@ function renderSelect(){
   let a='';
   if(state.roster.source!=='cloud')
     a+='<div class="alert alert-danger">名单还没从云端载入，不能开始巡班。<button class="ghost btn-sm" style="margin-left:8px" onclick="pullRoster(false).then(renderSelect)">重新载入</button></div>';
+  /* 🔴 存不进本机 = 会掉资料。这条比名单那条更急，放最前面。 */
+  if(CLOUD.storeErr)
+    a='<div class="alert alert-danger">🔴 <strong>存不进这台机器（本机空间不足）</strong> —— '
+      +'现在的资料<strong>只在画面上，关掉浏览器就没了</strong>。<br>'
+      +'请立刻按顶栏 <strong>↓ Export</strong> 备份，并找管理层清理本机空间。'
+      +'<span style="opacity:.85"> · '+escapeHtml(CLOUD.storeErr)+'</span></div>'+a;
   /* 🔴 S-7：读失败 + 本机有旧快取 = 最危险的一态。旧名单会伪装成成功，
      老师用昨天的名单巡今天的班。这盏灯常驻，不是 toast，且与同步徽章分开。 */
   else if(CLOUD.readErr)
