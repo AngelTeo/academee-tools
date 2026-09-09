@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>EvalGo_ATC — ATC 部 考况 v24</title>
+<title>EvalGo_ATC — ATC 部 考况 v25</title>
 <style>
 :root{
   /* ══ LAYER ══ RPT = 文档灰 */
@@ -271,6 +271,11 @@ button.chip.sel-w{background:var(--warn);color:#fff}
 .sync:hover{background:rgba(255,255,255,.2)}
 .sync-dot{width:8px;height:8px;border-radius:50%;background:currentColor;flex-shrink:0}
 .sync-lab{font-weight:700;letter-spacing:.04em}
+.readwarn{min-height:44px;display:inline-flex;align-items:center;border-radius:999px;
+  padding:0 12px;background:rgba(163,45,45,.9);border:.5px solid rgba(255,255,255,.3);
+  color:#fff;font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap;
+  font-family:inherit;flex-shrink:0}
+.readwarn:hover{opacity:.85}
 .sync .saved{color:inherit}
 
 /* ══════ MANAGE 页契约 · Academee_ManagePage_Contract_v1 ══════
@@ -306,7 +311,7 @@ button.chip.sel-w{background:var(--warn);color:#fff}
 <!-- ══════ NAV ══════ -->
 <div class="nav">
   <button class="nav-home" onclick="goPlatform()" title="回平台首页">←</button>
-  <div class="nav-logo">📊 EvalGo_ATC <span class="ver">v24</span></div>
+  <div class="nav-logo">📊 EvalGo_ATC <span class="ver">v25</span></div>
   <button class="ntab on" onclick="goPage('home')">工作台</button>
   <button class="ntab" onclick="goPage('f1')">考前观察</button>
   <button class="ntab" onclick="goPage('f2')">考卷分析</button>
@@ -315,6 +320,8 @@ button.chip.sel-w{background:var(--warn);color:#fff}
   <button class="ntab" id="ntab-manage" hidden style="display:none" onclick="goPage('manage')">设定</button>
   <div class="nav-r">
     <span class="saved" id="last-saved"></span>
+    <button class="readwarn" id="read-warn" hidden style="display:none"
+      onclick="readWarnTap()">⚠ 有资料没读回来</button>
     <span class="sync" id="sync-chip" onclick="syncTap()" title="点开看云端连线状况"><span
       class="sync-dot"></span><span class="sync-lab">同步</span><span
       class="saved" id="cloud-state"></span></span>
@@ -367,7 +374,7 @@ button.chip.sel-w{background:var(--warn);color:#fff}
    权限码：RPT-EvalGo-ATC
    ══════════════════════════════════════════════════════════════════ */
 
-const APP_VERSION = 24;
+const APP_VERSION = 25;
 const STORAGE_KEY = 'evalgo_atc_v1';   /* 沿用 v1 key，旧资料不掉 */
 const SYS_CODE    = 'RPT-EvalGo-ATC';
 const SB_URL      = 'https://qnpvqsvvsgsantekgfbz.supabase.co';
@@ -425,7 +432,7 @@ function setAStat(sid, v){
   const r=f2Draft(sid);
   r.assess_status=v; r.synced=false;
   if(v!=='ASSESSED'){ r.savedAt=new Date().toLocaleString('en-GB'); stampF2(r,sid); }
-  saveData(); closeModal(); renderF2(); renderHome();
+  saveData(true); closeModal(); renderF2(); renderHome();   /* v25 R-H4：缺席／本轮未评不走 debounce */
   toast(v==='ASSESSED'?'✓ 改回已评量':('✓ 记为「'+ASTAT[v].lab+'」'));
   autoPush();
 }
@@ -606,7 +613,7 @@ const SEED = { me:'', subject:'', cls:'',
   f1:{}, f2:{}, ui:{extraOpen:false}, meta:{version:'v13'} };
 let S = JSON.parse(JSON.stringify(SEED));
 
-const CLOUD={ pushErr:'', checked:false, hasV8:false, hasV9:false, hasV10:false, bpEvid:{}, idErr:'', idFrom:'', role:'', hasWI:false, hasV4:false, hasPS:false, hasV5:false, hasES:false, hasV6:null, hasTA:false,lib:false,session:null,perm:null,exam:null,teachers:[],err:'',busy:false,lastSync:''};
+const CLOUD={ pushErr:'', checked:false, hasV8:false, hasV9:false, hasV10:false, bpEvid:{}, idErr:'', idFrom:'', role:'', hasWI:false, hasV4:false, hasPS:false, hasV5:false, hasES:false, hasV6:null, hasTA:false,lib:false,session:null,perm:null,exam:null,teachers:[],err:'',busy:false,lastSync:'',readErr:''};
 let _sb=null;
 
 /* ══ 基礎 ══ */
@@ -624,8 +631,24 @@ function paintNav(){
   const im=document.getElementById('nav-import');
   if(im){ const off = !!(CLOUD.session && CLOUD.perm && CLOUD.perm.can_edit!==true);
           im.hidden=off; im.style.display=off?'none':''; }
+  paintReadWarn();
 }
 function goPlatform(){ location.href=PLATFORM; }
+/* 🔴 v25 R-H2：读取不完整的独立指示灯。
+   刻意不塞进 #cloud-state —— 那支是 v22 R-C 的四态真相，不准动。
+   「送不出去」与「读不回来」是两件事，各自有自己的灯。 */
+function paintReadWarn(){
+  const el=document.getElementById('read-warn'); if(!el) return;
+  const on=!!(CLOUD.readErr && CLOUD.session);
+  el.hidden=!on; el.style.display=on?'':'none';
+}
+function readWarnTap(){
+  alert('有资料没有从云端读回来。\n\n（'+(CLOUD.readErr||'原因不明')+'）\n\n'
+   +'⚠ 你现在看到的进度可能不完整，也可能看不到你之前登记过的班科。\n\n'
+   +'请先「重新整理页面」。\n'
+   +'如果重新整理后还是这样 —— 请截图找管理层。\n'
+   +'⛔ 不要重新填一次，会卡住送不出去。');
+}
 /* 顶栏徽章：管理层点进设定页；老师点了要看得懂发生什么事 */
 function syncTap(){
   if(isAdmin()){ goPage('manage'); return; }
@@ -936,7 +959,7 @@ function asgToggle(cls,subj){
   if(S.assign[k]) delete S.assign[k];
   else S.assign[k]={client_uid:uid(),ses:SESSION_ID,exam:EXK(),teacher_id:S.me,
     teacher_name:S.meName||'',cls,subject:subj,savedAt:new Date().toLocaleString('en-GB'),synced:false};
-  saveData(); asgModal(MODAL_LOCK);
+  saveData(true); asgModal(MODAL_LOCK);   /* v25 R-H4：任教登记不走 debounce */
 }
 function asgGate(){
   /* 没登记就不给进。不解释、不劝，直接挡在前面。 */
@@ -945,6 +968,10 @@ function asgGate(){
 }
 function asgModal(lock){
   const body=`
+    ${CLOUD.readErr?`<div class="alert alert-danger"><div>
+      <b>⚠ 先不要勾。</b>这次没能从云端读回登记纪录，<b>你可能已经登记过了</b>。<br>
+      请先<b>重新整理页面</b>再看一次。重新整理后还是空的，才勾选。<br>
+      <span style="font-size:11px">（重复登记同一格会送不出去，而且重试也没用）</span></div></div>`:''}
     <div class="tip" style="margin-top:0">勾选你这一轮<b>负责的班级和科目</b>。
       勾了之后首页会标上你的名字，管理层也才知道这一格该由谁完成。</div>
     <div class="tw" style="margin-top:10px"><table class="data"><thead><tr>
@@ -2982,6 +3009,9 @@ function renderManage(){
     </div>
     <div class="mg-line">名单来源：<strong>${S.rosterSource==='cloud'?'来自资料库':(S.rosterSource==='demo'?'示范名单（假资料）':'手动汇入')}</strong> ·
       ${S.roster.length} 人${S.rosterAt?(' · 抓取时间 '+esc(S.rosterAt)):''}</div>
+    <div class="mg-line">读取状态：${CLOUD.readErr
+      ? ('<b style="color:var(--danger)">不完整 —— '+esc(CLOUD.readErr)+'</b>')
+      : '<strong>完整</strong>'}</div>
     <div class="mg-line">待上传：<strong>${pend}</strong> 笔　最近错误：${CLOUD.pushErr?('<b style="color:var(--danger)">'+esc(CLOUD.pushErr)+'</b>'):(CLOUD.err?esc(CLOUD.err):'（无）')}</div>
     ${S.rosterSource==='demo'?`<div class="alert alert-warn" style="margin-top:8px"><div>目前是练习用的假名单（连线后会自动换成真实名单）。<b>假资料不会上传。</b></div></div>`:''}
   </div>
@@ -3191,15 +3221,22 @@ async function cloudInit(silent){
       if(n){ saveData(true); console.info('v9 上线，重送 '+n+' 笔老师手填弱项'); }
     }
     await resolveTeacher();
-    await pullAssign();               /* 谁负责哪一格 —— 首页要显示 */
-    const nPS=await pullSections();   /* 换装置 / 别的老师已登记过 → 直接带出来 */
+    /* 🔴 v25 R-H2：连线成功 ≠ 这一轮资料读完整。
+       任何一个 pull 失败都要留下痕迹，不准让流程默默走完还宣告「已连上」。 */
+    CLOUD.readErr='';
+    const _rA=await pullAssign();     /* 谁负责哪一格 —— 首页要显示 */
+    const _rS=await pullSections();   /* 换装置 / 别的老师已登记过 → 直接带出来 */
+    if(!_rA.ok) CLOUD.readErr=_rA.error;
+    else if(!_rS.ok) CLOUD.readErr=_rS.error;
     await cloudRoster(true);          /* 名单自动载入，不用老师按 */
-    await cloudPull(true);            /* 已经填过的自动带回来 */
+    await cloudPull(true);            /* 已经填过的自动带回来（失败会自己写 readErr）*/
     /* ⚠️ 顺序不可颠倒：一定要在 pullSections / cloudPull **之後**才送 ——
        逐题纪录要靠 section 的 cloud_id 才挂得回它所属的项目。 */
     await flushPendingAfterLogin();
     paintNav();
-    paintCloud(); if(!silent) toast('✓ 已连上');
+    paintCloud();
+    if(!silent) toast(CLOUD.readErr ? ('⚠ 已连上，但有资料没读回来 —— '+CLOUD.readErr) : '✓ 已连上',
+                      CLOUD.readErr?7000:undefined);
     refreshAll();
     if(needTeacherBind()) askTeacher();
     return true;
@@ -3253,8 +3290,12 @@ function askTeacher(){
 /* 把云端的考卷结构合并进本机。回传新带回的笔数。
    规则：本机同 client_uid 且未上传 → 保留本机（老师正在改）；其余以云端为准。 */
 /* 拉回全部老师的任教登记 —— 首页要显示每一格该由谁负责 */
+/* 🔴 v25 R-H1：读路径不准用 0 兼职表示失败。
+   旧版 `return 0` 同时代表「云端真的 0 笔」与「查询失败」，
+   呼叫端永远分不出来，于是 cloudInit 照样宣告「✓ 已连上」。
+   改成 {ok,n,error}：ok=false 才是失败，n 只讲笔数。 */
 async function pullAssign(){
-  if(!CLOUD.hasTA||!CLOUD.exam||!_sb) return 0;
+  if(!CLOUD.hasTA||!CLOUD.exam||!_sb) return {ok:true,n:0,skipped:true};
   try{
     const r=await _sb.from('evalgo_teacher_assign').select('*').eq('exam_id',CLOUD.exam.id);
     if(r.error) throw r.error;
@@ -3267,11 +3308,12 @@ async function pullAssign(){
         teacher_name:t?t.name:'',cls:x.class_name,subject:x.subject,
         savedAt:'(云端)',synced:true,cloud_id:x.id}; n++; });
     if(n) saveData(true);
-    return n;
-  }catch(e){ console.warn('pullAssign:',e.message||e); return 0; }
+    return {ok:true,n:n};
+  }catch(e){ const m=e&&e.message?e.message:String(e);
+    console.warn('pullAssign:',m); return {ok:false,n:0,error:'任教登记读不回来：'+m}; }
 }
 async function pullSections(){
-  if(!CLOUD.hasPS||!CLOUD.exam||!_sb) return 0;
+  if(!CLOUD.hasPS||!CLOUD.exam||!_sb) return {ok:true,n:0,skipped:true};
   try{
     const r=await _sb.from('evalgo_paper_section').select('*')
       .eq('exam_id',CLOUD.exam.id).order('sort_order');
@@ -3294,8 +3336,9 @@ async function pullSections(){
       if(mine) Object.assign(mine,row); else { arr.push(row); n++; }
     });
     if(r.data&&r.data.length) saveData(true);
-    return n;
-  }catch(e){ console.warn('pullSections:',e.message||e); return 0; }
+    return {ok:true,n:n};
+  }catch(e){ const m=e&&e.message?e.message:String(e);
+    console.warn('pullSections:',m); return {ok:false,n:0,error:'考卷结构读不回来：'+m}; }
 }
 /* ══ 登入闸门 ══
    v14 的「去平台登入」按钮只长在【管理】页 —— 而管理页对老师是隐藏的。
@@ -3730,7 +3773,7 @@ async function cloudPull(silent){
     if(a.error) throw a.error;
     const b=await _sb.from('evalgo_paper_analysis').select('*').eq('exam_id',CLOUD.exam.id);
     if(b.error) throw b.error;
-    const nPS=await pullSections();
+    const nPS=(await pullSections()).n;
     let e2={data:[]};
     if(CLOUD.hasES){
       e2=await _sb.from('evalgo_essay_result').select('*').eq('exam_id',CLOUD.exam.id);
@@ -3787,12 +3830,15 @@ async function cloudPull(silent){
         sec_code:x.section_code,sec_cloud_id:x.section_id,score:x.score,max:x.max_score,
         weak:x.weak||[],star:!!x.is_star,cls:'',class_id:x.class_id,year:x.year_level,
         by:x.entered_by,exam:CLOUD.exam.code,savedAt:'(云端)',synced:true,cloud_id:x.id}; n4++; });
+    CLOUD.readErr=''; paintReadWarn();
     saveData(true); refreshAll(); renderManage();
     if(silent) return;
     alert(`已拉回 考卷项目 ${nPS} 个 · FORM 01 ${n1} 笔 · FORM 02 ${n2} 笔 · 逐题 ${n3} 笔 · 写作 ${n4} 笔`
       +(CLOUD.hasWI?'':'\n（逐题表尚未建立，跳过）')
       +'\n（本机还没上传的资料不会被盖掉）');
-  }catch(e){ if(silent) console.warn('pull:',e.message||e); else alert('拉回失败：'+(e.message||e)); }
+  }catch(e){ const m=e&&e.message?e.message:String(e);
+    CLOUD.readErr='资料读不回来：'+m; paintReadWarn();
+    if(silent) console.warn('pull:',m); else alert('拉回失败：'+m); }
 }
 /* 失败讯息必须「老师做得到」。叫老师去按 Export 是假的出口 ——
    那颗按钮在管理页，老师根本看不到。 */
