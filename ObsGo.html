@@ -372,7 +372,8 @@ h1{font-size:26px;line-height:1.18;margin:8px 0 6px;font-weight:700}
           </div>
           <div style="display:flex;align-items:center;gap:8px">
             <div class="live">● LIVE</div>
-            <button class="ghost btn-sm" onclick="discardVisit()">放弃</button>
+            <button class="ghost btn-sm" onclick="goScreen('select')">← 回主页面</button>
+            <button class="ghost btn-sm" id="btn-finish-top" onclick="finishVisit()">完成巡班 ✓</button>
           </div>
         </div>
         <div class="tabs">
@@ -392,8 +393,8 @@ h1{font-size:26px;line-height:1.18;margin:8px 0 6px;font-weight:700}
 
       <div class="tabpane" id="tab-students">
         <div class="info-strip">
-          <div><div class="kicker">Students</div><div class="helper">进班后看到谁，就加入谁。目标 5 位是 coverage guideline，不是进班前的门槛。<strong>没被加入 ≠ 低分。</strong></div></div>
-          <div class="pill warn" id="coverage-pill">0 / 5 observed</div>
+          <div><div class="kicker">Students</div><div class="helper">管理层要看的是<strong>全班</strong>。看到谁就加入谁，分几次巡完也可以。<strong>没被加入 ≠ 低分。</strong></div></div>
+          <div class="pill warn" id="coverage-pill">0 / 0</div>
         </div>
         <div class="students-top" id="student-chips"></div>
         <div class="coverage"><div class="progress"><div id="coverage-bar" style="width:0%"></div></div><span class="helper" id="coverage-text"></span></div>
@@ -492,8 +493,8 @@ h1{font-size:26px;line-height:1.18;margin:8px 0 6px;font-weight:700}
   <div class="bottom hidden" id="bottom-bar">
     <div class="bottom-in">
       <div class="bottom-note" id="bottom-note"></div>
-      <button class="ghost" id="btn-park" onclick="parkVisit()" style="margin-right:8px">存了退出</button>
-      <button class="finish" id="btn-finish" onclick="finishVisit()">完成巡班 ✓</button>
+      <button class="ghost" id="btn-save" onclick="saveNow()" style="margin-right:8px">储存</button>
+      <button class="finish" id="btn-park" onclick="parkVisit()">退出</button>
     </div>
   </div>
 
@@ -2054,13 +2055,15 @@ function behBankFor(v,sid,t){
 function renderStudents(){
   const v=state.visit; if(!v) return;
   const n=v.selectedStudents.length;
+  /* 管理层要看全班 —— 分母是这一班的在籍人数，不是抽样目标。 */
+  const total=rosterOf(v.classId).length;
   const pill=el('coverage-pill');
-  pill.textContent=n+' / '+TARGET_STUDENTS+' observed';
-  pill.className='pill '+(n>=TARGET_STUDENTS?'good':'warn');
-  el('coverage-bar').style.width=Math.min(100, n/TARGET_STUDENTS*100)+'%';
+  pill.textContent=n+' / '+total;
+  pill.className='pill '+(total && n>=total?'good':'warn');
+  el('coverage-bar').style.width=(total? Math.min(100, n/total*100):0)+'%';
   el('coverage-text').textContent = n
-    ? (n+' 位已加入'+(n>=TARGET_STUDENTS?' · coverage target reached ✓':' · 目标 '+TARGET_STUDENTS+'（不足不挡提交）'))
-    : '还没加入学生';
+    ? (n+' / '+total+' 位已加入'+(total && n>=total?' · 全班都记录了 ✓':''))
+    : '还没加入学生 —— 全班 '+total+' 位';
 
   if(!v.selectedStudents.includes(v.activeStudent)) v.activeStudent=v.selectedStudents[0]||null;
   el('student-chips').innerHTML=v.selectedStudents.map(sid=>{
@@ -2235,8 +2238,10 @@ function finishVisit(){
   const v=state.visit; if(!v) return;
   const c=counts();
   if(!c.evi && !Object.keys(v.classContext).length){ toast('✕ 这次巡班还没有任何记录'); return; }
-  if(c.students < TARGET_STUDENTS){
-    if(!confirm('只观察了 '+c.students+' 位（建议 '+TARGET_STUDENTS+' 位）。\n\n未观察的学生不会产生任何纪录，也不算低分。\n确定要完成这次巡班吗？')) return;
+  const totalStu=rosterOf(v.classId).length;
+  if(totalStu && c.students < totalStu){
+    if(!confirm('全班 '+totalStu+' 位，目前记录了 '+c.students+' 位。\n\n'+
+        '还没记完可以按「退出」，下次回来接着填。\n确定现在就完成这一班吗？')) return;
   }
   v.endedAt=nowHM();
   v.durationMin=Math.max(1, Math.round((Date.now()-v.startedTs)/60000));
@@ -2272,12 +2277,18 @@ function discardVisit(){
   state.visit=null; save(true); showScreen('select'); renderSelect(); toast('已放弃这次巡班');
 }
 /* 存了退出 —— 巡班分好几次完成，这是常态动作，不是「完成」。 */
+function saveNow(){
+  if(!state.visit) return;
+  if(state.drafts.indexOf(state.visit)<0) state.drafts.unshift(state.visit);
+  save(true);
+  toast('✓ 已储存 —— 可以继续填', 3000);
+}
 function parkVisit(){
   const v=state.visit; if(!v) return;
   if(state.drafts.indexOf(v)<0) state.drafts.unshift(v);
   state.visit=null; save(true);
   showScreen('select'); renderSelect();
-  toast('✓ 已存起来 —— 下次回到「'+v.classLabel+'」可以接着填', 5000);
+  toast('✓ 已存好 —— 下次回到「'+v.classLabel+'」接着填', 5000);
 }
 function resumeDraft(uid){
   const d=state.drafts.find(x=>x.client_uid===uid); if(!d) return;
@@ -2301,9 +2312,11 @@ function paintBottom(){
   const c=counts();
   el('bottom-note').innerHTML=c.students+' 位学生 · '+c.evi+' 条 evidence · '+
     Object.keys(v.classContext).length+' 个班级入口<br>'+
-    '<span style="opacity:.8">没填完就按「存了退出」，下次回来接着填 · 全部做完才按「完成巡班 ✓」</span>';
-  el('btn-finish').disabled = !(c.evi || Object.keys(v.classContext).length);
-  /* 「存了退出」永远可按 —— 巡班分好几次完成，存起来是常态。 */
+    '<span style="opacity:.8">「储存」存着继续填 · 「退出」存好回主页面换别班 · 全班记完了才按上面的「完成巡班 ✓」</span>';
+  const bf=el('btn-finish-top');
+  if(bf) bf.disabled = !(c.evi || Object.keys(v.classContext).length);
+  /* 「储存」「退出」永远可按 —— 巡班分好几次完成。 */
+  const bs=el('btn-save'); if(bs) bs.disabled=false;
   const bp=el('btn-park'); if(bp) bp.disabled=false;
 }
 
@@ -2736,6 +2749,7 @@ window.renderManage = renderManage;
 window.goScreen = goScreen;
 window.resumeVisit = resumeVisit;
 window.parkVisit = parkVisit;
+window.saveNow = saveNow;
 window.resumeDraft = resumeDraft;
 window.discardDraft = discardDraft;
 
