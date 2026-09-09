@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>EvalGo_ATC — ATC 部 考况 v22</title>
+<title>EvalGo_ATC — ATC 部 考况 v23</title>
 <style>
 :root{
   /* ══ LAYER ══ RPT = 文档灰 */
@@ -46,7 +46,7 @@ body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang 
 
 /* ══════ SUB NAV ══════ */
 .sub-nav{background:var(--sur);border-bottom:.5px solid var(--bdr);
-  padding:0 16px;gap:2px;position:sticky;top:44px;z-index:49;
+  padding:0 16px;gap:2px;position:sticky;top:56px;z-index:49;
   display:flex;overflow-x:auto;align-items:center;min-height:38px}
 .sub-ntab{padding:9px 14px;font-size:11px;color:var(--mut);cursor:pointer;
   border:none;background:transparent;border-bottom:2px solid transparent;
@@ -251,6 +251,41 @@ button.chip.sel-w{background:var(--warn);color:#fff}
 .quick-icon{font-size:24px;margin-bottom:6px}
 .quick-label{font-size:11px;color:var(--txt);font-weight:500}
 
+/* ══════ TOPBAR 契约 · Academee_Topbar_Contract_v1 ══════ */
+.nav{min-height:56px}
+.ntab{min-height:44px;display:inline-flex;align-items:center}
+.nav-r{padding-left:28px;gap:8px}
+.btn-nav{min-height:44px;display:inline-flex;align-items:center;border-radius:8px;font-weight:600}
+.nav-home{min-width:44px;min-height:44px;display:inline-flex;align-items:center;justify-content:center;
+  background:transparent;border:none;color:#fff;font-size:17px;cursor:pointer;
+  flex-shrink:0;font-family:inherit;padding:0 8px;margin-right:2px}
+.nav-home:hover{opacity:.7}
+.nav-out{min-height:44px;display:inline-flex;align-items:center;background:none;border:none;
+  color:rgba(255,255,255,.55);font-size:11px;cursor:pointer;font-family:inherit;
+  padding:0 6px;white-space:nowrap}
+.nav-out:hover{color:#fff}
+.sync{min-height:44px;display:inline-flex;align-items:center;gap:6px;border-radius:999px;
+  padding:0 12px;background:rgba(255,255,255,.10);border:.5px solid rgba(255,255,255,.22);
+  cursor:pointer;white-space:nowrap;font-family:inherit;font-size:10px;
+  color:rgba(255,255,255,.85);flex-shrink:0}
+.sync:hover{background:rgba(255,255,255,.2)}
+.sync-dot{width:8px;height:8px;border-radius:50%;background:currentColor;flex-shrink:0}
+.sync-lab{font-weight:700;letter-spacing:.04em}
+.sync .saved{color:inherit}
+
+/* ══════ MANAGE 页契约 · Academee_ManagePage_Contract_v1 ══════
+   全部用 #c-manage 限定，不动其他页面的既有观感 */
+#c-manage .card{border-radius:16px;padding:16px;margin-bottom:12px}
+#c-manage .card-title{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+#c-manage .mg-line{font-size:12px;line-height:2}
+#c-manage button,#c-manage label.btn,#c-manage select,#c-manage a[href]{
+  min-height:44px;display:inline-flex;align-items:center;justify-content:center}
+#c-manage input:not([type=file]){min-height:44px}
+#c-manage code{font-size:11px;background:var(--sur2);padding:2px 6px;border-radius:4px}
+#c-manage .mg-danger{font-size:11px;color:var(--danger);background:none;border:none;
+  cursor:pointer;font-family:inherit;min-height:44px;display:inline-flex;align-items:center}
+#c-manage .mg-danger:hover{text-decoration:underline}
+
 /* ══════ RESPONSIVE ══════ */
 @media(max-width:768px){.stat-grid{grid-template-columns:repeat(2,1fr)}.modal{width:100%;margin:10px}}
 @media(max-width:480px){.stat-grid{grid-template-columns:1fr}.ntab{padding:10px 10px;font-size:10px}}
@@ -270,16 +305,23 @@ button.chip.sel-w{background:var(--warn);color:#fff}
 
 <!-- ══════ NAV ══════ -->
 <div class="nav">
-  <div class="nav-logo">EvalGo_ATC <span style="font-weight:400;opacity:.75">· ATC 部 考况</span> <span class="ver">v22</span></div>
+  <button class="nav-home" onclick="goPlatform()" title="回平台首页">←</button>
+  <div class="nav-logo">📊 EvalGo_ATC <span class="ver">v23</span></div>
   <button class="ntab on" onclick="goPage('home')">工作台</button>
   <button class="ntab" onclick="goPage('f1')">考前观察</button>
   <button class="ntab" onclick="goPage('f2')">考卷分析</button>
   <button class="ntab" onclick="goPage('coverage')">覆盖追踪</button>
   <button class="ntab" id="ntab-report" hidden style="display:none" onclick="goPage('report')">考前报告</button>
-  <button class="ntab" id="ntab-manage" hidden style="display:none" onclick="goPage('manage')">管理</button>
+  <button class="ntab" id="ntab-manage" hidden style="display:none" onclick="goPage('manage')">设定</button>
   <div class="nav-r">
-    <span class="saved" id="cloud-state"></span>
-    <span class="saved" id="last-saved" style="display:none"></span>
+    <span class="saved" id="last-saved"></span>
+    <span class="sync" id="sync-chip" onclick="syncTap()" title="点开看云端连线状况"><span
+      class="sync-dot"></span><span class="sync-lab">同步</span><span
+      class="saved" id="cloud-state"></span></span>
+    <button class="btn-nav" onclick="exportData()">↓ Export</button>
+    <label class="btn-nav" id="nav-import" style="cursor:pointer">↑ Import<input
+      type="file" accept=".json" onchange="importData(event)" style="display:none"></label>
+    <button class="nav-out" onclick="cloudLogout()">登出</button>
   </div>
 </div>
 
@@ -325,7 +367,7 @@ button.chip.sel-w{background:var(--warn);color:#fff}
    权限码：RPT-EvalGo-ATC
    ══════════════════════════════════════════════════════════════════ */
 
-const APP_VERSION = 22;
+const APP_VERSION = 23;
 const STORAGE_KEY = 'evalgo_atc_v1';   /* 沿用 v1 key，旧资料不掉 */
 const SYS_CODE    = 'RPT-EvalGo-ATC';
 const SB_URL      = 'https://qnpvqsvvsgsantekgfbz.supabase.co';
@@ -578,6 +620,29 @@ function paintNav(){
     const t=document.getElementById(id); if(!t) return;
     t.hidden=!on; t.style.display=on?'':'none';
   });
+  /* Import 只给有填写权限的帐号；还没连线时保留（老师要能救回本机备份） */
+  const im=document.getElementById('nav-import');
+  if(im){ const off = !!(CLOUD.session && CLOUD.perm && CLOUD.perm.can_edit!==true);
+          im.hidden=off; im.style.display=off?'none':''; }
+}
+function goPlatform(){ location.href=PLATFORM; }
+/* 顶栏徽章：管理层点进设定页；老师点了要看得懂发生什么事 */
+function syncTap(){
+  if(isAdmin()){ goPage('manage'); return; }
+  const p=pendingCount();
+  if(p>0||CLOUD.pushErr){
+    alert('还有 '+p+' 笔还没送到云端。\n\n资料还在这台电脑，没有掉。\n请截图这个讯息，找管理层处理。');
+  }else if(CLOUD.exam&&CLOUD.session){
+    alert('✓ 你填的资料都已经进入云端了。');
+  }else{
+    alert('还没连上云端，资料只存在这台电脑。\n\n请重新整理页面；还是不行就找管理层。');
+  }
+}
+async function cloudLogout(){
+  const p=pendingCount();
+  if(p>0 && !confirm('还有 '+p+' 笔没上传云端。\n登出后资料仍留在这台电脑，但建议先上传或 Export。\n\n仍要登出？')) return;
+  try{ if(_sb) await _sb.auth.signOut(); }catch(e){ console.warn('signOut',e); }
+  location.href=PLATFORM;
 }
 function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function uid(){return 'c_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,8);}
@@ -614,7 +679,7 @@ function saveData(now){
     }
     S.meta.save_failed=false;
     const el=document.getElementById('last-saved');
-    if(el) el.textContent='Saved '+new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+    if(el) el.textContent='已存 '+new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
     paintCloud();
     return true;
   };
@@ -2762,6 +2827,50 @@ const INTERNAL_CSS = RP_BASE
  +".held{margin-top:5px;font-size:9px;color:#555;line-height:1.6}"
  +"@media print{@page{margin:10mm;size:A4 portrait}}";
 
+/* ⑤ 列印 —— 印一张「这台电脑现在有什么」的纸本备份清单。
+   不是印报告（那是 printReport），是给管理层签收 / 存档用的盘点表。 */
+function printBackup(){
+  const n1=Object.keys(S.f1).length, n2=Object.keys(S.f2).length;
+  const nw=Object.keys(S.wi).length, ne=Object.keys(S.es).length, pend=pendingCount();
+  const grid={};
+  const bump=(cls,sub,f)=>{ const k=(cls||'—')+'|'+(sub||'—');
+    grid[k]=grid[k]||{f1:0,f2:0}; grid[k][f]++; };
+  Object.values(S.f1).forEach(r=>bump(r.cls,r.subject,'f1'));
+  Object.values(S.f2).forEach(r=>bump(r.cls,r.subject,'f2'));
+  const keys=Object.keys(grid).sort();
+  let rows=keys.map(k=>{const [c2,s2]=k.split('|');
+    return `<tr><td>${esc(c2)}</td><td>${esc(s2)}</td><td>${grid[k].f1}</td><td>${grid[k].f2}</td></tr>`;}).join('');
+  if(!rows) rows='<tr><td colspan="4">（这台电脑还没有资料）</td></tr>';
+  const w=window.open('','_blank'); if(!w){ toast('✕ 浏览器挡住了列印视窗'); return; }
+  w.document.write(`<!DOCTYPE html><html lang="zh-Hans"><head><meta charset="UTF-8">
+  <title>EvalGo_ATC 资料盘点 ${today()}</title><style>
+    body{font-family:-apple-system,"PingFang SC","Microsoft YaHei",Arial,sans-serif;
+         font-size:12px;color:#111;padding:18px}
+    h1{font-size:17px;margin:0 0 4px}
+    .meta{font-size:11px;color:#555;margin-bottom:14px;line-height:1.9}
+    table{width:100%;border-collapse:collapse;margin-bottom:16px}
+    th{font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#555;
+       padding:5px 8px;border:1px solid #999;text-align:left;background:#eee}
+    td{padding:6px 8px;border:1px solid #ccc}
+    .sig{margin-top:26px;display:grid;grid-template-columns:1fr 1fr;gap:24px;font-size:10px}
+    .sig-line{border-bottom:1px solid #bbb;height:24px;margin-top:8px}
+    @media print{@page{margin:12mm 14mm;size:A4 portrait}}
+  </style></head><body>
+  <h1>EvalGo_ATC · 资料盘点表</h1>
+  <div class="meta">
+    System：EvalGo_ATC（ATC 部 · 考况记录） · Version：v${APP_VERSION} · Layer：RPT · 权限码 ${SYS_CODE}<br>
+    Storage Key：${STORAGE_KEY}<br>
+    列印人：${esc(S.me||'—')}${S.meName?('（'+esc(S.meName)+'）'):''} · 角色 ${esc(CLOUD.role||'—')} · 列印日期 ${today()}<br>
+    考试：${esc(S.examLabel||S.examCode||'未连线')} · 名单来源：${S.rosterSource==='cloud'?'资料库':(S.rosterSource==='demo'?'示范名单（假资料）':'手动汇入')}（${S.roster.length} 人）${S.rosterAt?(' · 抓取 '+esc(S.rosterAt)):''}<br>
+    <b>本机总笔数：FORM 01 ${n1} · FORM 02 ${n2} · 错题 ${nw} · 作文 ${ne} ／ 待上传 ${pend}</b>
+  </div>
+  <table><thead><tr><th>班级</th><th>科目</th><th>FORM 01</th><th>FORM 02</th></tr></thead>
+  <tbody>${rows}</tbody></table>
+  <div class="sig"><div>列印人签名<div class="sig-line"></div></div>
+                   <div>管理层签收<div class="sig-line"></div></div></div>
+  <scr`+`ipt>window.print();window.onafterprint=()=>window.close();</scr`+`ipt></body></html>`);
+  w.document.close();
+}
 function printReport(){
   const rows=reportRows();
   if(!rows.length){ toast('✕ 没有资料可印'); return; }
@@ -2818,13 +2927,19 @@ function renderManage(){
   <div class="card">
     <div class="alert alert-info"><div><b>这一页只有管理层看得到。</b>
       老师端不显示同步、备份、系统设定 —— 那些是系统该自己处理的事。</div></div>
-    <div class="card-hdr"><span class="card-title">我的身份</span>
+    <div class="card-hdr"><span class="card-title">① 我的身份</span>
       ${CLOUD.idFrom==='users_meta'?'':`<button class="btn btn-sm" onclick="askTeacher()">换老师</button>`}</div>
     <div class="chips-row">
       <span class="chip ${S.me?'chip-layer':'chip-warn'}">科任 ${esc(S.me||'未设定')}${S.meName?' · '+esc(S.meName):''}</span>
       <span class="chip ${S.subject?'chip-layer':'chip-muted'}">${esc(S.subject||'未选科目')}</span>
       <span class="chip ${S.cls?'chip-layer':'chip-muted'}">${esc(S.cls||'未选班级')}</span>
-      <button class="chip chip-muted" onclick="goPage('home')">换班级／科目</button>
+      <button class="btn btn-sm" onclick="goPage('home')">换班级／科目</button>
+    </div>
+    <div class="mg-line" style="margin-top:6px">角色　<strong>${esc(CLOUD.role||'—')}</strong>　权限
+      <span class="chip ${permTick('can_see')?'chip-ok':'chip-muted'}">${permTick('can_see')?'✓':'✕'} can_see</span>
+      <span class="chip ${permTick('can_edit')?'chip-ok':'chip-muted'}">${permTick('can_edit')?'✓':'✕'} can_edit</span>
+      <span class="chip ${permTick('can_approve')?'chip-ok':'chip-muted'}">${permTick('can_approve')?'✓':'✕'} can_approve</span>
+      ${CLOUD.session?'':'<span class="tip" style="margin:0">（未登入，读不到权限）</span>'}
     </div>
     ${CLOUD.idFrom==='users_meta'
       ? `<div class="alert alert-ok" style="margin-top:10px"><div>
@@ -2838,7 +2953,18 @@ function renderManage(){
   </div>
 
   <div class="card">
-    <div class="card-hdr"><span class="card-title">云端连线</span>
+    <div class="card-hdr"><span class="card-title">② 系统资讯</span></div>
+    <div class="mg-line">System：<strong>EvalGo_ATC</strong>（ATC 部 · 考况记录）</div>
+    <div class="mg-line">Version：<strong>v${APP_VERSION}</strong></div>
+    <div class="mg-line">Layer：<strong>RPT</strong> · 权限码 <code>${SYS_CODE}</code></div>
+    <div class="mg-line">Storage Key：<code>${STORAGE_KEY}</code></div>
+    <div class="mg-line">资料笔数：FORM 01 <strong>${n1}</strong> 笔 · FORM 02 <strong>${n2}</strong> 笔 ·
+      错题 <strong>${Object.keys(S.wi).length}</strong> 笔 · 作文 <strong>${Object.keys(S.es).length}</strong> 笔 ·
+      待上传 <strong>${pend}</strong> 笔</div>
+  </div>
+
+  <div class="card">
+    <div class="card-hdr"><span class="card-title">③ 云端连线</span>
       <span class="tip" style="margin:0">${CLOUD.exam?esc(CLOUD.exam.code):'未连线'}</span></div>
     ${CLOUD.exam&&CLOUD.session
       ? `<div class="alert alert-ok"><div><b>已连上。</b>${esc(CLOUD.exam.label)} ·
@@ -2852,17 +2978,16 @@ function renderManage(){
       <button class="btn" onclick="cloudRoster(false)" ${CLOUD.exam?'':'disabled'}>重新载入名单</button>
       <button class="btn btn-pri" id="c-push" onclick="cloudPush()" ${CLOUD.exam?'':'disabled'}>${pend?('上传 '+pend+' 笔'):'全部已上传'}</button>
       <button class="btn" onclick="cloudPull(false)" ${CLOUD.exam?'':'disabled'}>拉回云端资料</button>
+      <button class="btn" onclick="cloudLogout()">🚪 登出</button>
     </div>
+    <div class="mg-line">名单来源：<strong>${S.rosterSource==='cloud'?'来自资料库':(S.rosterSource==='demo'?'示范名单（假资料）':'手动汇入')}</strong> ·
+      ${S.roster.length} 人${S.rosterAt?(' · 抓取时间 '+esc(S.rosterAt)):''}</div>
+    <div class="mg-line">待上传：<strong>${pend}</strong> 笔　最近错误：${CLOUD.pushErr?('<b style="color:var(--danger)">'+esc(CLOUD.pushErr)+'</b>'):(CLOUD.err?esc(CLOUD.err):'（无）')}</div>
+    ${S.rosterSource==='demo'?`<div class="alert alert-warn" style="margin-top:8px"><div>目前是练习用的假名单（连线后会自动换成真实名单）。<b>假资料不会上传。</b></div></div>`:''}
   </div>
 
   <div class="card">
-    <div class="card-hdr"><span class="card-title">学生名单</span>
-      <span class="tip" style="margin:0">${S.rosterSource==='cloud'?'来自资料库':(S.rosterSource==='demo'?'示范名单（假资料）':'手动汇入')} · ${S.roster.length} 人</span></div>
-    ${S.rosterSource==='demo'?`<div class="alert alert-warn"><div>目前是练习用的假名单（连线后会自动换成真实名单）。<b>假资料不会上传。</b></div></div>`:''}
-  </div>
-
-  <div class="card">
-    <div class="card-hdr"><span class="card-title">资料备份</span>
+    <div class="card-hdr"><span class="card-title">⑤ 资料备份</span>
       <span class="tip" style="margin:0">FORM 01 ${n1} 笔 · FORM 02 ${n2} 笔</span></div>
     ${CLOUD.exam&&CLOUD.session&&pend===0
       ? `<div class="alert alert-ok"><div><b>全部已上传云端。</b>就算这台电脑资料没了也救得回来。</div></div>`
@@ -2873,35 +2998,34 @@ function renderManage(){
       <button class="btn" onclick="exportCSV()">↓ Export CSV</button>
       <label class="btn" style="cursor:pointer">↑ Import
         <input type="file" accept=".json" onchange="importData(event)" style="display:none"></label>
+      <button class="btn" onclick="printBackup()">🖨 列印</button>
     </div>
   </div>
 
   <div class="card">
-    <div class="card-hdr"><span class="card-title">进阶 · 管理员用</span>
+    <div class="card-hdr"><span class="card-title">⑥ 进阶 · 管理员用</span>
       <button class="btn btn-sm" onclick="S.ui.advOpen=!S.ui.advOpen;saveData(true);renderManage()">${S.ui.advOpen?'收起':'展开'}</button></div>
     <div ${S.ui.advOpen?'':'hidden'} style="font-size:12px;line-height:2.2">
-      <div>System: <strong>EvalGo_ATC</strong>（ATC 部 · 考况记录）</div>
-      <div>Version: <strong>v${APP_VERSION}</strong></div>
-      <div>Layer: <strong>RPT</strong> · 权限码 <code style="font-size:11px;background:var(--sur2);padding:2px 6px;border-radius:3px">${SYS_CODE}</code></div>
-      <div>Storage Key: <code style="font-size:11px;background:var(--sur2);padding:2px 6px;border-radius:3px">${STORAGE_KEY}</code></div>
-      <div>weak_manual 栏（delta v9）: <strong>${CLOUD.hasV9?'✓ 已就绪':'✕ 未跑 — 老师手填弱项暂留本机'}</strong></div>
-      <div>even_marks 栏（delta v10）: <strong>${CLOUD.hasV10?'✓ 已就绪':'✕ 未跑 — 每题同分声明暂留本机'}</strong></div>
-      <div>本机 weak_manual 词汇分布: <strong>${(()=>{const c={};
+      <div>weak_manual 栏（delta v9）：<strong>${CLOUD.hasV9?'✓ 已就绪':'✕ 未跑 — 老师手填弱项暂留本机'}</strong></div>
+      <div>even_marks 栏（delta v10）：<strong>${CLOUD.hasV10?'✓ 已就绪':'✕ 未跑 — 每题同分声明暂留本机'}</strong></div>
+      <div>本机 weak_manual 词汇分布：<strong>${(()=>{const c={};
         Object.keys(S.f2).forEach(k=>{const v=weakVocabOf(S.f2[k]); if(v!=='NONE')c[v]=(c[v]||0)+1;});
         const ks=Object.keys(c); return ks.length?ks.map(x=>x+' '+c[x]+' 笔').join(' · '):'（还没有）';})()}</strong></div>
-      <div>DSKP 学习领域: <strong>${DSKP_DOM.length}</strong> 条（五科 × 六年段）——
+      <div>DSKP 学习领域：<strong>${DSKP_DOM.length}</strong> 条（五科 × 六年段）——
         <span style="color:var(--mut)">参考资料，v19.1 起不再接到老师端的「较弱项目」</span></div>
-      <div>KSSR 旧字典: <strong>${KSSR.length}</strong> 条（保留，供旧资料解析）</div>
-    </div>
-  </div>
-
-    <div style="margin-top:16px">
-      <button style="font-size:11px;color:var(--danger);background:none;border:none;cursor:pointer"
-        onclick="resetAll()">⚠ Reset — 清空这台电脑的全部资料</button></div>
+      <div>KSSR 旧字典：<strong>${KSSR.length}</strong> 条（保留，供旧资料解析）</div>
+      <div style="margin-top:14px;border-top:.5px solid var(--bdr);padding-top:10px">
+        <button class="mg-danger" onclick="resetAll()">⚠ Reset — 清空这台电脑的全部资料</button>
+        <div class="tip" style="margin:2px 0 0">执行前会自动 Export 备份，并要求输入 RESET。有未上传资料时会挡下。</div>
+      </div>
     </div>
   </div>`;
 }
+/* ① 的权限勾叉：唯一来源是 can_access() 回来的 CLOUD.perm，前端不自己推算 */
+function permTick(k){ return !!(CLOUD.perm && CLOUD.perm[k]===true); }
 function resetAll(){
+  const _p=pendingCount();
+  if(_p>0){ alert('还有 '+_p+' 笔没有上传到云端。\n\n请先按 ③ 云端连线的「上传」，或 ⑤ Export 备份，再 Reset。'); return; }
   if(!confirm('清空这台机器上的全部 FORM 01 / FORM 02 资料？\n执行前会先自动 Export 一份备份。')) return;
   const t=prompt('确认请输入 RESET');
   if(t!=='RESET'){ toast('✕ 已取消'); return; }
@@ -3235,7 +3359,9 @@ async function cloudRoster(silent){
       byCls[x.class_name]=(byCls[x.class_name]||0)+1;
       out.push({sid:x.student_id,cls:x.class_name,no:byCls[x.class_name],
         en:x.student_name_en||'',cn:x.student_name_cn||'',class_id:x.class_id,year:x.year_level}); });
-    S.roster=out; S.rosterSource='cloud'; saveData(true);
+    S.roster=out; S.rosterSource='cloud';
+    S.rosterAt=new Date().toLocaleString('en-GB');   /* 契约 ③ 要显示抓取时间 */
+    saveData(true);
     if(!silent){ refreshAll(); renderManage(); toast('✓ 已载入 '+out.length+' 位学生'); }
     return true;
   }catch(e){ if(!silent) alert('载入名单失败：'+(e.message||e)); return false; }
@@ -3687,6 +3813,7 @@ function paintCloud(){
     el.textContent='✓ 已储存到云端';
     el.style.color='#D8FFE9';
   }
+  const _chip=document.getElementById('sync-chip'); if(_chip) _chip.style.color=el.style.color;
   el.title = (CLOUD.pushErr||p>0) ? '资料仍留在这台电脑，没有掉；但还没全部进入云端。请截图找管理层。'
            : (CLOUD.err||(CLOUD.exam?('考试 '+CLOUD.exam.code+' · 已同步'):'尚未连线'));
   const btn=document.getElementById('c-push');
