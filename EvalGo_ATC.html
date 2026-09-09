@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>EvalGo_ATC — ATC 部 考况 v23</title>
+<title>EvalGo_ATC — ATC 部 考况 v24</title>
 <style>
 :root{
   /* ══ LAYER ══ RPT = 文档灰 */
@@ -306,7 +306,7 @@ button.chip.sel-w{background:var(--warn);color:#fff}
 <!-- ══════ NAV ══════ -->
 <div class="nav">
   <button class="nav-home" onclick="goPlatform()" title="回平台首页">←</button>
-  <div class="nav-logo">📊 EvalGo_ATC <span class="ver">v23</span></div>
+  <div class="nav-logo">📊 EvalGo_ATC <span class="ver">v24</span></div>
   <button class="ntab on" onclick="goPage('home')">工作台</button>
   <button class="ntab" onclick="goPage('f1')">考前观察</button>
   <button class="ntab" onclick="goPage('f2')">考卷分析</button>
@@ -367,7 +367,7 @@ button.chip.sel-w{background:var(--warn);color:#fff}
    权限码：RPT-EvalGo-ATC
    ══════════════════════════════════════════════════════════════════ */
 
-const APP_VERSION = 23;
+const APP_VERSION = 24;
 const STORAGE_KEY = 'evalgo_atc_v1';   /* 沿用 v1 key，旧资料不掉 */
 const SYS_CODE    = 'RPT-EvalGo-ATC';
 const SB_URL      = 'https://qnpvqsvvsgsantekgfbz.supabase.co';
@@ -3762,6 +3762,15 @@ async function cloudPull(silent){
         tp:x.tp||null,parent_support:x.parent_support||'',
         paper_checked:!!x.paper_checked,paper_checked_at:x.paper_checked_at||null,
         done_options:x.done_options||[],done_note:x.done_note||'',fix_target:x.fix_target||'',
+        /* 🔴 v24 R-G：这两栏 v23 以前漏抄，拉回等於就地降级。
+           assess_status 掉了 → aStat() 退回预设 'ASSESSED'
+             → 「缺席／本轮未评」在画面上变回「还没做」，
+               而且下一次上传会把云端的 ABSENT 盖成 ASSESSED。
+           weak_manual 掉了 → 下一次上传送出 []，云端的老师手填弱项被清空。
+           两者都只在「资料已经 synced」时发生（未同步的有 !synced 那道闸挡着），
+           所以症状是「东西上了云端之后才不见」，最难联想。 */
+        assess_status:x.assess_status||'ASSESSED',
+        weak_manual:x.weak_manual||[],
         savedAt:'(云端)',synced:true,cloud_id:x.id}; n2++; });
     (d.data||[]).forEach(x=>{ const k=CLOUD.exam.code+'|'+x.student_id+'|'+x.subject+'|'+x.q_no;
       if(S.wi[k]&&!S.wi[k].synced) return;
