@@ -1682,10 +1682,13 @@ function rosterAgeText(){
   return '载入於 '+d.toLocaleString('en-GB',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})+
          '，已经 '+(h<1?'不到 1':h)+' 小时';
 }
+/* 班名排序必须「数字感知」：纯字串比较会把 LV10 排到 LV2 前面（"1"<"2"）。
+   numeric:true 让 LV2 < LV10、ATC2 < ATC10、BB.2 < BB.10 全部照数字走。 */
+const NAT = new Intl.Collator(undefined, {numeric:true, sensitivity:'base'});
 function classesOf(dept){
   return state.roster.classes.filter(c=>c.department===dept)
     .sort((a,b)=>(a.sort_order||0)-(b.sort_order||0)
-      || String(a.class_name).localeCompare(String(b.class_name)));
+      || NAT.compare(String(a.class_name), String(b.class_name)));
 }
 /* 时段：SRT 的班名带 FRI.PM / SAT.AM …；其余部门没有时段维度 */
 function timesOf(dept){
