@@ -2185,6 +2185,27 @@ function labelBeh(v,sid,t,idx){
 /* 复合 indicator_id：<CODE>:<FIELD>。三张表结构不动（契约 §16）。 */
 function buildRows(v){
   const cls=[], ent=[];
+  /* 🔴 重复上传的关键：已经送过云端的列，必须沿用原本的 client_uid。
+     否则新 uid → INSERT → 撞 obsgo_entry(visit_id,student_id,indicator_id)
+     或 obsgo_class_entry(visit_id,indicator_id) → HTTP 400，而且重试永远无效。
+     沿用 uid → upsert 走 UPDATE → 就地改，可以存几次就存几次。 */
+  const oldC={}, oldE={};
+  if(v.rows){
+    (v.rows.cls||[]).forEach(r=>{ oldC[r.indicator_id]=r; });
+    (v.rows.ent||[]).forEach(r=>{ oldE[r.student_id+'|'+r.indicator_id]=r; });
+  }
+  const keepC=(key,val,note)=>{
+    const p=oldC[key];
+    return {client_uid:p?p.client_uid:uid(), rubric_set:v.dept+'_CLASS_CTX', indicator_id:key,
+            value:val, note:note||null,
+            synced: !!(p && p.synced && p.value===val && (p.note||null)===(note||null))};
+  };
+  const keepE=(sid,key,val,note)=>{
+    const p=oldE[sid+'|'+key];
+    return {client_uid:p?p.client_uid:uid(), student_id:sid, rubric_set:v.dept+'_STUDENT',
+            indicator_id:key, value:val, note:note||null,
+            synced: !!(p && p.synced && p.value===val && (p.note||null)===(note||null))};
+  };
   /* 🔴 G11：obsgo_entry 有自然键 unique (visit_id, student_id, indicator_id)、
      obsgo_class_entry 有 (visit_id, indicator_id)。同一次巡班里若送出两笔同键，
      第二笔必定 HTTP 400，而且**重试永远无效**（自然键一直在那）。
@@ -2196,13 +2217,11 @@ function buildRows(v){
     const d=v.classContext[code]; const def=ctxDef.find(x=>x.code===code); if(!def) return;
     if(d.beh && d.beh.length){
       if(!seenC[code+':BEH']){ seenC[code+':BEH']=1;
-      cls.push({client_uid:uid(), rubric_set:clsSet, indicator_id:code+':BEH',
-        value:d.beh.map(i=>def.beh[i]).filter(Boolean).join(' | '), note:d.note||null, synced:false}); }
+      cls.push(keepC(code+':BEH', d.beh.map(i=>def.beh[i]).filter(Boolean).join(' | '), d.note)); }
     }
     if(d.rating){
       if(!seenC[code+':RATING']){ seenC[code+':RATING']=1;
-      cls.push({client_uid:uid(), rubric_set:clsSet, indicator_id:code+':RATING',
-        value:d.rating==='U'?'UNOBSERVED':d.rating, note:null, synced:false}); }
+      cls.push(keepC(code+':RATING', d.rating==='U'?'UNOBSERVED':d.rating, null)); }
     }
   });
   const tax=deptTax(v.dept);
@@ -2214,8 +2233,7 @@ function buildRows(v){
       const e=st[code]; const t=tax.find(x=>x.code===code); if(!t) return;
       const push=(field,val,note)=>{ if(val===null||val===undefined||val==='') return;
         const k=sid+'|'+code+':'+field; if(seenE[k]) return; seenE[k]=1;
-        ent.push({client_uid:uid(), student_id:sid, rubric_set:stuSet,
-                  indicator_id:code+':'+field, value:String(val), note:note||null, synced:false}); };
+        ent.push(keepE(sid, code+':'+field, String(val), note)); };
       if(e.beh && e.beh.length) push('BEH', e.beh.map(i=>labelBeh(v,sid,t,i)).join(' | '), e.note);
       if(e.rating) push('RATING', e.rating==='U'?'UNOBSERVED':e.rating);
       if(deptLevelSupport(v.dept)){
@@ -2232,6 +2250,12 @@ function buildRows(v){
       }
     });
   });
+  /* 使用者後来取消勾选的项目：没有人有删除权（契约 A-9），
+     所以把云端那一列的值清空并重送，不能留着旧值假装还在。 */
+  Object.keys(oldC).forEach(k=>{ if(!seenC[k] && oldC[k].synced)
+    cls.push(Object.assign({}, oldC[k], {value:'', note:null, synced:false})); });
+  Object.keys(oldE).forEach(k=>{ if(!seenE[k] && oldE[k].synced)
+    ent.push(Object.assign({}, oldE[k], {value:'', note:null, synced:false})); });
   return {cls, ent};
 }
 function finishVisit(){
@@ -2248,7 +2272,7 @@ function finishVisit(){
   v.status='completed';   /* 六统一状态：完成巡班 = completed */
   v.summary=c;
   const rows=buildRows(v);
-  v.rows=rows; v.cloud_id=null; v.synced=false;
+  v.rows=rows; v.synced=false;
   /* ⛔ 不存 interpretations —— 那是推论不是声明，且 trend 会随历史变动过期，改成读取时现算 */
   state.drafts=state.drafts.filter(x=>x.client_uid!==v.client_uid);   /* 完成了就不再是草稿 */
   state.records.unshift(v);
@@ -2274,21 +2298,43 @@ function discardVisit(){
   if(!confirm('放弃这次巡班？\n\n'+v.dept+' · '+v.classLabel+'\n已记录：学生 '+c.students+' 位 · '+c.evi+
       ' 条 evidence · 班级层 '+Object.keys(v.classContext).length+' 项\n\n这些资料会被丢掉，无法复原。')) return;
   state.drafts=state.drafts.filter(x=>x.client_uid!==v.client_uid);
-  state.visit=null; save(true); showScreen('select'); renderSelect(); toast('已放弃这次巡班');
+  state.visit=null; voidUploadedDraft(v);
+  save(true); showScreen('select'); renderSelect(); toast('已放弃这次巡班');
 }
 /* 存了退出 —— 巡班分好几次完成，这是常态动作，不是「完成」。 */
-function saveNow(){
-  if(!state.visit) return;
-  if(state.drafts.indexOf(state.visit)<0) state.drafts.unshift(state.visit);
+/* 建列 + 上云。草稿的 status 一律 'draft'（DB CHECK 允许），完成时才改 completed。 */
+function pushDraft(v){
+  v.rows=buildRows(v);
+  v.status='draft';
   save(true);
-  toast('✓ 已储存 —— 可以继续填', 3000);
+  return cloudPush(true);
+}
+function leftOf(v){
+  if(!v.rows) return 0;
+  return (v.synced?0:1)+v.rows.cls.filter(r=>!r.synced).length+v.rows.ent.filter(r=>!r.synced).length;
+}
+function saveNow(){
+  const v=state.visit; if(!v) return;
+  if(state.drafts.indexOf(v)<0) state.drafts.unshift(v);
+  toast('储存中…', 1500);
+  pushDraft(v).then(()=>{
+    const left=leftOf(v);
+    toast(left ? ('⚠ 已存本机，还有 '+left+' 列没上云 —— 看右上角')
+               : '✓ 已储存并上云 —— 可以继续填', 5000);
+    paintSync();
+  });
 }
 function parkVisit(){
   const v=state.visit; if(!v) return;
   if(state.drafts.indexOf(v)<0) state.drafts.unshift(v);
-  state.visit=null; save(true);
+  state.visit=null;
+  pushDraft(v).then(()=>{
+    const left=leftOf(v);
+    toast(left ? ('⚠ 已存本机，还有 '+left+' 列没上云 —— 看右上角')
+               : ('✓ 已存好并上云 —— 下次回到「'+v.classLabel+'」接着填'), 5000);
+    renderSelect(); paintSync();
+  });
   showScreen('select'); renderSelect();
-  toast('✓ 已存好 —— 下次回到「'+v.classLabel+'」接着填', 5000);
 }
 function resumeDraft(uid){
   const d=state.drafts.find(x=>x.client_uid===uid); if(!d) return;
@@ -2301,7 +2347,16 @@ function discardDraft(uid){
       ' 条 evidence · 班级层 '+Object.keys(d.classContext||{}).length+' 项\n\n这些资料会被丢掉，无法复原。')) return;
   state.drafts=state.drafts.filter(x=>x.client_uid!==uid);
   if(state.visit && state.visit.client_uid===uid) state.visit=null;
+  voidUploadedDraft(d);
   save(true); showScreen('select'); renderSelect(); toast('已放弃「'+d.classLabel+'」');
+}
+/* 已经上过云的草稿被放弃 → 云端那一笔要标成 cancelled，不能留着当孤儿 draft。
+   没上过云的（没有 cloud_id）直接丢掉就好。 */
+function voidUploadedDraft(v){
+  if(!v || !v.cloud_id) return;
+  v.status='cancelled'; v.void_reason='放弃未完成的巡班'; v.synced=false;
+  state.records.unshift(v);
+  cloudPush(true).then(()=>{ renderHistory(); paintSync(); });
 }
 function newVisit(){
   state.visit=null; state.select={dept:'',time:'',classId:''};
@@ -2312,7 +2367,7 @@ function paintBottom(){
   const c=counts();
   el('bottom-note').innerHTML=c.students+' 位学生 · '+c.evi+' 条 evidence · '+
     Object.keys(v.classContext).length+' 个班级入口<br>'+
-    '<span style="opacity:.8">「储存」存着继续填 · 「退出」存好回主页面换别班 · 全班记完了才按上面的「完成巡班 ✓」</span>';
+    '<span style="opacity:.8">「储存」存好上云、继续填 · 「退出」存好上云、回主页面换别班 · 全班记完了才按上面的「完成巡班 ✓」</span>';
   const bf=el('btn-finish-top');
   if(bf) bf.disabled = !(c.evi || Object.keys(v.classContext).length);
   /* 「储存」「退出」永远可按 —— 巡班分好几次完成。 */
@@ -2323,10 +2378,12 @@ function paintBottom(){
 /* ══════════ 云端 ══════════ */
 function pendingRows(){
   let n=0;
-  state.records.forEach(v=>{
+  /* 草稿也会上云，所以待送笔数要一起算。还没按过储存的草稿没有 rows，不算。 */
+  state.drafts.concat(state.records).forEach(v=>{
+    if(!v.rows) return;
     if(!v.synced) n++;
-    if(v.rows){ v.rows.cls.forEach(r=>{ if(!r.synced) n++; });
-                v.rows.ent.forEach(r=>{ if(!r.synced) n++; }); }
+    v.rows.cls.forEach(r=>{ if(!r.synced) n++; });
+    v.rows.ent.forEach(r=>{ if(!r.synced) n++; });
   });
   return n;
 }
@@ -2338,10 +2395,13 @@ async function cloudPush(silent){
   CLOUD.busy=true; paintSync();
   let ok=0, fail=0; const errs=[];
   try{
-    for(const v of state.records){
-      /* G7 fail-closed：没有 rows 的纪录送不出去，但 pendingRows() 仍然在数它。
-         旧版 `continue` 会让徽章永远黄着却永远没有错误讯息 —— Bug B 的形状。 */
-      if(!v.rows){ fail++; errs.push('纪录「'+(v.classLabel||v.client_uid)+'」结构不完整（没有明细），送不出去 —— 请 Export 後找管理层'); continue; }
+    for(const v of state.drafts.concat(state.records)){
+      /* 还没按过储存的草稿本来就没有明细，跳过不算错。
+         G7 fail-closed：已完成的纪录若没有 rows 才是真的坏了，要出声。 */
+      if(!v.rows){
+        if(v.status==='draft') continue;
+        fail++; errs.push('纪录「'+(v.classLabel||v.client_uid)+'」结构不完整（没有明细），送不出去 —— 请 Export 後找管理层'); continue;
+      }
       if(!v.cloud_id || !v.synced){
         try{
           const r=await _sb.from('obsgo_visit').upsert({
