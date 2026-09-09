@@ -492,6 +492,7 @@ h1{font-size:26px;line-height:1.18;margin:8px 0 6px;font-weight:700}
   <div class="bottom hidden" id="bottom-bar">
     <div class="bottom-in">
       <div class="bottom-note" id="bottom-note"></div>
+      <button class="ghost" id="btn-park" onclick="parkVisit()" style="margin-right:8px">存了退出</button>
       <button class="finish" id="btn-finish" onclick="finishVisit()">完成巡班 ✓</button>
     </div>
   </div>
@@ -1485,7 +1486,10 @@ function ageFromStudent(s){
    students / studentMeta 一律以 student_id (uuid) 为 key —— 绝不用姓名字串。 */
 const state = {
   select:{dept:'', time:'', classId:''},
+  /* 巡班本来就分好几次完成：一班一份草稿，各自留着，随时回去接着填。
+     visit = 现在打开的那一份（是 drafts 里其中一个物件的参照，不是复本）。 */
   visit:null,
+  drafts:[],
   records:[],
   roster:{source:'none', classes:[], students:[], enroll:[], pulled_at:null},
   /* 要跨重整记住的 UI 状态（Standard v4 §4-24 铁则五）。预设收起。 */
@@ -1538,14 +1542,16 @@ function writeLocal(payload){
     localStorage.removeItem(BACKUP_KEY);
     localStorage.setItem(STORAGE_KEY, JSON.stringify({
       meta:state.meta, roster:{source:'',classes:[],students:[],enroll:[],pulled_at:null},
-      visit:state.visit, records:state.records, ui:state.ui}));
+      drafts:state.drafts, visitUid:state.visit?state.visit.client_uid:null,
+      records:state.records, ui:state.ui}));
     return {ok:true, level:2};
   }catch(e){ return {ok:false, level:3, error:e.message||String(e)}; }
 }
 function save(now){
   if(!now){ clearTimeout(_saveT); _saveT=setTimeout(()=>save(true),800); return; }   /* §4-05 800ms debounce */
   state.meta.last_updated=new Date().toISOString();
-  const payload=JSON.stringify({meta:state.meta, roster:state.roster, visit:state.visit, records:state.records, ui:state.ui});
+  const payload=JSON.stringify({meta:state.meta, roster:state.roster, drafts:state.drafts,
+    visitUid:state.visit?state.visit.client_uid:null, records:state.records, ui:state.ui});
   const w=writeLocal(payload);
   if(!w.ok){
     /* 铁则七：这是会掉资料的一态，不准只用 6 秒 toast 打发。常驻红条 + 长 toast + 设定页都要看得到。 */
@@ -1565,7 +1571,9 @@ function save(now){
 function applyLoaded(p){
   state.meta   = p.meta   || state.meta;
   state.roster = p.roster || state.roster;
-  state.visit  = p.visit  || null;
+  /* 旧档只有单一 visit —— 迁移成一份草稿，绝不丢掉。 */
+  state.drafts = (Array.isArray(p.drafts) ? p.drafts : (p.visit ? [p.visit] : [])).filter(Boolean);
+  state.visit  = p.visitUid ? (state.drafts.find(d=>d.client_uid===p.visitUid) || null) : null;
   state.ui     = Object.assign({advOpen:false}, p.ui||{});
   /* ⛔ 绝不裁剪：未同步的纪录永远保留（ChatGPT 版 slice(0,30) 会静默丢资料） */
   state.records= Array.isArray(p.records)? p.records : [];
@@ -1715,6 +1723,21 @@ function renderSelect(){
   let a='';
   if(state.roster.source!=='cloud')
     a+='<div class="alert alert-danger">名单还没从云端载入，不能开始巡班。<button class="ghost btn-sm" style="margin-left:8px" onclick="pullRoster(false).then(renderSelect)">重新载入</button></div>';
+  /* 未完成的草稿：一班一份，全部列出来，随时回去接着填。 */
+  if(state.drafts.length){
+    a+='<div class="alert alert-info"><strong>未完成 · '+state.drafts.length+' 班</strong>'
+      +'<span style="opacity:.85"> —— 资料都留着，点「接着填」回去继续</span>'
+      +state.drafts.map(d=>{
+        const cv=counts(d);
+        return '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:8px;'
+          +'padding-top:8px;border-top:1px solid rgba(0,0,0,.08)">'
+          +'<div style="flex:1;min-width:200px"><strong>'+escapeHtml(d.dept+' · '+d.classLabel)+'</strong><br>'
+          +'<span style="opacity:.85">'+cv.students+' 位学生 · '+cv.evi+' 条 evidence · '
+          +Object.keys(d.classContext||{}).length+' 个班级入口 · 起于 '+escapeHtml(d.dateLabel||'')+'</span></div>'
+          +'<button class="primary btn-sm" onclick="resumeDraft(\''+d.client_uid+'\')">接着填</button>'
+          +'<button class="ghost btn-sm" onclick="discardDraft(\''+d.client_uid+'\')">放弃</button></div>';
+      }).join('')+'</div>';
+  }
   /* 🔴 存不进本机 = 会掉资料。这条比名单那条更急，放最前面。 */
   if(CLOUD.storeErr)
     a='<div class="alert alert-danger">🔴 <strong>存不进这台机器（本机空间不足）</strong> —— '
@@ -1759,8 +1782,11 @@ function renderSelect(){
     el('class-panel').style.display= (times.length && !state.select.time) ? 'none' : '';
     el('class-grid').innerHTML=list.length? list.map(c=>{
       const n=rosterOf(c.id).length;
+      const d=state.drafts.find(x=>x.classId===c.id);
+      const done=state.records.some(r=>r.classId===c.id && r.status==='completed');
+      const mark = d ? ' · <strong>未完成</strong>' : (done ? ' · ✓ 已完成' : '');
       return '<button class="sel-card'+(state.select.classId===c.id?' on':'')+'" onclick="pickClass(\''+c.id+'\')"><b>'+
-        escapeHtml(c.display_name||c.class_name)+'</b><span>'+n+' 位在籍</span></button>';
+        escapeHtml(c.display_name||c.class_name)+'</b><span>'+n+' 位在籍'+mark+'</span></button>';
     }).join('') : '<div class="empty">这个时段没有班级</div>';
   }else{ el('class-panel').style.display='none'; }
 
@@ -1784,6 +1810,13 @@ function pickClass(id){ state.select.classId=id; renderSelect(); }
 
 function startVisit(){
   const c=classById(state.select.classId); if(!c) return;
+  /* 这一班本来就有未完成的草稿 → 接着填，不重开一份。 */
+  const existing=state.drafts.find(d=>d.classId===c.id);
+  if(existing){ state.visit=existing; save(true); resumeVisit();
+    toast('接着上次「'+(c.display_name||c.class_name)+'」未完成的继续', 4000); return; }
+  /* 手上开着别班 → 自动存起来，不用问、也绝不丢。 */
+  if(state.visit && state.drafts.indexOf(state.visit)<0) state.drafts.unshift(state.visit);
+  state.visit=null;
   const meta={};
   rosterOf(c.id).forEach(s=>{ meta[s.id]={age:ageFromStudent(s), num:s.num}; });
   state.visit={
@@ -1800,6 +1833,8 @@ function startVisit(){
     classContext:{}, students:{}, selectedStudents:[], activeStudent:null,
     visitNote:'', status:'draft'
   };
+  /* 一开就登记成草稿 —— 中途关掉浏览器、当机、跳电都还在。 */
+  state.drafts.unshift(state.visit);
   save(true); showScreen('observe'); setTab('class'); renderVisit();
 }
 function showScreen(n){
@@ -1813,10 +1848,16 @@ function showScreen(n){
 /* 切页不拦截 —— 草稿本来就存在本机，拦了保护不到任何东西，只会每按一次挡一次。
    （Owner UX brief §5：这三个不是 workflow steps，用户可以来回切）
    「巡班」这一页若有未完成的草稿，直接回到 workspace 继续；要放弃走 discardVisit()。 */
+function resumeVisit(){
+  if(!state.visit) return;
+  closeSheet(); showScreen('observe'); renderVisit();
+  document.querySelectorAll('.ntab').forEach(b=>b.classList.toggle('on', b.dataset.nt==='visit'));
+}
 function goScreen(n){
   /* 守卫放最前 —— 不准先渲染再踢走 */
   if(n==='manage' && !canSeeManage()){ toast('✕ 设定页只有 TOP_MGMT 以上看得到'); n='select'; }
-  if(n==='select' && state.visit){ closeSheet(); showScreen('observe'); renderVisit(); return; }
+  /* 巡班进行中也要退得出去 —— 旧版把人锁在观察页，换不了班也退不出去。
+     现在照常回选班页，进行中的那一场留着，选班页顶端有「继续巡班」。 */
   closeSheet(); showScreen(n);
   if(n==='select') renderSelect();
   if(n==='history') renderHistory();
@@ -2120,8 +2161,9 @@ function studentDomainCard(v,sid,t){
 }
 
 /* ══════════ 完成 → 转成 DB 列 ══════════ */
-function counts(){
-  const v=state.visit; let evi=0, sr=0;
+function counts(vv){
+  const v=vv||state.visit; if(!v) return {students:0,evi:0,sr:0};
+  let evi=0, sr=0;
   Object.keys(v.students).forEach(sid=>{
     const s=v.students[sid]||{};
     Object.keys(s).forEach(code=>{
@@ -2203,6 +2245,7 @@ function finishVisit(){
   const rows=buildRows(v);
   v.rows=rows; v.cloud_id=null; v.synced=false;
   /* ⛔ 不存 interpretations —— 那是推论不是声明，且 trend 会随历史变动过期，改成读取时现算 */
+  state.drafts=state.drafts.filter(x=>x.client_uid!==v.client_uid);   /* 完成了就不再是草稿 */
   state.records.unshift(v);
   state.visit=null;
   save(true);
@@ -2225,7 +2268,29 @@ function discardVisit(){
   const c=counts();
   if(!confirm('放弃这次巡班？\n\n'+v.dept+' · '+v.classLabel+'\n已记录：学生 '+c.students+' 位 · '+c.evi+
       ' 条 evidence · 班级层 '+Object.keys(v.classContext).length+' 项\n\n这些资料会被丢掉，无法复原。')) return;
+  state.drafts=state.drafts.filter(x=>x.client_uid!==v.client_uid);
   state.visit=null; save(true); showScreen('select'); renderSelect(); toast('已放弃这次巡班');
+}
+/* 存了退出 —— 巡班分好几次完成，这是常态动作，不是「完成」。 */
+function parkVisit(){
+  const v=state.visit; if(!v) return;
+  if(state.drafts.indexOf(v)<0) state.drafts.unshift(v);
+  state.visit=null; save(true);
+  showScreen('select'); renderSelect();
+  toast('✓ 已存起来 —— 下次回到「'+v.classLabel+'」可以接着填', 5000);
+}
+function resumeDraft(uid){
+  const d=state.drafts.find(x=>x.client_uid===uid); if(!d) return;
+  state.visit=d; save(true); resumeVisit();
+}
+function discardDraft(uid){
+  const d=state.drafts.find(x=>x.client_uid===uid); if(!d) return;
+  const c=counts(d);
+  if(!confirm('放弃「'+d.dept+' · '+d.classLabel+'」这一份？\n已记录：'+c.students+' 位学生 · '+c.evi+
+      ' 条 evidence · 班级层 '+Object.keys(d.classContext||{}).length+' 项\n\n这些资料会被丢掉，无法复原。')) return;
+  state.drafts=state.drafts.filter(x=>x.client_uid!==uid);
+  if(state.visit && state.visit.client_uid===uid) state.visit=null;
+  save(true); showScreen('select'); renderSelect(); toast('已放弃「'+d.classLabel+'」');
 }
 function newVisit(){
   state.visit=null; state.select={dept:'',time:'',classId:''};
@@ -2234,9 +2299,12 @@ function newVisit(){
 function paintBottom(){
   const v=state.visit; if(!v) return;
   const c=counts();
-  el('bottom-note').textContent=c.students+' 位学生 · '+c.evi+' 条 evidence · '+
-    Object.keys(v.classContext).length+' 个班级入口 · 自动存本机';
+  el('bottom-note').innerHTML=c.students+' 位学生 · '+c.evi+' 条 evidence · '+
+    Object.keys(v.classContext).length+' 个班级入口<br>'+
+    '<span style="opacity:.8">没填完就按「存了退出」，下次回来接着填 · 全部做完才按「完成巡班 ✓」</span>';
   el('btn-finish').disabled = !(c.evi || Object.keys(v.classContext).length);
+  /* 「存了退出」永远可按 —— 巡班分好几次完成，存起来是常态。 */
+  const bp=el('btn-park'); if(bp) bp.disabled=false;
 }
 
 /* ══════════ 云端 ══════════ */
@@ -2537,7 +2605,7 @@ function renderHistory(){
   if(UIH.dept!=='ALL') rows=rows.filter(r=>r.dept===UIH.dept);
   if(q) rows=rows.filter(r=>((r.dept+' '+r.classLabel+' '+r.observer+' '+r.dateLabel+' '+r.date).toLowerCase().includes(q)));
   if(!state.records.length){
-    box.innerHTML='<div class="empty">还没有任何巡班纪录<br><br><button class="primary" onclick="goScreen(\'select\')">＋ 开始第一次巡班</button></div>'; return;
+    box.innerHTML='<div class="empty">还没有任何巡班纪录</div>'; return;
   }
   if(!rows.length){
     box.innerHTML='<div class="empty">'+(q?'没有符合的纪录<br><br><button class="ghost" onclick="clearHistSearch()">清除搜寻</button>'
@@ -2666,6 +2734,10 @@ window.CLOUD = CLOUD;
 window.canSeeManage = canSeeManage;
 window.renderManage = renderManage;
 window.goScreen = goScreen;
+window.resumeVisit = resumeVisit;
+window.parkVisit = parkVisit;
+window.resumeDraft = resumeDraft;
+window.discardDraft = discardDraft;
 
 bootstrapAuth();
 </script>
