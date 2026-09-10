@@ -155,9 +155,11 @@ alter table public.evalgo_essay_result
 -- PHASE 3 · BACKFILL ONE LEGACY PAPER PER EXISTING GROUP
 -- ================================================================
 
+-- `teachers.id='system'` does not exist in production as of 2026-09-10.
+-- Preserve provenance honestly: system-generated legacy rows use created_by = NULL.
 insert into public.evalgo_paper_instance
   (exam_id,subject,year_level,label,status,sort_order,created_by)
-select distinct exam_id,subject,year_level,'Legacy','ACTIVE',0,'system'
+select distinct exam_id,subject,year_level,'Legacy','ACTIVE',0,NULL
 from (
   select exam_id,subject,year_level from public.evalgo_paper_section
   union select exam_id,subject,year_level from public.evalgo_live_obs
@@ -165,9 +167,6 @@ from (
   union select exam_id,subject,year_level from public.evalgo_wrong_item
   union select exam_id,subject,year_level from public.evalgo_essay_result
 ) s;
-
--- NOTE: before execution, verify that `teachers.id='system'` exists.
--- If it does not, use NULL for created_by. Do not invent a teacher identity.
 
 update public.evalgo_paper_section x
 set paper_instance_id=pi.id
