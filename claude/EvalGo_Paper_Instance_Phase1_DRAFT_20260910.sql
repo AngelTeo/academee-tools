@@ -51,9 +51,10 @@ create table public.evalgo_paper_instance (
   created_at timestamptz not null default now(),
   updated_at timestamptz,
   client_uid text not null default gen_random_uuid()::text,
-  constraint evalgo_paper_instance_client_uid_key unique (client_uid),
-  constraint evalgo_paper_instance_legacy_label_key unique (exam_id,subject,year_level,label)
+  constraint evalgo_paper_instance_client_uid_key unique (client_uid)
 );
+
+-- Human-facing labels are intentionally NOT unique. Two real papers may share a label.
 
 alter table public.evalgo_paper_instance enable row level security;
 
@@ -159,14 +160,21 @@ alter table public.evalgo_essay_result
 -- Preserve provenance honestly: system-generated legacy rows use created_by = NULL.
 insert into public.evalgo_paper_instance
   (exam_id,subject,year_level,label,status,sort_order,created_by)
-select distinct exam_id,subject,year_level,'Legacy','ACTIVE',0,NULL
+select g.exam_id,g.subject,g.year_level,'Legacy','ACTIVE',0,NULL
 from (
   select exam_id,subject,year_level from public.evalgo_paper_section
   union select exam_id,subject,year_level from public.evalgo_live_obs
   union select exam_id,subject,year_level from public.evalgo_paper_analysis
   union select exam_id,subject,year_level from public.evalgo_wrong_item
   union select exam_id,subject,year_level from public.evalgo_essay_result
-) s;
+) g
+where not exists (
+  select 1 from public.evalgo_paper_instance pi
+  where pi.exam_id=g.exam_id
+    and pi.subject=g.subject
+    and pi.year_level=g.year_level
+    and pi.label='Legacy'
+);
 
 update public.evalgo_paper_section x
 set paper_instance_id=pi.id
