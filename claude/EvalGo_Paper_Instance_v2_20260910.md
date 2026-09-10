@@ -50,7 +50,8 @@ Identity rules:
 
 - `id` is authoritative FK identity.
 - `client_uid` must be unique for sync identity.
-- `label` is display data, not FK identity.
+- `label` is display data, not identity and is deliberately **not unique**. Two different papers may legitimately have the same human-facing label.
+- `display_no` is ordering/display only and is not FK identity.
 - do not use `paper_no` as the canonical identity.
 
 ### 2.2 `evalgo_paper_scope`
@@ -144,6 +145,7 @@ Legacy backfill strategy:
 - create one `Legacy` paper instance for each existing `(exam_id, subject, year_level)` group;
 - there are currently 22 groups;
 - existing rows receive the matching `Legacy` `paper_instance_id`;
+- the one-time migration guards against a duplicate Legacy row using `NOT EXISTS`; it does not make `label` a general uniqueness constraint;
 - this does not change current report behavior because v25 does not read the new column.
 
 ## 5. FK delete strategy
