@@ -1656,6 +1656,33 @@ async function bootstrapAuth(){
 }
 _sb.auth.onAuthStateChange((e)=>{ if(e==='SIGNED_OUT') redirectToPlatformLogin(); });
 
+/* 🔴 ObsGo 原本是 push-only —— 只送不读。换一次登入本机就空了，云端明明有资料却看不到。
+   这里把「自己建立的」巡班读回来：draft 进未完成清单，其余进纪录。
+   本机已经有同一笔的，一律以本机为准（本机是正在编辑的那一份）。 */
+async function pullMyVisits(){
+  const me=(CLOUD.who&&CLOUD.who.initials)||'';
+  if(!me) return {ok:false, n:0, error:'不知道是谁登入'};
+  try{
+    const r=await _sb.from('obsgo_visit')
+      .select('id,client_uid,status,draft_json')
+      .eq('created_by', me);
+    if(r.error) throw r.error;
+    let back=0;
+    (r.data||[]).forEach(row=>{
+      if(!row.draft_json) return;                                  /* 旧列没有快照，跳过 */
+      const uid0=row.client_uid;
+      if(state.drafts.some(d=>d.client_uid===uid0)) return;        /* 本机有，本机优先 */
+      if(state.records.some(x=>x.client_uid===uid0)) return;
+      const v=row.draft_json;
+      v.cloud_id=row.id; v.synced=true;
+      if(row.status==='draft') state.drafts.push(v); else state.records.unshift(v);
+      back++;
+    });
+    if(back){ save(true); toast('✓ 从云端找回 '+back+' 笔巡班 —— 上次没填完的都在', 7000); }
+    return {ok:true, n:back, error:null};
+  }catch(e){ return {ok:false, n:0, error:e.message||String(e)}; }
+}
+
 /* ══════════ 名单 ══════════ */
 async function pullRoster(silent){
   try{
@@ -2408,7 +2435,10 @@ async function cloudPush(silent){
             client_uid:v.client_uid, department:v.dept, class_id:v.classId,
             visit_date:v.date, observer:v.observer, duration_min:v.durationMin||null,
             note:v.visitNote||null, status:v.status, void_reason:v.void_reason||null,
-            created_by:(CLOUD.who&&CLOUD.who.initials)||null
+            created_by:(CLOUD.who&&CLOUD.who.initials)||null,
+            /* 🔴 完整编辑状态也存上去 —— 摊平的明细列救不回「勾了哪几格」。
+               换装置、清快取、第二次登入都要能原样读回来。 */
+            draft_json:v
           },{onConflict:'client_uid'}).select('id').single();
           if(r.error) throw r.error;
           v.cloud_id=r.data.id; v.synced=true; ok++;      /* R3：拿到 id 才算同步 */
@@ -2794,6 +2824,7 @@ async function initApp(){
   load();
   if(!state.meta.created) state.meta.created=new Date().toISOString();
   await pullRoster(true);
+  await pullMyVisits();
   if(state.visit){ showScreen('observe'); setTab('class'); renderVisit(); }
   else { showScreen('select'); }
   renderSelect(); renderHistory(); if(canSeeManage())renderManage();
@@ -2811,6 +2842,7 @@ window.resumeVisit = resumeVisit;
 window.parkVisit = parkVisit;
 window.saveNow = saveNow;
 window.resumeDraft = resumeDraft;
+window.pullMyVisits = pullMyVisits;
 window.discardDraft = discardDraft;
 
 bootstrapAuth();
