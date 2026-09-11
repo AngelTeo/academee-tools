@@ -426,6 +426,7 @@ h1{font-size:26px;line-height:1.18;margin:8px 0 6px;font-weight:700}
           <input type="text" id="hist-search" placeholder="搜班级 / 观察者 / 日期…" oninput="renderHistory()">
           <button class="clear-x" id="hist-clear" onclick="clearHistSearch()" style="display:none">✕</button>
         </div>
+        <div class="dept-row" id="hist-scope" style="display:none"></div>
         <div class="dept-row" id="hist-dept"></div>
       </div>
       <div id="hist-body"></div>
@@ -1653,6 +1654,8 @@ const state = {
      visit = 现在打开的那一份（是 drafts 里其中一个物件的参照，不是复本）。 */
   visit:null,
   drafts:[],
+  /* 管理层唯读检视用。刻意不进 save()、不进 cloudPush —— 见 pullTeamVisits 注解。 */
+  teamVisits:[],
   records:[],
   roster:{source:'none', classes:[], students:[], enroll:[], pulled_at:null},
   /* 要跨重整记住的 UI 状态（Standard v4 §4-24 铁则五）。预设收起。 */
@@ -1661,7 +1664,7 @@ const state = {
 };
 const CLOUD = {ready:false, perm:null, who:null, busy:false, lastErr:null, readErr:'', storeErr:'', slimmed:false};
 const TARGET_STUDENTS = 5;
-const UIH = {dept:'ALL'};   /* 纪录页的筛选状态（§4-14 切页保留） */
+const UIH = {dept:'ALL', scope:'mine'};   /* 纪录页的筛选状态（§4-14 切页保留）。scope: mine | team */
 
 /* ══════════ 工具 ══════════ */
 function el(id){ return document.getElementById(id); }
@@ -1821,6 +1824,44 @@ _sb.auth.onAuthStateChange((e)=>{ if(e==='SIGNED_OUT') redirectToPlatformLogin()
 /* 🔴 ObsGo 原本是 push-only —— 只送不读。换一次登入本机就空了，云端明明有资料却看不到。
    这里把「自己建立的」巡班读回来：draft 进未完成清单，其余进纪录。
    本机已经有同一笔的，一律以本机为准（本机是正在编辑的那一份）。 */
+/* ═══ 管理层：看全部人的巡班（含还没填完的草稿），唯读 ═══
+   Owner 2026-09-11：老师可能拖好几天才按「完成巡班」，管理层不能到那时才看得到。
+   安全性靠「分桶」保证，不靠小心：
+     state.teamVisits 是独立一格 —— 不写进本机存档、不进上传队列、没有任何编辑入口。
+     所以它不可能被 cloudPush 送出去，也不可能覆盖掉别人正在编辑的那一份。
+   RLS 本来就没有依 created_by 分行（obsgo_visit_sel = can_access.can_see），
+   所以这里不用改权限、不用改 RLS。 */
+async function pullTeamVisits(){
+  if(!canSeeManage()) return {ok:false, n:0, error:'没有权限'};
+  try{
+    const r=await _sb.from('obsgo_visit')
+      .select('id,client_uid,created_by,observer,department,class_id,visit_date,status,void_reason,updated_at,draft_json');
+    if(r.error) throw r.error;
+    state.teamVisits=(r.data||[]).map(row=>{
+      const d=row.draft_json||{};
+      const cls=(d.rows&&d.rows.cls)?d.rows.cls.length:null;
+      const ent=(d.rows&&d.rows.ent)?d.rows.ent.length:null;
+      return {
+        client_uid:row.client_uid, cloud_id:row.id,
+        who: row.created_by||row.observer||'—',
+        dept: row.department||d.dept||'—',
+        classLabel: d.classLabel||d.className||clsName(row.class_id)||'—',
+        date: row.visit_date||d.date||'',
+        dateLabel: d.dateLabel||row.visit_date||'',
+        startedAt: d.startedAt||'',
+        status: row.status, void_reason: row.void_reason||null,
+        updatedAt: row.updated_at||null,
+        nCls: cls, nEnt: ent,
+        nStudents: d.selectedStudents? d.selectedStudents.length : null
+      };
+    }).sort((a,b)=>String(b.updatedAt||'').localeCompare(String(a.updatedAt||'')));
+    return {ok:true, n:state.teamVisits.length, error:null};
+  }catch(e){ return {ok:false, n:0, error:e.message||String(e)}; }
+}
+function clsName(id){
+  const c=(state.roster.classes||[]).find(x=>x.id===id);
+  return c? (c.class_name||c.display_name) : null;
+}
 async function pullMyVisits(){
   const me=(CLOUD.who&&CLOUD.who.initials)||'';
   if(!me) return {ok:false, n:0, error:'不知道是谁登入'};
@@ -2894,8 +2935,50 @@ function visitCard(r, q){
     (r.status!=='cancelled'?'<button class="ghost btn-sm" onclick="openVoid(\''+r.client_uid+'\')">作废</button>':'')+
     '</div></div>';
 }
+/* 管理层的「全部人」检视 —— 唯读。没有作废、没有接着填，一个编辑入口都不给。 */
+function teamCard(r){
+  const badge = r.status==='completed' ? '<span class="pill good">✓ 已完成</span>'
+              : r.status==='cancelled' ? '<span class="pill bad">已作废</span>'
+              : '<span class="pill warn">未完成</span>';
+  const n = (x)=> (x===null||x===undefined)?'—':x;
+  return '<div class="record"><div><b>'+escapeHtml(r.dept+' · '+r.classLabel)+'</b><br><span>'+
+    escapeHtml((r.dateLabel||r.date||'')+(r.startedAt?(' · '+r.startedAt):'')+' · '+r.who)+
+    ' · 班级层 '+n(r.nCls)+' 项 · 学生 '+n(r.nStudents)+' 位 · evidence '+n(r.nEnt)+
+    (r.status==='cancelled'&&r.void_reason?(' · 作废理由：'+escapeHtml(r.void_reason)):'')+
+    '</span></div><div>'+badge+'</div></div>';
+}
+function setHistScope(s){ UIH.scope=s; renderHistory();
+  if(s==='team'){ pullTeamVisits().then(r=>{
+      if(!r.ok) toast('✕ 读不回来：'+(r.error||'不知道为什么'), 9000);
+      renderHistory(); }); } }
 function renderHistory(){
   const box=el('hist-body'); if(!box) return;
+  /* 只有 OWNER / TOP_MGMT / ADMIN 看得到这个切换；其余角色连它的存在都不知道 */
+  const sc=el('hist-scope');
+  if(sc){
+    if(canSeeManage()){
+      sc.style.display='';
+      sc.innerHTML=[['mine','我的'],['team','全部人']].map(([k,t])=>
+        '<span class="dept-tag'+((UIH.scope||'mine')===k?' on':'')+
+        '" onclick="setHistScope(\''+k+'\')">'+t+'</span>').join('');
+    } else { sc.style.display='none'; UIH.scope='mine'; }
+  }
+  if(canSeeManage() && UIH.scope==='team'){
+    const q0=((el('hist-search')||{}).value||'').trim().toLowerCase();
+    el('hist-clear').style.display=q0?'':'none';
+    el('hist-dept').innerHTML=['ALL'].concat(DEPT_ORDER).map(d=>
+      '<span class="dept-tag'+(UIH.dept===d?' on':'')+'" onclick="setHistDept(\''+d+'\')">'+(d==='ALL'?'全部':d)+'</span>').join('');
+    let t=state.teamVisits.slice();
+    if(UIH.dept!=='ALL') t=t.filter(r=>r.dept===UIH.dept);
+    if(q0) t=t.filter(r=>((r.dept+' '+r.classLabel+' '+r.who+' '+r.dateLabel+' '+r.date).toLowerCase().includes(q0)));
+    const un=state.teamVisits.filter(r=>r.status==='draft').length;
+    box.innerHTML='<div class="helper" style="margin-bottom:8px">全部人的巡班 · 唯读 —— 看得到别人还没填完的，但动不了</div>'+
+      (t.length? t.map(teamCard).join('')
+               : '<div class="empty">云端还没有符合的巡班</div>')+
+      '<div class="helper" style="margin-top:8px">显示 '+t.length+' / '+state.teamVisits.length+
+      ' 笔　·　其中未完成 '+un+' 笔</div>';
+    return;
+  }
   el('hist-dept').innerHTML=['ALL'].concat(DEPT_ORDER).map(d=>
     '<span class="dept-tag'+(UIH.dept===d?' on':'')+'" onclick="setHistDept(\''+d+'\')">'+(d==='ALL'?'全部':d)+'</span>').join('');
   const q=((el('hist-search')||{}).value||'').trim().toLowerCase();
