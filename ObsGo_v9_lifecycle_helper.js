@@ -1,1 +1,0 @@
-function obsgoV9StartDraft(){const v=state.visit;if(!v||!v._browseOnly)return;v._browseOnly=false;v.startedAt=nowHM();v.startedTs=Date.now();if(state.drafts.indexOf(v)<0)state.drafts.unshift(v);}
