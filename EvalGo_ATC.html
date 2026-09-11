@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>EvalGo_ATC — ATC 部 考况 v25</title>
+<title>EvalGo_ATC · Multi-Paper v26</title>
 <style>
 :root{
   /* ══ LAYER ══ RPT = 文档灰 */
@@ -311,7 +311,7 @@ button.chip.sel-w{background:var(--warn);color:#fff}
 <!-- ══════ NAV ══════ -->
 <div class="nav">
   <button class="nav-home" onclick="goPlatform()" title="回平台首页">←</button>
-  <div class="nav-logo">📊 EvalGo_ATC <span class="ver">v25</span></div>
+  <div class="nav-logo">📊 EvalGo_ATC <span class="ver">v26</span></div>
   <button class="ntab on" onclick="goPage('home')">工作台</button>
   <button class="ntab" onclick="goPage('f1')">考前观察</button>
   <button class="ntab" onclick="goPage('f2')">考卷分析</button>
@@ -374,7 +374,7 @@ button.chip.sel-w{background:var(--warn);color:#fff}
    权限码：RPT-EvalGo-ATC
    ══════════════════════════════════════════════════════════════════ */
 
-const APP_VERSION = 25;
+const APP_VERSION = 26;
 const STORAGE_KEY = 'evalgo_atc_v1';   /* 沿用 v1 key，旧资料不掉 */
 const SYS_CODE    = 'RPT-EvalGo-ATC';
 const SB_URL      = 'https://qnpvqsvvsgsantekgfbz.supabase.co';
@@ -610,10 +610,12 @@ const DEMO_ROSTER=[
 const SEED = { me:'', subject:'', cls:'',
   examCode:'', examLabel:'', examTerm:'', roster:[], rosterSource:'demo',
   sections:{}, teacherByUid:{}, meName:'', wi:{}, es:{}, focus:{}, assign:{},
-  f1:{}, f2:{}, ui:{extraOpen:false}, meta:{version:'v13'} };
+  f1:{}, f2:{}, ui:{extraOpen:false}, meta:{version:'v13'},
+  /* v26 Multi-Paper：当前选中的卷；papers=可选卷清单。Legacy 模式两者留空/单卷 */
+  paperInstance:null, papers:[] };
 let S = JSON.parse(JSON.stringify(SEED));
 
-const CLOUD={ pushErr:'', checked:false, hasV8:false, hasV9:false, hasV10:false, bpEvid:{}, idErr:'', idFrom:'', role:'', hasWI:false, hasV4:false, hasPS:false, hasV5:false, hasES:false, hasV6:null, hasTA:false,lib:false,session:null,perm:null,exam:null,teachers:[],err:'',busy:false,lastSync:'',readErr:''};
+const CLOUD={ pushErr:'', checked:false, hasV8:false, hasV9:false, hasV10:false, bpEvid:{}, idErr:'', idFrom:'', role:'', hasWI:false, hasV4:false, hasPS:false, hasV5:false, hasES:false, hasV6:null, hasTA:false,lib:false,session:null,perm:null,exam:null,teachers:[],err:'',busy:false,lastSync:'',readErr:'',hasPI:false,papersLoaded:false};
 let _sb=null;
 
 /* ══ 基礎 ══ */
@@ -800,7 +802,74 @@ function render(p){
 function refreshAll(){ PAGES.forEach(p=>{ if(document.getElementById('page-'+p).classList.contains('on')) render(p); }); }
 
 /* ══ 進入閘門 ══ */
-function gateOpen(){ return !(S.subject && S.cls); }
+function paperReady(){ return !CLOUD.hasPI || (!!S.paperInstance && (S.papers||[]).some(p=>p.id===S.paperInstance)); }
+function gateOpen(){ return !(S.subject && S.cls && paperReady()); }
+/* ══ v26 Multi-Paper 选卷 ══
+   Legacy（hasPI=false）：paperReady 恒真 → gateOpen 与 v25 完全一致，选卷层不触发。
+   多卷在线：class+subject 选好后，先决定用哪一份卷才进 capture。 */
+function paperScopeKey(){ return EXK()+'|'+S.cls+'|'+S.subject; }
+async function classIdOf(clsName){
+  if(!_sb||!clsName) return null;
+  CLOUD.classIdCache=CLOUD.classIdCache||{};
+  if(Object.prototype.hasOwnProperty.call(CLOUD.classIdCache,clsName)) return CLOUD.classIdCache[clsName];
+  try{ const r=await _sb.from('classes').select('id').eq('class_name',clsName).limit(1);
+    const id=(!r.error&&r.data&&r.data[0])?r.data[0].id:null;
+    CLOUD.classIdCache[clsName]=id; return id;
+  }catch(e){ return null; }
+}
+async function loadPapers(){
+  if(!CLOUD.hasPI || !_sb || !CLOUD.exam || !(S.cls&&S.subject)){ S.papers=[]; return; }
+  S._papersScope=paperScopeKey(); S.papers=[];
+  try{
+    /* P0-4 canonical：卷↔班 membership 以 evalgo_paper_scope 为准，不得用 year_level 代替 scope */
+    const cid=await classIdOf(S.cls);
+    if(cid){
+      const r=await _sb.from('evalgo_paper_scope')
+        .select('evalgo_paper_instance!inner(id,label,display_no,sort_order,status,exam_id,subject)')
+        .eq('class_id',cid)
+        .eq('evalgo_paper_instance.exam_id',CLOUD.exam.id)
+        .eq('evalgo_paper_instance.subject',S.subject)
+        .eq('evalgo_paper_instance.status','active');
+      let papers=(!r.error && r.data)? r.data.map(x=>x.evalgo_paper_instance).filter(Boolean):[];
+      /* P0-2 canonical：卷责任=evalgo_paper_teacher。老师只见自己被分配的卷；
+         管理层(isAdmin: OWNER/TOP_MGMT/MGMT/ADMIN)见该 scope 全部卷。
+         routing 只认 paper_teacher（含 LEGACY_SEED）；teacher_assign 不参与、不覆盖 EXPLICIT。 */
+      if(papers.length && !isAdmin() && S.me){
+        try{
+          const tr=await _sb.from('evalgo_paper_teacher')
+            .select('paper_instance_id').eq('class_id',cid).eq('teacher_id',S.me);
+          const mine=(!tr.error && tr.data)? new Set(tr.data.map(x=>x.paper_instance_id)) : new Set();
+          papers=papers.filter(p=>mine.has(p.id));
+        }catch(e){ papers=[]; }
+      }
+      S.papers=papers.sort((a,b)=>(a.sort_order||0)-(b.sort_order||0));
+    }
+  }catch(e){ S.papers=[]; }
+  /* 决定：1 份自动选；0 份或 >=2 份且当前选择不在清单 → 清空（>=2 强制老师选） */
+  const ps=S.papers||[];
+  if(ps.length===1) S.paperInstance=ps[0].id;
+  else if(!ps.some(p=>p.id===S.paperInstance)) S.paperInstance=null;
+  saveData(true);
+  if(!gateOpen()) goPage('f1'); else renderHome();
+}
+function pickPaper(id){
+  if(!(S.papers||[]).some(p=>p.id===id)){ toast('✕ 这份卷不在当前班级/科目'); return; }
+  S.paperInstance=id; saveData(true);
+  if(!gateOpen()) goPage('f1'); else renderHome();
+}
+function paperLabelOf(p){ return (p.display_no?('卷'+p.display_no+' · '):'')+(p.label||'（未命名）'); }
+function paperSelectorHTML(){
+  const ps=S.papers||[];
+  if(!ps.length) return `<div class="card"><div class="empty" style="padding:26px">
+    <b style="color:var(--warn)">这个班级 / 科目还没有建立考卷。</b><br>
+    <span class="tip" style="margin-top:6px">请管理层先建立考卷，才能开始输入。</span></div></div>`;
+  return `<div class="card"><div class="card-hdr"><span class="card-title">选择考卷</span>
+    <span class="tip" style="margin:0">${esc(S.cls)} · ${esc(S.subject)} 有 ${ps.length} 份卷 — 请明确选一份再输入</span></div>
+    <div class="dept-row" style="flex-wrap:wrap;gap:8px">
+    ${ps.map(p=>`<span class="dept-tag${p.id===S.paperInstance?' on':''}"
+       style="padding:10px 20px;font-size:13px" onclick="pickPaper('${p.id}')">${esc(paperLabelOf(p))}</span>`).join('')}
+    </div></div>`;
+}
 
 /* 考卷结构（Paper Blueprint）：项目 / 文法 / 作答方式 */
 /* ══ Exam scoping ══
@@ -809,7 +878,12 @@ function gateOpen(){ return !(S.subject && S.cls); }
    而且上传时会用「当前 active exam」把旧证据送进新考试。
    v8 起所有本机 key 一律以 exam 开头。 */
 function EXK(){ return S.examCode||'NOEXAM'; }
-function bpKey(){ return EXK()+'|'+S.subject+'|'+yearOf(S.cls); }
+/* v26 Multi-Paper：只在能力在线且已选卷时，key 才带卷后缀。
+   Legacy（hasPI=false）或未选卷 → 后缀为空 → key 与 v25 逐字节相同，保护现有本机草稿。 */
+function piSuffix(){ return (CLOUD.hasPI && S.paperInstance) ? '|'+S.paperInstance : ''; }
+function piSuf(pi){ return (CLOUD.hasPI && pi) ? '|'+pi : ''; }
+function piReady(){ return !CLOUD.hasPI || !!S.paperInstance; }
+function bpKey(){ return EXK()+'|'+S.subject+'|'+yearOf(S.cls)+piSuffix(); }
 function sections(){ return (S.sections[bpKey()]||[]); }
 /* ⚠️ v9 用 hidden 属性 + inline display —— inline style 会盖掉 hidden，
    所以「满分」栏在选择题时也一直看得到。改成直接控制 display。 */
@@ -874,34 +948,104 @@ function evenCell(sec){
               :'<div style="font-size:10.5px;color:var(--mut);margin-top:2px">不参与算分</div>')}`;
 }
 
-function delSection(id){
+/* ══ v26 F7 Controlled Delete ══
+   删除铁则：云端先删且逐笔验 affected rows；0 列 = 失败（不显示成功、不删本机）。
+   有 evidence（含【只有 live_obs】的情形）→ 影响评估 → 警告 → 完整 JSON 备份 → 下载闸 →
+   子资料逐张验删（子先父后、不靠 CASCADE）→ 最后删 section → 最终不存在检查。 */
+function delAudit(what,n,extra){ if(!Array.isArray(S.audit))S.audit=[]; S.audit.unshift({at:new Date().toISOString(),by:S.me||'',what,n,extra:extra||''}); S.audit=S.audit.slice(0,80); }
+function secScopeMatch(k){ return k.endsWith(piSuffix()); }
+function secImpact(s){
+  const su=S.subject, code=s.code;
+  const qin=(w)=> (s.qf!=null&&s.qt!=null&&+w.q>=+s.qf&&+w.q<=+s.qt);
+  const f1=Object.entries(S.f1).filter(([k,r])=>r&&r.subject===su&&r.bahagian===code&&secScopeMatch(k));
+  const wi=Object.entries(S.wi).filter(([k,w])=>w&&w.subject===su&&(w.sec_code===code||qin(w))&&secScopeMatch(k));
+  const es=Object.entries(S.es).filter(([k,e])=>e&&e.subject===su&&e.sec_code===code&&secScopeMatch(k));
+  return {f1,wi,es,total:f1.length+wi.length+es.length};
+}
+async function cloudDelById(table,idv){
+  try{ const r=await _sb.from(table).delete().eq('id',idv).select('id');
+    if(r.error) return {ok:false,n:0,error:r.error.message};
+    return {ok:true,n:(r.data||[]).length}; }
+  catch(e){ return {ok:false,n:0,error:(e&&e.message)||String(e)}; }
+}
+async function cloudDelBy(table,col,val){
+  try{ const r=await _sb.from(table).delete().eq('exam_id',CLOUD.exam.id).eq(col,val).select('id');
+    if(r.error) return {ok:false,n:0,error:r.error.message};
+    return {ok:true,n:(r.data||[]).length}; }
+  catch(e){ return {ok:false,n:0,error:(e&&e.message)||String(e)}; }
+}
+async function delSection(id){
   if(!bpGuard('删除项目')) return;
   const arr=S.sections[bpKey()]||[];
   const s=arr.find(x=>x.id===id); if(!s) return;
-  const used=Object.values(S.f1).filter(r=>r.subject===S.subject&&r.bahagian===s.code).length;
-  const wq=Object.values(S.wi).filter(w=>w.subject===S.subject&&w.sec_code===s.code).length;
-  if((used||wq) && !confirm(`已经有 ${used} 笔 FORM 01 观察、${wq} 题 FORM 02 记码用了「${s.code}」。`+
-     `删掉项目不会删纪录，但纪录会对不上。确定？`)) return;
-  if(s.cloud_id && _sb && CLOUD.exam){
-    /* 云端已有这笔 —— 只在本机删会在下次 pull 长回来，必须诚实处理 */
-    _sb.from('evalgo_paper_section').delete().eq('id',s.cloud_id).then(res=>{
-      if(res.error){
-        alert('这个项目已经上传到云端，你的帐号没有删除权限（需要 can_approve）。\n\n'
-            + '本机已移除，但下次「从云端拉回」会长回来。请找管理层删除。\n\n'
-            + '错误：'+res.error.message);
-      }else toast('✓ 云端也已删除');
-    });
+  const imp=secImpact(s);
+
+  /* ---- 无 student evidence ---- */
+  if(imp.total===0){
+    if(!confirm(`删除项目「${s.code}」？目前没有任何 student evidence。`)) return;
+    if(s.cloud_id && _sb && CLOUD.exam){
+      if(!(CLOUD.perm&&CLOUD.perm.can_approve)){ alert('云端删除需要管理层权限（can_approve）。本机未删。'); return; }
+      const r=await cloudDelById('evalgo_paper_section',s.cloud_id);
+      if(!r.ok || r.n<1){ alert('删除没有成功（云端返回 '+(r.n||0)+' 列）。资料仍保留，本机也不删。\n'+(r.error||'')); return; }
+    }
+    S.sections[bpKey()]=arr.filter(x=>x.id!==id);
+    delAudit('删除项目·无证据',1,S.subject+'|'+s.code);
+    if(saveThen('✓ 已删除')){ renderF1(); renderF2(); }
+    return;
   }
+
+  /* ---- 有 evidence：受控永久删除 ---- */
+  if(!(CLOUD.perm&&CLOUD.perm.can_approve)){
+    alert('这个项目已关联 '+imp.total+' 笔资料，删除需要管理层（can_approve）。'); return; }
+  if(!confirm(`项目「${s.code}」已关联：\n考前观察 ${imp.f1.length} · 逐题 ${imp.wi.length} · 作文 ${imp.es.length}（共 ${imp.total} 笔）\n\n删除会永久删除这些资料，无法复原。确定继续？`)) return;
+
+  /* Step A + B：完整备份 + 下载闸（未成功启动 → BLOCK） */
+  const backup={when:new Date().toISOString(),exam:CLOUD.exam.code,paper:S.paperInstance||'(legacy)',
+    section:s, live_obs:imp.f1.map(x=>x[1]), wrong_item:imp.wi.map(x=>x[1]), essay_result:imp.es.map(x=>x[1])};
+  try{ dl(`EvalGo_delete_backup_${s.code}_${stamp()}.json`, JSON.stringify(backup,null,2)); }
+  catch(e){ alert('备份下载没有启动 —— 为安全起见取消删除。'); return; }
+  if(!confirm('备份档已开始下载。确认你已收到备份档，再继续永久删除。\n[确定]=继续　[取消]=中止')) return;
+
+  /* Step C：子资料逐张验删（子先父后、不 CASCADE、affected rows 不符即停） */
+  if(s.cloud_id && _sb && CLOUD.exam){
+    const steps=[
+      {t:'evalgo_live_obs',   col:'bahagian',   val:s.code,     expect:imp.f1.length},
+      {t:'evalgo_wrong_item', col:'section_id', val:s.cloud_id, expect:imp.wi.length},
+      {t:'evalgo_essay_result',col:'section_id',val:s.cloud_id, expect:imp.es.length}
+    ];
+    for(const st of steps){
+      const r=await cloudDelBy(st.t,st.col,st.val);
+      if(!r.ok){ alert('删除中止：'+st.t+' 删除失败（'+(r.error||'')+'）。section 未删，请找管理层。'); return; }
+      if(st.expect>0 && r.n<1){ alert('删除中止：'+st.t+' 预期删 '+st.expect+' 笔、云端删了 0 笔（权限或范围不符）。section 不删。'); return; }
+    }
+    const rp=await cloudDelById('evalgo_paper_section',s.cloud_id);
+    if(!rp.ok || rp.n<1){ alert('子资料已删，但 section 本身删除返回 0 列。请找管理层核对，勿重复操作。'); return; }
+  }
+  /* 云端确认后才动本机（子 + section） */
+  imp.f1.forEach(([k])=>delete S.f1[k]);
+  imp.wi.forEach(([k])=>delete S.wi[k]);
+  imp.es.forEach(([k])=>delete S.es[k]);
   S.sections[bpKey()]=arr.filter(x=>x.id!==id);
-  if(saveThen('✓ Deleted')){ renderF1(); renderF2(); }
+  delAudit('受控删除项目·含证据',imp.total,S.subject+'|'+s.code);
+  if(saveThen('✓ 已永久删除项目与其证据')){ renderF1(); renderF2(); }
 }
 function secOf(code){ return sections().find(x=>x.code===code)||null; }
 const SUBJ_EN={'数学':'Mathematics','英文':'English','马来文':'BM','华文':'Mandarin','科学':'Science'};
-function pickClass(v){ S.cls=v; saveData(true);
-  if(!gateOpen()) goPage('f1'); else renderHome(); }
-function pickSubject(v){ S.subject=v; saveData(true);
-  if(!gateOpen()) goPage('f1'); else renderHome(); }
+function onScopeChange(){
+  saveData(true);
+  if(!CLOUD.hasPI){ if(!gateOpen()) goPage('f1'); else renderHome(); return; }
+  /* 多卷：换班级/科目后，旧 paperInstance 未必属于新 scope —— 先清再依当前卷清单重决定 */
+  if(!(S.cls&&S.subject)){ S.paperInstance=null; S.papers=[]; renderHome(); return; }
+  loadPapers();  /* 内部会 auto-select / 清空 / 决定进 capture 或显示选卷器 */
+}
+function pickClass(v){ S.cls=v; onScopeChange(); }
+function pickSubject(v){ S.subject=v; onScopeChange(); }
 function gateHTML(){
+  /* v26：class+subject 已选、多卷在线但卷未就绪 → 选卷器（0 份=挡；>=2=让老师选） */
+  if(CLOUD.hasPI && S.cls && S.subject && !paperReady()){
+    if(S._papersScope!==paperScopeKey()){ loadPapers(); return '<div class="card"><div class="empty" style="padding:24px">载入考卷中…</div></div>'; }
+    return paperSelectorHTML();
+  }
   const done=Object.keys(S.f1).length+Object.keys(S.f2).length;
   return `<div class="card">
     <div class="card-hdr"><span class="card-title">选择班级和科目</span>
@@ -1123,7 +1267,7 @@ function enterCell(cls,subj,page){
   S.cls=cls; S.subject=subj; saveData(true); goPage(page||'f1');
 }
 
-function f1Key(sid,bah){ return EXK()+'|'+sid+'|'+S.subject+'|'+bah; }
+function f1Key(sid,bah){ return EXK()+'|'+sid+'|'+S.subject+'|'+bah+piSuffix(); }
 /* 🔴 v10：老师点一个评分就建立了 S.f1[k]，关掉不按「完成」也算已观察。
    FORM 02 已经分了 progress / done，FORM 01 却还留着同样的问题。
    统一：存在 = DRAFT；有 savedAt = COMPLETE。所有统计只认 COMPLETE。 */
@@ -1589,7 +1733,7 @@ function f1Del(k){
 }
 
 /* ══ FORM 02 ══ */
-function f2Key(sid){ return EXK()+'|'+sid+'|'+S.subject; }
+function f2Key(sid){ return EXK()+'|'+sid+'|'+S.subject+piSuffix(); }
 function f2Draft(sid){ const k=f2Key(sid); if(!S.f2[k]) S.f2[k]={client_uid:uid(),ses:SESSION_ID}; return stampSes(S.f2[k]); }
 
 /* ══════════════════════════════════════════════════════════════════
@@ -1726,7 +1870,7 @@ function scoreLine(sid,small){
 function totalQ(){ return qSections().reduce((a,x)=>a+((+x.qt||0)-(+x.qf||0)+1),0); }
 function secOfQ(q){ return qSections().find(x=>q>=+x.qf&&q<=+x.qt)||null; }
 
-function wiKey(sid,q){ return EXK()+'|'+sid+'|'+S.subject+'|'+q; }
+function wiKey(sid,q){ return EXK()+'|'+sid+'|'+S.subject+'|'+q+piSuffix(); }
 function wiGet(sid,q){ return S.wi[wiKey(sid,q)]||null; }
 function wiOf(sid){
   const pre=EXK()+'|'+sid+'|'+S.subject+'|';
@@ -1797,7 +1941,7 @@ function autoStrong(sid){
 }
 
 /* ══ 写作结果：一篇一列（Owner 确认一份卷可能两篇）══ */
-function esKey(sid,code){ return EXK()+'|'+sid+'|'+S.subject+'|'+code; }
+function esKey(sid,code){ return EXK()+'|'+sid+'|'+S.subject+'|'+code+piSuffix(); }
 function esDraft(sid,code){
   const k=esKey(sid,code);
   if(!S.es[k]) S.es[k]={client_uid:uid(),ses:SESSION_ID,weak:[],star:false,score:null};
@@ -3214,6 +3358,8 @@ async function cloudInit(silent){
     CLOUD.hasV8 = !(await _sb.from('evalgo_paper_analysis').select('assess_status').limit(1)).error;
     CLOUD.hasV9 = !(await _sb.from('evalgo_paper_analysis').select('weak_manual').limit(1)).error;
     CLOUD.hasV10 = !(await _sb.from('evalgo_paper_section').select('even_marks').limit(1)).error;
+    /* v26 Multi-Paper 能力侦测：Stage A 未跑时表不存在 → hasPI=false → 全程 Legacy 兼容 */
+    CLOUD.hasPI = !(await _sb.from('evalgo_paper_instance').select('id').limit(1)).error;
     /* v9 上线后，把当初因为没栏位而扣住的老师手填弱项重新排队送出 */
     if(CLOUD.hasV9){ let n=0;
       Object.keys(S.f2).forEach(k=>{ const r=S.f2[k];
@@ -3318,9 +3464,10 @@ async function pullSections(){
     const r=await _sb.from('evalgo_paper_section').select('*')
       .eq('exam_id',CLOUD.exam.id).order('sort_order');
     if(r.error) throw r.error;
-    let n=0;
+    let n=0; const seenSec={};
     (r.data||[]).forEach(x=>{
-      const k=bpKeyOf(x.subject,x.year_level);
+      const k=EXK()+'|'+x.subject+'|'+x.year_level+piSuf(x.paper_instance_id);
+      if(x.client_uid) seenSec[x.client_uid]=1; if(x.id) seenSec[x.id]=1;
       const arr=S.sections[k]||(S.sections[k]=[]);
       const mine=arr.find(a=>(a.client_uid&&a.client_uid===x.client_uid)
                           || a.cloud_id===x.id
@@ -3335,6 +3482,10 @@ async function pullSections(){
         synced:true, cloud_id:x.id};
       if(mine) Object.assign(mine,row); else { arr.push(row); n++; }
     });
+    if(CLOUD.hasPI && S.paperInstance){
+      const arr=S.sections[bpKey()]||[];
+      S.sections[bpKey()]=arr.filter(s=> !s.synced || seenSec[s.client_uid] || seenSec[s.cloud_id]);
+    }
     if(r.data&&r.data.length) saveData(true);
     return {ok:true,n:n};
   }catch(e){ const m=e&&e.message?e.message:String(e);
@@ -3432,7 +3583,7 @@ function wiForRec(r){
      ③ v_evalgo_topic_diag 的 q_total 读的是 evalgo_paper_section ——
         云端那张表永远是空的，伺服器端汇总全部回 NULL
    ══════════════════════════════════════════════════════════════════ */
-function bpKeyOf(subject,year){ return EXK()+'|'+subject+'|'+year; }
+function bpKeyOf(subject,year){ return EXK()+'|'+subject+'|'+year+piSuffix(); }
 function allSections(){
   const out=[];
   Object.keys(S.sections||{}).forEach(k=>{
@@ -3466,12 +3617,19 @@ function psPayload(sec){
        半套（paper_from 有、paper_to 没有）的资料。 */
     ...(CLOUD.hasV12 && !isEssay && +sec.pf>=1
         ? {paper_from:+sec.pf, paper_to:+sec.pf+((+sec.qt||0)-(+sec.qf||0))} : {}),
-    ...(CLOUD.hasV10 ? {even_marks: sec.even==='Y'?'YES':(sec.even==='N'?'NO':'UNKNOWN')} : {})};
+    ...(CLOUD.hasV10 ? {even_marks: sec.even==='Y'?'YES':(sec.even==='N'?'NO':'UNKNOWN')} : {}),
+    ...((CLOUD.hasPI && S.paperInstance) ? {paper_instance_id:S.paperInstance} : {})};
 }
 /* 逐题纪录挂回它所属的 section（需要 section 先上云拿到 id） */
 function secCloudIdFor(w){
   const arr=S.sections[bpKeyOf(w.subject,w.year)]||[];
   const hit=arr.find(x=>QTYPES.indexOf(x.type||'MCQ')>=0 && +w.q>=+x.qf && +w.q<=+x.qt);
+  return hit&&hit.cloud_id?hit.cloud_id:null;
+}
+/* P0-3：live_obs 用 bahagian(=section code) 找当前卷内对应 section 的 cloud_id */
+function secCloudIdForCode(code){
+  const arr=S.sections[bpKey()]||[];
+  const hit=arr.find(x=>x.code===code);
   return hit&&hit.cloud_id?hit.cloud_id:null;
 }
 function markSecDirty(sec){ sec.synced=false; if(!sec.client_uid) sec.client_uid=uid(); }
@@ -3526,6 +3684,7 @@ function wiPayload(w){ const st=stuOf(w.sid)||{};
     cl_subtype:(w.code==='cl'?(w.cl_subtype||null):null),
     diagnosis:w.diag||null,topic:w.topic||null,answer_format:w.fmt||null,
     ...(CLOUD.hasV12 ? {q_sub:w.qsub||null} : {}),
+    ...((CLOUD.hasPI && S.paperInstance) ? {paper_instance_id:S.paperInstance} : {}),
     entered_by:w.by||S.me,client_uid:w.client_uid}; }
 function asgPayload(a){
   return {exam_id:CLOUD.exam.id, teacher_id:a.teacher_id, class_name:a.cls,
@@ -3536,6 +3695,7 @@ function esPayload(e){ const st=stuOf(e.sid)||{};
     section_id:e.sec_cloud_id||null,section_code:e.sec_code,
     score:(e.score!=null?e.score:null),max_score:(e.max!=null?e.max:null),
     weak:e.weak||[],is_star:!!e.star,
+    ...((CLOUD.hasPI && S.paperInstance) ? {paper_instance_id:S.paperInstance} : {}),
     entered_by:e.by||S.me,client_uid:e.client_uid}; }
 function f1Payload(r){ const st=stuOf(r.sid)||{};
   const p={exam_id:CLOUD.exam.id,student_id:r.sid,class_id:st.class_id||r.class_id,
@@ -3543,6 +3703,7 @@ function f1Payload(r){ const st=stuOf(r.sid)||{};
     read_v:r.read||null,think_v:r.think||null,answer_v:r.answer||null,check_v:r.check||null,
     ind_v:r.ind||null,speed_v:r.speed||null,handwriting_v:r.handwriting||null,
     issue:r.issue||null,entered_by:r.by||S.me,client_uid:r.client_uid};
+  if(CLOUD.hasPI && S.paperInstance){ p.paper_instance_id=S.paperInstance; p.section_id=secCloudIdForCode(r.bahagian); }
   /* focus_dim：Owner 於 2026-09-06 决定移除「今天重点必填」，
      理由是会逼老师填她没观察到的维度 = 制造假证据。
      DB 栏位保留（v5 已建），前端不再产生值，故不送。 */
@@ -3576,6 +3737,7 @@ function f2Payload(r){ const st=stuOf(r.sid)||{};
     fix_outcome:r.fix_outcome||null,reflect_was_wrong:r.reflect_was_wrong||null,
     reflect_now_know:r.reflect_now_know||null,
     entered_by:r.by||S.me,client_uid:r.client_uid};
+  if(CLOUD.hasPI && S.paperInstance) p.paper_instance_id=S.paperInstance;
   if(CLOUD.hasV8) p.assess_status = aStat(r);
   if(CLOUD.hasV9){
     p.weak_manual            = (r.weak_manual||[]).map(optText).filter(Boolean);
@@ -3662,7 +3824,10 @@ async function cloudPush(silent){
   const held=[];
   /* ① 考卷结构先上 —— 逐题纪录要靠它拿 section_id，顺序不可颠倒 */
   let secOk=0, secFail=0;
-  if(CLOUD.hasPS){
+  /* v26 防呆：多卷在线但未选卷 → 所有 paper-scoped evidence 暂不上传（teacher_assign 例外） */
+  const piBlock=(CLOUD.hasPI && !S.paperInstance);
+  if(piBlock && pendingSections().length) held.push('未选卷 —— 考卷结构暂不上传，请先选择考卷。');
+  if(CLOUD.hasPS && !piBlock){
     for(const sec of pendingSections()){
       try{
         if(!sec.client_uid) sec.client_uid=uid();
@@ -3732,8 +3897,10 @@ async function cloudPush(silent){
     evalgo_essay_result:   {required:['exam_id','student_id','class_id','subject']},
     evalgo_teacher_assign: {required:['exam_id','teacher_id','class_name','subject']}
   };
+  if(piBlock) held.push('未选卷 —— 考前观察 / 考卷分析 / 逐题 / 作文暂不上传，请先选择考卷。');
   for(const j of jobs){
     try{
+      if(piBlock && j.t!=='evalgo_teacher_assign') continue;
       const pl=j.p();
       const spec=JOB_SPEC[j.t];
       if(!spec) throw new Error('没有 write spec：'+j.t);
@@ -3784,8 +3951,8 @@ async function cloudPull(silent){
       d=await _sb.from('evalgo_wrong_item').select('*').eq('exam_id',CLOUD.exam.id);
       if(d.error) throw d.error;
     }
-    let n1=0,n2=0,n3=0;
-    (a.data||[]).forEach(x=>{ const k=CLOUD.exam.code+'|'+x.student_id+'|'+x.subject+'|'+x.bahagian;
+    let n1=0,n2=0,n3=0; const seenF1={},seenF2={},seenWI={},seenES={};
+    (a.data||[]).forEach(x=>{ const k=CLOUD.exam.code+'|'+x.student_id+'|'+x.subject+'|'+x.bahagian+piSuf(x.paper_instance_id); seenF1[k]=1;
       if(S.f1[k]&&!S.f1[k].synced) return;
       S.f1[k]={client_uid:x.client_uid||uid(),sid:x.student_id,subject:x.subject,bahagian:x.bahagian,
         focus_dim:x.focus_dim||null,
@@ -3793,7 +3960,7 @@ async function cloudPull(silent){
         read:x.read_v||'',think:x.think_v||'',answer:x.answer_v||'',check:x.check_v||'',
         ind:x.ind_v||'',speed:x.speed_v||'',handwriting:x.handwriting_v||'',issue:x.issue||'',
         savedAt:'(云端)',synced:true,cloud_id:x.id}; n1++; });
-    (b.data||[]).forEach(x=>{ const k=CLOUD.exam.code+'|'+x.student_id+'|'+x.subject;
+    (b.data||[]).forEach(x=>{ const k=CLOUD.exam.code+'|'+x.student_id+'|'+x.subject+piSuf(x.paper_instance_id); seenF2[k]=1;
       if(S.f2[k]&&!S.f2[k].synced) return;
       S.f2[k]={client_uid:x.client_uid||uid(),sid:x.student_id,subject:x.subject,class_id:x.class_id,
         year:x.year_level,paper_date:x.paper_date,by:x.entered_by,exam:CLOUD.exam.code,
@@ -3815,7 +3982,7 @@ async function cloudPull(silent){
         assess_status:x.assess_status||'ASSESSED',
         weak_manual:x.weak_manual||[],
         savedAt:'(云端)',synced:true,cloud_id:x.id}; n2++; });
-    (d.data||[]).forEach(x=>{ const k=CLOUD.exam.code+'|'+x.student_id+'|'+x.subject+'|'+x.q_no;
+    (d.data||[]).forEach(x=>{ const k=CLOUD.exam.code+'|'+x.student_id+'|'+x.subject+'|'+x.q_no+piSuf(x.paper_instance_id); seenWI[k]=1;
       if(S.wi[k]&&!S.wi[k].synced) return;
       S.wi[k]={client_uid:x.client_uid||uid(),sid:x.student_id,subject:x.subject,q:x.q_no,
         qsub:x.q_sub||null,
@@ -3824,12 +3991,21 @@ async function cloudPull(silent){
         cls:'',class_id:x.class_id,year:x.year_level,by:x.entered_by,exam:CLOUD.exam.code,
         savedAt:'(云端)',synced:true,cloud_id:x.id}; n3++; });
     let n4=0;
-    (e2.data||[]).forEach(x=>{ const k=CLOUD.exam.code+'|'+x.student_id+'|'+x.subject+'|'+x.section_code;
+    (e2.data||[]).forEach(x=>{ const k=CLOUD.exam.code+'|'+x.student_id+'|'+x.subject+'|'+x.section_code+piSuf(x.paper_instance_id); seenES[k]=1;
       if(S.es[k]&&!S.es[k].synced) return;
       S.es[k]={client_uid:x.client_uid||uid(),sid:x.student_id,subject:x.subject,
         sec_code:x.section_code,sec_cloud_id:x.section_id,score:x.score,max:x.max_score,
         weak:x.weak||[],star:!!x.is_star,cls:'',class_id:x.class_id,year:x.year_level,
         by:x.entered_by,exam:CLOUD.exam.code,savedAt:'(云端)',synced:true,cloud_id:x.id}; n4++; });
+    /* F5 对账：只在【本次 pull 成功 + 多卷在线 + 已选卷】时执行；
+       只删【synced + 当前 exam + 当前卷 namespace + 云端明确没有】的 local row。
+       unsynced / pending / failed / 别的卷 / 别的 exam 一律不删。Legacy 完全不进此块。 */
+    if(CLOUD.hasPI && S.paperInstance){
+      const suf=piSuffix();
+      const rec=(store,seen)=>{ Object.keys(store).forEach(k=>{ const rr=store[k];
+        if(rr && rr.synced===true && rr.exam===CLOUD.exam.code && k.endsWith(suf) && !seen[k]) delete store[k]; }); };
+      rec(S.f1,seenF1); rec(S.f2,seenF2); rec(S.wi,seenWI); rec(S.es,seenES);
+    }
     CLOUD.readErr=''; paintReadWarn();
     saveData(true); refreshAll(); renderManage();
     if(silent) return;
