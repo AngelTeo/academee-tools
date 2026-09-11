@@ -1883,8 +1883,15 @@ function rosterAgeText(){
 /* 班名排序必须「数字感知」：纯字串比较会把 LV10 排到 LV2 前面（"1"<"2"）。
    numeric:true 让 LV2 < LV10、ATC2 < ATC10、BB.2 < BB.10 全部照数字走。 */
 const NAT = new Intl.Collator(undefined, {numeric:true, sensitivity:'base'});
+/* 候位班 —— 已报名但还没来上学的学生挂在这里（Owner 2026-09-11）。
+   巡班巡不到还没来的人，所以选班页不列出来。
+   只藏「选班」，不影响任何已经存在的纪录：旧纪录仍读得到、看得到、算得到。 */
+function isHoldingClass(c){
+  const n=String((c&&c.class_name)||'').toUpperCase();
+  return n==='RSVP' || /(^|[-_. ])RSVP($|[-_. ])/.test(n);
+}
 function classesOf(dept){
-  return state.roster.classes.filter(c=>c.department===dept)
+  return state.roster.classes.filter(c=>c.department===dept && !isHoldingClass(c))
     .sort((a,b)=>(a.sort_order||0)-(b.sort_order||0)
       || NAT.compare(String(a.class_name), String(b.class_name)));
 }
