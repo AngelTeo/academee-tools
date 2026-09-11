@@ -340,6 +340,7 @@ h1{font-size:26px;line-height:1.18;margin:8px 0 6px;font-weight:700}
         <div class="sub">只告诉系统「我要看哪里」。日期、观察者、开始时间与停留时间由系统处理。</div>
       </div>
       <div id="select-alerts"></div>
+      <div id="team-panel"></div>
       <div class="panel">
         <div class="panel-title">① 部门</div>
         <div class="option-grid" id="dept-grid"></div>
@@ -1956,7 +1957,61 @@ function rosterOf(classId){
 }
 
 /* ══════════ SELECT ══════════ */
+/* 管理层一进来就看到的「大家的进度」。
+   Owner 2026-09-11：「要能够看得到老师们的工作进度」——
+   所以放主页面最上面，不是藏在纪录页的切换里。唯读，没有任何编辑入口。 */
+function renderTeamPanel(){
+  const box=el('team-panel'); if(!box) return;
+  if(!canSeeManage()){ box.innerHTML=''; return; }
+  const v=state.teamVisits||[];
+  if(CLOUD.teamBusy && !v.length){ box.innerHTML='<div class="alert alert-info">正在读大家的巡班进度…</div>'; return; }
+  if(CLOUD.teamErr){
+    box.innerHTML='<div class="alert alert-danger"><strong>读不到大家的进度</strong> —— '+
+      escapeHtml(CLOUD.teamErr)+'<button class="ghost btn-sm" style="margin-left:8px" '+
+      'onclick="refreshTeam()">再试一次</button></div>'; return; }
+  if(!v.length){ box.innerHTML='<div class="alert alert-info"><strong>大家的进度</strong>'+
+      '<span style="opacity:.85"> —— 云端目前一笔巡班都没有</span>'+
+      '<button class="ghost btn-sm" style="margin-left:8px" onclick="refreshTeam()">重新整理</button></div>'; return; }
+
+  const today=todayISO();
+  const by={};
+  v.forEach(r=>{ const k=r.who||'—';
+    by[k]=by[k]||{who:k, draft:0, done:0, doneToday:0, rows:[]};
+    if(r.status==='draft'){ by[k].draft++; by[k].rows.push(r); }
+    else if(r.status==='completed'){ by[k].done++; if(r.date===today) by[k].doneToday++; }
+  });
+  const people=Object.values(by).sort((x,y)=>(y.draft-x.draft)||(y.done-x.done));
+  const totDraft=v.filter(r=>r.status==='draft').length;
+  const totDone =v.filter(r=>r.status==='completed').length;
+
+  box.innerHTML='<div class="alert alert-info"><strong>大家的进度</strong>'+
+    '<span style="opacity:.85"> —— 未完成 '+totDraft+' 班 · 已完成 '+totDone+' 班'+
+    '（唯读，动不到别人的东西）</span>'+
+    '<button class="ghost btn-sm" style="margin-left:8px" onclick="refreshTeam()">重新整理</button>'+
+    people.map(pp=>
+      '<div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(0,0,0,.08)">'+
+      '<b>'+escapeHtml(pp.who)+'</b> —— 未完成 '+pp.draft+' · 已完成 '+pp.done+
+      (pp.doneToday?('（今天 '+pp.doneToday+'）'):'')+
+      pp.rows.map(r=>'<div style="margin-top:4px;opacity:.9">· '+
+        escapeHtml(r.dept+' '+r.classLabel)+' —— 班级层 '+
+        (r.nCls==null?'—':r.nCls)+' 项 · 学生 '+(r.nStudents==null?'—':r.nStudents)+' 位 · evidence '+
+        (r.nEnt==null?'—':r.nEnt)+' 条'+(r.dateLabel?(' · '+escapeHtml(r.dateLabel)):'')+
+        '</div>').join('')+
+      '</div>').join('')+
+    '<div style="margin-top:8px"><button class="ghost btn-sm" onclick="openTeamHistory()">看全部纪录 →</button></div>'+
+    '</div>';
+}
+function openTeamHistory(){ UIH.scope='team'; goScreen('history'); renderHistory(); }
+async function refreshTeam(){
+  if(!canSeeManage()) return;
+  CLOUD.teamBusy=true; CLOUD.teamErr=''; renderTeamPanel();
+  const r=await pullTeamVisits();
+  CLOUD.teamBusy=false; CLOUD.teamErr = r.ok? '' : (r.error||'不知道为什么');
+  renderTeamPanel();
+  if(UIH.scope==='team') renderHistory();
+}
 function renderSelect(){
+  renderTeamPanel();
   /* 提示 */
   let a='';
   if(state.roster.source!=='cloud')
@@ -3110,6 +3165,9 @@ async function initApp(){
   save(true);
   await flushPendingAfterLogin();
   renderSelect(); renderHistory();
+  /* 管理层：开机自动把大家的进度读回来，不用按任何东西。
+     放最後、不 await —— 读不到也不准挡住巡班本身。 */
+  if(canSeeManage()) refreshTeam();
 }
 /* Diagnostics / 自动化测试用的唯一出口。日常 UI 不读它。 */
 window.state = state;
