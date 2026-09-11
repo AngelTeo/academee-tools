@@ -17,11 +17,12 @@ document.addEventListener('DOMContentLoaded',function(){
     const v=state.visit;
     if(v&&v._browseOnly){
       state.visit=null;
-      showScreen('select');renderSelect();
+      showScreen('select');
+      renderSelect();
       return;
     }
-    /* 已经开始的巡班：回主页面只是导航；现有自动储存机制继续负责资料安全。 */
-    showScreen('select');renderSelect();
+    showScreen('select');
+    renderSelect();
   };
 
   const oldRender=renderVisit;
@@ -31,14 +32,34 @@ document.addEventListener('DOMContentLoaded',function(){
       const m=document.getElementById('visit-meta');
       if(m)m.textContent=state.visit.dateLabel+' · '+state.visit.observer+' · 浏览中 · 尚未开始计时'+(state.visit.curriculumBand?(' · band '+state.visit.curriculumBand):'');
     }
+    ensureBackButton();
   };
+
+  function ensureBackButton(){
+    let back=[...document.querySelectorAll('button')].find(x=>x.textContent.trim().includes('回主页面'));
+    if(!back){
+      const finish=document.getElementById('btn-finish-top');
+      if(finish&&finish.parentElement){
+        back=document.createElement('button');
+        back.className='ghost btn-sm';
+        back.type='button';
+        back.textContent='← 回主页面';
+        finish.parentElement.insertBefore(back,finish);
+      }
+    }
+    if(back){
+      back.textContent='← 回主页面';
+      back.onclick=obsgoV9BackHome;
+      back.title='返回班级选择页';
+      back.style.display='';
+    }
+  }
 
   const b=document.getElementById('btn-start');if(b)b.style.display='none';
   const sm=document.getElementById('start-meta');if(sm)sm.textContent='点班级直接进入巡班；浏览不会建立草稿，第一次记录观察后才开始计时';
   const st=document.getElementById('start-title');if(st)st.textContent='请选择班级进入巡班';
 
-  const back=[...document.querySelectorAll('button.ghost.btn-sm')].find(x=>x.textContent.includes('回主页面'));
-  if(back){back.textContent='← 回主页面';back.setAttribute('onclick','obsgoV9BackHome()');back.title='返回班级选择页；只是浏览时不会建立草稿';}
+  ensureBackButton();
 
   const saveBtn=document.getElementById('btn-save');if(saveBtn)saveBtn.remove();
   const park=document.getElementById('btn-park');
