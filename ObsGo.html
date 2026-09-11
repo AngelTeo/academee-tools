@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>ObsGo — 巡班观察 v10</title>
+<title>ObsGo — 巡班观察 v11</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root{
@@ -315,7 +315,7 @@ h1{font-size:26px;line-height:1.18;margin:8px 0 6px;font-weight:700}
 <div class="app" id="app" style="display:none">
   <header class="topbar">
     <button class="nav-home" onclick="goHomePlatform()" title="回平台">←</button>
-    <div class="nav-logo">🔭 ObsGo <span class="ver">v10</span></div>
+    <div class="nav-logo">🔭 ObsGo <span class="ver">v11</span></div>
     <button class="ntab on" data-nt="visit" onclick="goScreen('select')">巡班</button>
     <button class="ntab" data-nt="history" onclick="goScreen('history')">纪录</button>
     <button class="ntab" id="nt-manage" data-nt="manage" onclick="goScreen('manage')" style="display:none">管理</button>
@@ -371,7 +371,7 @@ h1{font-size:26px;line-height:1.18;margin:8px 0 6px;font-weight:700}
           </div>
           <div style="display:flex;align-items:center;gap:8px">
             <div class="live">● LIVE</div>
-            <button class="ghost btn-sm" onclick="backHome()">← 回主页面</button>
+            <button class="ghost btn-sm" onclick="parkVisit()">← 回主页</button>
             <button class="ghost btn-sm" id="btn-finish-top" onclick="finishVisit()">完成巡班 ✓</button>
           </div>
         </div>
@@ -497,8 +497,7 @@ h1{font-size:26px;line-height:1.18;margin:8px 0 6px;font-weight:700}
   <div class="bottom hidden" id="bottom-bar">
     <div class="bottom-in">
       <div class="bottom-note" id="bottom-note"></div>
-      <button class="ghost" id="btn-save" onclick="saveNow()" style="margin-right:8px">储存</button>
-      <button class="finish" id="btn-park" onclick="parkVisit()">储存并退出</button>
+      <span class="helper" style="opacity:.8">系统自动帮你存好；看完这班按上面「完成巡班 ✓」，中途离开按上面「← 回主页」</span>
     </div>
   </div>
 
@@ -1595,7 +1594,7 @@ function buildVisitInterpretations(v){
    本区块负责：硬闸登入 · Supabase 名单 · 幂等上传 · 作废 · 介面
    ⛔ 档内不写死任何学生姓名或班级 —— 一律从 Supabase 读
    ═══════════════════════════════════════════════════════════════════ */
-const APP_VERSION = 10;   /* 顶栏徽章、设定页、Export payload 共用这一个数字 */
+const APP_VERSION = 11;   /* 顶栏徽章、设定页、Export payload 共用这一个数字 */
 const STORAGE_KEY = 'obsgo_v2';
 const SYSTEM_CODE = 'OPR-ObsGo';
 
@@ -2043,11 +2042,11 @@ function renderTeamPanel(){
       '<div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(0,0,0,.08)">'+
       '<b>'+escapeHtml(pp.who)+'</b> —— 未完成 '+pp.draft+' · 已完成 '+pp.done+
       (pp.doneToday?('（今天 '+pp.doneToday+'）'):'')+
-      pp.rows.map(r=>'<div style="margin-top:4px;opacity:.9">· '+
+      pp.rows.map(r=>'<div style="margin-top:6px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><span style="opacity:.9">· '+
         escapeHtml(r.dept+' '+r.classLabel)+' —— 班级层 '+
-        (r.nCls==null?'—':r.nCls)+' 项 · 学生 '+(r.nStudents==null?'—':r.nStudents)+' 位 · evidence '+
+        (r.nCls==null?'—':r.nCls)+' 项 · 学生 '+(r.nStudents==null?'—':r.nStudents)+' 位 · 证据 '+
         (r.nEnt==null?'—':r.nEnt)+' 条'+(r.dateLabel?(' · '+escapeHtml(r.dateLabel)):'')+
-        '</div>').join('')+
+        '</span><button class="ghost btn-sm" style="white-space:nowrap" onclick="openTeamVisit(\''+(r.client_uid||'')+'\')">看内容 →</button></div>').join('')+
       '</div>').join('')+
     '<div style="margin-top:8px"><button class="ghost btn-sm" onclick="openTeamHistory()">看全部纪录 →</button></div>'+
     '</div>';
@@ -2812,7 +2811,7 @@ function paintBottom(){
   const c=counts();
   el('bottom-note').innerHTML=c.students+' 位学生 · '+c.evi+' 条 evidence · '+
     Object.keys(v.classContext).length+' 个班级入口<br>'+
-    '<span style="opacity:.8">「储存」存好上云、继续填 · 「储存并退出」存好上云、回主页面换别班 · 全班记完了才按上面的「完成巡班 ✓」</span>';
+    '<span style="opacity:.8">系统会自动帮你存好。看完这班 → 按上面「完成巡班 ✓」；中途要走 → 按上面「← 回主页」（自动存好，下次接着填）。</span>';
   const bf=el('btn-finish-top');
   if(bf) bf.disabled = !(c.evi || Object.keys(v.classContext).length);
   /* 「储存」「退出」永远可按 —— 巡班分好几次完成。 */
