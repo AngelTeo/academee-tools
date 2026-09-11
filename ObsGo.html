@@ -1197,9 +1197,165 @@ const DEPT_TAXONOMY      = {SRT:TAXONOMY,     SRK:SRK_TAXONOMY,     ATC:ATC_TAXO
 const DEPT_CLASS_CONTEXT = {SRT:CLASS_CONTEXT, SRK:SRK_CLASS_CONTEXT, ATC:ATC_CLASS_CONTEXT, GAK:SRK_CLASS_CONTEXT};
 const DEPT_CONCERN_START = {                   SRK:SRK_CLASS_CONCERN_START, ATC:ATC_CLASS_CONCERN_START, GAK:SRK_CLASS_CONCERN_START};
 const DEPT_DOMAIN_RULES  = {SRT:SRT_DOMAIN_RULES,                     ATC:ATC_DOMAIN_RULES, GAK:GAK_DOMAIN_RULES};
-/* 每个域的「支持方式」清单。ATC / GAK 尚未交付 → 该步骤自动不出现，不影响解释引擎
-   （引擎的 currentSupportRelationship 只读 level 与 response，不读 types）。 */
-const DEPT_SUPPORT_TYPES = {SRK:SRK_SUPPORT_TYPES};
+/* ATC 支持方式 · 键 = ATC_TAXONOMY 的域码 A1–A11。ChatGPT Academic 2026-09-11 交付。
+   这里只记「用了什么方法」；强度仍是 S0–S3，结果仍是 R1–R6，三者分开存。 */
+const ATC_SUPPORT_TYPES = {
+  A1:[
+    "提醒查看当前需要的材料",
+    "指向作业本／课本／文具位置",
+    "提醒先准备再开始",
+    "帮助确认当前科目需要什么",
+    "示范一次材料收放方式"
+  ],
+  A2:[
+    "提醒先做第一步",
+    "指向当前任务",
+    "询问“下一步是什么？”",
+    "把当前任务拆成较小步骤",
+    "提醒从刚才停下的位置继续"
+  ],
+  A3:[
+    "提醒检查是否有漏题／空格",
+    "指向需要检查的范围",
+    "提醒对照题号或任务要求",
+    "提示回看未完成位置",
+    "示范一次检查顺序"
+  ],
+  A4:[
+    "重述当前要求",
+    "换一种说法说明任务",
+    "指向题目关键词／要求",
+    "示范第一步",
+    "把完整要求拆成较小步骤"
+  ],
+  A5:[
+    "提醒回想刚才的方法",
+    "指向与示范题相同的关键线索",
+    "换一个类似例子提示",
+    "提示比较新题与刚才题目的共同点",
+    "示范一次如何把方法带到下一题"
+  ],
+  A6:[
+    "提醒重新看题目或步骤",
+    "指出需要检查的范围",
+    "询问“哪里可能不对？”",
+    "给一个关键线索",
+    "示范一次如何定位错误"
+  ],
+  A7:[
+    "提醒先说自己卡在哪里",
+    "询问“你已经试过什么？”",
+    "给句子开头帮助说明问题",
+    "提示先尝试再求助",
+    "把求助范围缩小到一个具体步骤"
+  ],
+  A8:[
+    "鼓励再试一次",
+    "提醒换一种方法",
+    "给一个小线索",
+    "把困难部分拆小",
+    "提醒先完成能做的部分再回来处理难点"
+  ],
+  A9:[
+    "轻声提醒回到当前任务",
+    "指向当前题目／材料",
+    "走近并提醒继续",
+    "帮助移除明显无关刺激",
+    "提醒从中断的位置重新开始"
+  ],
+  A10:[
+    "提醒熟悉 routine 的下一步",
+    "指向个人物品或固定位置",
+    "示范一次收拾／转换步骤",
+    "给一个简短 checklist",
+    "提醒先自己处理再求助"
+  ],
+  A11:[
+    "提醒轮流或等待",
+    "提示用语言表达不同意见",
+    "示范一句合适的同伴沟通方式",
+    "帮助明确共同任务中的分工",
+    "提醒冲突后回到当前共同任务"
+  ]
+};
+
+/* GAK 支持方式 · 键 = GAK_TAXONOMY 的域码 G1–G10。同上。
+   注意：这里的 G1–G10 是 GAK 的域码，跟解释引擎的闸门 G1–G8 同名但完全无关。 */
+const GAK_SUPPORT_TYPES = {
+  G1:[
+    "提醒进入熟悉的下午班 routine",
+    "指向熟悉老师／位置／活动",
+    "陪同进入当前流程",
+    "给一个清楚的转换提示",
+    "帮助从前一个活动重新进入现在的安排"
+  ],
+  G2:[
+    "提醒熟悉 routine 的下一步",
+    "指向物品／位置／流程提示",
+    "示范一次当前步骤",
+    "一起做第一步",
+    "用简短视觉或口头提示帮助继续"
+  ],
+  G3:[
+    "提醒进入自己的用餐位置",
+    "指向自己的杯子／餐具／饮品",
+    "示范一次当前用餐步骤",
+    "提醒完成后处理自己的用品",
+    "给一个简单口头提示继续进食／喝水／牛奶流程"
+  ],
+  G4:[
+    "提醒表达如厕／更换需要",
+    "指向厕所或更换流程",
+    "示范一次自己能参与的步骤",
+    "提醒整理衣物或洗手",
+    "用简短提示帮助完成熟悉 routine"
+  ],
+  G5:[
+    "提醒进入洗手／清洁／冲凉流程",
+    "指向下一项清洁用品或步骤",
+    "示范一次清洁动作",
+    "提醒按顺序继续",
+    "帮助回到刚才中断的清洁步骤"
+  ],
+  G6:[
+    "提醒进入自己的休息位置",
+    "给一个安定下来的固定提示",
+    "短暂陪伴进入休息 routine",
+    "提醒休息结束后的整理步骤",
+    "帮助从休息转换回下一项活动"
+  ],
+  G7:[
+    "邀请接触当前材料",
+    "示范一种玩法",
+    "给一个探索线索",
+    "提醒再试另一种方法",
+    "指向当前材料帮助重新进入游戏"
+  ],
+  G8:[
+    "给两个简单选择帮助表达需要",
+    "追问一个关键点",
+    "给句子开头或关键词",
+    "提醒用熟悉方式告诉成人",
+    "帮助把动作／情绪反应转成清楚表达"
+  ],
+  G9:[
+    "提醒轮流／等待",
+    "示范如何加入同伴游戏",
+    "提示用语言表达想法或需要",
+    "帮助协商共同玩法",
+    "冲突后帮助重新加入共同活动"
+  ],
+  G10:[
+    "提醒使用熟悉的 calming strategy",
+    "给一个简单语言提示表达情绪或需要",
+    "短暂陪伴离开刺激后再回来",
+    "帮助把注意转回当前 routine／活动",
+    "提醒恢复后重新加入原来的活动"
+  ]
+};
+
+/* 每个域的「支持方式」清单。SRT 走 FLAT 模型，不读这张表。 */
+const DEPT_SUPPORT_TYPES = {SRK:SRK_SUPPORT_TYPES, ATC:ATC_SUPPORT_TYPES, GAK:GAK_SUPPORT_TYPES};
 /* FLAT = SRT 扁平 SUPPORTS(9) × RESPONSES(6)；LEVEL = S0–S3 + R1–R6 */
 const DEPT_SUPPORT_MODEL = {SRT:'FLAT', SRK:'LEVEL', ATC:'LEVEL', GAK:'LEVEL'};
 /* 班段。fromClass=true 表示班名可推 band；ATC 只认实际年龄（Owner 2026-09-09）。 */
@@ -1319,8 +1475,14 @@ function relationshipRank(x){
     INDEPENDENT:4
   })[x];
 }
+/* P0-B2 · 什么才算「可以拿来算的纪录」。
+   状态机实值只有 draft / completed / cancelled（DB CHECK 约束，2026-09-11 实查）。
+   只有 completed 是权威：draft 还没填完，cancelled 已经作废。
+   上了云 ≠ 权威 —— 草稿现在也会上云。 */
+function isAuthoritative(r){ return !!r && r.status==='completed'; }
 function priorDomainSnapshots(v,name,code){
   return state.records
+    .filter(isAuthoritative)
     .filter(r=>r && r.dept===v.dept && r.students && r.students[name] && r.students[name][code])
     .map(r=>{
       const e=r.students[name][code];
@@ -2363,8 +2525,34 @@ function parkVisit(){
   });
   showScreen('select'); renderSelect();
 }
+/* P0-B1 · classId 自愈。
+   班级 ID 有可能变（两表合并、班级重建）。草稿里存着 className，拿它回查一次。
+   硬规则：必须同部门，而且只有「恰好一个」候选才自动绑定。
+   找到 0 个或 >1 个 → 不猜、不绑，让使用者看到，fail closed。 */
+function healClassId(v){
+  if(!v || !v.classId) return {ok:false, changed:false, why:'没有 classId'};
+  const list=state.roster && state.roster.classes ? state.roster.classes : [];
+  if(!list.length) return {ok:true, changed:false, why:'名单还没载入，先不判'};
+  if(list.some(c=>c.id===v.classId)) return {ok:true, changed:false, why:'原本就对得上'};
+  const nm=String(v.className||v.classLabel||'').trim();
+  if(!nm) return {ok:false, changed:false, why:'草稿里没有班名可回查'};
+  const hit=list.filter(c=>c.department===v.dept &&
+      String(c.class_name||'').trim().toUpperCase()===nm.toUpperCase());
+  if(hit.length!==1) return {ok:false, changed:false,
+      why:(hit.length?('同部门有 '+hit.length+' 个同名班'):'同部门找不到「'+nm+'」')};
+  const old=v.classId;
+  v.classId=hit[0].id;
+  v.classHealedFrom=old;
+  return {ok:true, changed:true, why:'依班名「'+nm+'」回查，同部门唯一命中'};
+}
 function resumeDraft(uid){
   const d=state.drafts.find(x=>x.client_uid===uid); if(!d) return;
+  const h=healClassId(d);
+  if(!h.ok){
+    toast('✕ 这一份的班级对不上了（'+h.why+'）—— 请截图找管理层，不要重填', 12000);
+    return;
+  }
+  if(h.changed){ save(true); toast('✓ 班级已重新对上（'+h.why+'）', 6000); }
   state.visit=d; save(true); resumeVisit();
 }
 function discardDraft(uid){
@@ -2508,7 +2696,8 @@ function renderRecent(){
     box.innerHTML='<div class="empty">还没有巡班纪录 —— 选好班级，按上面的「开始巡班」</div>'; return;
   }
   const today=todayISO();
-  const t=state.records.filter(r=>r.date===today);
+  /* P0-B2：作废的不算进「今天几次巡班」。列表照旧全列（看得到才知道作废了）。 */
+  const t=state.records.filter(r=>r.date===today && isAuthoritative(r));
   const byDept={}; t.forEach(r=>byDept[r.dept]=(byDept[r.dept]||0)+1);
   const sum=Object.keys(byDept).map(d=>d+' '+byDept[d]).join(' · ');
   box.innerHTML='<div class="panel-title" style="margin:20px 3px 8px">今天 · '+t.length+' 次巡班'+
