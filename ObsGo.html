@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>ObsGo — 巡班观察 v8</title>
+<title>ObsGo — 巡班观察 v9</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root{
@@ -315,7 +315,7 @@ h1{font-size:26px;line-height:1.18;margin:8px 0 6px;font-weight:700}
 <div class="app" id="app" style="display:none">
   <header class="topbar">
     <button class="nav-home" onclick="goHomePlatform()" title="回平台">←</button>
-    <div class="nav-logo">🔭 ObsGo <span class="ver">v8</span></div>
+    <div class="nav-logo">🔭 ObsGo <span class="ver">v9</span></div>
     <button class="ntab on" data-nt="visit" onclick="goScreen('select')">巡班</button>
     <button class="ntab" data-nt="history" onclick="goScreen('history')">纪录</button>
     <button class="ntab" id="nt-manage" data-nt="manage" onclick="goScreen('manage')" style="display:none">管理</button>
@@ -372,7 +372,7 @@ h1{font-size:26px;line-height:1.18;margin:8px 0 6px;font-weight:700}
           </div>
           <div style="display:flex;align-items:center;gap:8px">
             <div class="live">● LIVE</div>
-            <button class="ghost btn-sm" onclick="goScreen('select')">← 回主页面</button>
+            <button class="ghost btn-sm" onclick="backHome()">← 回主页面</button>
             <button class="ghost btn-sm" id="btn-finish-top" onclick="finishVisit()">完成巡班 ✓</button>
           </div>
         </div>
@@ -499,7 +499,7 @@ h1{font-size:26px;line-height:1.18;margin:8px 0 6px;font-weight:700}
     <div class="bottom-in">
       <div class="bottom-note" id="bottom-note"></div>
       <button class="ghost" id="btn-save" onclick="saveNow()" style="margin-right:8px">储存</button>
-      <button class="finish" id="btn-park" onclick="parkVisit()">退出</button>
+      <button class="finish" id="btn-park" onclick="parkVisit()">储存并退出</button>
     </div>
   </div>
 
@@ -1596,7 +1596,7 @@ function buildVisitInterpretations(v){
    本区块负责：硬闸登入 · Supabase 名单 · 幂等上传 · 作废 · 介面
    ⛔ 档内不写死任何学生姓名或班级 —— 一律从 Supabase 读
    ═══════════════════════════════════════════════════════════════════ */
-const APP_VERSION = 8;   /* 顶栏徽章、设定页、Export payload 共用这一个数字 */
+const APP_VERSION = 9;   /* 顶栏徽章、设定页、Export payload 共用这一个数字 */
 const STORAGE_KEY = 'obsgo_v2';
 const SYSTEM_CODE = 'OPR-ObsGo';
 
@@ -2149,6 +2149,39 @@ function pickDept(d){
 function pickTime(t){ state.select.time=t; state.select.classId=''; renderSelect(); }
 function pickClass(id){ state.select.classId=id; renderSelect(); }
 
+/* v9 · browse-only：进班先浏览，不建草稿；第一次真输入才登记 + 开始计时。 */
+function obsgoV9StartDraft(){
+  const v=state.visit;
+  if(!v || !v._browseOnly) return;
+  v._browseOnly=false;
+  if(!v.startedAt){ v.startedAt=nowHM(); v.startedTs=Date.now(); }
+  if(state.drafts.indexOf(v)<0) state.drafts.unshift(v);
+  save(true);
+}
+/* v9 · 回主页面：还在 browse-only（没输入任何东西）直接丢掉，不留幽灵草稿。
+   已经输入过（真草稿）→ 照旧留着，回选班页顶端可「继续巡班」。 */
+function backHome(){
+  if(state.visit && state.visit._browseOnly){ state.visit=null; save(true); }
+  goScreen('select');
+}
+/* v9 · 安全清残影：本机草稿若「上过云(有 cloud_id)」但云端已不是 draft（被删/作废/完成）
+   → 不再当未完成草稿留着。RLS 范围内直查；查不到或出错一律保留，绝不误删真草稿。
+   从没上过云的（没 cloud_id）永远保留。 */
+async function reconcileGhosts(){
+  const cand=state.drafts.filter(d=>d.cloud_id).map(d=>d.client_uid);
+  if(!cand.length) return 0;
+  let rows;
+  try{ const r=await _sb.from('obsgo_visit').select('client_uid,status').in('client_uid',cand);
+       if(r.error) return 0; rows=r.data||[]; }
+  catch(e){ return 0; }
+  const live={}; rows.forEach(x=>{ live[x.client_uid]=x.status; });
+  const before=state.drafts.length;
+  state.drafts=state.drafts.filter(d=> !d.cloud_id ? true : live[d.client_uid]==='draft');
+  const pruned=before-state.drafts.length;
+  if(state.visit && state.visit.cloud_id && state.drafts.indexOf(state.visit)<0) state.visit=null;
+  if(pruned){ save(true); toast('✓ 清掉 '+pruned+' 笔本机残影（云端已不存在）', 6000); }
+  return pruned;
+}
 function startVisit(){
   const c=classById(state.select.classId); if(!c) return;
   /* 这一班本来就有未完成的草稿 → 接着填，不重开一份。 */
@@ -2156,7 +2189,7 @@ function startVisit(){
   if(existing){ state.visit=existing; save(true); resumeVisit();
     toast('接着上次「'+(c.display_name||c.class_name)+'」未完成的继续', 4000); return; }
   /* 手上开着别班 → 自动存起来，不用问、也绝不丢。 */
-  if(state.visit && state.drafts.indexOf(state.visit)<0) state.drafts.unshift(state.visit);
+  if(state.visit && !state.visit._browseOnly && state.drafts.indexOf(state.visit)<0) state.drafts.unshift(state.visit);
   state.visit=null;
   const meta={};
   rosterOf(c.id).forEach(s=>{ meta[s.id]={age:ageFromStudent(s), num:s.num}; });
@@ -2169,13 +2202,13 @@ function startVisit(){
     curriculumBand:(c.department==='SRK'||c.department==='GAK')?curriculumBandOf(c.class_name):null,
     date:todayISO(), dateLabel:todayLabel(),
     observer:(CLOUD.who&&CLOUD.who.initials)||'',
-    startedAt:nowHM(), startedTs:Date.now(),
+    startedAt:null, startedTs:null,
     studentMeta:meta,
     classContext:{}, students:{}, selectedStudents:[], activeStudent:null,
-    visitNote:'', status:'draft'
+    visitNote:'', status:'draft',
+    _browseOnly:true            /* v9：只看不建 —— 第一次真输入才 obsgoV9StartDraft() */
   };
-  /* 一开就登记成草稿 —— 中途关掉浏览器、当机、跳电都还在。 */
-  state.drafts.unshift(state.visit);
+  /* v9：进班先浏览，不建草稿。第一次记 evidence 才登记成草稿 + 开始计时。 */
   save(true); showScreen('observe'); setTab('class'); renderVisit();
 }
 function showScreen(n){
@@ -2220,7 +2253,7 @@ function setTab(n){
 function renderVisit(){
   const v=state.visit; if(!v) return;
   el('visit-title').textContent=v.dept+' · '+v.classLabel;
-  el('visit-meta').textContent=v.dateLabel+' · '+v.observer+' · '+v.startedAt+' started'+
+  el('visit-meta').textContent=v.dateLabel+' · '+v.observer+' · '+(v.startedAt||'—')+' started'+
     (v.curriculumBand?(' · band '+v.curriculumBand):'');
   el('visit-note').value=v.visitNote||'';
   const ctx=classCtxDef(v.dept);
@@ -2228,7 +2261,7 @@ function renderVisit(){
   el('class-ctx-pill').textContent=ctx.length+' 个观察入口 · 看到什么才记录';
   renderClassContext(); renderStudents(); paintBottom();
 }
-function setVisitNote(v){ if(state.visit){ state.visit.visitNote=v; save(); } }
+function setVisitNote(v){ obsgoV9StartDraft(); if(state.visit){ state.visit.visitNote=v; save(); } }
 
 /* ══════════ CLASS CONTEXT ══════════ */
 function classCtxDef(dept){ return deptCtx(dept); }
@@ -2237,19 +2270,19 @@ function classEntry(code){
   if(!v.classContext[code]) v.classContext[code]={beh:[], rating:null, note:''};
   return v.classContext[code];
 }
-function toggleClassEvidence(code,i){
+function toggleClassEvidence(code,i){ obsgoV9StartDraft();
   const d=classEntry(code); const k=d.beh.indexOf(i);
   if(k>=0) d.beh.splice(k,1); else d.beh.push(i);
   if(d.beh.length) d.rating = d.rating==='U' ? null : d.rating;
   save(); renderClassContext(); paintBottom();
 }
-function setClassRating(code,r){
+function setClassRating(code,r){ obsgoV9StartDraft();
   const d=classEntry(code);
   d.rating = d.rating===r ? null : r;
   if(d.rating==='U') d.beh=[];               /* 明确未观察 → 清掉 evidence，两者语意互斥 */
   save(); renderClassContext(); paintBottom();
 }
-function setClassNote(code,val){ classEntry(code).note=val; save(); }
+function setClassNote(code,val){ obsgoV9StartDraft(); classEntry(code).note=val; save(); }
 /* 卡片开合状态必须活过 re-render —— 否则每勾一条证据卡片就收合，
    管理层在课室里根本填不完。存在 UI 状态里，不靠 DOM class。 */
 const OPEN={cls:new Set(), stu:new Set()};
@@ -2334,7 +2367,7 @@ function openStudentSheet(){
   el('sheet').classList.add('on');
 }
 function closeSheet(){ el('sheet').classList.remove('on'); }
-function toggleStudent(sid){
+function toggleStudent(sid){ obsgoV9StartDraft();
   const v=state.visit; const i=v.selectedStudents.indexOf(sid);
   if(i>=0){ v.selectedStudents.splice(i,1); delete v.students[sid]; }
   else v.selectedStudents.push(sid);
@@ -2342,48 +2375,48 @@ function toggleStudent(sid){
   save(); openStudentSheet(); renderStudents(); paintBottom();
 }
 function selectStudent(sid){ state.visit.activeStudent=sid; save(); renderStudents(); }
-function setStudentRating(sid,code,r){
+function setStudentRating(sid,code,r){ obsgoV9StartDraft();
   const e=studentEntry(sid,code);
   e.rating = e.rating===r ? null : r;
   if(e.rating==='U'){ e.beh=[]; e.support=null; e.response=null;
     e.srkSupport={level:null,types:[],response:null,task:null}; }
   save(); renderStudents(); paintBottom();
 }
-function toggleStudentEvidence(sid,code,i){
+function toggleStudentEvidence(sid,code,i){ obsgoV9StartDraft();
   const e=studentEntry(sid,code); const k=e.beh.indexOf(i);
   if(k>=0) e.beh.splice(k,1); else e.beh.push(i);
   if(e.beh.length && e.rating==='U') e.rating=null;
   save(); renderStudents(); paintBottom();
 }
-function setStudentNote(sid,code,v){ studentEntry(sid,code).note=v; save(); }
-function setSupport(sid,code,i){
+function setStudentNote(sid,code,v){ obsgoV9StartDraft(); studentEntry(sid,code).note=v; save(); }
+function setSupport(sid,code,i){ obsgoV9StartDraft();
   const e=studentEntry(sid,code);
   e.support = e.support===i ? null : i;
   if(e.support===null || e.support===0) e.response=null;
   save(); renderStudents();
 }
-function setResponse(sid,code,i){
+function setResponse(sid,code,i){ obsgoV9StartDraft();
   const e=studentEntry(sid,code); e.response = e.response===i ? null : i; save(); renderStudents();
 }
-function setTask(sid,code,t){
+function setTask(sid,code,t){ obsgoV9StartDraft();
   const e=studentEntry(sid,code); e.task = e.task===t ? null : t; save(); renderStudents();
 }
-function setSRKLevel(sid,code,lv){
+function setSRKLevel(sid,code,lv){ obsgoV9StartDraft();
   const e=studentEntry(sid,code);
   e.srkSupport.level = e.srkSupport.level===lv ? null : lv;
   if(e.srkSupport.level==='S0'||e.srkSupport.level===null){ e.srkSupport.types=[]; }
   save(); renderStudents();
 }
-function toggleSRKType(sid,code,i){
+function toggleSRKType(sid,code,i){ obsgoV9StartDraft();
   const e=studentEntry(sid,code); const a=e.srkSupport.types;
   const k=a.indexOf(i); if(k>=0) a.splice(k,1); else a.push(i);
   save(); renderStudents();
 }
-function setSRKResponse(sid,code,r){
+function setSRKResponse(sid,code,r){ obsgoV9StartDraft();
   const e=studentEntry(sid,code);
   e.srkSupport.response = e.srkSupport.response===r ? null : r; save(); renderStudents();
 }
-function setSRKTask(sid,code,t){
+function setSRKTask(sid,code,t){ obsgoV9StartDraft();
   const e=studentEntry(sid,code);
   e.srkSupport.task = e.srkSupport.task===t ? null : t; save(); renderStudents();
 }
@@ -2655,6 +2688,7 @@ function leftOf(v){
 }
 function saveNow(){
   const v=state.visit; if(!v) return;
+  if(v._browseOnly){ toast('还没有可储存的内容 —— 记一笔 evidence 再存'); return; }
   if(state.drafts.indexOf(v)<0) state.drafts.unshift(v);
   toast('储存中…', 1500);
   pushDraft(v).then(()=>{
@@ -2666,6 +2700,7 @@ function saveNow(){
 }
 function parkVisit(){
   const v=state.visit; if(!v) return;
+  if(v._browseOnly){ state.visit=null; showScreen('select'); renderSelect(); return; }   /* v9：没输入直接退，不留幽灵 */
   if(state.drafts.indexOf(v)<0) state.drafts.unshift(v);
   state.visit=null;
   pushDraft(v).then(()=>{
@@ -2733,7 +2768,7 @@ function paintBottom(){
   const c=counts();
   el('bottom-note').innerHTML=c.students+' 位学生 · '+c.evi+' 条 evidence · '+
     Object.keys(v.classContext).length+' 个班级入口<br>'+
-    '<span style="opacity:.8">「储存」存好上云、继续填 · 「退出」存好上云、回主页面换别班 · 全班记完了才按上面的「完成巡班 ✓」</span>';
+    '<span style="opacity:.8">「储存」存好上云、继续填 · 「储存并退出」存好上云、回主页面换别班 · 全班记完了才按上面的「完成巡班 ✓」</span>';
   const bf=el('btn-finish-top');
   if(bf) bf.disabled = !(c.evi || Object.keys(v.classContext).length);
   /* 「储存」「退出」永远可按 —— 巡班分好几次完成。 */
@@ -3209,6 +3244,7 @@ async function initApp(){
   if(!state.meta.created) state.meta.created=new Date().toISOString();
   await pullRoster(true);
   await pullMyVisits();
+  await reconcileGhosts();
   if(state.visit){ showScreen('observe'); setTab('class'); renderVisit(); }
   else { showScreen('select'); }
   renderSelect(); renderHistory(); if(canSeeManage())renderManage();
@@ -3231,6 +3267,11 @@ window.saveNow = saveNow;
 window.resumeDraft = resumeDraft;
 window.pullMyVisits = pullMyVisits;
 window.discardDraft = discardDraft;
+window.startVisit = startVisit;
+window.backHome = backHome;
+window.obsgoV9StartDraft = obsgoV9StartDraft;
+window.reconcileGhosts = reconcileGhosts;
+window.finishVisit = finishVisit;
 
 bootstrapAuth();
 </script>
