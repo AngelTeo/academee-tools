@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>MiscGo</title>
+<title>MiscGo v1</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
@@ -536,6 +536,22 @@ body.teacher-mode .teacher-hide{display:none !important;}
 <div class="toast" id="toast"></div>
 
 <script>
+/* \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
+   APP_VERSION \u2014\u2014 2026-09-13 \u9996\u6b21\u52a0\u4e0a\u7248\u672c\u53f7\u3002
+
+   \u5728\u6b64\u4e4b\u524d MiscGo \u6863\u5185\u5b8c\u5168\u6ca1\u6709\u7248\u672c\u53f7\uff0c\u5e73\u53f0\u9996\u9875\u300c\u7248\u672c\u6838\u5bf9\u300d\u53ea\u80fd\u663e\u793a
+   \u300c\u65e0\u6cd5\u6838\u5b9e\u300d\uff0c\u800c\u300c\u7ebf\u4e0a\u662f\u54ea\u4e00\u7248\u300d\u8fd9\u4e2a\u95ee\u9898\u5728\u6280\u672f\u4e0a\u65e0\u89e3 \u2014\u2014 \u53ea\u80fd\u9760
+   \u6863\u6848\u5927\u5c0f\u4e0e\u65e5\u671f\u731c\u3002
+
+   \u4e3a\u4ec0\u4e48\u4ece 1 \u5f00\u59cb\uff1a\u6863\u5185\u3001\u6c47\u51fa\u6863\u3001\u50a8\u5b58 key \u91cc\u90fd\u627e\u4e0d\u5230\u4efb\u4f55\u7cfb\u7edf\u7248\u672c\u53f7
+   \u53ef\u4ee5\u63a5\u7eed\uff08`ini_v4` \u4e4b\u7c7b\u662f\u8d44\u6599\u7ed3\u6784\u7684 key\uff0c\u4e0d\u662f\u7cfb\u7edf\u7248\u672c\uff09\u3002
+   \u4e0e\u5176\u63b0\u4e00\u4e2a\u6570\u5b57\uff0c\u4e0d\u5982\u4ece 1 \u91cd\u65b0\u8d77\u7b97\u3002\u82e5\u65e5\u540e\u786e\u8ba4\u6709\u65e7\u7f16\u53f7\uff0c\u6539\u8fd9\u91cc\u4e00\u4e2a\u6570\u5373\u53ef\u3002
+
+   \u6539\u7248\u89c4\u5219\uff1a\u53ea\u7528\u6574\u6570\uff0c\u4e14\u4e09\u5904\u5fc5\u987b\u540c\u65f6\u6539 \u2014\u2014
+   \u2460 <title>  \u2461 \u4e3b\u9875\u9876\u680f\u7684\u7248\u672c\u5fbd\u7ae0  \u2462 \u4e0b\u9762\u8fd9\u4e2a\u5e38\u6570
+   \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550 */
+const APP_VERSION = 1;
+
 const B='\u2980';
 const H=(n,e='')=>`*${B}${B}${B}${B} ${n} ${B}${B}${B}${B}*`+(e?` ${e}`:'');
 const BD=s=>`*${s}*`;
@@ -2706,7 +2722,8 @@ function renderDash(){
   let h=``;
 
   // ── Top bar ──
-  h+=`<div style="font-size:22px;font-weight:800;color:var(--txt);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;">MiscGo</div>`;
+  // 版本徽章：跟 APP_VERSION 衍生，不要手写数字（Standard §25）
+  h+=`<div style="font-size:22px;font-weight:800;color:var(--txt);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;">MiscGo <span style="background:#F9CB42;color:#5C1010;border-radius:4px;padding:1px 6px;font-size:10px;font-weight:700;vertical-align:middle;letter-spacing:0;">v${APP_VERSION}</span></div>`;
   h+=`<div class="dash-toprow" style="margin-bottom:14px;">
     <div class="tpill">📅 ${fdl(tod)}</div>
     <div style="display:flex;gap:6px;align-items:center;">
