@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>ParentGo</title>
+<title>ParentGo v1</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
@@ -42,6 +42,9 @@ html,body{background:var(--sur2);color:var(--txt);font-family:'DM Sans',sans-ser
 /* ══ MAIN LAYOUT ══ */
 .topbar{background:var(--navy);color:#fff;padding:14px 20px;display:flex;align-items:center;gap:14px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.15);}
 .topbar-brand{font-size:16px;font-weight:700;display:flex;align-items:center;gap:6px;}
+/* 版本徽章 —— 与其他 Academee 系统一致：三处必须同步（<title> / 这里 / APP_VERSION）。 */
+.topbar-ver{font-size:11px;font-weight:700;padding:2px 7px;border-radius:9px;
+  background:rgba(255,255,255,.18);color:#fff;letter-spacing:.02em;}
 .topbar-nav{display:flex;gap:4px;flex:1;margin-left:12px;}
 .topbar-nav a{color:#c4d4e6;padding:8px 14px;border-radius:8px;font-weight:600;font-size:14px;cursor:pointer;text-decoration:none;}
 .topbar-nav a.on{background:rgba(255,255,255,.15);color:#fff;}
@@ -201,7 +204,7 @@ html,body{background:var(--sur2);color:var(--txt);font-family:'DM Sans',sans-ser
 <!-- ══ MGMT SCREEN ══ -->
 <div class="scr" id="s-mgmt">
   <div class="topbar">
-    <div class="topbar-brand">📞 ParentGo</div>
+    <div class="topbar-brand">📞 ParentGo <span class="topbar-ver">v1</span></div>
     <div class="topbar-nav">
       <a id="nav-cov" class="on" onclick="goPage('cov')">Coverage</a>
       <a id="nav-log" onclick="goPage('log')">All Comms</a>
@@ -275,6 +278,17 @@ html,body{background:var(--sur2);color:var(--txt);font-family:'DM Sans',sans-ser
 
 <script>
 // ══ CONFIG ══
+/* ══════════════════════════════════════════════════════════════
+   APP_VERSION —— 2026-09-13 首次加上版本号。
+   在此之前 ParentGo 从来没有版本号，导致「线上是哪一版」查不出来
+   （只能靠档案大小与日期猜）。这一份 build（2026-09-09，59,852 B）定为 v1。
+   线上当时那份更旧（57,037 B），无版本号，视为 pre-v1。
+
+   改版规则：只用整数，且三处必须同时改 ——
+   ① <title>  ② .topbar-ver 徽章  ③ 下面这个常数
+   ══════════════════════════════════════════════════════════════ */
+const APP_VERSION=1;
+
 const SUPABASE_URL='https://qnpvqsvvsgsantekgfbz.supabase.co';
 const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFucHZxc3Z2c2dzYW50ZWtnZmJ6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYxNzg4MzIsImV4cCI6MjA5MTc1NDgzMn0.8rfv0BQpWNNSD8yrhHNwCOkcG9q5_uMD7B7z_Y324a0';
 const _sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
@@ -398,7 +412,7 @@ function getParentAwaitingInfo(allCommsForStudent){
 }
 
 // ══ STATE ══
-const S={comms:[],students:[]};
+const S={comms:[],students:[],allStudents:[]};
 let _tt=null;
 let _selProg=DEFAULT_PROG;
 let _filter='';  // '', 'attention', 'due', 'never'
@@ -413,7 +427,7 @@ function daysBetween(a,b){const ms=new Date(b)-new Date(a);return Math.floor(ms/
 function toast(msg,err=false){const el=document.getElementById('toast');el.textContent=msg;el.style.background=err?'var(--red)':'var(--txt)';el.classList.add('on');clearTimeout(_tt);_tt=setTimeout(()=>el.classList.remove('on'),2400);}
 function getIni(){return(localStorage.getItem(INI_KEY)||'').toUpperCase();}
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){console.warn('save failed',e);}}
-function load(){try{const p=JSON.parse(localStorage.getItem(KEY)||'{}');if(p.comms)S.comms=p.comms;if(p.students)S.students=p.students;}catch(e){}}
+function load(){try{const p=JSON.parse(localStorage.getItem(KEY)||'{}');if(p.comms)S.comms=p.comms;if(p.students)S.students=p.students;if(p.allStudents)S.allStudents=p.allStudents;}catch(e){}}
 function show(id){document.querySelectorAll('.scr').forEach(s=>s.classList.remove('on'));document.getElementById(id).classList.add('on');}
 function goPage(id){
   document.querySelectorAll('.pg-page').forEach(p=>p.classList.remove('on'));
@@ -490,16 +504,17 @@ async function syncAll(){
   }
 }
 async function syncStudents(){
-  // Uses v_student_roster view — pre-flattened: one row per (student × department)
-  // with class info attached. Only Active + Enrolled students.
+  // Two scopes (per ChatGPT B3 architecture):
+  //   Coverage pool      = Active + enrollment_active  → S.students (dashboard/metrics/tabs)
+  //   Communication pool = all real students           → S.allStudents (picker/validation)
+  // "Communication scope follows real student identity; Coverage scope follows current enrolled relationship."
   let all=[];
   let from=0;
   const PAGE=1000;
   while(from<10000){
+    // NOTE: no status/enrollment filter here — we fetch every roster row, then split.
     const {data,error}=await _sb.from('v_student_roster')
       .select('student_id,name_en,name_cn,department,class_name,display_name,status,enrollment_active')
-      .eq('status','Active')
-      .eq('enrollment_active',true)
       .order('name_en',{ascending:true})
       .range(from,from+PAGE-1);
     if(error){console.warn('students sync',error);return;}
@@ -508,16 +523,26 @@ async function syncStudents(){
     if(data.length<PAGE)break;
     from+=PAGE;
   }
-  // Normalize — one row per (student × dept). Same student appears in multiple dept tabs.
-  S.students=all.map(r=>({
+  // Normalize every row — one row per (student × dept).
+  const norm=all.map(r=>({
     student_id:r.student_id,
     name:r.name_en||'',
     name_cn:r.name_cn||'',
     dept:(r.department||'').toUpperCase(),
     class:r.display_name||r.class_name||'',
+    status:r.status||'',
+    enrolled:r.enrollment_active===true,
   })).filter(s=>s.name&&s.dept);
+
+  // Communication pool: all legitimate student identities (any status).
+  // The view already excludes deleted/test/archive by construction.
+  S.allStudents=norm;
+
+  // Coverage pool: Active + currently enrolled only.
+  S.students=norm.filter(s=>s.status==='Active'&&s.enrolled);
+
   save();
-  console.log('📥 Student roster (Active × Enrolled):',S.students.length,'rows');
+  console.log('📥 Coverage pool (Active×Enrolled):',S.students.length,'rows · Communication pool (all):',S.allStudents.length,'rows');
 }
 async function syncComms(){
   // Paginate to fetch all
@@ -789,6 +814,21 @@ function viewStudent(studentId, name){
 }
 
 // ══ NEW COMM FORM ══
+// Sets the "✓ Bound" hint under the student input. If the student is not Active,
+// appends a non-alarming note explaining they can be logged but aren't in Active Coverage.
+function setBoundHint(hintEl,stu){
+  if(!hintEl)return;
+  const isActive=(stu.status==='Active');
+  if(isActive){
+    hintEl.textContent=`✓ Bound: ${stu.name}`;
+    hintEl.style.color='var(--grn2)';
+  }else{
+    const st=stu.status||'Not enrolled';
+    hintEl.innerHTML=`✓ Bound: ${esc(stu.name)}<br><span style="color:#7c3aed;">ℹ️ Status: ${esc(st)} — communication can be logged, but this student is not in Active Coverage yet.</span>`;
+    hintEl.style.color='var(--grn2)';
+  }
+}
+
 function openNewComm(prefillStudent,prefillStudentId){
   const ini=getIni();
   const linked=_pendingLinkedMiscId;
@@ -809,14 +849,15 @@ function openNewComm(prefillStudent,prefillStudentId){
   // Datalist option label:  "NAME · Class1 (SRK) · Class2 (SRT)"
   // On select, JS parses back to name, resolves student_id.
   const byId={};
-  S.students.forEach(s=>{
+  // Communication scope: use ALL real students (any status), not just Active Coverage pool.
+  S.allStudents.forEach(s=>{
     if(!s.student_id)return;
-    if(!byId[s.student_id])byId[s.student_id]={name:s.name,rows:[]};
+    if(!byId[s.student_id])byId[s.student_id]={name:s.name,name_cn:s.name_cn||'',status:s.status,rows:[]};
     byId[s.student_id].rows.push({dept:s.dept,cls:s.class});
   });
   const stuIndex=Object.entries(byId).map(([id,info])=>{
     const parts=info.rows.map(r=>`${r.cls||'?'} (${r.dept})`).join(' · ');
-    return {id,name:info.name,label:`${info.name} · ${parts}`};
+    return {id,name:info.name,name_cn:info.name_cn||'',status:info.status,label:`${info.name} · ${parts}`};
   });
   const studOptions=stuIndex.map(x=>`<option value="${esc(x.label)}">`).join('');
 
@@ -895,8 +936,7 @@ function openNewComm(prefillStudent,prefillStudentId){
         stuIn.value=byLabel.name; // A3: clean input back to pure name
         window._originalPickedId=byLabel.id; // Track as committed pick
       }
-      hintEl.textContent=`✓ Bound: ${byLabel.name}`;
-      hintEl.style.color='var(--grn2)';
+      setBoundHint(hintEl,byLabel);
       return;
     }
     // 2) Exact name match (case-insensitive)
@@ -907,12 +947,36 @@ function openNewComm(prefillStudent,prefillStudentId){
         stuIn.value=matches[0].name;
         window._originalPickedId=matches[0].id; // Track as committed pick
       }
-      hintEl.textContent=`✓ Bound: ${matches[0].name}`;
-      hintEl.style.color='var(--grn2)';
+      setBoundHint(hintEl,matches[0]);
       return;
     }
     if(matches.length>1){
       hintEl.innerHTML=`⚠️ ${matches.length} students named "${esc(raw)}" — please pick one:<br>${matches.map(m=>`&nbsp;&nbsp;• ${esc(m.label)}`).join('<br>')}`;
+      hintEl.style.color='var(--yel2)';
+      return;
+    }
+    /* 3) 部分比对 —— 2026-09-09 加。
+       原本只做「完全相等」，打「ALICE KHOO」找不到「ALICE KHOO XIN RUI」，
+       老师只能一字不差打完整全名。现在：开头相符优先，其次包含，中文名也搜得到。
+       只有「刚好一位」才会自动绑定，而且一定显示绑到谁；多位一律列出来让人选，绝不猜。 */
+    const _nz=function(t){ return String(t||'').toUpperCase().replace(/\s+/g,' ').trim(); };
+    const q=_nz(raw), qcn=String(raw||'').replace(/\s+/g,'').trim();
+    let part=stuIndex.filter(function(x){
+      return _nz(x.name).indexOf(q)>=0 || (qcn && x.name_cn && x.name_cn.replace(/\s+/g,'').indexOf(qcn)>=0);
+    });
+    const pref=part.filter(function(x){ return _nz(x.name).indexOf(q)===0; });
+    if(pref.length) part=pref;                       // 开头相符优先，避免打两个字就命中一堆
+    if(part.length===1){
+      hidIn.value=part[0].id;
+      if(commitPure){
+        stuIn.value=part[0].name;                    // 补成完整全名，下次就是完全相等
+        window._originalPickedId=part[0].id;
+      }
+      setBoundHint(hintEl,part[0]);
+      return;
+    }
+    if(part.length>1){
+      hintEl.innerHTML=`⚠️ ${part.length} students match "${esc(raw)}" — please pick one:<br>${part.slice(0,8).map(m=>`&nbsp;&nbsp;• ${esc(m.label)}`).join('<br>')}${part.length>8?'<br>&nbsp;&nbsp;…':''}`;
       hintEl.style.color='var(--yel2)';
       return;
     }
@@ -934,8 +998,7 @@ function openNewComm(prefillStudent,prefillStudentId){
       hidIn.value=bound.id;
       stuIn.value=bound.name;
       window._originalPickedId=bound.id; // Prefill = committed pick baseline
-      hintEl.textContent=`✓ Bound: ${bound.name}`;
-      hintEl.style.color='var(--grn2)';
+      setBoundHint(hintEl,bound);
     }else if(initialStudent){setTimeout(()=>tryResolve(true),50);}
   }else if(initialStudent){
     setTimeout(()=>tryResolve(true),50);
