@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>MiscGo v1</title>
+<title>MiscGo v2</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
@@ -174,13 +174,16 @@ body{font-family:'DM Sans',sans-serif;background:var(--sur2);color:var(--txt);fo
 .prev-note{font-size:11px;color:var(--mut);text-align:center;margin-top:10px;line-height:1.6;}
 
 /* ── MGMT ── */
-.m-nav{background:var(--navy);display:flex;align-items:center;padding:0 14px;height:50px;gap:2px;flex-shrink:0;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;}
+/* v2：高度 50→56px。Topbar 契约 §4 要求顶栏 ≥56px，旧值不合格。 */
+.m-nav{background:var(--navy);display:flex;align-items:center;padding:0 14px;height:56px;gap:2px;flex-shrink:0;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;}
 .m-nav::-webkit-scrollbar{display:none;}
 .m-brand{font-size:13px;font-weight:700;color:#fff;margin-right:8px;white-space:nowrap;}
-.m-tab{border:none;background:none;color:rgba(255,255,255,.55);padding:6px 10px;font-size:12px;
+/* v2：加 min-height:44px。Standard §2-7「顶栏内所有可点元素一律 ≥44px，没有例外」——
+   旧值 padding:6px 只有约 28px，九颗分页全部不合格。改用 flex 置中，不动字级与配色。 */
+.m-tab{border:none;background:none;color:rgba(255,255,255,.55);padding:0 12px;min-height:44px;
+  display:inline-flex;align-items:center;font-size:12px;
   cursor:pointer;border-radius:6px;font-family:'DM Sans',sans-serif;font-weight:500;white-space:nowrap;flex-shrink:0;}
 .m-tab.on{background:rgba(255,255,255,.18);color:#fff;}
-.m-logout{margin-left:auto;background:none;border:none;font-size:12px;color:rgba(255,255,255,.55);cursor:pointer;font-family:'DM Sans',sans-serif;padding:4px 8px;border-radius:6px;}
 /* ← 回平台（Topbar 契约 §2 元件 1，点击区 ≥44px） */
 .m-back{display:flex;align-items:center;justify-content:center;min-width:44px;height:44px;
   color:#fff;text-decoration:none;font-size:18px;line-height:1;flex-shrink:0;border-radius:6px;}
@@ -191,7 +194,6 @@ body{font-family:'DM Sans',sans-serif;background:var(--sur2);color:var(--txt);fo
 /* 角色 chip —— 取代原本把角色当系统名用的做法 */
 .m-role{margin-left:auto;font-size:11px;font-weight:600;color:rgba(255,255,255,.65);
   white-space:nowrap;padding:4px 8px;flex-shrink:0;}
-.m-logout:hover{background:rgba(255,255,255,.1);color:#fff;}
 .m-page{display:none;flex:1;overflow-y:auto;padding:16px 14px 24px;max-width:900px;margin:0 auto;width:100%;}
 .m-page.on{display:block;min-height:200px;}
 /* ── Teacher mode restrictions ── */
@@ -520,34 +522,7 @@ body.teacher-mode .teacher-hide{display:none !important;}
     </div>
     <div class="m-page" id="mp-schedules"><div id="schedules-content"></div></div>
     <div class="m-page" id="mp-settings">
-      <div style="padding:16px 14px 24px;">
-        <div style="font-size:16px;font-weight:700;color:var(--navy);margin-bottom:4px;">⚙️ Settings</div>
-        <div style="font-size:12px;color:var(--mut);margin-bottom:20px;">Admin tools and system configuration (MGMT only)</div>
-        <div style="margin-top:8px;">
-          <div style="font-size:11px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">⚙️ Sync Tools</div>
-          <button onclick="uploadStudentsToSupabase()" class="btn btn-sm" style="margin-right:8px;">⬆️ Upload Students to Cloud</button>
-          <button onclick="syncStudentsFromSupabase().then(()=>toast('Students synced!'))" class="btn btn-sm">🔄 Sync Students from Cloud</button>
-        </div>
-        <div style="margin-top:20px;padding-top:16px;border-top:.5px solid var(--bdr);">
-          <div style="font-size:11px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">📦 Bulk Import (Historical Records)</div>
-          <button onclick="openBulkImport()" class="btn btn-sm" style="background:#1a3a5c;color:#fff;margin-right:6px;margin-bottom:6px;">📦 Bulk Import JSON</button>
-          <button onclick="scanAndCleanGarbageNames()" class="btn btn-sm" style="background:#fef3c7;color:#92400e;border:.5px solid #f59e0b;margin-right:6px;margin-bottom:6px;">🧹 Clean Garbage Names</button>
-          <button onclick="fixCreatedAtDates()" class="btn btn-sm" style="background:#dbeafe;color:#1e40af;border:.5px solid #3b82f6;margin-right:6px;margin-bottom:6px;">🔧 Fix createdAt ↔ date</button>
-          <button onclick="rebuildAllSummaries()" class="btn btn-sm" style="background:#e9d5ff;color:#6b21a8;border:.5px solid #a855f7;margin-right:6px;margin-bottom:6px;">✨ Rebuild All Summaries</button>
-          <button onclick="deleteBulkRecords()" class="btn btn-sm btn-red" style="margin-bottom:6px;">🗑 Delete Historical (BULK/Archive &lt; 15/4)</button>
-          <div style="font-size:10px;color:var(--mut);margin-top:6px;">Bulk Import: Paste historical record JSON. Clean: Remove label-like names. Fix: Align createdAt to date field. Delete: Remove BULK/Archive records dated before 15/4/2026.</div>
-        </div>
-        <div style="margin-top:20px;padding-top:16px;border-top:.5px solid var(--bdr);">
-          <div style="font-size:11px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">🔑 Temp Passwords (Teacher Access)</div>
-          <div id="temp-pw-list"></div>
-          <div style="display:flex;gap:6px;margin-top:8px;">
-            <input type="text" id="temp-pw-new" placeholder="New password (e.g. 112233)" style="flex:1;border:.5px solid var(--bdr);border-radius:var(--rs);padding:8px 10px;font-size:13px;outline:none;">
-            <input type="text" id="temp-pw-label" placeholder="Label (e.g. Historical Fix)" style="flex:1;border:.5px solid var(--bdr);border-radius:var(--rs);padding:8px 10px;font-size:13px;outline:none;">
-            <button onclick="addTempPw()" class="btn btn-sm" style="background:#1a3a5c;color:#fff;">+ Add</button>
-          </div>
-          <div style="font-size:10px;color:var(--mut);margin-top:6px;line-height:1.5;">💡 <b>SYSTEM</b> (blue) = works on all teacher devices, hardcoded. <b>Local</b> (green) = only works on this browser. For cross-device access, tell admin to hardcode via code.</div>
-        </div>
-      </div>
+      <div id="settings-content" style="padding:16px 14px 24px;"></div>
     </div>
   </div>
 </div>
@@ -569,7 +544,7 @@ body.teacher-mode .teacher-hide{display:none !important;}
    \u6539\u7248\u89c4\u5219\uff1a\u53ea\u7528\u6574\u6570\uff0c\u4e14\u4e09\u5904\u5fc5\u987b\u540c\u65f6\u6539 \u2014\u2014
    \u2460 <title>  \u2461 \u4e3b\u9875\u9876\u680f\u7684\u7248\u672c\u5fbd\u7ae0  \u2462 \u4e0b\u9762\u8fd9\u4e2a\u5e38\u6570
    \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550 */
-const APP_VERSION = 1;
+const APP_VERSION = 2;
 
 const B='\u2980';
 const H=(n,e='')=>`*${B}${B}${B}${B} ${n} ${B}${B}${B}${B}*`+(e?` ${e}`:'');
@@ -584,7 +559,11 @@ const esc=s=>(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&g
 const MGMT_PW='__DISABLED_BY_AUTH__';  // legacy gate neutralised (Supabase Auth is the boundary)
 // ── Hardcoded temp passwords (shared across all devices) ──
 // To remove a password, delete its entry from this array and redeploy.
-const TEMP_PWS_HARDCODED=[];  // legacy teacher password removed (Supabase Auth is the boundary)
+/* v2：临时密码整块移除。
+   原本有一组 TEMP_PWS_HARDCODED + isTempPwValid()，但 hardcoded 清单早就被清空，
+   而 isTempPwValid() 全档零个呼叫点 —— 也就是说加了密码什么都不会发生，
+   画面却还在跟管理员说「在所有老师装置都能用」。骗人的开关比没有开关危险。
+   权限边界只有一个：Supabase Auth + can_access。 */
 
 // ══ CATEGORIES ══
 const CATS={
@@ -1684,9 +1663,20 @@ async function loadPermissions(){
   window.PERM={ userId:user?user.id:null, initials, role, canSeeAnyMisc, canSeeParentGo,
                 miscCodes:myMiscCodes, canApproveRecords };
   window._canDeleteRecords=canApproveRecords;
-  // Teacher = has MISC access but NOT ParentGo (management-tier sees ParentGo).
-  // This drives all existing UI restrictions + hides the ParentGo button.
-  window._isTeacher = canSeeAnyMisc && !canSeeParentGo;
+
+  /* ══ v2：角色改读 users_meta.role，不再用别的系统的权限反推 ══
+     旧写法：_isTeacher = canSeeAnyMisc && !canSeeParentGo
+     —— 拿「有没有 ParentGo 权限」推断这个人在 MiscGo 是不是老师。
+     哪天有人因为别的原因拿到 ParentGo，他在 MiscGo 就静默变成管理层，不会有任何征兆。
+
+     两个旗标刻意分开（Standard v8 §4-24：业务页与设定页可分开授权）：
+       _isTeacher      → 业务层限制（Dashboard / Outbox / Log / Students / Schedules）
+       _canSeeSettings → 只管「管理」页。MGMT 看得到业务，看不到系统设定。
+     读不到角色一律 fail closed：当老师看，且没有设定页。 */
+  const MGMT_ROLES=['OWNER','TOP_MGMT','ADMIN','MGMT'];   // 业务层
+  const MANAGE_ROLES=['OWNER','TOP_MGMT','ADMIN'];        // 设定页（MGMT 不在内）
+  window._isTeacher      = !(role && MGMT_ROLES.indexOf(role)>=0);
+  window._canSeeSettings = !!(role && MANAGE_ROLES.indexOf(role)>=0);
 
   if(initials) localStorage.setItem('ini_v4',initials);
   return window.PERM;
@@ -1748,7 +1738,12 @@ function applyTeacherModeUI(){
   const navTabs=document.querySelectorAll('.m-nav .m-tab');
   navTabs.forEach(tab=>{
     const onclickAttr=tab.getAttribute('onclick')||'';
-    const isRestricted=/mGoPage\('(dashboard|drafts|log|students|settings)'\)/.test(onclickAttr);
+    // 设定页走自己的闸门：MGMT 是管理层（看得到业务），但看不到设定页。
+    if(/mGoPage\('settings'\)/.test(onclickAttr)){
+      tab.style.display = window._canSeeSettings ? '' : 'none';
+      return;
+    }
+    const isRestricted=/mGoPage\('(dashboard|drafts|log|students)'\)/.test(onclickAttr);
     tab.style.display=(isT&&isRestricted)?'none':'';
   });
   // If teacher currently on a hidden tab, jump to records
@@ -1759,95 +1754,95 @@ function applyTeacherModeUI(){
     }
   }
 }
-// Stored in localStorage 'temp_pws_v1' — format: [{pw, active, label, createdAt}]
-function getTempPws(){
-  try{return JSON.parse(localStorage.getItem('temp_pws_v1')||'[]');}catch(e){return[];}
-}
-function saveTempPws(list){
-  localStorage.setItem('temp_pws_v1',JSON.stringify(list));
-}
-function isTempPwValid(pw){
-  // Check hardcoded list first (these work on all devices, no localStorage needed)
-  if(TEMP_PWS_HARDCODED.some(x=>x.pw===pw))return true;
-  // Fallback to localStorage-based dynamic passwords
-  const list=getTempPws();
-  return list.some(x=>x.active&&x.pw===pw);
+/* ══════════════════════════════════════════════════════════════════
+   管理页 —— v2 照 Academee Universal Standard v8 §4-24 的六块骨架重做。
+
+   v1 以前这一页叫 Settings，装的是三堆东西：
+     · Sync Tools（业务动作，不该在设定页）
+     · Bulk Import 五颗（一次性迁移工具，2026-09-13 实查 records 表
+       已 0 笔 BULK/Archive、0 笔空白姓名、0 笔缺日期 —— 该清的都清完了）
+     · Temp Passwords（死码，见上方注解）
+
+   v2：迁移四颗删除（函式留著，要救急可从 console 呼叫）；
+       Rebuild All Summaries 不是迁移工具而是救急工具，移到 ⑥ 折叠区；
+       Sync Tools 归位到 ④ 主数据维护。
+   ══════════════════════════════════════════════════════════════════ */
+const ADV_KEY='misc_adv_open';   // ⑥ 折叠状态持久化（Standard §4-24 铁则五）
+function advOpen(){ try{return localStorage.getItem(ADV_KEY)==='1';}catch(e){return false;} }
+function toggleAdv(){
+  try{ localStorage.setItem(ADV_KEY, advOpen()?'0':'1'); }catch(e){}
+  renderSettings();
 }
 
-// ── Temp PW CRUD ──
-function addTempPw(){
-  const pw=(document.getElementById('temp-pw-new')?.value||'').trim();
-  const label=(document.getElementById('temp-pw-label')?.value||'').trim();
-  if(!pw){toast('Password cannot be empty',true);return;}
-  if(pw===MGMT_PW){toast('Cannot reuse MGMT password',true);return;}
-  const list=getTempPws();
-  if(list.some(x=>x.pw===pw)){toast('Password already exists',true);return;}
-  list.push({pw,label:label||'Temp',active:true,createdAt:Date.now()});
-  saveTempPws(list);
-  document.getElementById('temp-pw-new').value='';
-  document.getElementById('temp-pw-label').value='';
-  renderTempPwList();
-  toast('✓ Added: '+pw);
-}
-function toggleTempPw(idx){
-  const list=getTempPws();
-  if(!list[idx])return;
-  list[idx].active=!list[idx].active;
-  saveTempPws(list);
-  renderTempPwList();
-  toast(list[idx].active?'✓ Enabled':'✗ Disabled');
-}
-function removeTempPw(idx){
-  const list=getTempPws();
-  if(!list[idx])return;
-  if(!confirm('Delete password "'+list[idx].pw+'"?'))return;
-  list.splice(idx,1);
-  saveTempPws(list);
-  renderTempPwList();
-  toast('Deleted');
-}
-function renderTempPwList(){
-  const el=document.getElementById('temp-pw-list');
-  if(!el)return;
-  const list=getTempPws();
-  // Build hardcoded (system-managed) section first
-  let html='';
-  if(TEMP_PWS_HARDCODED.length){
-    html+=TEMP_PWS_HARDCODED.map(x=>`<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:#eff6ff;border:.5px solid #3b82f6;border-radius:var(--rs);margin-bottom:6px;">
-      <div style="flex:1;">
-        <div style="font-family:'DM Mono',monospace;font-size:13px;font-weight:700;color:var(--navy);">${esc(x.pw)}</div>
-        <div style="font-size:11px;color:var(--mut);">${esc(x.label||'—')} · hardcoded</div>
+function renderSettings(){
+  const el=document.getElementById('settings-content');
+  if(!el) return;
+  const P=window.PERM||{};
+  const esc2=v=>esc(String(v==null?'—':v));
+  const box=(n,title,body)=>`<div style="margin-top:18px;padding-top:14px;border-top:.5px solid var(--bdr);">
+      <div style="font-size:11px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">${n} ${title}</div>
+      ${body}</div>`;
+  const line=(k,v)=>`<div style="display:flex;gap:8px;font-size:12px;line-height:1.9;">
+      <span style="color:var(--mut);min-width:96px;flex-shrink:0;">${k}</span><span style="color:var(--txt);word-break:break-all;">${v}</span></div>`;
+
+  const online = (typeof navigator!=='undefined' && navigator.onLine!==false);
+  const nRec=(S.records||[]).length, nStu=(S.students||[]).length, nSch=(S.schedules||[]).length;
+
+  let h='<div style="font-size:16px;font-weight:700;color:var(--navy);margin-bottom:4px;">⚙️ 管理</div>'
+      + '<div style="font-size:12px;color:var(--mut);margin-bottom:4px;">仅 OWNER / TOP_MGMT / ADMIN 可见</div>';
+
+  h+=box('①','我的身份',
+      line('登入者', esc2(P.initials))+
+      line('角色', esc2(P.role))+
+      line('can_see', P.canSeeAnyMisc?'✓':'✗')+
+      line('can_approve', P.canApproveRecords?'✓ 可删记录':'✗'));
+
+  h+=box('②','系统资讯',
+      line('系统', 'MiscGo')+
+      line('版本', 'v'+APP_VERSION)+
+      line('Layer', 'OPR')+
+      line('权限码', esc2((P.miscCodes||[]).join('　')))+
+      line('Storage key', KEY)+
+      line('资料笔数', nRec+' 笔记录 · '+nStu+' 位学生 · '+nSch+' 张课表'));
+
+  h+=box('③','云端连线',
+      line('连线', online?'<span style="color:var(--g);">✓ 线上</span>':'<span style="color:var(--red);">✗ 离线</span>')+
+      line('资料库', 'Supabase')+
+      `<div style="margin-top:8px;"><button class="btn btn-sm" onclick="syncAllFromSupabase().then(()=>{toast('已重新载入');renderSettings();})">🔄 立刻重新载入</button></div>`);
+
+  h+=box('④','主数据维护',
+      `<button onclick="uploadStudentsToSupabase()" class="btn btn-sm" style="margin-right:8px;margin-bottom:6px;">⬆️ 上传学生名单到云端</button>
+       <button onclick="syncStudentsFromSupabase().then(()=>{toast('学生名单已同步');renderSettings();})" class="btn btn-sm" style="margin-bottom:6px;">🔄 从云端同步学生名单</button>
+       <div style="font-size:10px;color:var(--mut);margin-top:4px;">学生名单是主数据。上传会以本机为准覆盖云端，同步会以云端为准覆盖本机。</div>`);
+
+  h+=box('⑤','资料备份',
+      `<button onclick="exportCSV()" class="btn btn-sm">↓ Export CSV</button>
+       <div style="font-size:10px;color:var(--mut);margin-top:4px;">汇出目前筛选范围内的记录。</div>`);
+
+  const open=advOpen();
+  h+=`<div style="margin-top:18px;padding-top:14px;border-top:.5px solid var(--bdr);">
+      <div onclick="toggleAdv()" style="font-size:11px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.06em;cursor:pointer;display:flex;align-items:center;gap:6px;min-height:44px;">
+        <span style="display:inline-block;transform:rotate(${open?90:0}deg);transition:transform .15s;">▶</span>⑥ 进阶 · 管理员用
       </div>
-      <div style="font-size:11px;font-weight:700;color:#1e40af;">● SYSTEM</div>
-      <div style="font-size:10px;color:var(--mut);font-style:italic;padding:4px 10px;">(remove via code)</div>
-    </div>`).join('');
-  }
-  // Then dynamic (localStorage-based, legacy) section
-  if(list.length){
-    const hardcodedSet=new Set(TEMP_PWS_HARDCODED.map(x=>x.pw));
-    html+=list.map((x,i)=>{
-      const dateStr=new Date(x.createdAt).toLocaleDateString('en-GB',{day:'numeric',month:'short'});
-      const isDup=hardcodedSet.has(x.pw);
-      return `<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:${isDup?'#fef3c7':(x.active?'#d1fae5':'#f3f4f6')};border:.5px solid ${isDup?'#f59e0b':(x.active?'#059669':'var(--bdr)')};border-radius:var(--rs);margin-bottom:6px;">
-        <div style="flex:1;">
-          <div style="font-family:'DM Mono',monospace;font-size:13px;font-weight:700;color:var(--navy);">${esc(x.pw)}${isDup?' <span style="font-size:10px;color:#92400e;font-weight:600;">⚠️ DUPLICATE OF SYSTEM</span>':''}</div>
-          <div style="font-size:11px;color:var(--mut);">${esc(x.label||'—')} · added ${dateStr} · <span style="color:#f59e0b;">local device only</span>${isDup?' · <span style="color:#92400e;font-weight:600;">redundant — safe to remove</span>':''}</div>
+      <div style="display:${open?'block':'none'};">
+        ${line('User ID', esc2(P.userId))}
+        ${line('是否老师模式', window._isTeacher?'是':'否')}
+        ${line('设定页权限', window._canSeeSettings?'✓':'✗')}
+        <div style="margin-top:10px;">
+          <button onclick="rebuildAllSummaries()" class="btn btn-sm" style="background:#e9d5ff;color:#6b21a8;border:.5px solid #a855f7;">✨ 重建全部摘要</button>
+          <div style="font-size:10px;color:var(--mut);margin-top:4px;">摘要算错时用。不会动原始记录。</div>
         </div>
-        <div style="font-size:11px;font-weight:700;color:${x.active?'#059669':'#6b7280'};">${x.active?'● ACTIVE':'○ DISABLED'}</div>
-        <button onclick="toggleTempPw(${i})" class="btn btn-sm" style="padding:4px 10px;font-size:11px;">${x.active?'Disable':'Enable'}</button>
-        <button onclick="removeTempPw(${i})" class="btn btn-sm btn-red" style="padding:4px 10px;font-size:11px;">✕</button>
-      </div>`;
-    }).join('');
-  }
-  if(!html){
-    html='<div style="font-size:12px;color:var(--mut);padding:8px 0;">No temp passwords yet.</div>';
-  }
-  el.innerHTML=html;
+        <div style="font-size:10px;color:var(--mut);margin-top:12px;line-height:1.6;">
+          v2 移除：临时密码（死码）· Bulk Import JSON · Clean Garbage Names · Fix createdAt · Delete Historical。<br>
+          迁移工具的函式仍在档内，必要时从 console 呼叫。<br>
+          依 Standard v8 §12，本系统不设 Reset / 清空本机资料按钮。
+        </div>
+      </div>
+    </div>`;
+
+  el.innerHTML=h;
 }
 
-// ── Legacy login entry now routes to Supabase Auth ──
-// The old password panel is gone; if any old onclick still calls mgmtLogin,
-// it redirects to platform login instead of checking a password.
 function mgmtLogin(){ redirectToPlatformLogin(); }
 function mgmtLogout(){ realLogout(); }
 function checkMgmtSession(){ /* superseded by bootstrapAuth() at INIT */ return false; }
@@ -4206,7 +4201,12 @@ function closeModal(){document.getElementById('modal-ov')?.remove();}
 const MP={dashboard:0,mreport:1,drafts:2,log:3,records:4,students:5,history:6,schedules:7,settings:8};
 function mGoPage(p){
   // Block access to restricted tabs if teacher
-  if(window._isTeacher===true&&['dashboard','drafts','log','students','settings','schedules'].includes(p)){
+  // 设定页：只有 OWNER / TOP_MGMT / ADMIN。守卫写在最前面，直接呼叫函式也挡得住。
+  if(p==='settings' && window._canSeeSettings!==true){
+    toast('没有权限',true);
+    p='records';
+  }
+  if(window._isTeacher===true&&['dashboard','drafts','log','students','schedules'].includes(p)){
     toast('Teacher mode: access restricted',true);
     p='records';
   }
@@ -4220,7 +4220,7 @@ function mGoPage(p){
   else if(p==='records'){document.getElementById('rec-content').innerHTML='<div id="rec-wrap"></div>';renderRecordsTable();}
   else if(p==='students'){document.getElementById('stu-topbar').innerHTML='';renderStudents();}
   else if(p==='schedules')renderSchedules();
-  else if(p==='settings'){renderTempPwList();}
+  else if(p==='settings'){renderSettings();}
   window.scrollTo(0,0);
 }
 
