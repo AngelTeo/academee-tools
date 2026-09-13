@@ -181,6 +181,16 @@ body{font-family:'DM Sans',sans-serif;background:var(--sur2);color:var(--txt);fo
   cursor:pointer;border-radius:6px;font-family:'DM Sans',sans-serif;font-weight:500;white-space:nowrap;flex-shrink:0;}
 .m-tab.on{background:rgba(255,255,255,.18);color:#fff;}
 .m-logout{margin-left:auto;background:none;border:none;font-size:12px;color:rgba(255,255,255,.55);cursor:pointer;font-family:'DM Sans',sans-serif;padding:4px 8px;border-radius:6px;}
+/* ← 回平台（Topbar 契约 §2 元件 1，点击区 ≥44px） */
+.m-back{display:flex;align-items:center;justify-content:center;min-width:44px;height:44px;
+  color:#fff;text-decoration:none;font-size:18px;line-height:1;flex-shrink:0;border-radius:6px;}
+.m-back:hover{background:rgba(255,255,255,.12);}
+/* 版本徽章 —— 由 APP_VERSION 衍生，不手写数字 */
+.m-ver{background:#F9CB42;color:#1a3a5c;border-radius:4px;padding:1px 6px;font-size:10px;
+  font-weight:700;margin-left:4px;vertical-align:middle;letter-spacing:0;}
+/* 角色 chip —— 取代原本把角色当系统名用的做法 */
+.m-role{margin-left:auto;font-size:11px;font-weight:600;color:rgba(255,255,255,.65);
+  white-space:nowrap;padding:4px 8px;flex-shrink:0;}
 .m-logout:hover{background:rgba(255,255,255,.1);color:#fff;}
 .m-page{display:none;flex:1;overflow-y:auto;padding:16px 14px 24px;max-width:900px;margin:0 auto;width:100%;}
 .m-page.on{display:block;min-height:200px;}
@@ -455,7 +465,11 @@ body.teacher-mode .teacher-hide{display:none !important;}
 <!-- ══ MGMT ══ -->
 <div class="scr" id="s-mgmt" style="flex-direction:column;">
   <nav class="m-nav">
-    <span class="m-brand">🏫 MGMT</span>
+    <!-- Topbar 契约 §2：① ← 回平台　② 图示 + 系统名 + [vN]　③ 分页
+         原本这里写「🏫 MGMT」—— 那是角色，不是系统名，使用者看不出自己在哪一套系统。
+         角色改用右边那颗 chip 显示。 -->
+    <a class="m-back" href="https://angelteo.github.io/" title="回平台首页">←</a>
+    <span class="m-brand">📋 MiscGo <span class="m-ver" id="m-ver"></span></span>
     <button class="m-tab on" onclick="mGoPage('dashboard')">Dashboard</button>
     <button class="m-tab" onclick="mGoPage('mreport')">✏️ Report</button>
     <button class="m-tab" onclick="mGoPage('drafts')">📤 Outbox</button>
@@ -465,7 +479,12 @@ body.teacher-mode .teacher-hide{display:none !important;}
     <button class="m-tab" onclick="mGoPage('history')">🔍 History</button>
     <button class="m-tab" onclick="mGoPage('schedules')">🔁 Schedules</button>
     <button class="m-tab" onclick="mGoPage('settings')">⚙️ Settings</button>
-    <button class="m-logout" onclick="mgmtLogout()" title="Signs you out of all Academee systems">Logout (all systems)</button>
+    <!-- 2026-09-13 Owner 裁定：各系统一律不得有登出，全平台只留首页那一颗。
+         原本这里是一颗 m-logout 按钮，文字「Logout (all systems)」，呼叫 mgmtLogout()。
+         （刻意不在注解里留原始标签 —— 否则日后用 grep 扫「谁还有登出」会扫到这一行，白查一轮。）
+         mgmtLogout() / realLogout() 保留在 code 里 —— onAuthStateChange 的 SIGNED_OUT
+         分支还要用它把人踢回平台，删掉会让「在首页登出后这一页还留著」。 -->
+    <span class="m-role" id="m-role"></span>
   </nav>
   <div style="flex:1;overflow-y:auto;">
     <div class="m-page on" id="mp-dashboard"><div id="dash-content"></div></div>
@@ -1719,11 +1738,12 @@ function applyTeacherModeUI(){
   const isT=window._isTeacher===true;
   // Add/remove body class for CSS-level control
   document.body.classList.toggle('teacher-mode',isT);
-  // Update brand to show badge
-  const brand=document.querySelector('.m-brand');
-  if(brand){
-    brand.innerHTML=isT?'🔑 <span style="color:#854f0b;">TEACHER</span>':'🏫 MGMT';
-  }
+  // 品牌固定是系统名，不再被角色覆写（Topbar 契约 §2/§3）。
+  // 版本徽章由 APP_VERSION 衍生；角色改显示在右边的 chip。
+  const ver=document.getElementById('m-ver');
+  if(ver) ver.textContent='v'+APP_VERSION;
+  const roleEl=document.getElementById('m-role');
+  if(roleEl) roleEl.innerHTML=isT?'🔑 <span style="color:#F9CB42;">TEACHER</span>':'🏫 MGMT';
   // Hide tabs not allowed for teacher (settings, dashboard, drafts, log, students)
   const navTabs=document.querySelectorAll('.m-nav .m-tab');
   navTabs.forEach(tab=>{
@@ -2722,8 +2742,8 @@ function renderDash(){
   let h=``;
 
   // ── Top bar ──
-  // 版本徽章：跟 APP_VERSION 衍生，不要手写数字（Standard §25）
-  h+=`<div style="font-size:22px;font-weight:800;color:var(--txt);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;">MiscGo <span style="background:#F9CB42;color:#5C1010;border-radius:4px;padding:1px 6px;font-size:10px;font-weight:700;vertical-align:middle;letter-spacing:0;">v${APP_VERSION}</span></div>`;
+  // 版本徽章已移到顶栏 .m-brand（Topbar 契约 §2 元件 2），这里不再重复显示。
+  h+=`<div style="font-size:22px;font-weight:800;color:var(--txt);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;">MiscGo</div>`;
   h+=`<div class="dash-toprow" style="margin-bottom:14px;">
     <div class="tpill">📅 ${fdl(tod)}</div>
     <div style="display:flex;gap:6px;align-items:center;">
