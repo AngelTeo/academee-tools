@@ -457,7 +457,7 @@ button.chip.sel-w{background:var(--warn);color:#fff}
    权限码：RPT-EvalGo-ATC
    ══════════════════════════════════════════════════════════════════ */
 
-const APP_VERSION = 43;
+const APP_VERSION = 44;
 const STORAGE_KEY = 'evalgo_atc_v1';   /* 沿用 v1 key，旧资料不掉 */
 const SYS_CODE    = 'RPT-EvalGo-ATC';
 const SB_URL      = 'https://qnpvqsvvsgsantekgfbz.supabase.co';
@@ -1898,6 +1898,7 @@ function renderBP(){
      栏位、验证、提示全部一致，不会两个地方两套规矩。 */
   h+=`<div class="toolbar" style="margin-top:10px">
       <button class="btn btn-pri" onclick="bpModal(false)">+ 加入项目</button>
+      ${bpEvenGapHTML()}
       <span class="tip" style="margin:0">开一个视窗，一次填一个项目</span>
     </div>
     </div>`;
@@ -2116,6 +2117,39 @@ function bpGuard(what){
     return false;
   }
   return true;
+}
+/* ══════════════════════════════════════════════════════════════════
+   v44 · 整格一次声明「每题同分」
+   ------------------------------------------------------------------
+   云端实查：84 个考卷项目，声明了每题同分的是 **0 个**。
+   `secPerQ()` 是 fail-closed —— 没声明就不算分，所以现在全校一份报告都印不出分数。
+   原本老师要一个项目开一次「改分数」视窗，ATC1 华文 11 个项目就要开 11 次。
+   这一颗把「这一格全部每题同分」变成一次点击。
+   ⚠️ 仍然是**老师亲手按的声明**，不是系统推断 —— fail-closed 没有被放宽。
+      按之前会逐个列出要声明哪些项目，按错可以再逐个改回来。
+   ⚠️ 作文项目不参与（写作用老师亲填的实得分）。 */
+function bpEvenGap(){
+  return sections().filter(x=>(x.type||'MCQ')!=='ESSAY' && hasRange(x)
+                            && x.even!=='Y' && x.even!=='N' && +x.max>0);
+}
+function bpEvenGapHTML(){
+  if(!bpCanEditPaper()) return '';
+  const g=bpEvenGap(); if(!g.length) return '';
+  return `<button class="btn" style="font-weight:700;border-color:var(--warn);color:var(--warn)"
+    onclick="bpEvenAll()">这一格全部「每题同分」（${g.length} 个）</button>
+    <span class="tip" style="margin:0">没有声明每题几分，报告就印不出分数</span>`;
+}
+function bpEvenAll(){
+  if(!bpCanEditPaper()){ toast('✕ 这份考卷不是你开的 —— 只能填学生资料',3000); return; }
+  const g=bpEvenGap();
+  if(!g.length){ toast('这一格已经都声明过了'); return; }
+  const lines=g.map(x=>'· '+x.code+'（第 '+x.qf+'–'+x.qt+' 题，共 '+x.max+' 分 → 每题 '
+    +(Math.round((+x.max)/((+x.qt)-(+x.qf)+1)*100)/100)+' 分）').join('\n');
+  if(!confirm('把这 '+g.length+' 个项目全部声明成「每题同分」：\n\n'+lines
+     +'\n\n声明的是**你看过那份卷**，不是系统推算。\n'
+     +'有哪一个其实不是每题同分，按完再逐个用「改分数」改回来。\n\n确定吗？')) return;
+  g.forEach(x=>{ x.even='Y'; markSecDirty(x); });
+  if(saveThen('✓ '+g.length+' 个项目已声明每题同分')){ bpRefresh(); autoPush(); }
 }
 function bpReadyNow(){ return sections().length>0 && legacySections().length===0; }
 /* v28 · Owner 2026-09-15：任教登记已废止，bpCanEdit() 现在只看「有没有填写权限」。
@@ -5165,7 +5199,22 @@ async function pullSections(){
       const mine=arr.find(a=>(a.client_uid&&a.client_uid===x.client_uid)
                           || a.cloud_id===x.id
                           || (a.code===x.code));
-      if(mine&&mine.synced===false) return;          /* 本机有未上传的修改，不覆盖 */
+      /* ══ v44 · 线上日志实证：09-15 04:41–13:56 这一支 409 了 39 次 ══
+         `?on_conflict=client_uid` 撞上自然键
+         (exam_id, subject, year_level, code, paper_instance_id)。
+         成因跟 v40 治好的 teacher_assign 一模一样：
+         本机未同步那笔带著**自己的** client_uid，upsert 对不上 → 当成 INSERT →
+         撞自然键 → 409 → 重试一万次都一样，老师的考卷项目永远送不上去。
+         治法：**认领云端身份，但保留老师本机还没送出的内容**。
+         下一次 upsert 就会变成 UPDATE 到正确那一列，而不是撞车的 INSERT。
+         ⚠️ 只搬 client_uid / cloud_id，一个内容栏位都不碰 —— 老师改到一半的东西不能掉。 */
+      if(mine&&mine.synced===false){
+        let adopted=false;
+        if(x.client_uid && mine.client_uid!==x.client_uid){ mine.client_uid=x.client_uid; adopted=true; }
+        if(x.id && mine.cloud_id!==x.id){ mine.cloud_id=x.id; adopted=true; }
+        if(adopted){ saveData(true); console.info('v44：考卷项目认领云端身份',k,x.code); }
+        return;                                     /* 本机有未上传的修改，内容不覆盖 */
+      }
       const row={id:(mine&&mine.id)||uid(), client_uid:x.client_uid||uid(),
         code:x.code, topic:x.topic||'', fmt:x.answer_format||'',
         type:x.section_type||'OBJ',
@@ -5650,6 +5699,30 @@ async function cloudPush(silent){
          delta v14 会把 q_sub 加进那支索引。索引还没改之前：
          资料留在本机（不删、不假装成功），但**不再每次重试、也不把顶栏卡成永远红的**
          —— 那正是「1 笔没送出」那个坑的成因。v14 一跑完自动重送。 */
+      /* v44 · 考卷项目撞自然键 → 当场自愈，不留给下一次 pull。
+         去云端把同一格那一列捞回来，认领它的 client_uid，重送一次。
+         只重试一次；再失败就照实报错，不进无限回圈。 */
+      if(j.t==='evalgo_paper_section' && !j._healed
+         && (/duplicate key|23505|evalgo_paper_section_pi_key/i.test(msg))){
+        try{
+          const pl2=j.p();
+          let q=_sb.from('evalgo_paper_section').select('id,client_uid')
+                 .eq('exam_id',pl2.exam_id).eq('subject',pl2.subject)
+                 .eq('year_level',pl2.year_level).eq('code',pl2.code);
+          q = pl2.paper_instance_id ? q.eq('paper_instance_id',pl2.paper_instance_id)
+                                    : q.is('paper_instance_id',null);
+          const g=await q.limit(1).maybeSingle();
+          if(!g.error && g.data && g.data.client_uid){
+            j.r.client_uid=g.data.client_uid; j.r.cloud_id=g.data.id;
+            j._healed=true; saveData(true);
+            const res2=await _sb.from(j.t).upsert(j.p(),{onConflict:'client_uid'}).select('id').single();
+            if(!res2.error){ j.r.synced=true; j.r.cloud_id=res2.data.id; ok++;
+              console.info('v44：考卷项目撞自然键 → 已认领云端身份并重送成功',pl2.code); continue; }
+          }
+        }catch(e2){ console.warn('v44 自愈失败',e2&&e2.message); }
+        fail++; errs.push('考卷项目「'+(j.r&&j.r.code||'')+'」云端已经有同名的一列，自动接管失败：'+msg);
+        continue;
+      }
       if(j.t==='evalgo_wrong_item' && /evalgo_wrong_item_pi_key/.test(msg)){
         j.r.needV14=true; j.r.synced=true;
         held.push('小题纪录暂留本机 —— 资料库的唯一索引还没加 q_sub（delta v14）。跑完会自动送出。');
