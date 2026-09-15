@@ -53,11 +53,14 @@ body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang 
   transition:all .15s;white-space:nowrap;flex-shrink:0;font-family:inherit}
 .sub-ntab:hover{color:var(--txt)}
 .sub-ntab.on{color:var(--layer);border-bottom-color:var(--layer);font-weight:600}
-/* v28 唯读遮罩：不是自己登记的格子 → 卡片不可点。情境列与分页列（.ro-keep / .sub-nav）留著，
-   否则老师连「我也要填这一格」和换分页都按不到。画面层保护，不是资料库层。 */
-.page.ro .card{pointer-events:none;opacity:.62}
-.page.ro .card.ro-keep{pointer-events:auto;opacity:1}
-.page.ro .sub-nav{pointer-events:auto;opacity:1}
+/* v28 · 对齐 ObsGo：每一页顶端一个标题区（eyebrow + h1）。数值照抄 ObsGo，不自己调。 */
+.hero{padding:18px 4px 14px}
+.hero .eyebrow{font-size:11px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--layer)}
+.hero h1{font-size:26px;line-height:1.18;margin:8px 0 6px;font-weight:700}
+.hero .sub{font-size:12.5px;color:var(--mut);margin-top:2px;line-height:1.5}
+@media(max-width:480px){.hero h1{font-size:22px}}
+/* v28：唯读遮罩已移除（Owner 裁定：选了就能填）。
+   .ro-keep 这个 class 还留在几张卡上，没有任何样式，无害；下一版顺手清。 */
 
 /* ══════ PAGES ══════ */
 .page{display:none;padding:16px;max-width:1200px;margin:0 auto}
@@ -868,8 +871,6 @@ function goPage(p){
 function render(p){
   ({home:renderHome,bp:renderBP,f1:renderF1,f2:renderF2,
     coverage:renderCoverage,report:renderReport,manage:renderManage}[p]||function(){})();
-  const pg=document.getElementById('page-'+p);
-  if(pg) pg.classList.toggle('ro', CELL_PAGES.indexOf(p)>=0 && cellReady() && !cellWritable());
   if(p==='home'){ asgGate(); return; }
   if(CELL_PAGES.indexOf(p)>=0 && cellReady()) bpGate();
 }
@@ -882,7 +883,9 @@ function gateOpen(){ return !(S.subject && S.cls && paperReady()); }
    新程式一律用 cellReady()，旧呼叫点维持 gateOpen() 不动，避免大规模改名带来的回归。 */
 function cellReady(){ return !gateOpen(); }
 /* 这一格的身分：一格 = 班级 × 科目（卷由 loadPapers 决定）。 */
-function cellKey(){ return EXK()+'|'+S.cls+'|'+S.subject; }
+/* ⚠️ 这里原本有第二支 cellKey() —— 跟下面 asgKey 区段那支 cellKey(cls,subj) **撞名**。
+   JS 后定义者胜，所以我这支从头到尾没有生效过。唯读机制已废止，直接移除，
+   不留同名函式。教训：加新函式前先 grep 一次名字。 */
 /* ══ v28 · 唯读闸门（Owner 2026-09-15 裁定「乙」）══
    谁都进得去，但不是自己登记的格子预设**唯读**，要按「我也要填这一格」才解锁。
    ⚠️ 诚实说清楚：这是**画面层**的保护，不是资料库层。
@@ -890,16 +893,10 @@ function cellKey(){ return EXK()+'|'+S.cls+'|'+S.subject; }
       **没有按老师分隔**，所以这层挡得住误触，挡不住刻意。
       「解锁留痕」（谁、几点、解锁哪一格）要新栏位，排 v30。
       在那之前解锁**只在这台装置有效、不上云端**。 */
-const CELL_UNLOCK={};
-function cellMine(){ return isMine(S.cls,S.subject); }
-function cellWritable(){ return !CLOUD.hasTA || cellMine() || !!CELL_UNLOCK[cellKey()] || isAdmin(); }
-function cellUnlock(){
-  if(!confirm('这一格不是你登记任教的。\n\n继续填写会跟负责的老师写进**同一批资料**，'
-    +'后填的会盖掉先填的。\n\n确定你要接手填这一格吗？')) return;
-  CELL_UNLOCK[cellKey()]=Date.now();
-  toast('已解锁 —— 这一格在这台装置上可以填了',2600);
-  refreshAll();
-}
+/* v28 · Owner 2026-09-15：老师选了班级和科目就能填，中间不再有任何一道门。
+   稍早那版的「唯读 + 解锁」已整段移除。cellWritable 保留成永远可写 ——
+   cellChrome() 还在呼叫它，留一个恒真的函式比到处改呼叫点安全。 */
+function cellWritable(){ return true; }
 /* ══ v26 Multi-Paper 选卷 ══
    Legacy（hasPI=false）：paperReady 恒真 → gateOpen 与 v25 完全一致，选卷层不触发。
    多卷在线：class+subject 选好后，先决定用哪一份卷才进 capture。 */
@@ -936,12 +933,20 @@ async function loadPapers(){
       /* P0-2 canonical：卷责任=evalgo_paper_teacher。老师只见自己被分配的卷；
          管理层(isAdmin: OWNER/TOP_MGMT/MGMT/ADMIN)见该 scope 全部卷。
          routing 只认 paper_teacher（含 LEGACY_SEED）；teacher_assign 不参与、不覆盖 EXPLICIT。 */
+      /* ══ v28 · Owner 2026-09-15：老师选了班级和科目就能填，中间不再有门。 ══
+         P0-2 原本是「老师只见自己被分配的卷」—— 那一条**在此被 Owner 推翻**。
+         evalgo_paper_teacher 从「谁准进」降级成「谁负责」：
+           · 有被分配 → 只给她自己那几份（多卷时不用在别人的卷里找）
+           · 没被分配 → **给这一格全部的卷**，不再挡
+         实证理由：排课表里有 8 格的老师从来没在 EvalGo 勾过任教，
+         旧规则下她们看到零份卷、进不去，而且画面不会说为什么。 */
       if(papers.length && !isAdmin() && S.me){
         const tr=await _sb.from('evalgo_paper_teacher')
           .select('paper_instance_id').eq('class_id',cid).eq('teacher_id',S.me);
-        if(tr.error) throw tr.error;                  /* v27：同上，不可默默变成零份 */
+        if(tr.error) throw tr.error;                  /* v27：查失败不可默默变成零份 */
         const mine=new Set((tr.data||[]).map(x=>x.paper_instance_id));
-        papers=papers.filter(p=>mine.has(p.id));
+        const own=papers.filter(p=>mine.has(p.id));
+        if(own.length) papers=own;                    /* 有分配 → 用自己的；没有 → 保留全部 */
       }
       S.papers=papers.sort((a,b)=>(a.sort_order||0)-(b.sort_order||0));
       ok=true;
@@ -1210,6 +1215,24 @@ function gateHTML(){
    所以这颗钮是**检查式**（Owner 裁定「丙」）：按下去先算还剩谁，没做完就列出来、不放行，
    全做完才收尾。**不写任何资料**，不制造假完成。 */
 const CELL_TABS=[['bp','考卷项目'],['f1','考前观察'],['f2','考卷分析']];
+/* v28：页面标题区。ObsGo 每一个画面都有一个，EvalGo 到 v27 为止一个都没有。
+   sub 允许 HTML（只传我们自己写死的字串，不接使用者输入）。 */
+/* v28 · Owner 2026-09-15：老师不必登记任教，所以「我的进度」不能再靠登记来算。
+   改成看**她实际填过哪几格** —— key 的格式是 exam|sid|subject|…，从 key 直接解出来，
+   不依赖纪录里有没有 sid 栏位。 */
+function myTouchedCells(){
+  const set={}, pre=EXK()+'|';
+  const add=(sid,su)=>{ const r=S.roster.find(x=>x.sid===sid); if(r&&su) set[r.cls+'|'+su]={cls:r.cls,subject:su}; };
+  [S.f1,S.f2].forEach(bag=>Object.keys(bag||{}).forEach(k=>{
+    if(k.indexOf(pre)!==0) return; const p=k.split('|'); add(p[1],p[2]);
+  }));
+  return Object.keys(set).map(k=>set[k])
+    .sort((a,b)=>(a.cls+a.subject).localeCompare(b.cls+b.subject));
+}
+function hero(eyebrow,title,sub){
+  return `<div class="hero"><div class="eyebrow">${esc(eyebrow)}</div><h1>${esc(title)}</h1>${
+    sub?`<div class="sub">${sub}</div>`:''}</div>`;
+}
 function cellChrome(active){
   const st=cellStat(S.cls,S.subject);
   const pap=(S.papers||[]).find(x=>x.id===S.paperInstance);
@@ -1222,21 +1245,9 @@ function cellChrome(active){
       </div>
       <button class="btn" style="min-height:44px;padding:10px 16px;font-weight:600"
         onclick="goPage('home')">← 回主页</button>
-      ${cellWritable()?`<button class="btn btn-pri" style="min-height:44px;padding:10px 18px;font-weight:700"
-        onclick="cellDone()">完成填写 ✓</button>`:''}
+      <button class="btn btn-pri" style="min-height:44px;padding:10px 18px;font-weight:700"
+        onclick="cellDone()">完成填写 ✓</button>
     </div></div>`;
-  /* 唯读横幅 —— 不是自己登记的格子 */
-  if(!cellWritable()){
-    const who=asgFor(S.cls,S.subject).map(a=>teacherLabel(a.teacher_id)).filter(Boolean).join('、');
-    h+=`<div class="card ro-keep"><div class="alert alert-warn"><div>
-      <b>这一格不是你登记任教的${who?`（登记的是 ${esc(who)}）`:''} —— 目前只能看，不能改。</b><br>
-      <span style="font-size:12px">你跟他填的是<b>同一批资料</b>，后填的会盖掉先填的。
-      真的要接手（代课 / 协助），按右边解锁。</span>
-      <div style="margin-top:8px"><button class="btn btn-pri" style="min-height:44px;padding:9px 18px;font-weight:700"
-        onclick="cellUnlock()">我也要填这一格</button></div></div></div></div>`;
-  } else if(CELL_UNLOCK[cellKey()]){
-    h+=`<div class="card ro-keep" style="padding:8px 14px"><span class="chip chip-warn">已解锁代填 —— 这不是你登记的格子</span></div>`;
-  }
   h+=`<div class="sub-nav" style="margin:0 0 10px;border-radius:8px;border:1px solid var(--bdr)">
     ${CELL_TABS.map(([pg,lab])=>`<button class="sub-ntab${pg===active?' on':''}" style="min-height:44px"
       onclick="goPage('${pg}')">${lab}${pg==='bp'&&!st.secs?' <span style="color:var(--warn)">●</span>':''}</button>`).join('')}
@@ -1295,11 +1306,12 @@ function asgToggle(cls,subj){
     teacher_name:S.meName||'',cls,subject:subj,savedAt:new Date().toLocaleString('en-GB'),synced:false};
   saveData(true); asgModal(MODAL_LOCK);   /* v25 R-H4：任教登记不走 debounce */
 }
-function asgGate(){
-  /* 没登记就不给进。不解释、不劝，直接挡在前面。 */
-  if(asgMine().length) return false;
-  asgModal(true); return true;
-}
+/* ══ v28 · Owner 2026-09-15 裁定：老师选了班级和科目，直接就能填。 ══
+   v26/v27 这里是「没登记就不给进，不解释、不劝，直接挡在前面」——
+   老师一进来先被一张 30 格的勾选表挡住，才准开始做事。
+   登记不是老师的工作，是排班的工作（资料本来就在 ClassGo 排课表里）。
+   闸门废止。函式保留成永远放行，不删 —— renderHome 还在呼叫它。 */
+function asgGate(){ return false; }
 function asgModal(lock){
   const body=`
     ${CLOUD.readErr?`<div class="alert alert-danger"><div>
@@ -1396,35 +1408,34 @@ function taskRow(cls,subj,lab,done,total,left,page,ready){
 function renderHome(){
   const c=document.getElementById('c-home');
   const mine=S.meName||S.me||'';
-  const my=asgMine().sort((a,b)=>(a.cls+a.subject).localeCompare(b.cls+b.subject));
-  const mySet={}; my.forEach(a=>{ mySet[a.cls+'|'+a.subject]=1; });
 
-  let h=`<div class="card" style="padding:12px 16px;margin-bottom:12px">
+  let h=hero('EvalGo_ATC','今天的班级')
+   +`<div class="card" style="padding:12px 16px;margin-bottom:12px">
     <div class="toolbar" style="margin:0">
       <span class="tip" style="margin:0;flex:1">${esc(S.examLabel||'本轮考试')}${
         termLabel(S.examTerm)?` · <b>${esc(termLabel(S.examTerm))}</b>`:''}${mine?' · 科任 '+esc(mine):''}</span>
-      <button class="btn" style="padding:8px 16px;font-size:13.5px;font-weight:700"
-        onclick="asgModal()">我教 ${my.length} 个班科 · 修改</button>
     </div></div>`;
 
   /* 连线状态一律留在顶部 —— 老师看到「假名单」三个字就该停手。 */
   if(S.rosterSource!=='cloud') h+=`<div class="card"><div class="alert alert-danger"><div>
     <b>还没连上系统，现在看到的是练习用的假名单。</b>
     这里填的东西不会保留。请重新整理页面；还是不行就找管理层。</div></div></div>`;
+  /* v28：开页时 cloudInit 还没跑完，CLOUD.session 本来就是空的 ——
+     v26 在那一瞬间就印「目前离线」，是把「还没查」当成「查过了，结果是坏的」。
+     跟今天早上老师那个假警报同一类错误。查完之前只说「正在连线」。 */
+  else if(!CLOUD.checked) h+=`<div class="card" style="padding:9px 14px"><span class="tip"
+    style="margin:0">正在连线…</span></div>`;
   else if(!CLOUD.session) h+=`<div class="card"><div class="alert alert-warn"><div>
     <b>目前离线</b> —— 你还是可以填，资料先存在这台电脑，连上网路会自动送出。</div></div></div>`;
 
   /* ── ① 班级 ── */
-  h+=`<div class="card"><div class="card-hdr"><span class="card-title">① 班级</span>
-      <span class="tip" style="margin:0">有小圆点的是你登记任教的</span></div>
+  h+=`<div class="card"><div class="card-hdr"><span class="card-title">① 班级</span></div>
     <div class="quick-grid" style="grid-template-columns:repeat(auto-fill,minmax(120px,1fr));margin-bottom:0">
       ${CLASSES.map(x=>{
-        const n=my.filter(a=>a.cls===x).length;
         return `<div class="quick-card${x===S.cls?' on':''}" style="padding:12px;min-height:44px;${
           x===S.cls?'border-color:var(--layer);background:rgba(90,100,112,.07)':''}"
           onclick="pickClass('${x}')">
-          <div class="quick-label" style="font-size:14px;font-weight:700">${x.replace('ATC','ATC ')}${
-            n?' <span style="color:var(--layer)">●</span>':''}</div>
+          <div class="quick-label" style="font-size:14px;font-weight:700">${x.replace('ATC','ATC ')}</div>
           <div class="stat-sub">Year ${yearOf(x)} · ${inCls(x).length} 人</div></div>`;
       }).join('')}
     </div></div>`;
@@ -1434,12 +1445,10 @@ function renderHome(){
       ${S.cls?`<span class="tip" style="margin:0">${esc(S.cls)}</span>`:''}</div>
     <div class="quick-grid" style="grid-template-columns:repeat(auto-fill,minmax(130px,1fr));margin-bottom:0">
       ${SUBJECTS.map(x=>{
-        const owned=S.cls&&mySet[S.cls+'|'+x];
         return `<div class="quick-card${x===S.subject?' on':''}" style="padding:12px;min-height:44px;${
           x===S.subject?'border-color:var(--layer);background:rgba(90,100,112,.07)':''}"
           onclick="pickSubject('${x}')">
-          <div class="quick-label" style="font-size:13px;font-weight:600">${x}${
-            owned?' <span style="color:var(--layer)">●</span>':''}</div>
+          <div class="quick-label" style="font-size:13px;font-weight:600">${x}</div>
           <div class="stat-sub">${SUBJ_EN[x]}</div></div>`;
       }).join('')}
     </div></div>`;
@@ -1451,7 +1460,7 @@ function renderHome(){
   h+=`<div class="card"><div class="toolbar" style="margin:0;align-items:center">
       <div style="flex:1;min-width:0">
         <div style="font-size:15px;font-weight:700">${ready
-          ? esc(S.cls)+' · '+esc(S.subject)+(cellMine()?'':'　<span class="chip chip-warn">不是你登记的</span>')
+          ? esc(S.cls)+' · '+esc(S.subject)
           : '请选择班级与科目'}</div>
         <div class="tip" style="margin:2px 0 0">${
           noPaper ? '<span style="color:var(--warn)">这个班级 / 科目还没有建立考卷 —— 请找管理层</span>'
@@ -1473,46 +1482,12 @@ function renderHome(){
   }
   h+=`</div>`;
 
-  /* ── 我教的格子 · 还剩谁 ──
-     Owner 2026-09-15：首页动线照 ObsGo，但「我还剩谁」不准丢。
-     对应 ObsGo 首页底部那行「今天完成 · N 班」。 */
-  if(!my.length){
-    h+=`<div class="card"><div class="empty" style="padding:24px">
-      还没登记你教哪几个班、哪几科 —— 登记了，管理层才知道这几格该由你完成。<br>
-      <button class="btn btn-pri" style="margin-top:12px;padding:10px 22px;font-weight:700"
-        onclick="asgModal()">现在登记</button></div></div>`;
-    c.innerHTML=h; paintNav(); return;
-  }
-  const tot=my.reduce((o,a)=>{const s2=cardStat(a.cls,a.subject);
-    o.n+=s2.n; o.obs+=s2.obsDone; o.pap+=s2.papDone;
-    o.left+=(s2.obsLeft.length+s2.papLeft.length); return o;},{n:0,obs:0,pap:0,left:0});
-  h+=`<div class="card"><div class="card-hdr">
-      <span class="card-title">我教的 ${my.length} 个班科</span>
-      <span class="tip" style="margin:0">${tot.left?`还剩 <b style="color:var(--warn)">${tot.left}</b> 笔没填`
-        :'<b style="color:var(--ok)">全部处理完了</b>'}</span></div>`;
-  my.forEach(a=>{
-    const st=cardStat(a.cls,a.subject);
-    const allDone = st.n>0 && st.obsDone>=st.n && st.papDone>=st.n;
-    h+=`<div style="display:flex;align-items:center;gap:10px;padding:10px 0;
-         border-top:1px solid var(--bdr);flex-wrap:wrap">
-      <div style="min-width:150px">
-        <div style="font-size:14px;font-weight:700">${esc(a.cls)} · ${esc(a.subject)}</div>
-        <div style="font-size:11.5px;color:var(--mut)">Year ${yearOf(a.cls)} · ${st.n} 人</div>
-      </div>
-      <div style="flex:1;min-width:150px;font-size:12.5px;color:var(--mut)">
-        观察 <b style="color:${st.obsDone>=st.n&&st.n?'var(--ok)':'var(--txt)'}">${st.obsDone}/${st.n}</b>
-        · 分析 <b style="color:${st.papDone>=st.n&&st.n?'var(--ok)':'var(--txt)'}">${st.papDone}/${st.n}</b>
-        ${st.secs?'':'<span class="chip chip-warn" style="margin-left:6px">项目未登记</span>'}
-        ${st.prog?`<span class="chip chip-warn" style="margin-left:6px">${st.prog} 位填一半</span>`:''}
-      </div>
-      ${allDone?'<span class="badge b-active">✓ 完成</span>'
-        :`<button class="btn btn-pri btn-sm" style="min-height:44px;padding:8px 18px;font-weight:700"
-            onclick="enterCell('${a.cls}','${esc(a.subject)}','f1')">继续</button>`}
-    </div>`;
-  });
-  const pct=tot.n?Math.round((tot.obs+tot.pap)/(tot.n*2)*100):0;
-  h+=`<div class="progress ${pct>=100?'progress-ok':'progress-layer'}" style="margin-top:10px">
-      <div class="progress-fill" style="width:${pct}%"></div></div></div>`;
+  /* v28 · Owner 2026-09-15：首页最下方整块拿掉。
+     这里原本列「我填过的班科 · 还剩谁」。拿掉的理由是它做不到你要的语意 ——
+     cloudPull 是整场考试全部拉回来的（.eq('exam_id',…)，没有按老师过滤），
+     所以同步之后本机装著全部老师的纪录，这一块会把别人的格子也列出来。
+     要做到「只看自己的、而且只看未完成的」，必须改用每笔纪录上的 entered_by 过滤 ——
+     那件事跟「进度」页一起做（v29），不在这一版硬凑。 */
   c.innerHTML=h;
   paintNav();
 }
@@ -2787,15 +2762,16 @@ function renderCoverage(){
   /* v28：覆盖追踪要看的是「本科目在各班的轮换」，还是需要先选好班科。
      但不再塞一份选班科的画面进来 —— 首页就是那个画面，明讲一句再送回去。 */
   if(!cellReady()){ toast('覆盖追踪要先选班级和科目',2400); goPage('home'); return; }
-  const myCls=asgMine().filter(a=>a.subject===S.subject).map(a=>a.cls);
-  let h=`<div class="card ro-keep" style="padding:10px 14px;margin-bottom:8px">
+  const myCls=myTouchedCells().filter(a=>a.subject===S.subject).map(a=>a.cls);
+  let h=hero('Coverage','覆盖追踪','一直轮换，直到全班每一位都被观察到。')
+    +`<div class="card ro-keep" style="padding:10px 14px;margin-bottom:8px">
     <div class="toolbar" style="margin:0">
       <span class="chip chip-layer" style="font-size:13px;font-weight:700">${esc(S.cls)} · ${esc(S.subject)}</span>
       <span style="flex:1"></span>
       <button class="btn" style="min-height:44px;padding:9px 16px" onclick="goPage('home')">← 回主页</button>
     </div></div>`
     +`<div class="card"><div class="card-hdr"><span class="card-title">轮换覆盖追踪 · ${esc(S.subject)}</span>
-      <span class="tip" style="margin:0">${myCls.length?('我教的 '+myCls.join('、')):'（还没登记任教班级 — 显示全部）'}</span></div>
+      <span class="tip" style="margin:0">${myCls.length?('我填过的 '+myCls.join('、')):'（这一科你还没填过 — 显示全部）'}</span></div>
     <div class="alert alert-info">SOP 图6：<b>一直轮换，直到全班都被观察到。</b>这一页只看这台机器上本科目的资料；${
       isAdmin()?'上传后可在云端看到全部科任的合并结果。':'全部科任的合并结果由管理层那边看。'}<br>
       <b>缺席 / 本轮未评 = 已处理，不会再催</b> —— 但它们<b>不是</b>观察证据，也不会进报告。</div></div>`;
@@ -2836,7 +2812,8 @@ function renderReport(){
   /* 跨科报告**不需要**先选科目 —— 它读的是整场考试的资料，不是当下这一格。
      所以这一页不再走 gateOpen() 挡人；单科预览才需要选了班+科。 */
   const cl=(document.getElementById('rptCls')||{}).value||S.cls||CLASSES[0];
-  let h=`<div class="card">
+  let h=hero('Report','考前报告','五科合并 · 资料来自云端。')
+   +`<div class="card">
     <div class="card-hdr"><span class="card-title">出报告 · ${esc(S.examLabel||'本轮')}</span>
       <span class="tip" style="margin:0">五科合并 · 资料来自云端</span></div>
     <div class="toolbar no-print">
@@ -3393,7 +3370,7 @@ function printReport(){
 function renderManage(){
   const c=document.getElementById('c-manage');
   const n1=Object.keys(S.f1).length, n2=Object.keys(S.f2).length, pend=pendingCount();
-  c.innerHTML=`
+  c.innerHTML=hero('Manage','管理','身份 · 系统 · 云端 · 备份 · 进阶。')+`
   <div class="card">
     <div class="alert alert-info"><div><b>这一页只有管理层看得到。</b>
       老师端不显示同步、备份、系统设定 —— 那些是系统该自己处理的事。</div></div>
