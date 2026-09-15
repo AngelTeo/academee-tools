@@ -3464,59 +3464,20 @@ function renderManage(){
       <div>DSKP 学习领域：<strong>${DSKP_DOM.length}</strong> 条（五科 × 六年段）——
         <span style="color:var(--mut)">参考资料，v19.1 起不再接到老师端的「较弱项目」</span></div>
       <div>KSSR 旧字典：<strong>${KSSR.length}</strong> 条（保留，供旧资料解析）</div>
-      ${roleNow()==='OWNER'?`
-      <div style="margin-top:14px;border-top:.5px solid var(--bdr);padding-top:10px">
-        <button class="mg-danger" onclick="rebuildFromCloud()">⟳ 以云端为准 · 重建本机资料</button>
-        <div class="tip" style="margin:2px 0 0">
-          清掉这台装置上的填写资料，再从云端重新拉一次。<b>还没上传的会消失。</b>
-          执行前会自动 Export 备份。<br>
-          <span style="color:var(--warn)">⚠ 临时工具（2026-09-15 建立，当晚移除）—— 只有 OWNER 看得到这颗。</span>
-        </div>
-      </div>`:''}
     </div>
   </div>`;
 }
 /* ① 的权限勾叉：唯一来源是 can_access() 回来的 CLOUD.perm，前端不自己推算 */
 function permTick(k){ return !!(CLOUD.perm && CLOUD.perm[k]===true); }
-/* ══ ⚠️ 临时工具 · 2026-09-15 · 预计当晚移除 ══════════════════════════
-   为什么需要它：Owner 删了云端的资料，但那台装置的 localStorage 还留著旧的。
-   画面读的是「本机 + 云端」，所以数字一直在；而 delSection 的验删守卫会比对
-   「本机预期删几笔 vs 云端实际删几笔」，两边不一致就中止 —— 所以删不掉。
-
-   跟被废止的 Reset（Standard v8 §12）的差别，三点：
-     ① 不是清空一切 —— 清完立刻从云端重建，云端有的都会回来
-     ② 强制先 Export，而且**把还没上传的笔数讲出来**再问
-     ③ 只有 OWNER 看得到、按得到
-
-   §12 废止 Reset 的实证理由是「云端快照会落后，挡未同步挡不住以为自己同步了」。
-   这里正面处理那一点：把未同步笔数明讲，要打字确认才继续。
-   ⚠️ 用完请连同 ⑥ 区那颗按钮一起移除，不要留成常设功能。 */
+/* 2026-09-15：临时工具「以云端为准 · 重建本机资料」已用完移除（Owner 当日裁定）。
+   它解决的问题是：Owner 删了云端资料，本机 localStorage 还留著旧的，
+   而 delSection 的验删守卫会比对「本机预期删几笔 vs 云端实际删几笔」，
+   两边对不上就中止 —— 所以删不掉，也清不掉。
+   ⚠️ 若日後再遇到本机与云端对不上，不要直接把 Reset 请回来（Standard v8 §12 已废止）。
+      要做就照这次的规矩：强制先 Export、把未同步笔数讲出来、要打字确认、清完立刻从云端重建、只给 OWNER。
+   函式保留成一句拒绝，不删 —— 旧分页可能还开在某台装置上。 */
 async function rebuildFromCloud(){
-  if(roleNow()!=='OWNER'){ toast('✕ 这颗只有 OWNER 能按'); return; }
-  if(!_sb || !CLOUD.exam){ alert('还没连上云端 —— 连上再按，否则清完拉不回来。'); return; }
-  const pend=pendingCount();
-  const n1=Object.keys(S.f1).length, n2=Object.keys(S.f2).length,
-        nw=Object.keys(S.wi).length, ns=Object.keys(S.sections).length;
-  if(!confirm('这台装置上现在有：\n'
-    +'  考前观察 '+n1+' 笔 · 考卷分析 '+n2+' 笔 · 逐题 '+nw+' 笔 · 考卷项目 '+ns+' 组\n\n'
-    +'其中 **'+pend+' 笔还没上传云端**。\n\n'
-    +'继续会：先下载一份备份 → 清掉上面这些 → 从云端重新拉一次。\n'
-    +'云端有的都会回来；那 '+pend+' 笔没上传的**会永久消失**。\n\n继续？')) return;
-  try{ exportData(); }
-  catch(e){ alert('备份没有下载成功 —— 为安全起见取消。'); return; }
-  if(pend>0){
-    const t=prompt('备份已开始下载。\n\n有 '+pend+' 笔还没上传，会消失。\n确认请输入 CLEAR');
-    if(t!=='CLEAR'){ toast('✕ 已取消'); return; }
-  }else if(!confirm('备份已开始下载。确认收到备份档再继续。')) { toast('✕ 已取消'); return; }
-  S.f1={}; S.f2={}; S.wi={}; S.es={}; S.sections={};
-  S.papers=[]; S.paperInstance=null; S._papersScope=null;
-  Object.keys(CLOUD.bpEvid).forEach(k=>delete CLOUD.bpEvid[k]);
-  saveData(true);
-  toast('已清空，正在从云端重建…',3000);
-  try{ await cloudPull(true); }
-  catch(e){ alert('清空成功，但从云端拉回时出错：'+(e&&e.message||e)+'\n\n请按 ③ 云端连线的「拉回云端资料」再试一次。'); }
-  refreshAll(); renderManage();
-  toast('✓ 已以云端为准重建本机资料',4000);
+  alert('这个临时工具已经移除了。\n\n要备份请用 ⑤ Export；要重新拉云端资料请按 ③ 的「拉回云端资料」。');
 }
 
 /* v28：函式本体保留成一句拒绝，不删。
