@@ -1102,7 +1102,10 @@ async function cloudDelBy(table,col,val){
   catch(e){ return {ok:false,n:0,error:(e&&e.message)||String(e)}; }
 }
 async function delSection(id){
-  if(!bpGuard('删除项目')) return;
+  /* v28 · Owner 2026-09-15 裁定：**没有学生资料就可以改可以删；有学生资料只能删，不能改。**
+     所以删除不再走 bpGuard（那支是挡「改」的）。把关交给下面本来就有的两段流程：
+     无证据 → 确认一次即删；有证据 → 管理层权限 + 列出影响 + 强制备份 + 二次确认。 */
+  if(!bpCanEdit()){ toast('✕ 这个帐号没有填写权限，不能改考卷项目'); return; }
   const arr=S.sections[bpKey()]||[];
   const s=arr.find(x=>x.id===id); if(!s) return;
   const imp=secImpact(s);
@@ -1176,7 +1179,7 @@ function startCell(){
   if(!S.cls){ toast('请先选班级',2000); return; }
   if(!S.subject){ toast('请先选科目',2000); return; }
   saveData(true);
-  goPage(secsCountFor(S.subject,yearOf(S.cls)) ? 'f1' : 'bp');
+  goPage('bp');   /* v28 · Owner 2026-09-15：从首页进来，永远先到「考卷项目」 */
 }
 function pickClass(v){ S.cls=v; onScopeChange(); }
 function pickSubject(v){ S.subject=v; onScopeChange(); }
@@ -1496,8 +1499,9 @@ function enterCell(cls,subj,page){
      考卷分析在第 3/4 次 FIX 课后，时间上观察在前。
      但工作台上两行各有自己的「继续」，所以要能指定进哪一页。 */
   S.cls=cls; S.subject=subj;
-  /* v28：项目还没登记就先去「考卷项目」分页，跟「开始 →」同一条规则 */
-  S._enterPage = page || (secsCountFor(subj,yearOf(cls)) ? 'f1' : 'bp');
+  /* v28 · Owner 2026-09-15：从首页进来永远先到「考卷项目」。
+     page 有明确指定时才听它的（目前没有呼叫点会指定，保留给日後用）。 */
+  S._enterPage = page || 'bp';
   saveData(true);
   /* v27：这一格的卷清单还没在这次开页取过 → 先去云端取，取完由 loadPapers 决定进哪一页。
      v26 在这里直接 goPage()，而 goPage 一发现「没有卷」就把人**默默踢回工作台** ——
@@ -1545,7 +1549,6 @@ function renderBP(){
         <span class="chip chip-muted">${secs.length} 个项目 · ${totalQ()} 题${essaySections().length?' + 写作 '+essaySections().length+' 篇':''}</span>
         <span class="chip ${shared===secs.length?'chip-ok':'chip-warn'}">${shared===secs.length?'✓ 已共用':shared+'/'+secs.length+' 已共用'}</span>
         ${bpLockBadge()}
-        ${bpLocked()&&isAdmin()?`<button class="btn btn-sm" onclick="bpUnlock()">解锁修正…</button>`:''}
         ${bpLocked()&&!isAdmin()?`<span class="tip" style="margin:0">要改请找管理层解锁</span>`:''}
         <button class="btn btn-sm" style="margin-left:auto" onclick="bpToggle()">查看 / 修改考卷结构</button>
       </div></div>`;
@@ -1557,7 +1560,6 @@ function renderBP(){
       <span class="tip" style="margin:0">${esc(S.subject)} · Year ${yearOf(S.cls)} —— 同年级同科共用，只需填一次
         ${bpReady?`<button class="btn btn-sm" style="margin-left:8px" onclick="bpToggle()">收起</button>`:''}</span></div>
     <div class="chips-row" style="margin-bottom:8px">${bpLockBadge()}
-      ${bpLocked()&&isAdmin()?`<button class="btn btn-sm" onclick="bpUnlock()">解锁修正…</button>`:''}
       ${bpLocked()&&!isAdmin()?`<span class="tip" style="margin:0">要改请找管理层解锁</span>`:''}
       ${BP_UNLOCK[bpKey()]?`<span class="chip chip-muted">理由：${esc(BP_UNLOCK[bpKey()].why)}</span>`:''}</div>
     <div class="alert alert-info"><div>把整份考卷的项目列出来，例：<b>Bahagian A · 动词 · 填一填</b>。
@@ -1591,8 +1593,8 @@ function renderBP(){
         <td>${used?`<span class="badge b-active">${used} 人次</span>`:'<span style="color:var(--hint)">未开始</span>'}</td>
         <td>${!secComplete(s)?'<span class="chip chip-warn">缺题号</span>'
              :'<span class="chip chip-ok">✓</span>'}</td>
-        <td>${bpLocked()?'<span title="已锁定 —— 底下已有证据">🔒</span>'
-          :`<button class="btn btn-sm btn-dng" onclick="delSection('${s.id}')">×</button>`}</td></tr>`;
+        <td><button class="btn btn-sm btn-dng" title="${bpLocked()?'已有学生资料 —— 删除会连资料一起删，会先备份并再问一次':'删除这个项目'}"
+            onclick="delSection('${s.id}')">×</button></td></tr>`;
     });
     h+=`</tbody></table></div>`;
   } else h+=`<div class="empty">还没有项目 — 先加第一个</div>`;
@@ -1649,7 +1651,10 @@ function bpToggle(){ if(!bpCanEdit()) return; S.ui.bpOpen=!S.ui.bpOpen; saveData
      · 能不能改 → 由 bpLocked() 管，对【所有人】一视同仁，包括管理层
    建立一份还不存在的结构永远是安全的（那时候还不可能有证据）；
    危险的是「已经有证据了还去删项目 / 改题号」—— 那一段照旧锁死。 */
-function bpCanEdit(){ return isAdmin() || isMine(S.cls, S.subject); }
+/* v28 · Owner 2026-09-15：任教登记已废止，isMine() 从此恒为 false ——
+   若还用它当条件，**所有老师都改不了考卷项目**，那 5 格永远填不起来。
+   改成只看填写权限：能填资料的人就能登记这份卷的项目。 */
+function bpCanEdit(){ return isAdmin() || !!(CLOUD.perm && CLOUD.perm.can_edit); }
 
 /* ══ Blueprint Freeze ══ Owner Work Order P0-5
    一旦这个 exam + subject + year 的考卷结构底下已经长出证据
@@ -1683,34 +1688,30 @@ async function bpProbe(){
     if(CLOUD.bpEvid[k]!==n){ CLOUD.bpEvid[k]=n; renderF1(); }
   }catch(e){ console.warn('bpProbe',e); }
 }
+/* v28 · 文案照 Owner 2026-09-15 的规矩讲白：
+   没有学生资料 → 可改可删；有学生资料 → 不能改，只能删。 */
 function bpLockBadge(){
   const n=bpEvidCount();
-  if(!n) return '<span class="chip chip-ok">可修改 · 还没有证据挂在上面</span>';
-  if(BP_UNLOCK[bpKey()]) return `<span class="chip chip-warn">⚠ 已解锁修正中 · ${n} 笔证据受影响</span>`;
-  return `<span class="chip chip-warn">🔒 已锁定 · ${n} 笔证据挂在这份结构上</span>`;
+  if(!n) return '<span class="chip chip-ok">还没有学生资料 · 可以改、也可以删</span>';
+  return `<span class="chip chip-warn">已有 ${n} 笔学生资料 · <b>不能改</b>，只能删</span>`;
 }
+/* v28 · Owner 2026-09-15：「解锁修正」整条通道废止。
+   理由：改题号会让旧证据**静静地**漂到错的项目上 —— 画面正常，数字全错。
+   删除至少是看得见的损失。所以有证据之后只留一条路：删掉整个项目（会连证据一起删，
+   而且强制先下载备份）。函式保留成一句拒绝，不删 —— 旧分页可能还开著。 */
 function bpUnlock(){
-  /* 解锁仍然只给管理层 —— 这是「明知有证据还要改」的例外通道，
-     不能让填资料的人自己开给自己。 */
-  if(!isAdmin()){ toast('✕ 已经有证据了，要改请找管理层解锁'); return; }
-  const n=bpEvidCount();
-  const why=prompt('⚠ 这份考卷结构底下已经有 '+n+' 笔证据。\n\n'
-    +'改题号范围或删项目，会让这些旧证据对应到错的项目 —— 那是资料漂移，不是修正。\n\n'
-    +'如果确定要改，请写下原因（会记在这份结构上）：');
-  if(!(why||'').trim()) { toast('已取消 — 没有写原因就不解锁'); return; }
-  BP_UNLOCK[bpKey()]={by:S.me||'', at:new Date().toISOString(), why:why.trim()};
-  console.warn('BLUEPRINT UNLOCK', bpKey(), BP_UNLOCK[bpKey()]);
-  toast('⚠ 已解锁 —— 改完请立刻核对受影响的学生',6000);
-  renderF1();
+  alert('已经有学生资料挂在这个项目上，不能再修改了。\n\n'
+    +'改题号会让旧资料对应到错的项目，画面看起来正常、数字却全错。\n\n'
+    +'如果这个项目真的建错了，请直接**删除**它 —— 删除会先让你下载备份，再问你一次。');
 }
+/* v28：这支只管「改」。删除不走这里 —— Owner 裁定有学生资料时仍可删。 */
 function bpGuard(what){
-  if(!bpCanEdit()){ toast('✕ 这一格不是你教的，不能改考卷结构'); return false; }
+  if(!bpCanEdit()){ toast('✕ 这个帐号没有填写权限，不能改考卷项目'); return false; }
   if(bpLocked()){
-    alert('🔒 这份考卷结构已经锁定。\n\n'
-      + bpEvidCount()+' 笔证据（逐题记码 / 考卷分析）已经挂在上面，'
-      + what+'会让旧证据对应到错的项目。\n\n'
-      + (isAdmin() ? '真的要改，请先按「解锁修正」并写明原因。'
-                   : '真的要改，请找管理层解锁 —— 他们要先写明原因才能开。'));
+    alert('这个项目底下已经有 '+bpEvidCount()+' 笔学生资料，不能再'+what+'了。\n\n'
+      +'改了会让旧资料对应到错的项目 —— 画面看起来正常，数字却全错。\n\n'
+      +'如果这个项目真的建错了，请直接按「×」**删除**它。\n'
+      +'删除会先让你下载一份备份，再问你一次，然后连同底下的资料一起永久删除。');
     return false;
   }
   return true;
@@ -1770,8 +1771,8 @@ function bpModal(lock){
         <td>${x.type==='ESSAY'?'—':(hasRange(x)?rangeLabel(x):'<span class="chip chip-warn">缺题号</span>')}</td>
         <td>${x.max!=null&&x.max!==''?x.max+' 分':'<span style="color:var(--hint)">—</span>'}</td>
         <td>${esc(x.topic||'—')}${x.fmt?' · '+esc(x.fmt):''}</td>
-        <td>${bpLocked()?'🔒':`<button class="btn btn-sm btn-dng"
-          onclick="delSection('${x.id}');bpModal(MODAL_LOCK)">×</button>`}</td></tr>`).join('')}
+        <td><button class="btn btn-sm btn-dng"
+          onclick="delSection('${x.id}');bpModal(MODAL_LOCK)">×</button></td></tr>`).join('')}
       </tbody></table></div>`:'<div class="empty" style="padding:18px">还没有项目 — 加第一个</div>'}
     <div class="secbox" style="padding:12px">
       <div class="form-grid-2" style="gap:8px">
