@@ -324,6 +324,12 @@ button.chip.sel-w{background:var(--warn);color:#fff}
        考前观察 / 考卷分析 从这里移走，改成进入一格之后的 sub-nav（对齐 ObsGo 巡班）。
        highlight 改用 data-pg 比对，不再用 PAGES 的索引 —— 索引法在页数与分页数不一致时会点错颗。 -->
   <button class="ntab on" data-pg="home" onclick="goPage('home')">填写</button>
+  <!-- v30：老师的「我填过什么」从首页底下搬到这里（Owner 2026-09-15：首页最下方什么都不显示）。 -->
+  <button class="ntab" data-pg="records" onclick="goPage('records')">我的记录</button>
+  <!-- v30：全团队 6×5 矩阵。Owner 2026-09-15：「进度」放全团队进度，「管理」只放系统设定。
+       ⚠️ 顺序刻意排在「覆盖追踪」之前：.nav 是 overflow-x:auto，手机上排太後面要横滑才看得到，
+          而这一页是管理层每天要看的。 -->
+  <button class="ntab" id="ntab-progress" data-pg="progress" hidden style="display:none" onclick="goPage('progress')">进度</button>
   <button class="ntab" data-pg="coverage" onclick="goPage('coverage')">覆盖追踪</button>
   <button class="ntab" id="ntab-report" data-pg="report" hidden style="display:none" onclick="goPage('report')">考前报告</button>
   <button class="ntab" id="ntab-manage" data-pg="manage" hidden style="display:none" onclick="goPage('manage')">管理</button>
@@ -347,6 +353,8 @@ button.chip.sel-w{background:var(--warn);color:#fff}
 <div class="page" id="page-bp"><div id="c-bp"></div></div>
 <div class="page" id="page-f1"><div id="c-f1"></div></div>
 <div class="page" id="page-f2"><div id="c-f2"></div></div>
+<div class="page" id="page-records"><div id="c-records"></div></div>
+<div class="page" id="page-progress"><div id="c-progress"></div></div>
 <div class="page" id="page-coverage"><div id="c-coverage"></div></div>
 <div class="page" id="page-report"><div id="c-report"></div></div>
 <div class="page" id="page-manage"><div id="c-manage"></div></div>
@@ -386,7 +394,7 @@ button.chip.sel-w{background:var(--warn);color:#fff}
    权限码：RPT-EvalGo-ATC
    ══════════════════════════════════════════════════════════════════ */
 
-const APP_VERSION = 28;
+const APP_VERSION = 30;
 const STORAGE_KEY = 'evalgo_atc_v1';   /* 沿用 v1 key，旧资料不掉 */
 const SYS_CODE    = 'RPT-EvalGo-ATC';
 const SB_URL      = 'https://qnpvqsvvsgsantekgfbz.supabase.co';
@@ -675,7 +683,7 @@ function canSeeReport(){ return BUSINESS_ROLES.indexOf(roleNow())>=0; }
 function isAdmin(){ return BUSINESS_ROLES.indexOf(roleNow())>=0; }
 function paintNav(){
   const mg=canSeeManage(), rp=canSeeReport();
-  [['ntab-manage',mg],['ntab-report',rp]].forEach(([id,on])=>{
+  [['ntab-manage',mg],['ntab-report',rp],['ntab-progress',rp]].forEach(([id,on])=>{
     const t=document.getElementById(id); if(!t) return;
     t.hidden=!on; t.style.display=on?'':'none';
   });
@@ -835,7 +843,7 @@ document.addEventListener('keydown',e=>{
 });
 
 /* ══ 導覽 ══ */
-const PAGES=['home','bp','f1','f2','coverage','report','manage'];
+const PAGES=['home','bp','f1','f2','records','coverage','progress','report','manage'];
 /* v28：必须先选好「一格」（班级＋科目＋卷）才进得去的页。 */
 const CELL_PAGES=['bp','f1','f2'];
 /* 顶栏该亮哪一颗 —— 格子里的三个分页都算在「填写」底下（对齐 ObsGo：巡班进行中仍亮「巡班」）。 */
@@ -843,6 +851,9 @@ function navOf(p){ return CELL_PAGES.indexOf(p)>=0 ? 'home' : p; }
 function goPage(p){
   if(p==='manage' && !canSeeManage()) p='home';
   if(p==='report' && !canSeeReport()) p='home';
+  /* v30：进度页跟报告同一层（OWNER / TOP_MGMT / ADMIN / MGMT）。
+     「我的记录」谁都进得去 —— 它只看得到自己填的。 */
+  if(p==='progress' && !canSeeReport()) p='home';
   /* ══ v28 闸门重写 ══
      v26 这里是一句 `if(gateOpen() && p!=='manage' && p!=='home') p='home';`
      —— 没选好班科就**默默**把人送回首页，没有讯息、没有画面。
@@ -869,8 +880,9 @@ function goPage(p){
   render(p); window.scrollTo(0,0);
 }
 function render(p){
-  ({home:renderHome,bp:renderBP,f1:renderF1,f2:renderF2,
-    coverage:renderCoverage,report:renderReport,manage:renderManage}[p]||function(){})();
+  ({home:renderHome,bp:renderBP,f1:renderF1,f2:renderF2,records:renderRecords,
+    coverage:renderCoverage,progress:renderProgress,
+    report:renderReport,manage:renderManage}[p]||function(){})();
   if(p==='home'){ asgGate(); return; }
   if(CELL_PAGES.indexOf(p)>=0 && cellReady()) bpGate();
 }
@@ -1057,6 +1069,177 @@ function setEven(id,v){
   markSecDirty(sec);
   if(saveThen(sec.even==='Y'?'✓ 记为每题同分':(sec.even==='N'?'✓ 记为每题不同分':'已取消声明'))){
     renderF1(); autoPush(); }
+}
+/* ══ v29 · 小题结构 q_marks ══════════════════════════════════════════
+   Owner 2026-09-15：老师手上已经有实体考卷，必须能登记「第 10 题有 a/b/c」。
+   今天只做【登记】—— 算分核心与报告层一个字都不动（排 v31）。
+   资料形状（只记例外，不记全部；没列出来的题 = 平均分）：
+     {"per_q":{"3":4}, "subs":{"10":{"a":1,"b":2,"c":3}}}
+   分数可以是 null —— Owner 裁定「分数可留空，先登记结构」。
+   ⚠️ 下游（v31 算分）读到 null 必须当作「没声明」，不可当 0 分。 */
+function qmEmpty(qm){
+  if(!qm||typeof qm!=='object') return true;
+  return !Object.keys(qm.per_q||{}).length && !Object.keys(qm.subs||{}).length;
+}
+/* 例外题一共几题（per_q 与 subs 的题号联集，同一题不重复算） */
+function qmExcQs(qm){
+  if(qmEmpty(qm)) return [];
+  const set={};
+  Object.keys(qm.per_q||{}).forEach(q=>set[q]=1);
+  Object.keys(qm.subs ||{}).forEach(q=>set[q]=1);
+  return Object.keys(set).sort((a,b)=>(+a)-(+b));
+}
+/* 例外题的分数总和。只要有一个分数还没填 → 回 null（= 算不出，不要硬算） */
+function qmExcSum(qm){
+  if(qmEmpty(qm)) return null;
+  let t=0, ok=true;
+  Object.keys(qm.per_q||{}).forEach(q=>{ const v=qm.per_q[q];
+    if(v==null||!(+v>=0)) ok=false; else t+=(+v); });
+  Object.keys(qm.subs||{}).forEach(q=>{ const o=qm.subs[q]||{};
+    Object.keys(o).forEach(l=>{ const v=o[l];
+      if(v==null||!(+v>=0)) ok=false; else t+=(+v); }); });
+  return ok?t:null;
+}
+/* 考卷项目表格里那一行小字 */
+function qmChips(sec){
+  const qm=sec&&sec.qm;
+  if(qmEmpty(qm)) return '';
+  const out=[];
+  Object.keys(qm.subs||{}).sort((a,b)=>(+a)-(+b)).forEach(q=>{
+    const o=qm.subs[q]||{};
+    out.push('<span class="chip chip-layer" title="这一题有小题">第'+esc(q)+'题 '
+      +Object.keys(o).map(l=>l+(o[l]==null?'':'·'+o[l])).join(' ')+'</span>');
+  });
+  Object.keys(qm.per_q||{}).sort((a,b)=>(+a)-(+b)).forEach(q=>{
+    const m=qm.per_q[q];
+    out.push('<span class="chip chip-warn" title="整题，但分数跟其他题不一样">第'+esc(q)+'题 '
+      +(m==null?'分数待填':m+' 分')+'</span>');
+  });
+  return '<div style="margin-top:4px;display:flex;flex-wrap:wrap;gap:3px">'+out.join('')+'</div>';
+}
+/* ── 弹窗暂存。关掉弹窗就没了，真相永远在 sec.qm ── */
+let BPQM=[];
+function qmToRows(qm){
+  const rows=[];
+  if(qmEmpty(qm)) return rows;
+  Object.keys(qm.subs||{}).sort((a,b)=>(+a)-(+b)).forEach(q=>{
+    const o=qm.subs[q]||{};
+    rows.push({q:String(q), mode:'S', m:'',
+      subs:SUBQ.filter(l=>o[l]!==undefined).map(l=>(o[l]==null?'':String(o[l])))});
+  });
+  Object.keys(qm.per_q||{}).sort((a,b)=>(+a)-(+b)).forEach(q=>{
+    if(qm.subs&&qm.subs[q]!==undefined) return;   /* 同一题两边都有 → 以小题为准 */
+    rows.push({q:String(q), mode:'Q',
+      m:(qm.per_q[q]==null?'':String(qm.per_q[q])), subs:['','']});
+  });
+  return rows;
+}
+function qmFromRows(rows){
+  const per_q={}, subs={};
+  (rows||[]).forEach(r=>{
+    const n=parseInt(r.q,10); if(!(n>=1)) return;   /* 没填题号的那一行直接丢掉 */
+    const q=String(n);
+    if(r.mode==='S'){
+      const o={};
+      (r.subs||[]).forEach((m,j)=>{ const lab=SUBQ[j]; if(!lab) return;
+        o[lab]=(m===''||m==null)?null:(+m); });
+      if(Object.keys(o).length) subs[q]=o;
+    }else{
+      per_q[q]=(r.m===''||r.m==null)?null:(+r.m);
+    }
+  });
+  const out={};
+  if(Object.keys(per_q).length) out.per_q=per_q;
+  if(Object.keys(subs ).length) out.subs =subs;
+  return Object.keys(out).length?out:null;
+}
+/* DOM → BPQM。每次重画前先收回来，否则老师打到一半的字会被洗掉。 */
+function bpQmSync(){
+  const g=id=>{const e=document.getElementById(id); return e?String(e.value||'').trim():null;};
+  BPQM.forEach((r,i)=>{
+    const q=g('qm_q_'+i); if(q!==null) r.q=q;
+    const m=g('qm_m_'+i); if(m!==null) r.m=m;
+    (r.subs||[]).forEach((_,j)=>{ const v=g('qm_s_'+i+'_'+j); if(v!==null) r.subs[j]=v; });
+  });
+}
+function bpQmAddQ(){ bpQmSync();
+  BPQM.push({q:'',mode:'S',m:'',subs:['','','']}); bpQmRender(); }
+function bpQmDel(i){ bpQmSync(); BPQM.splice(i,1); bpQmRender(); }
+function bpQmMode(i,mode){ bpQmSync(); if(BPQM[i]) BPQM[i].mode=mode; bpQmRender(); }
+function bpQmAddSub(i){ bpQmSync();
+  const r=BPQM[i]; if(!r) return;
+  if(r.subs.length>=SUBQ.length){ toast('✕ 小题最多到 '+SUBQ[SUBQ.length-1]); return; }
+  r.subs.push(''); bpQmRender(); }
+function bpQmDelSub(i){ bpQmSync();
+  const r=BPQM[i]; if(!r) return;
+  if(r.subs.length<=2){ toast('✕ 有小题的题目至少要两个小题'); return; }
+  r.subs.pop(); bpQmRender(); }
+/* 其余题平均分 —— 即时算给老师看。算不出就说算不出，不要猜。 */
+function bpQmHint(){
+  const g=id=>{const e=document.getElementById(id); return e?String(e.value||'').trim():'';};
+  const qf=parseInt(g('mQf'),10), qt=parseInt(g('mQt'),10), mx=parseFloat(g('mMax'));
+  const qm=qmFromRows(BPQM), exQ=qmExcQs(qm), exN=exQ.length, sum=qmExcSum(qm);
+  if(!exN) return '<span style="color:var(--hint)">没有例外题 —— 这个项目每题同分，照旧。</span>';
+  if(!(qf>=1)||!(qt>=qf)||!(mx>0))
+    return '<span style="color:var(--warn,#b45309)">填好上面的「题号」与「共几分」，这里就会算给你看。</span>';
+  const totQ=qt-qf+1, rest=totQ-exN;
+  if(rest<0) return '<span style="color:var(--dng,#b91c1c)">例外题比整个项目的题数还多，检查一下题号。</span>';
+  if(sum==null) return '<b>其余 '+rest+' 题</b>的每题分数，等你把上面的分数填完才算得出来（<b>可以先不填</b>，结构先登记）。';
+  if(sum>mx) return '<span style="color:var(--dng,#b91c1c)">例外题加起来 '+sum+' 分，已经超过这个项目的 '+mx+' 分。</span>';
+  if(!rest) return sum===mx?'<b>全部题目都列出来了</b>，刚好 '+mx+' 分。'
+    :'<span style="color:var(--dng,#b91c1c)">全部题目都列出来了，但加起来 '+sum+' 分 ≠ '+mx+' 分。</span>';
+  const per=(mx-sum)/rest;
+  return '其余 <b>'+rest+'</b> 题，每题 ('+mx+' − '+sum+') ÷ '+rest+' = <b>'
+    +(Math.round(per*100)/100)+'</b> 分';
+}
+function bpQmRender(){
+  const box=document.getElementById('mQmRows'); if(!box) return;
+  let h='';
+  BPQM.forEach((r,i)=>{
+    const isS=(r.mode!=='Q');
+    h+='<div class="secbox" style="padding:8px;margin-top:6px">'
+      +'<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">'
+      +'<span style="font-size:12px;color:var(--mut)">第</span>'
+      +'<input type="number" id="qm_q_'+i+'" min="1" placeholder="题号" value="'+esc(r.q||'')
+      +'" style="width:64px;min-width:0" oninput="bpQmTick()">'
+      +'<span style="font-size:12px;color:var(--mut)">题</span>'
+      +'<button type="button" class="btn btn-sm'+(isS?' btn-pri':'')
+      +'" style="min-height:32px" onclick="bpQmMode('+i+',\'S\')">有小题 a/b/c</button>'
+      +'<button type="button" class="btn btn-sm'+(isS?'':' btn-pri')
+      +'" style="min-height:32px" onclick="bpQmMode('+i+',\'Q\')">整题，分数不同</button>'
+      +'<button type="button" class="btn btn-sm btn-dng" style="margin-left:auto;min-height:32px"'
+      +' onclick="bpQmDel('+i+')">× 移除</button></div>';
+    if(isS){
+      h+='<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:6px">';
+      r.subs.forEach((m,j)=>{
+        h+='<span style="display:inline-flex;gap:3px;align-items:center">'
+          +'<b style="font-size:13px">'+SUBQ[j]+'</b>'
+          +'<input type="number" id="qm_s_'+i+'_'+j+'" min="0" step="0.5" placeholder="分"'
+          +' value="'+esc(m||'')+'" style="width:54px;min-width:0;padding:4px" oninput="bpQmTick()">'
+          +'<span style="font-size:12px;color:var(--hint)">分</span></span>';
+      });
+      h+='<button type="button" class="btn btn-sm" style="min-height:32px" onclick="bpQmAddSub('+i+')">+ 加小题</button>'
+        +'<button type="button" class="btn btn-sm" style="min-height:32px" onclick="bpQmDelSub('+i+')">− 减小题</button>'
+        +'</div>';
+    }else{
+      h+='<div style="display:flex;gap:6px;align-items:center;margin-top:6px">'
+        +'<span style="font-size:12px;color:var(--mut)">这一题</span>'
+        +'<input type="number" id="qm_m_'+i+'" min="0" step="0.5" placeholder="分（可留空）"'
+        +' value="'+esc(r.m||'')+'" style="width:110px;min-width:0" oninput="bpQmTick()">'
+        +'<span style="font-size:12px;color:var(--hint)">分</span></div>';
+    }
+    h+='</div>';
+  });
+  if(!BPQM.length) h='<div class="empty" style="padding:10px;font-size:12px">'
+    +'没有例外题 —— 这个项目每一题分数一样。有 a/b/c 的题目按下面加进来。</div>';
+  box.innerHTML=h;
+  bpQmTick();
+}
+/* 只更新那一行提示，不重画输入框 —— 重画会把游标踢掉 */
+function bpQmTick(){
+  bpQmSync();
+  const t=document.getElementById('mQmHint');
+  if(t) t.innerHTML=bpQmHint();
 }
 function evenCell(sec){
   if((sec.type||'MCQ')==='ESSAY')
@@ -1569,7 +1752,7 @@ function renderBP(){
               <input type="number" id="rt_${s.id}" min="1" placeholder="到" style="width:48px;padding:2px 4px">
               <button class="btn btn-sm btn-pri" onclick="setSecRange('${s.id}')">✓</button></span>`);
       h+=`<tr><td style="color:var(--hint)">${i+1}</td>
-        <td><strong>${esc(s.code)}</strong></td>
+        <td><strong>${esc(s.code)}</strong>${qmChips(s)}</td>
         <td><span class="chip chip-layer">${ty.lab}</span></td>
         <td>${rng}</td>
         <td>${(s.max!=null&&s.max!=='')?esc(s.max)+' 分'
@@ -1790,13 +1973,26 @@ function bpModal(lock, editId){
       </div>
       <div class="form-row" style="margin:8px 0 0"><label class="form-label">作答方式</label>
         <input type="text" id="mFmt" placeholder="例：填一填（可留空）" value="${ed?v(ed.fmt):''}"></div>
+      <div id="mQmBox" style="margin-top:10px;border-top:1px dashed var(--line,#d4d4d8);padding-top:10px">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <b style="font-size:13px">有小题的题目（例：第 10 题 a / b / c）</b>
+          <span class="chip chip-muted">分数可以留空</span></div>
+        <div class="tip" style="margin:4px 0 0">只填<b>不一样</b>的那几题就好，其余题目系统自己平均。
+          手上有考卷就先把 a / b / c 登记起来，分数之后再补也可以。</div>
+        <div id="mQmRows"></div>
+        <button type="button" class="btn" style="margin-top:6px;width:100%;min-height:40px"
+          onclick="bpQmAddQ()">+ 加一题（有小题 / 分数不一样）</button>
+        <div id="mQmHint" style="margin-top:6px;font-size:12px;color:var(--mut)"></div>
+      </div>
       <button class="btn btn-pri" style="margin-top:10px;width:100%;min-height:44px"
         onclick="bpAdd(${ed?`'${ed.id}'`:''})">${ed?'✓ 储存修改':'+ 加入这个项目'}</button>
     </div>`;
   openModal(ed?`修改项目 · ${esc(ed.code)}`:`加入项目 · ${esc(S.cls)} ${esc(S.subject)}`, body,
     `<span class="tip" style="margin:0;flex:1">这一格目前有 ${secs.length} 个项目</span>
      <button class="btn" style="min-height:44px" onclick="closeModal(true)">关闭</button>`, false);
+  BPQM = ed ? qmToRows(ed.qm) : [];
   bpMType();
+  bpQmRender();
 }
 function bpMType(){
   const t=(document.getElementById('mType')||{}).value||'MCQ';
@@ -1805,6 +2001,9 @@ function bpMType(){
   /* 写作文用老师亲填的实得分，没有「每题同分」这回事 —— 藏起来，不要问。 */
   const e=document.getElementById('mEvenRow');
   if(e) e.style.display=(t==='ESSAY')?'none':'';
+  /* 写作没有题号 → 也就没有「第几题的小题」可言。藏起来，不要问。 */
+  const q=document.getElementById('mQmBox');
+  if(q) q.style.display=(t==='ESSAY')?'none':'';
 }
 /* v28：editId 有值 = 储存修改（Owner 2026-09-15：没有学生资料就可以改）。 */
 function bpAdd(editId){
@@ -1825,7 +2024,30 @@ function bpAdd(editId){
                    .find(x=>!(qt<(+x.qf)||qf>(+x.qt)));
     if(clash){ toast(`✕ 题号 ${qf}-${qt} 与「${clash.code}」重叠`); return; }
   }
+  /* v29 · 小题结构。分数可留空 —— 只挡「明显不可能」的填法，不挡「还没填完」。 */
+  bpQmSync();
+  const qm = (type==='ESSAY') ? null : qmFromRows(BPQM);
+  if(qm){
+    const exQ=qmExcQs(qm);
+    for(const q of exQ){
+      if(!(+q>=qf && +q<=qt)){
+        toast(`✕ 第 ${q} 题不在这个项目的题号范围（${qf}–${qt}）内`); return; }
+    }
+    for(const q of Object.keys(qm.subs||{})){
+      if(Object.keys(qm.subs[q]).length<2){
+        toast(`✕ 第 ${q} 题只有一个小题 —— 至少要两个（a、b）`); return; }
+    }
+    const sum=qmExcSum(qm), totQ=qt-qf+1, rest=totQ-exQ.length;
+    if(sum!=null){
+      if(sum>mx){ toast(`✕ 例外题加起来 ${sum} 分，超过这个项目的 ${mx} 分`); return; }
+      if(rest>0 && sum===mx){
+        toast(`✕ 例外题就用掉全部 ${mx} 分，其余 ${rest} 题会变成 0 分`); return; }
+      if(rest===0 && sum!==mx){
+        toast(`✕ 全部题目都列出来了，但加起来 ${sum} 分 ≠ ${mx} 分`); return; }
+    }
+  }
   const patch={code,topic,fmt,type,
+    qm:qm,
     qf:type==='ESSAY'?null:qf, qt:type==='ESSAY'?null:qt, max:mx,
     even:(type==='ESSAY'?'':even),   /* 未声明就不算分（fail-closed），与 addSection 同规矩 */
     by:S.me, synced:false};
@@ -2747,6 +2969,239 @@ function esScore(sid,code,secId,v,mx){
 }
 
 /* ══ 覆蓋追踪 ══ */
+/* ══════════════════════════════════════════════════════════════════
+   v30 · 「进度」页（全团队）与「我的记录」页
+   Owner 2026-09-15：
+     - 「进度」放全团队进度，「管理」只放系统设定（管理页本次一行未动）
+     - 老师的首页最下方什么都不显示 → 「我填过什么」搬到「我的记录」
+     - 记录页按 entered_by 过滤，别人的看不见
+
+   ⚠️ 为什么不用 cellStat() / cardStat()：
+      那两支用的是不带卷号後缀的 key（`EXK|sid|科目`）。
+      一格只有一份卷时正确，有两份就只看得到第一份。
+      现在生产上每格刚好一份，所以它们今天没错；但进度页是给院长看「谁没做完」的，
+      漏算一份卷就等於叫错人。这一页自己扫前缀，不把那个洞带进来。
+      （cellStat / cardStat 本次不动 —— 改它们会动到首页与格内抬头，排 v31 一起修。）
+   ══════════════════════════════════════════════════════════════════ */
+
+/* 同一个学生同一科，跨所有卷的考卷分析纪录 */
+function f2AllOf(sid,subj){
+  const pre=EXK()+'|'+sid+'|'+subj;
+  return Object.keys(S.f2||{})
+    .filter(k=>k===pre||k.indexOf(pre+'|')===0)
+    .map(k=>S.f2[k]).filter(Boolean);
+}
+/* 跨所有卷，这个学生这一科有没有填过考前观察 */
+function f1AnyDone(sid,subj){
+  const pre=EXK()+'|'+sid+'|'+subj+'|';
+  return Object.keys(S.f1||{}).some(k=>k.indexOf(pre)===0 && S.f1[k] && S.f1[k].savedAt);
+}
+/* 一格（班级 × 科目）的进度。语意与 cellStat 逐字相同，只差「扫全部卷」。 */
+function pgStat(cls,subj){
+  const list=inCls(cls);
+  let obs=0, done=0, prog=0, resolved=0;
+  list.forEach(r=>{
+    const sts=f2AllOf(r.sid,subj).map(f2State);
+    const st = sts.indexOf('done')>=0        ? 'done'
+             : sts.indexOf('progress')>=0    ? 'progress'
+             : sts.indexOf('absent')>=0      ? 'absent'
+             : sts.indexOf('notassessed')>=0 ? 'notassessed' : 'none';
+    /* 缺席 / 本轮未评：已处理，不再催 —— 但绝不等於有证据 */
+    if(st==='absent'||st==='notassessed'){ resolved++; return; }
+    if(f1AnyDone(r.sid,subj)) obs++;
+    if(st==='done') done++; else if(st==='progress') prog++;
+  });
+  const n=list.length, secs=secsCountFor(subj,yearOf(cls)), handled=done+resolved;
+  return {n,obs,done,prog,resolved,handled,secs,
+    state: (n&&handled===n) ? 'done'
+         : (obs||done||prog||resolved||secs) ? 'prog' : 'none'};
+}
+/* 全部证据扫一遍，算出每一格是谁填的。一次扫完 30 格，不要每格扫一次。 */
+function pgWhoAll(){
+  const ex=EXK(), out={};
+  const bump=(cls,su,by)=>{ if(!by) return;
+    const k=cls+'|'+su, c=out[k]||(out[k]={});
+    c[by]=(c[by]||0)+1; };
+  const feed=store=>{ Object.keys(store||{}).forEach(k=>{ const r=store[k];
+    if(!r||r.exam!==ex||!r.sid||!r.subject) return;
+    const st=stuOf(r.sid); if(!st) return;
+    bump(st.cls,r.subject,r.by); }); };
+  feed(S.f1); feed(S.f2); feed(S.wi); feed(S.es);
+  /* 考卷项目没有班级，只有 (科目, 年段)。ATC1–6 与 Year 1–6 一对一，直接对回去。 */
+  Object.keys(S.sections||{}).forEach(k=>{
+    const p=k.split('|'); if(p.length<3||p[0]!==ex) return;
+    const su=p[1], yr=+p[2];
+    (S.sections[k]||[]).forEach(x=>{ if(!x||!x.by) return;
+      CLASSES.forEach(c=>{ if(yearOf(c)===yr) bump(c,su,x.by); }); });
+  });
+  return out;
+}
+function pgWhoChips(map){
+  const ks=Object.keys(map||{});
+  if(!ks.length) return '<span style="color:var(--hint);font-size:11px">—</span>';
+  return ks.sort().map(t=>`<span class="chip chip-muted" style="font-size:10px"
+    title="${esc(teacherLabel(t))}">${esc(t)}</span>`).join('');
+}
+function renderProgress(){
+  const c=document.getElementById('c-progress');
+  if(!canSeeReport()){ goPage('home'); return; }
+  const who=pgWhoAll();
+  let tot={n:0,handled:0,cells:0,cellsDone:0,noSec:[]};
+  const rows=CLASSES.map(cls=>{
+    const tds=SUBJECTS.map(su=>{
+      const st=pgStat(cls,su), mp=who[cls+'|'+su]||{};
+      tot.n+=st.n; tot.handled+=st.handled; tot.cells++;
+      if(st.state==='done') tot.cellsDone++;
+      if(!st.secs) tot.noSec.push(cls+'·'+su);
+      const cls2 = st.state==='done' ? 'chip-ok' : (st.state==='prog' ? 'chip-warn' : 'chip-muted');
+      const lab  = st.state==='done' ? '✓' : (st.state==='prog' ? '' : '·');
+      return `<td style="text-align:center;padding:6px 4px;cursor:pointer"
+        title="点开看细节" onclick="pgOpen('${cls}','${esc(su)}')">
+        <span class="chip ${cls2}" style="font-size:12px;font-weight:700">${lab}${st.n?st.handled+'/'+st.n:'—'}</span>
+        <div style="font-size:10px;color:${st.secs?'var(--hint)':'var(--dng,#b91c1c)'};margin-top:3px">${
+          st.secs?('项目 '+st.secs):'无项目'}</div>
+        <div style="margin-top:2px">${pgWhoChips(mp)}</div></td>`;
+    }).join('');
+    return `<tr><td><strong>${esc(cls)}</strong>
+      <div style="font-size:11px;color:var(--mut)">Year ${yearOf(cls)}</div></td>${tds}</tr>`;
+  }).join('');
+  let h=hero('Progress','进度','全团队 · 哪一格做完了、哪一格还没有人碰。')
+   +`<div class="card">
+      <div class="card-hdr"><span class="card-title">全团队进度 · ${esc(S.examLabel||'本轮')}</span>
+        <span class="tip" style="margin:0">格子里是「已处理 / 全班人数」，点格子看细节</span></div>
+      <div class="chips-row" style="margin-bottom:8px">
+        <span class="chip ${tot.cellsDone===tot.cells?'chip-ok':'chip-warn'}">${tot.cellsDone} / ${tot.cells} 格完成</span>
+        <span class="chip chip-muted">学生 ${tot.handled} / ${tot.n} 人次已处理</span>
+        ${tot.noSec.length?`<span class="chip chip-warn">${tot.noSec.length} 格还没登记考卷项目</span>`:''}
+      </div>
+      <div class="tw"><table class="data"><thead><tr>
+        <th style="min-width:72px">班级</th>
+        ${SUBJECTS.map(x=>`<th style="min-width:92px;text-align:center">${esc(x)}</th>`).join('')}
+      </tr></thead><tbody>${rows}</tbody></table></div>
+      <div class="tip" style="margin-top:8px">
+        <b>已处理</b>＝考卷分析已完成，或已标记缺席 / 本轮未评。
+        缺席与本轮未评<b>不算证据</b>，也不会进报告。</div>
+    </div>`;
+  /* ⚠️ 这里原本把 noSec 全部列出来 —— 30 格里有 27 格没项目时，
+     手机上是整整一屏的班科名字，把重点洗掉。上表已经用红字标了，
+     只有「少数几格」时列名字才有用。 */
+  if(tot.noSec.length)
+    h+=`<div class="alert alert-warn"><div><b>${tot.noSec.length} 格还没有考卷项目</b>
+      —— ${tot.noSec.length<=6?tot.noSec.map(esc).join('、')+'。':'上表红字「无项目」那几格。'}<br>
+      没有考卷项目，那一格的逐题记录与报告分数都做不出来。</div></div>`;
+  h+=`<div class="card"><div class="card-hdr"><span class="card-title">资料从哪里来</span></div>
+    <div class="tip" style="margin:0">这一页算的是<b>老师实际填的证据</b>，不是任教登记表。
+      数字看起来不对，先按下面重新从云端读一次。</div>
+    <button class="btn btn-pri" style="margin-top:10px;min-height:44px"
+      onclick="cloudPull(false).then(()=>{renderProgress();toast('✓ 已重新读取');})">↻ 重新从云端读取</button>
+  </div>`;
+  c.innerHTML=h;
+}
+function pgOpen(cls,subj){
+  const st=pgStat(cls,subj), who=(pgWhoAll()[cls+'|'+subj])||{};
+  const list=inCls(cls);
+  const left=list.filter(r=>{
+    const sts=f2AllOf(r.sid,subj).map(f2State);
+    return sts.indexOf('done')<0 && sts.indexOf('absent')<0 && sts.indexOf('notassessed')<0;
+  });
+  const row=(lab,val,sub)=>`<div style="display:flex;gap:12px;padding:9px 0;
+      border-top:1px solid var(--bdr)">
+    <div style="min-width:96px;font-size:13px;color:var(--mut)">${lab}</div>
+    <div style="flex:1;min-width:0"><div style="font-size:15px;font-weight:700">${val}</div>
+      ${sub?`<div style="font-size:12px;color:var(--mut);margin-top:2px">${sub}</div>`:''}</div></div>`;
+  const body=`
+    <div class="tip" style="margin-top:0">${esc(cls)} · ${esc(subj)} · Year ${yearOf(cls)}</div>
+    <div class="secbox" style="padding:4px 12px 12px">
+      ${row('考卷项目', st.secs?st.secs+' 个':'<span style="color:var(--dng,#b91c1c)">还没登记</span>',
+            st.secs?'同年级同科共用':'没有项目，逐题记录与报告分数都做不出来')}
+      ${row('考前观察', st.obs+' / '+st.n+' 位', '')}
+      ${row('考卷分析', st.done+' / '+st.n+' 位完成',
+            st.prog?(st.prog+' 位填到一半'):'')}
+      ${row('缺席 / 未评', st.resolved+' 位', '已处理，不再催；不算证据、不进报告')}
+      ${row('谁填的', pgWhoChips(who), '代号是老师登入平台的帐号')}
+    </div>
+    ${left.length?`<div class="alert alert-warn" style="margin-top:10px"><div>
+      <b>还差 ${left.length} 位：</b>${left.map(r=>esc(r.en)).join('、')}</div></div>`:
+      `<div class="alert alert-info" style="margin-top:10px"><div>这一格全部处理完了。</div></div>`}`;
+  openModal(`进度 · ${esc(cls)} ${esc(subj)}`, body,
+    `<span class="tip" style="margin:0;flex:1"></span>
+     <button class="btn" style="min-height:44px" onclick="closeModal(true)">关闭</button>
+     <button class="btn btn-pri" style="min-height:44px"
+       onclick="closeModal(true);enterCell('${cls}','${esc(subj)}')">去这一格</button>`, false);
+}
+
+/* ══ 我的记录 ══
+   Owner 2026-09-15：「记录」页按 entered_by 过滤，别的老师填的看不见。
+   ⚠️ 诚实说清楚：这是**画面层**的过滤。三张证据表的 RLS 只看「有没有 EvalGo 权限码」，
+      没有按老师分隔 —— 挡得住误看，挡不住刻意。要真分隔得改 RLS，那会动到 ObsGo，另案。 */
+function myCells(){
+  const ex=EXK(), me=S.me, out={};
+  if(!me) return [];
+  const cell=(cls,su)=>{ const k=cls+'|'+su;
+    return out[k]||(out[k]={cls:cls,su:su,secs:0,f1:0,f2:0,wi:0,es:0}); };
+  const feed=(store,fld,ok)=>{ Object.keys(store||{}).forEach(k=>{ const r=store[k];
+    if(!r||r.exam!==ex||r.by!==me||!r.sid||!r.subject) return;
+    if(ok&&!ok(r)) return;
+    const st=stuOf(r.sid); if(!st) return;
+    cell(st.cls,r.subject)[fld]++; }); };
+  feed(S.f1,'f1',r=>!!r.savedAt);
+  feed(S.f2,'f2',r=>f2Started(r)||f2State(r)!=='none');
+  feed(S.wi,'wi',null);
+  feed(S.es,'es',null);
+  Object.keys(S.sections||{}).forEach(k=>{
+    const p=k.split('|'); if(p.length<3||p[0]!==ex) return;
+    const su=p[1], yr=+p[2];
+    (S.sections[k]||[]).forEach(x=>{ if(!x||x.by!==me) return;
+      CLASSES.forEach(c=>{ if(yearOf(c)===yr) cell(c,su).secs++; }); });
+  });
+  return Object.keys(out).map(k=>out[k])
+    .sort((a,b)=> a.cls===b.cls ? (a.su<b.su?-1:1) : (a.cls<b.cls?-1:1));
+}
+function renderRecords(){
+  const c=document.getElementById('c-records');
+  const mine=myCells();
+  let h=hero('My Records','我的记录',
+    '你这一轮填过的班级与科目。别的老师填的不会出现在这里。');
+  if(!S.me){
+    c.innerHTML=h+`<div class="empty">还没确认你是哪一位老师 —— 回「填写」页选一次。</div>`;
+    return;
+  }
+  if(!mine.length){
+    c.innerHTML=h+`<div class="card"><div class="empty" style="padding:22px">
+      你这一轮还没有填过东西。<br>
+      <button class="btn btn-pri" style="margin-top:12px;min-height:44px"
+        onclick="goPage('home')">去「填写」选班级和科目</button></div></div>`;
+    return;
+  }
+  h+=`<div class="card">
+    <div class="card-hdr"><span class="card-title">${esc(S.meName||S.me)} · ${esc(S.examLabel||'本轮')}</span>
+      <span class="tip" style="margin:0">${mine.length} 个班级 × 科目</span></div>`;
+  /* ⚠️ 这里原本是一张七栏的宽表 —— 手机上「继续填」被挤出画面，
+     等於老师看不到入口（跟 v29 之前「看不到添加按钮」同一个坑）。
+     改成一格一列的卡片，按钮永远跟班科同一行。 */
+  mine.forEach(m=>{
+    const st=pgStat(m.cls,m.su);
+    const ok=st.n&&st.handled===st.n;
+    const bit=(lab,v)=>`<span class="chip ${v?'chip-layer':'chip-muted'}" style="font-size:11px">${lab} ${v||'—'}</span>`;
+    h+=`<div style="border-top:1px solid var(--bdr);padding:12px 0">
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:16px;font-weight:700">${esc(m.cls)} · ${esc(m.su)}</div>
+          <div style="font-size:12px;margin-top:2px;${ok?'color:var(--ok)':'color:var(--mut)'}">${
+            ok?'✓ 这一格处理完了':('全格进度 '+st.handled+' / '+st.n)}</div>
+        </div>
+        <button class="btn ${ok?'':'btn-pri'}" style="min-height:44px;padding:0 18px;
+          font-weight:700;white-space:nowrap"
+          onclick="enterCell('${m.cls}','${esc(m.su)}')">${ok?'查看':'继续填'}</button>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:8px">
+        ${bit('考卷项目',m.secs)}${bit('考前观察',m.f1)}${bit('考卷分析',m.f2)}${bit('逐题',m.wi)}${bit('写作',m.es)}
+      </div></div>`;
+  });
+  h+=`<div class="tip" style="margin-top:10px">上面的数字是<b>你自己填的笔数</b>；
+      「全格进度」是这一格所有老师加起来的结果。</div></div>`;
+  c.innerHTML=h;
+}
 function renderCoverage(){
   const c=document.getElementById('c-coverage');
   /* v28：覆盖追踪要看的是「本科目在各班的轮换」，还是需要先选好班科。
@@ -3629,8 +4084,19 @@ async function cloudInit(silent){
     CLOUD.hasV8 = !(await _sb.from('evalgo_paper_analysis').select('assess_status').limit(1)).error;
     CLOUD.hasV9 = !(await _sb.from('evalgo_paper_analysis').select('weak_manual').limit(1)).error;
     CLOUD.hasV10 = !(await _sb.from('evalgo_paper_section').select('even_marks').limit(1)).error;
+    /* delta v13 —— 小题结构 q_marks。没跑 DDL 之前老师照样填得下去，
+       东西留在这台装置；栏位一加上去就自动补送（见下面的 needV13 重排）。 */
+    CLOUD.hasV13 = !(await _sb.from('evalgo_paper_section').select('q_marks').limit(1)).error;
     /* v26 Multi-Paper 能力侦测：Stage A 未跑时表不存在 → hasPI=false → 全程 Legacy 兼容 */
     CLOUD.hasPI = !(await _sb.from('evalgo_paper_instance').select('id').limit(1)).error;
+    /* v13 上线後，把当初因为没栏位而没送出去的小题结构重新排队 —— 老师不必重填 */
+    if(CLOUD.hasV13){ let n=0;
+      /* ⚠️ 不可以用 allSections() —— 它回的是 Object.assign 出来的【复本】，
+         改复本等於没改（回归测试抓到的）。要直接走 S.sections 里的真身。 */
+      Object.keys(S.sections||{}).forEach(k=>{
+        (S.sections[k]||[]).forEach(x=>{ if(x&&x.needV13){ x.needV13=false; x.synced=false; n++; } }); });
+      if(n){ saveData(true); console.info('delta v13 上线，重送 '+n+' 笔小题结构'); }
+    }
     /* v9 上线后，把当初因为没栏位而扣住的老师手填弱项重新排队送出 */
     if(CLOUD.hasV9){ let n=0;
       Object.keys(S.f2).forEach(k=>{ const r=S.f2[k];
@@ -3749,6 +4215,9 @@ async function pullSections(){
         type:x.section_type||'OBJ',
         qf:x.q_from, qt:x.q_to, max:x.max_score,
         pf:(x.paper_from!=null?x.paper_from:(mine?mine.pf:null)),
+        /* 云端还没有 q_marks 栏位时 x.q_marks 是 undefined → 保留本机的，不要洗掉 */
+        qm:(x.q_marks!==undefined?(x.q_marks||null):(mine?mine.qm:null)),
+        needV13:(mine?!!mine.needV13:false),
         sort:x.sort_order||0, by:x.created_by||'',
         synced:true, cloud_id:x.id};
       if(mine) Object.assign(mine,row); else { arr.push(row); n++; }
@@ -3892,6 +4361,8 @@ function psPayload(sec){
     sort_order:+sec.sort||0, created_by:sec.by||S.me||null, client_uid:sec.client_uid,
     /* 卷面题号：只在老师声明过才送。没声明就留 NULL —— 云端的 CHECK 会挡住
        半套（paper_from 有、paper_to 没有）的资料。 */
+    /* v29 小题结构：栏位没上线就不送，本机留著，delta v13 一跑就自动补 */
+    ...(CLOUD.hasV13 ? {q_marks: qmEmpty(sec.qm)?null:sec.qm} : {}),
     ...(CLOUD.hasV12 && !isEssay && +sec.pf>=1
         ? {paper_from:+sec.pf, paper_to:+sec.pf+((+sec.qt||0)-(+sec.qf||0))} : {}),
     ...(CLOUD.hasV10 ? {even_marks: sec.even==='Y'?'YES':(sec.even==='N'?'NO':'UNKNOWN')} : {}),
@@ -4120,7 +4591,9 @@ async function cloudPush(silent){
         if(res.error) throw res.error;
         /* v27：用项目自己的 key（allSections 带出来的 _key），不再用当下选中卷重拼 */
         const live=(S.sections[sec._key||bpKeyOf(sec._subject,sec._year)]||[]).find(x=>x.id===sec.id);
-        if(live){ live.cloud_id=res.data.id; live.synced=true; }
+        if(live){ live.cloud_id=res.data.id; live.synced=true;
+          /* 有小题结构但栏位还没上线 → 记一笔，等 delta v13 跑完自动重送 */
+          live.needV13 = (!CLOUD.hasV13 && !qmEmpty(live.qm)); }
         secOk++;
       }catch(e){ secFail++; }
     }
