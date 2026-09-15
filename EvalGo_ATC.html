@@ -394,7 +394,7 @@ button.chip.sel-w{background:var(--warn);color:#fff}
    权限码：RPT-EvalGo-ATC
    ══════════════════════════════════════════════════════════════════ */
 
-const APP_VERSION = 31;
+const APP_VERSION = 32;
 const STORAGE_KEY = 'evalgo_atc_v1';   /* 沿用 v1 key，旧资料不掉 */
 const SYS_CODE    = 'RPT-EvalGo-ATC';
 const SB_URL      = 'https://qnpvqsvvsgsantekgfbz.supabase.co';
@@ -832,6 +832,9 @@ function loadData(){
     if(!S.roster||!S.roster.length){ S.roster=DEMO_ROSTER.slice(); S.rosterSource='demo'; }
     if(!S.meta) S.meta={};
     S.meta.version='v'+APP_VERSION;
+    /* v32：一开页就把废止的任教登记退休，顶栏不要再红著等老师按上传。 */
+    Object.keys(S.assign||{}).forEach(k=>{ const a=S.assign[k];
+      if(a && a.savedAt && !a.synced) a.synced=true; });
     return true;
   }catch(e){ console.error(e); S.roster=DEMO_ROSTER.slice(); return false; }
 }
@@ -2627,6 +2630,15 @@ function paintPick(sid){
   d.className='qpick';
   const plab=sec&&sec.qf?toPaper(sec,PICKQ):PICKQ;
   d.innerHTML=`<div class="qpick-t">${esc(sec.code||'')} · 第 ${plab} 题${sec.topic?' · '+esc(sec.topic):''} — 这题怎么了？</div>
+    ${(()=>{ const o=qmSubsOfQ(PICKQ);
+      /* v32 · Owner 2026-09-15（图5/图6）：「已经输入细小项了，但没有列出来让老师填写」。
+         v31 只在选了代号之後才显示小题 —— 老师一点开题号看不到任何小题，
+         以为系统根本没收到。先印一行出来，让她知道这题有小题、各几分。 */
+      if(!o) return '';
+      return `<div style="font-size:12px;color:var(--mut);margin:2px 0 6px">
+        <b>这题有小题：</b>${Object.keys(o).sort().map(l=>
+          `${l}${o[l]!=null?'·'+o[l]+'分':''}`).join('　')}
+        <span style="color:var(--hint)">—— 先选上面这题怎么了，再点是哪个小题</span></div>`;})()}
     <div class="chips-row">${MARKS.map(m=>`<button class="chip ${cur&&cur.code===m.id?'sel':m.chip}"
       onclick="qPick('${sid}',${PICKQ},'${m.id}')">${m.lab} ${m.zh}</button>`).join('')}
       ${cur?`<button class="chip chip-muted" onclick="qPick('${sid}',${PICKQ},null)">✕ 取消这题</button>`
@@ -3331,6 +3343,14 @@ function renderRecords(){
           <div style="font-size:16px;font-weight:700">${esc(m.cls)} · ${esc(m.su)}</div>
           <div style="font-size:12px;margin-top:2px;${ok?'color:var(--ok)':'color:var(--mut)'}">${
             ok?'✓ 这一格处理完了':('全格进度 '+st.handled+' / '+st.n)}</div>
+          <!-- v32 · Owner 2026-09-15（图3）：「这个出现在我的记录，但是我不曾填写过」。
+               实查：华文 Year 2 的项目「A」created_by = AT（他自己），2026-09-09 建的。
+               资料没错，是这一页没说清楚「凭什么把这一格算成我的」。
+               只登记过考卷项目、没碰过学生资料的格子，直接讲白。 -->
+          <div style="font-size:11px;color:var(--hint);margin-top:2px">${
+            (m.secs&&!m.f1&&!m.f2&&!m.wi&&!m.es)
+              ? '列在这里是因为：<b>你登记过考卷项目</b>（还没填过任何学生资料）'
+              : '列在这里是因为：你填过这一格的学生资料'}</div>
         </div>
         <button class="btn" style="min-height:44px;padding:0 14px;white-space:nowrap"
           onclick="viewCell('${m.cls}','${esc(m.su)}',true)">👁 看内容</button>
@@ -4452,7 +4472,8 @@ function pendingCount(){
        + Object.values(S.f2).filter(r=>r.savedAt&&!r.synced).length
        + Object.values(S.wi).filter(w=>w.savedAt&&!w.synced).length
        + Object.values(S.es).filter(e=>e.savedAt&&!e.synced).length
-       + Object.values(S.assign||{}).filter(a=>a.savedAt&&!a.synced).length
+       /* v32：任教登记已废止，不再上传，也不计入「没送出」。
+          留著只会让顶栏永远红著，而老师按几次都清不掉（见 cloudPush 的注解）。 */
        + pendingSections().length;
 }
 /* payload 专用：不依赖当前选到的科目（上传时可能已切走） */
@@ -4754,9 +4775,25 @@ async function cloudPush(silent){
     .concat(Object.entries(S.f2).filter(([k,r])=>r.savedAt&&!r.synced).map(([k,r])=>({t:'evalgo_paper_analysis',k,r,p:()=>f2Payload(r)})));
   const wiJobs=Object.entries(S.wi).filter(([k,w])=>w.savedAt&&!w.synced);
   if(CLOUD.hasWI) wiJobs.forEach(([k,w])=>jobs.push({t:'evalgo_wrong_item',k,r:w,p:()=>wiPayload(w)}));
-  const taJobs=Object.entries(S.assign||{}).filter(([k,a])=>a.savedAt&&!a.synced);
-  if(CLOUD.hasTA) taJobs.forEach(([k,a])=>jobs.push({t:'evalgo_teacher_assign',k,r:a,p:()=>asgPayload(a)}));
-  else if(taJobs.length) held.push(`任教登记 ${taJobs.length} 笔暂留本机 —— 资料库还没有 evalgo_teacher_assign（delta v7 未跑）。`);
+  /* ══ v32 · 任教登记不再上传 ══════════════════════════════════════
+     Owner 2026-09-15（图1/图2）：顶栏「⚠ 1 笔没送出」永远清不掉，
+     按「上传」就跳 duplicate key evalgo_teacher_assign_exam_id_teacher_id_class_name_subject_key。
+
+     实查资料库：云端早就有 (ATC-2026-PRE-01, AT, ATC1, 数学)，client_uid = c_mtx3e2a0_qr002k。
+     本机那一笔是同一格、但 client_uid 不同的重复品。
+     upsert 走 onConflict:'client_uid' → 对不上 → 当成 INSERT →
+     撞到 (exam_id, teacher_id, class_name, subject) 那支唯一索引 → 永远失败。
+     重试一万次都一样，因为「已经有了」才是它失败的原因。
+
+     根治：任教登记在 v28 就废止了（asgGate() 恒 false，isMine / asgModal / asgToggle
+     是一座没有入口的死岛）。既然没人用，就不该再送上云端。
+     → 本机这些纪录一律标成已同步，不再进 jobs、不再计入「没送出」。
+     ⚠️ 云端既有的 evalgo_teacher_assign 资料一笔不动（要删得另外一个 GO）。 */
+  let taFixed=0;
+  Object.keys(S.assign||{}).forEach(k=>{ const a=S.assign[k];
+    if(a && a.savedAt && !a.synced){ a.synced=true; taFixed++; } });
+  if(taFixed){ saveData(true);
+    console.info('v32：任教登记已废止，'+taFixed+' 笔不再尝试上传（云端资料不动）'); }
   const esJobs=Object.entries(S.es).filter(([k,e])=>e.savedAt&&!e.synced);
   if(CLOUD.hasES) esJobs.forEach(([k,e])=>jobs.push({t:'evalgo_essay_result',k,r:e,p:()=>esPayload(e)}));
   else if(esJobs.length) held.push(`写作结果 ${esJobs.length} 笔 —— 资料库还没有 evalgo_essay_result（delta v5 未跑）。`);
