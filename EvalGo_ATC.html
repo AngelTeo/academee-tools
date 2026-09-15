@@ -414,7 +414,7 @@ button.chip.sel-w{background:var(--warn);color:#fff}
    权限码：RPT-EvalGo-ATC
    ══════════════════════════════════════════════════════════════════ */
 
-const APP_VERSION = 38;
+const APP_VERSION = 39;
 const STORAGE_KEY = 'evalgo_atc_v1';   /* 沿用 v1 key，旧资料不掉 */
 const SYS_CODE    = 'RPT-EvalGo-ATC';
 const SB_URL      = 'https://qnpvqsvvsgsantekgfbz.supabase.co';
@@ -3139,8 +3139,10 @@ function pgStat(cls,subj){
   });
   const n=list.length, secs=secsCountFor(subj,yearOf(cls)), handled=done+resolved;
   return {n,obs,done,prog,resolved,handled,secs,
+    /* Owner 2026-09-15：只登记了考卷项目、一个学生都没填，不算「进行中」。
+       之前把 secs 也算进去，格子变黄 —— 管理层以为老师在做，其实只写了题型。 */
     state: (n&&handled===n) ? 'done'
-         : (obs||done||prog||resolved||secs) ? 'prog' : 'none'};
+         : (obs||done||prog||resolved) ? 'prog' : 'none'};
 }
 /* 全部证据扫一遍，算出每一格是谁填的。一次扫完 30 格，不要每格扫一次。 */
 function pgWhoAll(){
@@ -3182,6 +3184,28 @@ function vcScan(store,sid,subj){
     .map(k=>store[k]).filter(Boolean);
 }
 function vcTP(v){ const t=TPS.find(x=>x.v===v); return t?(v+' '+t.zh):(v||''); }
+/* Owner 2026-09-15：「我要知道老师输入的学生的状况」。
+   v38 的看内容只印项目名称（造句 / 写日记），等於把老师填的证据全丢掉。
+   这两个 helper 把七维度和逐题标记还原成看得懂的字。 */
+function vcDimChips(r){
+  const out=[];
+  DIMS.forEach(d=>{
+    const v=r[d.id]; if(!v) return;
+    const o=((d.scale==='IRH')?IRH:YSN).find(x=>x.v===v)||{lab:v,t:v};
+    const cc=(v==='Y'||v==='I')?'chip-ok':((v==='S'||v==='R')?'chip-warn':'chip-danger');
+    out.push(`<span class="chip ${cc}" style="font-size:11px" title="${esc(o.t||'')}">${
+      esc(d.zh)} ${esc(o.lab)}</span>`);
+  });
+  return out.join('');
+}
+function vcWiSum(wis){
+  let ok=0,bad=0,blank=0;
+  (wis||[]).forEach(w=>{
+    const m=MARKS.find(x=>x.id===w.code); if(!m) return;
+    if(m.outcome==='CORRECT') ok++; else if(m.outcome==='BLANK') blank++; else bad++;
+  });
+  return {ok,bad,blank};
+}
 /* ══ Owner 2026-09-15 裁定：老师只看得见自己填的。别人填的不该出现。
    全团队资料只有一个地方看得到 —— 「进度」页，只给管理层。
    ⚠️ v33/v34 我一度改成「永远显示整格」，违反这条裁定，已改回。
@@ -3208,8 +3232,11 @@ function viewCell(cls,subj,onlyMe){
       <div style="min-width:64px;font-size:12px;color:var(--mut);flex-shrink:0">${lab}</div>
       <div style="flex:1;min-width:0;font-size:13px">${val}</div></div>`;
     /* 逐题：印卷面号 + 代号 + 小题，老师一眼认得出自己点过什么 */
+    const ws=vcWiSum(wis);
     const wiTxt = wis.length
-      ? wis.slice().sort((a,b)=>(+a.q||0)-(+b.q||0)).map(w=>{
+      ? `<div style="font-size:12px;color:var(--mut);margin-bottom:3px">答对 <b style="color:var(--ok)">${
+          ws.ok}</b> · 做错 <b style="color:var(--warn)">${ws.bad}</b> · 漏答 <b style="color:var(--danger)">${
+          ws.blank}</b></div>` + wis.slice().sort((a,b)=>(+a.q||0)-(+b.q||0)).map(w=>{
           const mk=MARKS.find(x=>x.id===w.code)||{lab:w.code};
           const sec=(S.sections[bpKeyOf(subj,yearOf(cls))]||[]).find(x=>x.code===w.sec_code);
           const lab=(sec&&sec.qf)?toPaper(sec,+w.q):w.q;
@@ -3232,7 +3259,14 @@ function viewCell(cls,subj,onlyMe){
           title="${esc(teacherLabel(t))}">${esc(t)}</span>`).join('')}
       </div>
       ${line('考前观察', obs.length
-        ? obs.map(r=>`<span class="chip chip-ok" style="font-size:11px">${esc(r.bahagian||'—')}</span>`).join('')
+        ? obs.map(r=>{
+            const dims=vcDimChips(r);
+            return `<div style="margin-bottom:5px">
+              <span class="chip chip-layer" style="font-size:11px">${esc(r.bahagian||'—')}</span>
+              ${dims||'<span style="color:var(--hint);font-size:12px">只登记了项目，没有填状况</span>'}
+              ${r.issue?`<div style="font-size:12px;color:var(--mut);margin-top:3px">${esc(r.issue)}</div>`:''}
+            </div>`;
+          }).join('')
         : '<span style="color:var(--hint)">—</span>')}
       ${line('考卷分析', f2Txt)}
       ${line('逐题', wiTxt)}
@@ -3262,15 +3296,21 @@ function renderProgress(){
       tot.n+=st.n; tot.handled+=st.handled; tot.cells++;
       if(st.state==='done') tot.cellsDone++;
       if(!st.secs) tot.noSec.push(cls+'·'+su);
-      const cls2 = st.state==='done' ? 'chip-ok' : (st.state==='prog' ? 'chip-warn' : 'chip-muted');
-      const lab  = st.state==='done' ? '✓' : (st.state==='prog' ? '' : '·');
+      /* Owner 2026-09-15：格子照「选择考卷」卡片同一套讲法 ——
+         考前观察 N / M 位、考卷分析 N / M 位。
+         「项目 N」拿掉（卡片已经拿掉，这里漏改了）；空格子那个「·」也拿掉。
+         没有项目的格子不在格子里喊，页顶那条警示已经统计了。 */
+      const f2col = st.done===st.n && st.n ? 'var(--ok)' : (st.done ? 'var(--warn)' : 'var(--mut)');
+      const mrow=(lab,v,col)=>`<div style="font-size:11px;color:var(--mut);margin-top:2px">${lab}
+        <b style="font-size:12px;color:${col}">${v} / ${st.n} 位</b></div>`;
       return `<td style="text-align:center;padding:6px 4px;cursor:pointer"
         title="点开看细节" onclick="pgOpen('${cls}','${esc(su)}')">
-        <span class="chip ${cls2}" style="font-size:12px;font-weight:700">${lab}${
-          st.n?(st.handled+' / '+st.n+' 位'):'—'}</span>
-        <div style="font-size:10px;color:${st.secs?'var(--hint)':'var(--dng,#b91c1c)'};margin-top:3px">${
-          st.secs?('项目 '+st.secs):'无项目'}</div>
-        <div style="margin-top:2px">${pgWhoChips(mp)}</div></td>`;
+        ${st.n
+          ? mrow('考前观察', st.obs, st.obs?'var(--txt)':'var(--mut)')
+            + mrow('考卷分析', st.done, f2col)
+            + (st.resolved?`<div style="font-size:10px;color:var(--hint);margin-top:2px">缺席 / 未评 ${st.resolved} 位</div>`:'')
+          : '<span class="chip chip-muted" style="font-size:12px">—</span>'}
+        <div style="margin-top:3px">${pgWhoChips(mp)}</div></td>`;
     }).join('');
     return `<tr><td><strong>${esc(cls)}</strong>
       <div style="font-size:11px;color:var(--mut)">Year ${yearOf(cls)}</div></td>${tds}</tr>`;
@@ -3286,7 +3326,7 @@ function renderProgress(){
       </div>
       <div class="tw"><table class="data"><thead><tr>
         <th style="min-width:72px">班级</th>
-        ${SUBJECTS.map(x=>`<th style="min-width:104px;text-align:center">${esc(x)}</th>`).join('')}
+        ${SUBJECTS.map(x=>`<th style="min-width:124px;text-align:center">${esc(x)}</th>`).join('')}
       </tr></thead><tbody>${rows}</tbody></table></div>
     </div>`;
   /* ⚠️ 这里原本把 noSec 全部列出来 —— 30 格里有 27 格没项目时，
