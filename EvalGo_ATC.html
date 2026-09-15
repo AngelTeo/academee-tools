@@ -394,7 +394,7 @@ button.chip.sel-w{background:var(--warn);color:#fff}
    权限码：RPT-EvalGo-ATC
    ══════════════════════════════════════════════════════════════════ */
 
-const APP_VERSION = 30;
+const APP_VERSION = 31;
 const STORAGE_KEY = 'evalgo_atc_v1';   /* 沿用 v1 key，旧资料不掉 */
 const SYS_CODE    = 'RPT-EvalGo-ATC';
 const SB_URL      = 'https://qnpvqsvvsgsantekgfbz.supabase.co';
@@ -2254,6 +2254,50 @@ function setPaperFrom(id){
   sec.pf=k; markSecDirty(sec);
   if(saveThen('\u2713 卷面题号已更新')){ bpRefresh(); autoPush(); }
 }
+/* ══ v31 · 把「考卷项目」登记的小题结构接进「考卷分析」 ══
+   Owner 2026-09-15（图1）：老师在考卷项目登记了「第 N 题有 a/b/c」，
+   考卷分析却完全不知道 —— 小题按钮从 v12 起就是硬写死的 a–f，
+   既不看老师声明了什么，也不显示每个小题几分。登记等於白登记。
+   ⚠️ 本段只动【记录层】。算分核心与报告层一行未动（排 v32）。
+   ⚠️ 题号一律用内部流水号 q（与 qf/qt、q_marks 的 key 同一套）；
+      画面上印的是卷面号 toPaper(sec,q)。两者不可混用。 */
+function qmSubsOfQ(q){
+  const sec=secOfQ(q);
+  if(!sec||qmEmpty(sec.qm)) return null;
+  const o=(sec.qm.subs||{})[String(q)];
+  return (o&&Object.keys(o).length)?o:null;
+}
+function qmSubLabs(q){ const o=qmSubsOfQ(q); return o?Object.keys(o).sort():null; }
+function qHasSubs(q){ return !!qmSubsOfQ(q); }
+/* 标了「错」却还没点小题的题（回卷面号，给老师看）。
+   Owner 裁定：「只标整题错、不标小题」这个模糊情况直接设计掉，不让它发生。
+   做法不是中途挡她打字，而是挂进底部「还差 N 项」—— f2Finish 本来就不让带著缺项按完成。
+   ⚠️ 只要求 WRONG（DK / CL / NR / SOS）。
+      ★答对不用点；「空 漏答」不强制 —— 整题空白时哪个小题都空，
+      逼她点三下只是刁难，改用下面那颗「整题（全部小题）」一次点完。 */
+function qmSubMissing(sid){
+  const out=[];
+  qSections().forEach(sec=>{
+    for(let q=+sec.qf; q<=+sec.qt; q++){
+      if(!qmSubsOfQ(q)) continue;
+      const w=wiGet(sid,q); if(!w) continue;
+      const mk=MARKS.find(x=>x.id===w.code);
+      if(!mk||mk.outcome!=='WRONG') continue;
+      if(!String(w.qsub||'').trim()) out.push(toPaper(sec,q));
+    }
+  });
+  return out;
+}
+/* 整题都错 / 整题空白 —— 一次点完全部小题，不要逼老师点三下 */
+function qSubAll(sid,q){
+  const w=wiGet(sid,q), labs=qmSubLabs(q);
+  if(!w||!labs) return;
+  const all=labs.join(',');
+  w.qsub = (String(w.qsub||'')===all) ? null : all;
+  w.synced=false; w.savedAt=new Date().toLocaleString('en-GB');
+  const r=f2Draft(sid); r.synced=false; saveData();
+  paintPick(sid); paintQ(sid,q); paintFoot(sid); autoPush();
+}
 function qsubHas(w,x){ return String((w&&w.qsub)||'').split(',').indexOf(x)>=0; }
 function qSub(sid,q,x){
   const w=wiGet(sid,q); if(!w) return;
@@ -2554,7 +2598,11 @@ function qBtnHTML(sid,q){
   const sec=secOfQ(q), lab=sec?toPaper(sec,q):q;
   return `<span class="qn">${lab}</span>`
        +(mk?`<span class="qm">${esc(mk.lab)}</span>`:'')
-       +(w&&w.qsub?`<span class="qs">(${esc(w.qsub)})</span>`:'');
+       /* v31：还没点小题、但这题有声明 → 先把 (abc) 淡淡印出来，
+          老师点进去之前就看得到「这题要分小题」。 */
+       +(w&&w.qsub ? `<span class="qs">(${esc(w.qsub)})</span>`
+         : (qHasSubs(q) ? `<span class="qs" style="opacity:.42"
+              >(${esc((qmSubLabs(q)||[]).join(''))})</span>` : ''));
 }
 function paintQ(sid,q){
   const el=document.getElementById('q_'+q); if(!el) return;
@@ -2583,10 +2631,21 @@ function paintPick(sid){
       onclick="qPick('${sid}',${PICKQ},'${m.id}')">${m.lab} ${m.zh}</button>`).join('')}
       ${cur?`<button class="chip chip-muted" onclick="qPick('${sid}',${PICKQ},null)">✕ 取消这题</button>`
            :`<button class="chip chip-muted" onclick="qPick('${sid}',${PICKQ},'__close')">收起</button>`}</div>
-    ${cur?`<div class="qpick-t" style="margin-top:10px;font-weight:400;opacity:.85">
-      错在哪个小题？(a)(b)(c)… 可多选 · <b>没有小题就不用点</b></div>
-    <div class="chips-row">${SUBQ.map(x=>`<button class="chip ${qsubHas(cur,x)?'sel':'chip-muted'}"
-      onclick="qSub('${sid}',${PICKQ},'${x}')">(${x})</button>`).join('')}</div>`:''}`;
+    ${cur?(()=>{
+      const o=qmSubsOfQ(PICKQ), labs=qmSubLabs(PICKQ)||SUBQ;
+      const mk=MARKS.find(x=>x.id===cur.code)||{};
+      const need=!!o && mk.outcome==='WRONG' && !String(cur.qsub||'').trim();
+      const hd = o
+        ? (need ? `<b>这题有 ${labs.length} 个小题 —— 请点出错在哪个</b>（不点的话按不了完成）`
+                : `这题有 ${labs.length} 个小题 · 可多选`)
+        : '错在哪个小题？(a)(b)(c)… 可多选 · <b>没有小题就不用点</b>';
+      return `<div class="qpick-t" style="margin-top:10px;font-weight:400;${
+        need?'color:var(--warn);opacity:1':'opacity:.85'}">${hd}</div>
+      <div class="chips-row">${labs.map(x=>`<button class="chip ${qsubHas(cur,x)?'sel':'chip-muted'}"
+        onclick="qSub('${sid}',${PICKQ},'${x}')">(${x})${
+          (o&&o[x]!=null)?` <span style="opacity:.65;font-size:10px">${o[x]}分</span>`:''}</button>`).join('')}${
+        o?`<button class="chip chip-muted" title="整题都错 / 整题空白"
+            onclick="qSubAll('${sid}',${PICKQ})">整题（全部小题）</button>`:''}</div>`;})():''}`;
   grid.insertAdjacentElement('afterend', d);
 }
 function qPick(sid,q,code){
@@ -2619,6 +2678,9 @@ function f2Missing(sid){
   const r=f2Draft(sid), out=[];
   if(!r.paper_checked) out.push('先亲自按「整份都看过了」');
   if(!r.tp)            out.push('选掌握程度 TP');
+  /* v31：有小题的题目标了错，就必须说是哪个小题（Owner 2026-09-15 裁定） */
+  const sm=qmSubMissing(sid);
+  if(sm.length) out.push('第 '+sm.join('、')+' 题要点出错在哪个小题');
   return out;
 }
 
@@ -3042,6 +3104,84 @@ function pgWhoChips(map){
   return ks.sort().map(t=>`<span class="chip chip-muted" style="font-size:10px"
     title="${esc(teacherLabel(t))}">${esc(t)}</span>`).join('');
 }
+/* ══════════════════════════════════════════════════════════════════
+   v31 · 「看内容」—— 对齐 ObsGo 的班级卡（Owner 2026-09-15，图2/图3）
+   老师要看得见自己填了什么；管理层要看得见老师填了什么。
+   ⚠️ 这一支是【唯读】的：只印，不改任何资料、不上传、不删。
+   ⚠️ 不可以用 wiOf() / f1Complete() / rpES() —— 那几支吃的是「当下选中的格」
+      （S.subject + piSuffix()）。这里要看的是任意一格，所以自己扫前缀，
+      而且把该科的**所有卷**都扫进来。
+   ══════════════════════════════════════════════════════════════════ */
+function vcScan(store,sid,subj){
+  const pre=EXK()+'|'+sid+'|'+subj+'|';
+  return Object.keys(store||{}).filter(k=>k.indexOf(pre)===0)
+    .map(k=>store[k]).filter(Boolean);
+}
+function vcTP(v){ const t=TPS.find(x=>x.v===v); return t?(v+' '+t.zh):(v||''); }
+/* onlyMe = true → 只印自己填的（我的记录页）；false → 全部（进度页，管理层） */
+function viewCell(cls,subj,onlyMe){
+  const list=inCls(cls), mine=!!onlyMe, me=S.me;
+  const keep=r=>!mine||(r&&r.by===me);
+  let shown=0, blank=0;
+  let rows='';
+  list.forEach((st,i)=>{
+    const obs=vcScan(S.f1,st.sid,subj).filter(r=>r.savedAt&&keep(r));
+    const f2s=f2AllOf(st.sid,subj).filter(keep);
+    const wis=vcScan(S.wi,st.sid,subj).filter(keep);
+    const ess=vcScan(S.es,st.sid,subj).filter(r=>keep(r)&&(r.score!=null||(r.weak||[]).length||r.star));
+    if(!obs.length&&!f2s.length&&!wis.length&&!ess.length){ blank++; return; }
+    shown++;
+    const by={}; [].concat(obs,f2s,wis,ess).forEach(r=>{ if(r.by) by[r.by]=1; });
+    const line=(lab,val)=>`<div style="display:flex;gap:10px;padding:4px 0">
+      <div style="min-width:64px;font-size:12px;color:var(--mut);flex-shrink:0">${lab}</div>
+      <div style="flex:1;min-width:0;font-size:13px">${val}</div></div>`;
+    /* 逐题：印卷面号 + 代号 + 小题，老师一眼认得出自己点过什么 */
+    const wiTxt = wis.length
+      ? wis.slice().sort((a,b)=>(+a.q||0)-(+b.q||0)).map(w=>{
+          const mk=MARKS.find(x=>x.id===w.code)||{lab:w.code};
+          const sec=(S.sections[bpKeyOf(subj,yearOf(cls))]||[]).find(x=>x.code===w.sec_code);
+          const lab=(sec&&sec.qf)?toPaper(sec,+w.q):w.q;
+          return `<span class="chip ${mk.chip||'chip-muted'}" style="font-size:11px">${lab}${
+            w.qsub?'('+esc(w.qsub)+')':''} ${esc(mk.lab||'')}</span>`;
+        }).join('')
+      : '<span style="color:var(--hint)">—</span>';
+    const f2Txt = f2s.length ? f2s.map(r=>{
+        const sk=f2State(r), lb=(F2STATE[sk]||{}).lab||sk;
+        return `<span class="badge ${(F2STATE[sk]||{}).cls||''}">${lb}</span>`
+             + (r.tp?` <span class="chip chip-layer" style="font-size:11px">${esc(vcTP(r.tp))}</span>`:'')
+             + (r.paper_checked?' <span class="chip chip-ok" style="font-size:11px">✓ 已核对整份</span>':'');
+      }).join(' ') : '<span style="color:var(--hint)">—</span>';
+    rows+=`<div style="border-top:1px solid var(--bdr);padding:10px 0">
+      <div style="display:flex;gap:8px;align-items:baseline;flex-wrap:wrap">
+        <span style="color:var(--hint);font-size:12px">${i+1}</span>
+        <strong>${esc(st.en)}</strong>${st.cn?`<span style="color:var(--mut);font-size:12px">${esc(st.cn)}</span>`:''}
+        <span style="flex:1"></span>
+        ${Object.keys(by).sort().map(t=>`<span class="chip chip-muted" style="font-size:10px"
+          title="${esc(teacherLabel(t))}">${esc(t)}</span>`).join('')}
+      </div>
+      ${line('考前观察', obs.length
+        ? obs.map(r=>`<span class="chip chip-ok" style="font-size:11px">${esc(r.bahagian||'—')}</span>`).join('')
+        : '<span style="color:var(--hint)">—</span>')}
+      ${line('考卷分析', f2Txt)}
+      ${line('逐题', wiTxt)}
+      ${line('写作', ess.length
+        ? ess.map(e=>`<span class="chip chip-layer" style="font-size:11px">${esc(e.sec_code||e.code||'写作')} ${
+            e.score!=null?esc(e.score)+' 分':'未评分'}</span>`).join('')
+        : '<span style="color:var(--hint)">—</span>')}
+    </div>`;
+  });
+  const body = shown
+    ? `<div class="tip" style="margin-top:0">${esc(cls)} · ${esc(subj)} ·
+         ${mine?'<b>只显示你自己填的</b>':'全部老师填的'} · ${shown} 位有记录${
+         blank?`，另外 ${blank} 位还没有任何记录`:''}</div>
+       <div class="secbox" style="padding:0 12px 10px">${rows}</div>`
+    : `<div class="empty" style="padding:24px">${mine
+         ? '你在这一格还没有填过任何东西。'
+         : '这一格还没有任何人填过东西。'}</div>`;
+  openModal(`看内容 · ${esc(cls)} ${esc(subj)}`, body,
+    `<span class="tip" style="margin:0;flex:1">唯读 —— 这一页不会改到任何资料</span>
+     <button class="btn" style="min-height:44px" onclick="closeModal(true)">关闭</button>`, false);
+}
 function renderProgress(){
   const c=document.getElementById('c-progress');
   if(!canSeeReport()){ goPage('home'); return; }
@@ -3122,7 +3262,9 @@ function pgOpen(cls,subj){
     </div>
     ${left.length?`<div class="alert alert-warn" style="margin-top:10px"><div>
       <b>还差 ${left.length} 位：</b>${left.map(r=>esc(r.en)).join('、')}</div></div>`:
-      `<div class="alert alert-info" style="margin-top:10px"><div>这一格全部处理完了。</div></div>`}`;
+      `<div class="alert alert-info" style="margin-top:10px"><div>这一格全部处理完了。</div></div>`}
+    <button class="btn" style="margin-top:10px;width:100%;min-height:44px"
+      onclick="closeModal(true);viewCell('${cls}','${esc(subj)}',false)">👁 看内容 —— 老师到底填了什么</button>`;
   openModal(`进度 · ${esc(cls)} ${esc(subj)}`, body,
     `<span class="tip" style="margin:0;flex:1"></span>
      <button class="btn" style="min-height:44px" onclick="closeModal(true)">关闭</button>
@@ -3190,6 +3332,8 @@ function renderRecords(){
           <div style="font-size:12px;margin-top:2px;${ok?'color:var(--ok)':'color:var(--mut)'}">${
             ok?'✓ 这一格处理完了':('全格进度 '+st.handled+' / '+st.n)}</div>
         </div>
+        <button class="btn" style="min-height:44px;padding:0 14px;white-space:nowrap"
+          onclick="viewCell('${m.cls}','${esc(m.su)}',true)">👁 看内容</button>
         <button class="btn ${ok?'':'btn-pri'}" style="min-height:44px;padding:0 18px;
           font-weight:700;white-space:nowrap"
           onclick="enterCell('${m.cls}','${esc(m.su)}')">${ok?'查看':'继续填'}</button>
