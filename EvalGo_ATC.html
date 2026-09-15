@@ -1529,11 +1529,12 @@ function renderBP(){
   const c=document.getElementById('c-bp');
   if(!cellReady()){ goPage('home'); return; }
   const secs=sections();
-  /* 考卷结构是「一份卷一次性 setup」，不是老师每天的工作。
-     已经设好就折叠，只留一行摘要；还没设好才自动展开。 */
-  const bpReady = bpReadyNow();
-  if(S.ui.bpOpen===undefined) S.ui.bpOpen = !bpReady;
-  const open = bpCanEdit() && (!bpReady || !!S.ui.bpOpen);
+  /* ══ v28 · Owner 2026-09-15：这一页永远展开，折叠整个拿掉。 ══
+     折叠是 v26 的遗留：当时「考卷项目」是挤在「考前观察」页顶端的一块，
+     填好就收起来免得挡住学生名单 —— 那时候合理。
+     现在它自己一个分页，老师点进来就是要管项目，开起来却是收著的，
+     等於把这一页唯一的功能藏起来。而且折叠状态存在各自的装置，
+     同一个人电脑看得到、手机看不到，更难解释。 */
   let h=cellChrome('bp');
   if(bpCanEdit() && CLOUD.bpEvid[bpKey()]===undefined){ CLOUD.bpEvid[bpKey()]=-1; bpProbe(); }
   if(!bpCanEdit()){                       /* 老师端：一行状态，没有编辑入口 */
@@ -1541,27 +1542,13 @@ function renderBP(){
     c.innerHTML=h;
     return;
   }
-  if(!open){
-    const shared=secs.filter(x=>x.synced).length;
-    h+=`<div class="card" style="padding:10px 14px">
-      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-        <span>📄 <b>${esc(S.subject)} · Year ${yearOf(S.cls)}</b></span>
-        <span class="chip chip-muted">${secs.length} 个项目 · ${totalQ()} 题${essaySections().length?' + 写作 '+essaySections().length+' 篇':''}</span>
-        <span class="chip ${shared===secs.length?'chip-ok':'chip-warn'}">${shared===secs.length?'✓ 已共用':shared+'/'+secs.length+' 已共用'}</span>
-        ${bpLockBadge()}
-        ${bpLocked()&&!isAdmin()?`<span class="tip" style="margin:0">要改请找管理层解锁</span>`:''}
-        <button class="btn btn-sm" style="margin-left:auto" onclick="bpToggle()">查看 / 修改考卷结构</button>
-      </div></div>`;
-    c.innerHTML=h;
-    return;
-  }
+  const shared=secs.filter(x=>x.synced).length;
   h+=`<div class="card">
     <div class="card-hdr"><span class="card-title">这份考卷有哪些项目</span>
-      <span class="tip" style="margin:0">${esc(S.subject)} · Year ${yearOf(S.cls)} —— 同年级同科共用，只需填一次
-        ${bpReady?`<button class="btn btn-sm" style="margin-left:8px" onclick="bpToggle()">收起</button>`:''}</span></div>
+      <span class="tip" style="margin:0">${esc(S.subject)} · Year ${yearOf(S.cls)} —— 同年级同科共用，只需填一次</span></div>
     <div class="chips-row" style="margin-bottom:8px">${bpLockBadge()}
-      ${bpLocked()&&!isAdmin()?`<span class="tip" style="margin:0">要改请找管理层解锁</span>`:''}
-      ${BP_UNLOCK[bpKey()]?`<span class="chip chip-muted">理由：${esc(BP_UNLOCK[bpKey()].why)}</span>`:''}</div>
+      ${secs.length?`<span class="chip ${shared===secs.length?'chip-ok':'chip-warn'}">${
+        shared===secs.length?'✓ 已共用':shared+'/'+secs.length+' 已共用'}</span>`:''}</div>
     <div class="alert alert-info"><div>把整份考卷的项目列出来，例：<b>Bahagian A · 动词 · 填一填</b>。
       登记一次，同年级同科共用。</div></div>`;
   if(secs.length){
@@ -1640,7 +1627,9 @@ function bpEscape(){
   closeModal(true); goPage('home');
   toast('已回到班级登记记录表');
 }
-function bpToggle(){ if(!bpCanEdit()) return; S.ui.bpOpen=!S.ui.bpOpen; saveData(true); renderF1(); }
+/* v28：折叠已废止（考卷项目分页永远展开），这支没有呼叫点了。
+   不删 —— 旧分页可能还开在某台装置上，函式消失那颗旧按钮会丢例外。 */
+function bpToggle(){ bpRefresh(); }
 /* ══ 考卷结构的归属 ══ Owner 2026-09-06
    「这份卷有几个项目、第几题到第几题、各几分」是一份卷设定一次的事，
    同年级同科全校共用 —— 它属於负责人，不属於每一位科任。
