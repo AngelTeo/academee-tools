@@ -1046,7 +1046,7 @@ function addSection(){
     even:(type==='ESSAY'?'':even), /* 每题同分？未声明就不算分（fail-closed）*/
     sort:arr.length, by:S.me, synced:false, cloud_id:null});
   ['bpCode','bpTopic','bpFmt','bpQf','bpQt','bpMax','bpEven'].forEach(i=>{const e=document.getElementById(i);if(e)e.value='';});
-  if(saveThen('✓ 已加入')){ renderF1(); autoPush(); }
+  if(saveThen('✓ 已加入')){ bpRefresh(); autoPush(); }
 }
 /* 声明「每题同分」—— 不锁：改这个不会让旧证据漂移，
    它只影响分数怎么算，不影响任何一题挂在哪个项目。 */
@@ -1120,7 +1120,7 @@ async function delSection(id){
     }
     S.sections[bpKey()]=arr.filter(x=>x.id!==id);
     delAudit('删除项目·无证据',1,S.subject+'|'+s.code);
-    if(saveThen('✓ 已删除')){ renderF1(); renderF2(); }
+    if(saveThen('✓ 已删除')){ closeModal(true); bpRefresh(); }
     return;
   }
 
@@ -1157,7 +1157,7 @@ async function delSection(id){
   imp.es.forEach(([k])=>delete S.es[k]);
   S.sections[bpKey()]=arr.filter(x=>x.id!==id);
   delAudit('受控删除项目·含证据',imp.total,S.subject+'|'+s.code);
-  if(saveThen('✓ 已永久删除项目与其证据')){ renderF1(); renderF2(); }
+  if(saveThen('✓ 已永久删除项目与其证据')){ closeModal(true); bpRefresh(); }
 }
 function secOf(code){ return sections().find(x=>x.code===code)||null; }
 const SUBJ_EN={'数学':'Mathematics','英文':'English','马来文':'BM','华文':'Mandarin','科学':'Science'};
@@ -1593,7 +1593,10 @@ function renderBP(){
         <td>${used?`<span class="badge b-active">${used} 人次</span>`:'<span style="color:var(--hint)">未开始</span>'}</td>
         <td>${!secComplete(s)?'<span class="chip chip-warn">缺题号</span>'
              :'<span class="chip chip-ok">✓</span>'}</td>
-        <td><button class="btn btn-sm btn-dng" title="${bpLocked()?'已有学生资料 —— 删除会连资料一起删，会先备份并再问一次':'删除这个项目'}"
+        <td style="white-space:nowrap">${bpLocked()?'':
+          `<button class="btn btn-sm" style="margin-right:4px" title="修改这个项目"
+             onclick="bpModal(false,'${s.id}')">改</button>`}<button class="btn btn-sm btn-dng"
+            title="${bpLocked()?'已有学生资料 —— 删除会连资料一起删，会先备份并再问一次':'删除这个项目'}"
             onclick="delSection('${s.id}')">×</button></td></tr>`;
     });
     h+=`</tbody></table></div>`;
@@ -1717,27 +1720,18 @@ function bpGuard(what){
   return true;
 }
 function bpReadyNow(){ return sections().length>0 && legacySections().length===0; }
+/* v28 · Owner 2026-09-15：任教登记已废止，bpCanEdit() 现在只看「有没有填写权限」。
+   所以走到这里只剩一种人：帐号没有 can_edit（唯读帐号）。
+   旧文案整段是讲任教登记的（「这一格还没有人登记是谁教的」「去工作台勾上自己」），
+   那些入口都不存在了，留著只会把人指到死路。整段换掉。 */
 function bpStatusLine(){
   const secs=sections(), lg=legacySections();
   if(!secs.length){
-    /* 🔴 v19.6：老师忘了勾任教登记 → isMine() 为 false → 她连【自己的班】都设定不了，
-       而旧文案还叫她「去找这一科的科任」—— 那个人就是她本人，死路一条。
-       所以要分清楚：这一格到底有没有人认领。 */
-    const who=asgFor(S.cls,S.subject);
-    if(!who.length) return `<div class="card" style="padding:11px 14px;border-color:var(--warn)">
-      <div style="font-size:13.5px"><b style="color:var(--warn)">⚠️ 考卷结构尚未设定</b>
-        —— ${esc(S.subject)} · Year ${yearOf(S.cls)}。<br>
-        这一格<b>还没有人登记是谁教的</b>。如果是你教的，按下面这颗，就可以开始登记考卷项目。</div>
-      <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
-        <button class="btn btn-pri" style="padding:8px 16px;font-weight:700"
-          onclick="asgToggle('${S.cls}','${esc(S.subject)}');renderF1()">✓ 这一格我教，我来登记</button>
-        <button class="btn btn-sm" onclick="bpEscape()">← 换班级 / 科目</button></div></div>`;
     return `<div class="card" style="padding:11px 14px;border-color:var(--warn)">
-      <div style="font-size:13.5px"><b style="color:var(--warn)">⚠️ 考卷结构尚未设定</b>
+      <div style="font-size:13.5px"><b style="color:var(--warn)">这份考卷的项目还没登记</b>
         —— ${esc(S.subject)} · Year ${yearOf(S.cls)}。<br>
-        这一格登记的是 <b>${who.map(a=>esc(a.teacher_name||a.teacher_id)).join('、')}</b>，
-        请她先登记考卷项目。<b>如果其实是你教的</b>，到工作台按「我教 N 个班科 · 修改」勾上自己。</div>
-      <div style="margin-top:8px"><button class="btn btn-sm" onclick="bpEscape()">← 换班级 / 科目</button></div></div>`;
+        你的帐号没有填写权限，只能看。请找管理层开通，或请这一科的老师先登记项目。</div>
+      <div style="margin-top:8px"><button class="btn btn-sm" onclick="goPage('home')">← 回主页</button></div></div>`;
   }
   if(lg.length) return `<div class="card" style="padding:11px 14px;border-color:var(--warn)">
     <div style="font-size:13.5px"><b style="color:var(--warn)">⚠️ 考卷结构还差题号</b>
@@ -1753,67 +1747,66 @@ function bpStatusLine(){
 }
 /* 没登记考卷结构就得先设定 —— 没有它，FORM 02 根本无法逐题记录。
    但设定的人是负责人；老师碰到这一格只会被告知，不会被丢进一张空表。 */
-function bpGate(){
-  if(sections().length) return false;
-  if(!bpCanEdit()) return true;      /* 老师：renderF1 会显示状态行，不弹窗 */
-  bpModal(true); return true;
-}
-function bpModal(lock){
+/* v28 · Owner 2026-09-15：「考卷项目」已经是自己的分页，而且从首页进来永远先停在它。
+   再强开一个锁死的弹窗是多余的，还会把点错班科的老师困住（那颗退路按钮也被拿掉了）。
+   闸门取消，分页本身就是登记的地方。 */
+function bpGate(){ return false; }
+/* v28：加 / 改 / 删之后要重画**当前这一页**。
+   v26 一律只叫 renderF1()，但使用者现在多半站在「考卷项目」分页（page-bp），
+   所以画面不动 —— 老师以为按了没反应。refreshAll() 只重画 class 有 on 的那一页。 */
+function bpRefresh(){ refreshAll(); }
+/* ══ v28 · Owner 2026-09-15 ══
+   这个弹窗**只做一件事**：加一个项目，或改一个项目。
+   ⛔ 不再在弹窗里列出已经输入的项目 —— 管理项目的地方是「考卷项目」那一页，
+      两个地方各列一份，只会出现「弹窗说有 1 个、页面说还没有」这种自相矛盾。
+   ⛔ 页脚的「← 换班级 / 科目」也拿掉了：弹窗不再锁死（bpGate 已废），
+      要换班科直接关掉弹窗、按「← 回主页」。
+   editId 有值 = 修改既有项目；没值 = 新增。 */
+function bpModal(lock, editId){
   const secs=sections();
+  const ed = editId ? secs.find(x=>x.id===editId) : null;
+  if(editId && !ed){ toast('✕ 找不到这个项目'); return; }
+  if(ed && bpLocked()){ bpGuard('修改项目'); return; }
+  const v=(x)=>esc(x==null?'':String(x));
   const body=`
-    <div class="tip" style="margin-top:0">${esc(S.subject)} · Year ${yearOf(S.cls)} —— 把这份考卷的项目一行一行加进去。
-      同年级同科只需填一次。</div>
-    ${secs.length?`<div class="tw" style="margin:10px 0"><table class="data"><thead><tr>
-      <th>项目</th><th style="width:78px">题型</th><th style="width:96px">题号/满分</th>
-      <th style="width:60px">分数</th><th>文法/主题</th><th style="width:40px"></th></tr></thead><tbody>
-      ${secs.map(x=>`<tr><td><strong>${esc(x.code)}</strong></td>
-        <td><span class="chip chip-layer">${esc(typeLab(x.type||'MCQ'))}</span></td>
-        <td>${x.type==='ESSAY'?'—':(hasRange(x)?rangeLabel(x):'<span class="chip chip-warn">缺题号</span>')}</td>
-        <td>${x.max!=null&&x.max!==''?x.max+' 分':'<span style="color:var(--hint)">—</span>'}</td>
-        <td>${esc(x.topic||'—')}${x.fmt?' · '+esc(x.fmt):''}</td>
-        <td><button class="btn btn-sm btn-dng"
-          onclick="delSection('${x.id}');bpModal(MODAL_LOCK)">×</button></td></tr>`).join('')}
-      </tbody></table></div>`:'<div class="empty" style="padding:18px">还没有项目 — 加第一个</div>'}
+    <div class="tip" style="margin-top:0">${esc(S.subject)} · Year ${yearOf(S.cls)} —— ${
+      ed?`修改「<b>${esc(ed.code)}</b>」。`:'一次加一个项目。'} 同年级同科只需填一次。</div>
     <div class="secbox" style="padding:12px">
       <div class="form-grid-2" style="gap:8px">
         <div class="form-row" style="margin:0"><label class="form-label">项目名称 *</label>
-          <input type="text" id="mCode" placeholder="例：Bahagian A"></div>
+          <input type="text" id="mCode" placeholder="例：Bahagian A" value="${ed?v(ed.code):''}"></div>
         <div class="form-row" style="margin:0"><label class="form-label">题型 *</label>
           <select id="mType" onchange="bpMType()">
-            ${SECTYPES.map(t=>`<option value="${t.v}">${t.lab}</option>`).join('')}</select></div>
+            ${SECTYPES.map(t=>`<option value="${t.v}"${ed&&(ed.type||'MCQ')===t.v?' selected':''}>${t.lab}</option>`).join('')}</select></div>
       </div>
       <div class="form-grid-2" style="gap:8px;margin-top:8px">
         <div class="form-row" style="margin:0" id="mRangeRow"><label class="form-label">题号 第 __ 到 __ 题 *</label>
           <div style="display:flex;gap:6px;align-items:center">
-            <input type="number" id="mQf" min="1" placeholder="第" style="width:80px">
+            <input type="number" id="mQf" min="1" placeholder="第" style="width:80px" value="${ed?v(ed.qf):''}">
             <span style="color:var(--mut)">–</span>
-            <input type="number" id="mQt" min="1" placeholder="到" style="width:80px"></div></div>
+            <input type="number" id="mQt" min="1" placeholder="到" style="width:80px" value="${ed?v(ed.qt):''}"></div></div>
         <div class="form-row" style="margin:0"><label class="form-label">这个项目共几分 *</label>
-          <input type="number" id="mMax" min="1" step="0.5" placeholder="例：20"></div>
+          <input type="number" id="mMax" min="1" step="0.5" placeholder="例：20" value="${ed?v(ed.max):''}"></div>
       </div>
       <div class="form-grid-2" style="gap:8px;margin-top:8px">
         <div class="form-row" style="margin:0" id="mEvenRow">
           <label class="form-label">每题同分？</label>
           <select id="mEven">
-            <option value="">未定 —— 这个项目不参与算分</option>
-            <option value="Y">每题同分</option>
-            <option value="N">每题不同分 —— 不参与算分</option>
+            <option value=""${ed&&!ed.even?' selected':''}>未定 —— 这个项目不参与算分</option>
+            <option value="Y"${ed&&ed.even==='Y'?' selected':''}>每题同分</option>
+            <option value="N"${ed&&ed.even==='N'?' selected':''}>每题不同分 —— 不参与算分</option>
           </select></div>
         <div class="form-row" style="margin:0"><label class="form-label">文法 / 主题</label>
-          <input type="text" id="mTopic" placeholder="例：动词（可留空）"></div>
+          <input type="text" id="mTopic" placeholder="例：动词（可留空）" value="${ed?v(ed.topic):''}"></div>
       </div>
       <div class="form-row" style="margin:8px 0 0"><label class="form-label">作答方式</label>
-        <input type="text" id="mFmt" placeholder="例：填一填（可留空）"></div>
-      <button class="btn btn-pri" style="margin-top:10px;width:100%" onclick="bpAdd()">+ 加入这个项目</button>
+        <input type="text" id="mFmt" placeholder="例：填一填（可留空）" value="${ed?v(ed.fmt):''}"></div>
+      <button class="btn btn-pri" style="margin-top:10px;width:100%;min-height:44px"
+        onclick="bpAdd(${ed?`'${ed.id}'`:''})">${ed?'✓ 储存修改':'+ 加入这个项目'}</button>
     </div>`;
-  /* 这个弹窗是锁定的（不填考卷项目就无法逐题记录），但**必须留一条退路** ——
-     老师点错班级／科目进来，不该被困在里面。退路不是「取消」（那等於跳过），
-     而是「换班级／科目」：这一格还是得填，只是可以换去填别的。 */
-  openModal(`这份考卷有哪些项目 · ${esc(S.cls)} ${esc(S.subject)}`, body,
-    `<button class="btn" onclick="bpEscape()">← 换班级 / 科目</button>
-     <span class="tip" style="margin:0;flex:1">已加 ${secs.length} 个项目</span>
-     <button class="btn btn-pri" ${secs.length?'':'disabled style="opacity:.4"'}
-       onclick="closeModal(true);renderF1()">${secs.length?'开始填学生':'请先加至少一个项目'}</button>`, lock);
+  openModal(ed?`修改项目 · ${esc(ed.code)}`:`加入项目 · ${esc(S.cls)} ${esc(S.subject)}`, body,
+    `<span class="tip" style="margin:0;flex:1">这一格目前有 ${secs.length} 个项目</span>
+     <button class="btn" style="min-height:44px" onclick="closeModal(true)">关闭</button>`, false);
   bpMType();
 }
 function bpMType(){
@@ -1824,28 +1817,35 @@ function bpMType(){
   const e=document.getElementById('mEvenRow');
   if(e) e.style.display=(t==='ESSAY')?'none':'';
 }
-function bpAdd(){
+/* v28：editId 有值 = 储存修改（Owner 2026-09-15：没有学生资料就可以改）。 */
+function bpAdd(editId){
   const g=id=>String(((document.getElementById(id)||{}).value)||'').trim();
   const code=g('mCode'), type=g('mType')||'MCQ', topic=g('mTopic'), fmt=g('mFmt');
   const even=g('mEven');
   const qf=parseInt(g('mQf'),10), qt=parseInt(g('mQt'),10), mx=parseFloat(g('mMax'));
   if(!code){ toast('✕ 项目名称不能空'); return; }
   const arr=S.sections[bpKey()]||(S.sections[bpKey()]=[]);
-  if(arr.some(x=>x.code===code)){ toast('✕ 这个项目已经有了'); return; }
+  const me=editId?arr.find(x=>x.id===editId):null;
+  if(editId && !me){ toast('✕ 找不到这个项目'); return; }
+  if(me && bpLocked()){ bpGuard('修改项目'); return; }   /* 有学生资料 → 只能删，不能改 */
+  if(arr.some(x=>x.code===code && x!==me)){ toast('✕ 这个项目已经有了'); return; }
   if(!(mx>0)){ toast('✕ 请填这个项目共几分'); return; }
   if(type!=='ESSAY'){
     if(!(qf>=1)||!(qt>=qf)){ toast('✕ 题号范围不对（例：1 到 10）'); return; }
-    const clash=arr.filter(x=>QTYPES.indexOf(x.type||'MCQ')>=0&&+x.qf>=1)
+    const clash=arr.filter(x=>x!==me&&QTYPES.indexOf(x.type||'MCQ')>=0&&+x.qf>=1)
                    .find(x=>!(qt<(+x.qf)||qf>(+x.qt)));
     if(clash){ toast(`✕ 题号 ${qf}-${qt} 与「${clash.code}」重叠`); return; }
   }
-  arr.push({id:uid(),client_uid:uid(),ses:SESSION_ID,code,topic,fmt,type,
+  const patch={code,topic,fmt,type,
     qf:type==='ESSAY'?null:qf, qt:type==='ESSAY'?null:qt, max:mx,
     even:(type==='ESSAY'?'':even),   /* 未声明就不算分（fail-closed），与 addSection 同规矩 */
-    sort:arr.length, by:S.me, synced:false, cloud_id:null});
+    by:S.me, synced:false};
+  if(me) Object.assign(me,patch);    /* 修改：client_uid / cloud_id 保留，上传时 upsert 覆盖同一列 */
+  else arr.push(Object.assign({id:uid(),client_uid:uid(),ses:SESSION_ID,
+    sort:arr.length, cloud_id:null}, patch));
   /* 弹窗重画（可以接着加下一个）+ 背后的表格也要同步，
      否则关掉弹窗才看得到刚加的那一列。 */
-  if(saveThen('✓ 已加入')){ bpModal(MODAL_LOCK); renderF1(); autoPush(); }
+  if(saveThen(editId?'✓ 已修改':'✓ 已加入')){ closeModal(true); bpRefresh(); autoPush(); }
 }
 function bpRest(secs){
   let h='';
@@ -2041,7 +2041,7 @@ function setPaperFrom(id){
   const k=parseInt(String(v).trim(),10);
   if(!(k>=1)){ toast('\u2715 要填 1 以上的整数'); return; }
   sec.pf=k; markSecDirty(sec);
-  if(saveThen('\u2713 卷面题号已更新')){ renderF1(); renderF2(); autoPush(); }
+  if(saveThen('\u2713 卷面题号已更新')){ bpRefresh(); autoPush(); }
 }
 function qsubHas(w,x){ return String((w&&w.qsub)||'').split(',').indexOf(x)>=0; }
 function qSub(sid,q,x){
@@ -2070,7 +2070,7 @@ function setSecRange(id){
   if(clash){ toast(`✕ 与「${clash.code}」(${clash.qf}-${clash.qt}) 重叠`); return; }
   sec.qf=f; sec.qt=t; if(!sec.type) sec.type='MCQ';
   markSecDirty(sec);
-  if(saveThen('✓ 已补上题号')){ renderF1(); renderF2(); }
+  if(saveThen('✓ 已补上题号')){ bpRefresh(); }
 }
 function essaySections(){ return sections().filter(x=>x.type==='ESSAY'); }
 
@@ -3464,12 +3464,61 @@ function renderManage(){
       <div>DSKP 学习领域：<strong>${DSKP_DOM.length}</strong> 条（五科 × 六年段）——
         <span style="color:var(--mut)">参考资料，v19.1 起不再接到老师端的「较弱项目」</span></div>
       <div>KSSR 旧字典：<strong>${KSSR.length}</strong> 条（保留，供旧资料解析）</div>
-
+      ${roleNow()==='OWNER'?`
+      <div style="margin-top:14px;border-top:.5px solid var(--bdr);padding-top:10px">
+        <button class="mg-danger" onclick="rebuildFromCloud()">⟳ 以云端为准 · 重建本机资料</button>
+        <div class="tip" style="margin:2px 0 0">
+          清掉这台装置上的填写资料，再从云端重新拉一次。<b>还没上传的会消失。</b>
+          执行前会自动 Export 备份。<br>
+          <span style="color:var(--warn)">⚠ 临时工具（2026-09-15 建立，当晚移除）—— 只有 OWNER 看得到这颗。</span>
+        </div>
+      </div>`:''}
     </div>
   </div>`;
 }
 /* ① 的权限勾叉：唯一来源是 can_access() 回来的 CLOUD.perm，前端不自己推算 */
 function permTick(k){ return !!(CLOUD.perm && CLOUD.perm[k]===true); }
+/* ══ ⚠️ 临时工具 · 2026-09-15 · 预计当晚移除 ══════════════════════════
+   为什么需要它：Owner 删了云端的资料，但那台装置的 localStorage 还留著旧的。
+   画面读的是「本机 + 云端」，所以数字一直在；而 delSection 的验删守卫会比对
+   「本机预期删几笔 vs 云端实际删几笔」，两边不一致就中止 —— 所以删不掉。
+
+   跟被废止的 Reset（Standard v8 §12）的差别，三点：
+     ① 不是清空一切 —— 清完立刻从云端重建，云端有的都会回来
+     ② 强制先 Export，而且**把还没上传的笔数讲出来**再问
+     ③ 只有 OWNER 看得到、按得到
+
+   §12 废止 Reset 的实证理由是「云端快照会落后，挡未同步挡不住以为自己同步了」。
+   这里正面处理那一点：把未同步笔数明讲，要打字确认才继续。
+   ⚠️ 用完请连同 ⑥ 区那颗按钮一起移除，不要留成常设功能。 */
+async function rebuildFromCloud(){
+  if(roleNow()!=='OWNER'){ toast('✕ 这颗只有 OWNER 能按'); return; }
+  if(!_sb || !CLOUD.exam){ alert('还没连上云端 —— 连上再按，否则清完拉不回来。'); return; }
+  const pend=pendingCount();
+  const n1=Object.keys(S.f1).length, n2=Object.keys(S.f2).length,
+        nw=Object.keys(S.wi).length, ns=Object.keys(S.sections).length;
+  if(!confirm('这台装置上现在有：\n'
+    +'  考前观察 '+n1+' 笔 · 考卷分析 '+n2+' 笔 · 逐题 '+nw+' 笔 · 考卷项目 '+ns+' 组\n\n'
+    +'其中 **'+pend+' 笔还没上传云端**。\n\n'
+    +'继续会：先下载一份备份 → 清掉上面这些 → 从云端重新拉一次。\n'
+    +'云端有的都会回来；那 '+pend+' 笔没上传的**会永久消失**。\n\n继续？')) return;
+  try{ exportData(); }
+  catch(e){ alert('备份没有下载成功 —— 为安全起见取消。'); return; }
+  if(pend>0){
+    const t=prompt('备份已开始下载。\n\n有 '+pend+' 笔还没上传，会消失。\n确认请输入 CLEAR');
+    if(t!=='CLEAR'){ toast('✕ 已取消'); return; }
+  }else if(!confirm('备份已开始下载。确认收到备份档再继续。')) { toast('✕ 已取消'); return; }
+  S.f1={}; S.f2={}; S.wi={}; S.es={}; S.sections={};
+  S.papers=[]; S.paperInstance=null; S._papersScope=null;
+  Object.keys(CLOUD.bpEvid).forEach(k=>delete CLOUD.bpEvid[k]);
+  saveData(true);
+  toast('已清空，正在从云端重建…',3000);
+  try{ await cloudPull(true); }
+  catch(e){ alert('清空成功，但从云端拉回时出错：'+(e&&e.message||e)+'\n\n请按 ③ 云端连线的「拉回云端资料」再试一次。'); }
+  refreshAll(); renderManage();
+  toast('✓ 已以云端为准重建本机资料',4000);
+}
+
 /* v28：函式本体保留成一句拒绝，不删。
    旧分页可能还开在某台装置上，若函式直接消失，那颗旧按钮会丢出例外；
    更重要的是：留一句明确的拒绝，比让人以为「功能坏了」好。 */
