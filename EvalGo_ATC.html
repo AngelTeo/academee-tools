@@ -101,6 +101,21 @@ table.data tbody tr:nth-child(even){background:var(--sur2)}
 table.data tbody tr:hover{background:#FFF9E6}
 .tw{overflow-x:auto}
 
+/* ══ v40 · 四方形任课老师 Stamp ══
+   Owner 2026-09-15：「只在左边加入一个四方形的 Stamp，里面是真正负责老师的字母」。
+   灰框 = 这位有学生资料；红框 = 一笔都没有；虚线 = 这一格还没排人。 */
+.tstamp{display:inline-flex;align-items:center;justify-content:center;
+  width:34px;height:34px;border-radius:5px;border:2px solid var(--layer);
+  font-weight:800;color:var(--layer);background:#fff;letter-spacing:.3px;flex-shrink:0}
+.tstamp.s3{font-size:10px} .tstamp.s2{font-size:12px}
+.tstamp.miss{border-color:var(--danger);color:var(--danger);background:#fdf1f1}
+.tstamp.none{border-style:dashed;border-color:#ccc;color:#ccc;font-size:9px;font-weight:700;
+  width:auto;padding:0 7px}
+.stampcol{display:flex;flex-direction:column;gap:3px;align-items:center;flex-shrink:0}
+label.fl{font-size:11px;font-weight:700;letter-spacing:.5px;display:block;margin-bottom:4px}
+.cellrow{display:flex;gap:9px;align-items:center}
+.cellnum{text-align:left;flex:1;min-width:0}
+
 /* ══════ INPUTS ══════ */
 input[type=text],input[type=number],input[type=date],select,textarea{
   border:.5px solid var(--bdr);border-radius:6px;padding:6px 10px;
@@ -414,7 +429,7 @@ button.chip.sel-w{background:var(--warn);color:#fff}
    权限码：RPT-EvalGo-ATC
    ══════════════════════════════════════════════════════════════════ */
 
-const APP_VERSION = 39;
+const APP_VERSION = 40;
 const STORAGE_KEY = 'evalgo_atc_v1';   /* 沿用 v1 key，旧资料不掉 */
 const SYS_CODE    = 'RPT-EvalGo-ATC';
 const SB_URL      = 'https://qnpvqsvvsgsantekgfbz.supabase.co';
@@ -3171,6 +3186,149 @@ function pgWhoChips(map){
     title="${esc(teacherLabel(t))}">${esc(t)}</span>`).join('');
 }
 /* ══════════════════════════════════════════════════════════════════
+   v40 · 任课老师 —— 谁负责哪一班哪一科
+   ------------------------------------------------------------------
+   Owner 2026-09-15：「我要一眼就知道谁还没有填写」。
+   格子底下那排代号是**从证据反推**的 —— 一个完全没动手的老师在系统里等於不存在，
+   所以「谁还没做」这个问题，旧画面根本答不出来。要答，先要知道「谁该做」。
+
+   资料沿用云端既有的 evalgo_teacher_assign（24 笔 / 9 位老师 / 21 格），一笔不删。
+   RLS 本来就对：INSERT 要 can_edit（管理层可代排，老师只能排自己），
+   DELETE 要 can_approve。不必动 RLS，不必跑 DDL。
+   ══════════════════════════════════════════════════════════════════ */
+/* 每位老师在每一格有几笔**学生资料**。
+   ⚠️ 不含考卷项目 —— 只登记了题型、一个学生都没输入，这里就是 0，stamp 会红。
+      （Owner：「老师只写了题型，并没有进行输入学生的状况」）
+   pgWhoAll() 含考卷项目，两支各有用途，不可互相取代。 */
+function pgStuAll(){
+  const ex=EXK(), out={};
+  const feed=store=>{ Object.keys(store||{}).forEach(k=>{ const r=store[k];
+    if(!r||r.exam!==ex||!r.sid||!r.subject||!r.by) return;
+    const st=stuOf(r.sid); if(!st) return;
+    const kk=st.cls+'|'+r.subject, c=out[kk]||(out[kk]={});
+    c[r.by]=(c[r.by]||0)+1; }); };
+  feed(S.f1); feed(S.f2); feed(S.wi); feed(S.es);
+  return out;
+}
+function asgTeachers(cls,subj){
+  const seen={}; asgFor(cls,subj).forEach(a=>{ if(a.teacher_id) seen[a.teacher_id]=1; });
+  return Object.keys(seen).sort();
+}
+function asgStamp(t,has){
+  return `<span class="tstamp ${String(t).length>=3?'s3':'s2'}${has?'':' miss'}"
+    title="${esc(teacherLabel(t))}${has?'':' —— 还没有任何学生资料'}">${esc(t)}</span>`;
+}
+function asgStamps(cls,subj,stu){
+  const who=asgTeachers(cls,subj);
+  if(!who.length) return '<span class="tstamp none">未指派</span>';
+  const m=(stu||pgStuAll())[cls+'|'+subj]||{};
+  return who.map(t=>asgStamp(t,(m[t]||0)>0)).join('');
+}
+/* 页顶两颗警示：几格还没排人、几位排了但没有学生资料 */
+function asgGaps(){
+  const stu=pgStuAll(); let none=0, miss=0;
+  CLASSES.forEach(c=>SUBJECTS.forEach(su=>{
+    const who=asgTeachers(c,su);
+    if(!who.length){ none++; return; }
+    const m=stu[c+'|'+su]||{};
+    who.forEach(t=>{ if(!(m[t]>0)) miss++; });
+  }));
+  return {none,miss};
+}
+/* 可以排的老师名单 —— 云端 teachers（active）。拉不到就退回「已经排过的人」。 */
+/* ══ 指派画面 ══
+   一格一个窗：勾谁负责。管理层可代排任何人，老师只能排自己（这是 RLS 定的，不是画面定的）。
+   ⚠️ 排任课**只在线上改**。理由：移除一位老师要 DELETE，离线排队会跟云端打架，
+      而排班本来就是管理层坐在电脑前做的事。离线就直说，不假装成功。 */
+function asgOpen(cls,subj){
+  const cur=asgTeachers(cls,subj), pool=asgPool();
+  const stu=pgStuAll()[cls+'|'+subj]||{};
+  if(!pool.length){ toast('✕ 读不到老师名单，先连上云端'); return; }
+  const body=`
+    <div class="tip" style="margin-top:0">${esc(cls)} · ${esc(subj)}</div>
+    <div class="secbox" style="padding:10px 12px">
+      <div style="display:flex;flex-wrap:wrap;gap:8px" id="asg-pick">
+        ${pool.map(t=>{
+          const on=cur.indexOf(t)>=0, n=stu[t]||0;
+          return `<button type="button" class="btn asg-t${on?' btn-pri':''}"
+            data-t="${esc(t)}" data-on="${on?1:0}"
+            style="min-height:44px;padding:8px 14px"
+            onclick="asgPick(this)">${esc(t)}${n?` <span style="opacity:.7;font-size:11px">${n} 笔</span>`:''}</button>`;
+        }).join('')}
+      </div>
+    </div>`;
+  openModal(`指派负责老师 · ${esc(cls)} ${esc(subj)}`, body,
+    `<span class="tip" style="margin:0;flex:1"></span>
+     <button class="btn" style="min-height:44px" onclick="closeModal(true)">取消</button>
+     <button class="btn btn-pri" style="min-height:44px"
+       onclick="asgSave('${cls}','${esc(subj)}')">储存</button>`, true);
+}
+function asgPick(b){
+  const on=b.getAttribute('data-on')==='1';
+  b.setAttribute('data-on', on?'0':'1');
+  b.className='btn asg-t'+(on?'':' btn-pri');
+}
+function asgSave(cls,subj){
+  const want=[].slice.call(document.querySelectorAll('#asg-pick .asg-t'))
+    .filter(b=>b.getAttribute('data-on')==='1').map(b=>b.getAttribute('data-t'));
+  asgApply(cls,subj,want);
+}
+async function asgApply(cls,subj,want){
+  if(!_sb||!CLOUD.exam){ toast('✕ 排任课要先连上云端，现在离线'); return; }
+  const cur=asgTeachers(cls,subj);
+  const add=want.filter(t=>cur.indexOf(t)<0);
+  const del=cur.filter(t=>want.indexOf(t)<0);
+  if(!add.length&&!del.length){ closeModal(true); toast('没有改动'); return; }
+  let err='';
+  try{
+    for(const t of del){
+      const r=await _sb.from('evalgo_teacher_assign').delete()
+        .eq('exam_id',CLOUD.exam.id).eq('teacher_id',t)
+        .eq('class_name',cls).eq('subject',subj);
+      if(r.error) throw r.error;
+      delete S.assign[asgKey(t,cls,subj)];
+    }
+    for(const t of add){
+      const cu=uid();
+      const r=await _sb.from('evalgo_teacher_assign')
+        .upsert({exam_id:CLOUD.exam.id,teacher_id:t,class_name:cls,subject:subj,
+                 created_by:S.me||null,client_uid:cu},{onConflict:'client_uid'})
+        .select('id').single();
+      if(r.error) throw r.error;
+      S.assign[asgKey(t,cls,subj)]={client_uid:cu,exam:EXK(),teacher_id:t,
+        teacher_name:teacherLabel(t),cls:cls,subject:subj,
+        savedAt:new Date().toLocaleString('en-GB'),synced:true,cloud_id:r.data.id};
+    }
+  }catch(e){ err=(e&&e.message)?e.message:String(e); }
+  saveData(true); closeModal(true);
+  if(err){ toast('✕ 存不进云端：'+err, 6000); }
+  else toast(`✓ ${cls} · ${subj} 负责老师已更新`);
+  if(S._page==='progress') renderProgress();
+  else if(S._page==='manage') renderManage();
+  else if(S._page==='coverage') renderCoverage();
+}
+/* 管理页那张 6 班 × 5 科的表 —— 一次排完 30 格。
+   跟「进度」页点格子指派是同一份资料、同一支写入路径，不是两套。 */
+function asgTableRows(){
+  const stu=pgStuAll();
+  return CLASSES.map(cls=>{
+    const tds=SUBJECTS.map(su=>`<td style="text-align:center">
+      <div style="display:flex;gap:6px;align-items:center;justify-content:center;flex-wrap:wrap">
+        ${asgStamps(cls,su,stu)}
+        <button class="btn btn-sm" onclick="asgOpen('${cls}','${esc(su)}')"
+          >${asgTeachers(cls,su).length?'改':'＋ 排人'}</button>
+      </div></td>`).join('');
+    return `<tr><td><strong>${esc(cls)}</strong>
+      <div style="font-size:11px;color:var(--mut)">Year ${yearOf(cls)}</div></td>${tds}</tr>`;
+  }).join('');
+}
+function asgPool(){
+  const cl=(CLOUD.teachers||[]).map(t=>t&&t.id).filter(Boolean);
+  if(cl.length) return cl.slice().sort();
+  const seen={}; asgAll().forEach(a=>{ if(a.teacher_id) seen[a.teacher_id]=1; });
+  return Object.keys(seen).sort();
+}
+/* ══════════════════════════════════════════════════════════════════
    v31 · 「看内容」—— 对齐 ObsGo 的班级卡（Owner 2026-09-15，图2/图3）
    老师要看得见自己填了什么；管理层要看得见老师填了什么。
    ⚠️ 这一支是【唯读】的：只印，不改任何资料、不上传、不删。
@@ -3289,6 +3447,7 @@ function renderProgress(){
   const c=document.getElementById('c-progress');
   if(!canSeeReport()){ goPage('home'); return; }
   const who=pgWhoAll();
+  const stu=pgStuAll();            /* v40：只算学生资料，给 stamp 用 */
   let tot={n:0,handled:0,cells:0,cellsDone:0,noSec:[]};
   const rows=CLASSES.map(cls=>{
     const tds=SUBJECTS.map(su=>{
@@ -3301,20 +3460,28 @@ function renderProgress(){
          「项目 N」拿掉（卡片已经拿掉，这里漏改了）；空格子那个「·」也拿掉。
          没有项目的格子不在格子里喊，页顶那条警示已经统计了。 */
       const f2col = st.done===st.n && st.n ? 'var(--ok)' : (st.done ? 'var(--warn)' : 'var(--mut)');
-      const mrow=(lab,v,col)=>`<div style="font-size:11px;color:var(--mut);margin-top:2px">${lab}
+      const mrow=(lab,v,col)=>`<div style="font-size:11px;color:var(--mut);margin-top:2px;white-space:nowrap">${lab}
         <b style="font-size:12px;color:${col}">${v} / ${st.n} 位</b></div>`;
-      return `<td style="text-align:center;padding:6px 4px;cursor:pointer"
+      /* v40 · Owner：只在**左边**加一个四方形 stamp = 负责老师。
+         格子里原有的东西（考前观察 / 考卷分析 / 缺席 / 底下填写者代号）一个字不动。 */
+      return `<td style="padding:6px 5px;cursor:pointer"
         title="点开看细节" onclick="pgOpen('${cls}','${esc(su)}')">
-        ${st.n
-          ? mrow('考前观察', st.obs, st.obs?'var(--txt)':'var(--mut)')
-            + mrow('考卷分析', st.done, f2col)
-            + (st.resolved?`<div style="font-size:10px;color:var(--hint);margin-top:2px">缺席 / 未评 ${st.resolved} 位</div>`:'')
-          : '<span class="chip chip-muted" style="font-size:12px">—</span>'}
-        <div style="margin-top:3px">${pgWhoChips(mp)}</div></td>`;
+        <div class="cellrow">
+          <div class="stampcol">${asgStamps(cls,su,stu)}</div>
+          <div class="cellnum">
+            ${st.n
+              ? mrow('考前观察', st.obs, st.obs?'var(--txt)':'var(--mut)')
+                + mrow('考卷分析', st.done, f2col)
+                + (st.resolved?`<div style="font-size:10px;color:var(--hint);margin-top:2px">缺席 / 未评 ${st.resolved} 位</div>`:'')
+              : '<span class="chip chip-muted" style="font-size:12px">—</span>'}
+            <div style="margin-top:3px">${pgWhoChips(mp)}</div>
+          </div>
+        </div></td>`;
     }).join('');
     return `<tr><td><strong>${esc(cls)}</strong>
       <div style="font-size:11px;color:var(--mut)">Year ${yearOf(cls)}</div></td>${tds}</tr>`;
   }).join('');
+  const gap=asgGaps();
   let h=hero('Progress','进度','')
    +`<div class="card">
       <div class="card-hdr"><span class="card-title">全团队进度 · ${esc(S.examLabel||'本轮')}</span>
@@ -3323,10 +3490,19 @@ function renderProgress(){
         <span class="chip ${tot.cellsDone===tot.cells?'chip-ok':'chip-warn'}">${tot.cellsDone} / ${tot.cells} 格完成</span>
         <span class="chip chip-muted">学生 ${tot.handled} / ${tot.n} 人次已处理</span>
         ${tot.noSec.length?`<span class="chip chip-warn">${tot.noSec.length} 格还没登记考卷项目</span>`:''}
+        ${gap.none?`<span class="chip chip-danger">${gap.none} 格还没有指派老师</span>`:''}
+        ${gap.miss?`<span class="chip chip-danger">${gap.miss} 位负责老师一笔学生资料都没有</span>`:''}
+      </div>
+      <div class="secbox" style="padding:9px 12px;margin-bottom:8px;display:flex;
+        flex-wrap:wrap;gap:16px;align-items:center;font-size:12px;color:var(--mut)">
+        <span style="display:inline-flex;align-items:center;gap:6px">${asgStamp('EX',true)} 负责老师 · 有学生资料</span>
+        <span style="display:inline-flex;align-items:center;gap:6px">${asgStamp('SA',false)} 负责老师 · <b style="color:var(--danger)">一笔都没有</b></span>
+        <span style="display:inline-flex;align-items:center;gap:6px"><span class="tstamp none">未指派</span> 这一格还没排人</span>
+        <span style="display:inline-flex;align-items:center;gap:6px"><span class="chip chip-muted" style="font-size:10px">AT</span> 实际填写者</span>
       </div>
       <div class="tw"><table class="data"><thead><tr>
         <th style="min-width:72px">班级</th>
-        ${SUBJECTS.map(x=>`<th style="min-width:124px;text-align:center">${esc(x)}</th>`).join('')}
+        ${SUBJECTS.map(x=>`<th style="min-width:180px;text-align:center">${esc(x)}</th>`).join('')}
       </tr></thead><tbody>${rows}</tbody></table></div>
     </div>`;
   /* ⚠️ 这里原本把 noSec 全部列出来 —— 30 格里有 27 格没项目时，
@@ -3354,6 +3530,11 @@ function pgOpen(cls,subj){
   const body=`
     <div class="tip" style="margin-top:0">${esc(cls)} · ${esc(subj)} · Year ${yearOf(cls)}</div>
     <div class="secbox" style="padding:4px 12px 12px">
+      ${row('负责老师',
+            `<span style="display:inline-flex;gap:4px;align-items:center">${asgStamps(cls,subj)}</span>`
+            + (canSeeManage()?` <button class="btn btn-sm" style="margin-left:8px"
+                 onclick="asgOpen('${cls}','${esc(subj)}')">指派</button>`:''),
+            '红框 = 排了人，但这一格还没有他的学生资料')}
       ${row('考卷项目', st.secs?st.secs+' 个':'<span style="color:var(--dng,#b91c1c)">还没登记</span>',
             st.secs?'同年级同科共用':'没有项目，逐题记录与报告分数都做不出来')}
       ${row('考前观察', st.obs+' / '+st.n+' 位', '')}
@@ -3588,52 +3769,99 @@ function renderRecords(){
   h+=`</div>`;
   c.innerHTML=h;
 }
+/* ══════════════════════════════════════════════════════════════════
+   v40 · 覆盖追踪 —— Owner 2026-09-15：「我想知道这个覆盖追踪，看的是什么的？」
+   ------------------------------------------------------------------
+   旧版把两件事混在一起、标题一个字没写：
+     · 主数字     = 考前观察（opResolved(sid,'f1')）
+     · chip 数字  = 这位做了几个**考前观察项目**
+     · chip 尾巴 ✓/⚠ = 考卷分析的状态   ← 另一件事，混进来的
+   裁定：**这一页只讲考前观察。** 考卷分析有它自己的地方（进度 / 我的记录）。
+   同时上方加班级 / 科目筛选，两个都可以选「全部」。
+   ══════════════════════════════════════════════════════════════════ */
+const COV={cls:null,subj:null,init:false};
+function covSet(which,v){ COV[which]=v||null; renderCoverage(); }
 function renderCoverage(){
   const c=document.getElementById('c-coverage');
-  /* v28：覆盖追踪要看的是「本科目在各班的轮换」，还是需要先选好班科。
-     但不再塞一份选班科的画面进来 —— 首页就是那个画面，明讲一句再送回去。 */
-  if(!cellReady()){ toast('覆盖追踪要先选班级和科目',2400); goPage('home'); return; }
-  const myCls=myTouchedCells().filter(a=>a.subject===S.subject).map(a=>a.cls);
-  let h=hero('Coverage','覆盖追踪','一直轮换，直到全班每一位都被观察到。')
-    +`<div class="card ro-keep" style="padding:10px 14px;margin-bottom:8px">
-    <div class="toolbar" style="margin:0">
-      <span class="chip chip-layer" style="font-size:13px;font-weight:700">${esc(S.cls)} · ${esc(S.subject)}</span>
-      <span style="flex:1"></span>
-      <button class="btn" style="min-height:44px;padding:9px 16px" onclick="goPage('home')">← 回主页</button>
-    </div></div>`
-    +`<div class="card"><div class="card-hdr"><span class="card-title">轮换覆盖追踪 · ${esc(S.subject)}</span>
-      <span class="tip" style="margin:0">${myCls.length?('我填过的 '+myCls.join('、')):'（这一科你还没填过 — 显示全部）'}</span></div>
-    <div class="alert alert-info">SOP 图6：<b>一直轮换，直到全班都被观察到。</b>这一页只看这台机器上本科目的资料；${
-      isAdmin()?'上传后可在云端看到全部科任的合并结果。':'全部科任的合并结果由管理层那边看。'}<br>
-      <b>缺席 / 本轮未评 = 已处理，不会再催</b> —— 但它们<b>不是</b>观察证据，也不会进报告。</div></div>`;
-  CLASSES.forEach(cl=>{
+  if(!COV.init){ COV.cls=S.cls||null; COV.subj=S.subject||null; COV.init=true; }
+  const cs = COV.cls ? [COV.cls] : CLASSES;
+  const ss = COV.subj? [COV.subj]: SUBJECTS;
+  const stu=pgStuAll();
+
+  let h=hero('Coverage','覆盖追踪 · 考前观察','一直轮换，直到全班每一位都被观察到。')
+   +`<div class="card">
+      <div class="card-hdr"><span class="card-title">看哪里</span>
+        <span class="tip">班级、科目都可以选「全部」</span></div>
+      <div class="toolbar">
+        <div><label class="fl" style="color:#5f8b45">班级</label>
+          <select onchange="covSet('cls',this.value)">
+            <option value=""${COV.cls?'':' selected'}>全部班级</option>
+            ${CLASSES.map(x=>`<option${x===COV.cls?' selected':''}>${esc(x)}</option>`).join('')}
+          </select></div>
+        <div><label class="fl" style="color:#8B6C2A">科目</label>
+          <select onchange="covSet('subj',this.value)">
+            <option value=""${COV.subj?'':' selected'}>全部科目</option>
+            ${SUBJECTS.map(x=>`<option${x===COV.subj?' selected':''}>${esc(x)}</option>`).join('')}
+          </select></div>
+        <div style="flex:1"></div>
+        <button class="btn" style="min-height:44px" onclick="goPage('home')">← 回主页</button>
+      </div>
+    </div>`
+   +`<div class="card" style="background:var(--sur2)">
+      <div class="card-hdr"><span class="card-title">这一页在数什么</span></div>
+      <div style="display:flex;flex-wrap:wrap;gap:18px;align-items:center;font-size:12px;color:var(--mut)">
+        <span><span class="chip chip-ok">陈小明 · 2</span> 已观察，做了 <b>2</b> 个考前观察项目</span>
+        <span><span class="chip chip-muted">陈小明</span> 还没观察</span>
+        <span><span class="chip chip-muted" style="opacity:.6">陈小明 · 缺席</span> 已处理，不再催，<b>但不算证据</b></span>
+      </div>
+      <div style="font-size:12px;color:var(--mut);margin-top:9px;border-top:1px solid var(--bdr);padding-top:9px">
+        分母 = 全班人数。<b>只数考前观察。</b>考卷分析不在这一页 —— 它在「进度」和「我的记录」。</div>
+    </div>`;
+
+  let cards=0;
+  cs.forEach(cl=>{
     const list=inCls(cl); if(!list.length) return;
-    /* 🔴 P0-3：旧版只看 f1Complete，於是工作台说「Jason 缺席·已处理」，
-       这一页却说「Jason 还没观察」。两页说的话不一样 = 老师不信系统。
-       改成消费 opResolved（同一支真相）。 */
-    const none=list.filter(r=>!opResolved(r.sid,'f1'));
-    const res =list.filter(r=>stResolved(r.sid));
-    const pct=Math.round((list.length-none.length)/list.length*100);
-    h+=`<div class="card"><div class="card-hdr">
-        <span class="card-title">${esc(cl)}${cl===S.cls?' · 我的班':''}</span>
-        <span class="tip" style="margin:0">已处理 ${list.length-none.length} / ${list.length}
-          ${none.length?`<span class="badge b-warn">还剩 ${none.length} 位</span>`:`<span class="badge b-active">全班都处理完了</span>`}
-          ${res.length?`<span class="badge b-inactive">其中 ${res.length} 位缺席 / 本轮未评</span>`:''}</span></div>
-      <div class="progress ${pct>=100?'progress-ok':'progress-layer'}"><div class="progress-fill" style="width:${pct}%"></div></div>
-      <div class="chips-row" style="margin-top:10px">`;
-    list.forEach(r=>{
-      const n=f1Complete(r.sid).length;
-      const p=S.f2[f2Key(r.sid)];
-      const st=f2State(p);
-      if(st==='absent'||st==='notassessed'){
-        h+=`<span class="chip chip-muted" style="opacity:.6">${esc(r.en)} · ${
-          st==='absent'?'缺席':'本轮未评'}</span>`; return;
-      }
-      h+=`<span class="chip ${n?'chip-ok':'chip-muted'}">${esc(r.en)}${n?' · '+n:''}${
-        st==='done'?' ✓':(st==='progress'?' ⚠':'')}</span>`;
+    ss.forEach(su=>{
+      cards++;
+      /* 🔴 P0-3：跟「进度」页消费同一份真相，两页不准各说各话。
+         ⚠️ 不可以用 opResolved / stResolved / f2Key —— 那三支吃的是
+            「当下选中的格」(S.subject + piSuffix())。这一页要跨班跨科，
+            所以照 pgStat 的做法走 f2AllOf(sid, subj)，任何一份卷都算。 */
+      const res =list.filter(r=>{
+        const sts=f2AllOf(r.sid,su).map(f2State);
+        return sts.indexOf('absent')>=0||sts.indexOf('notassessed')>=0; });
+      const none=list.filter(r=>{
+        const sts=f2AllOf(r.sid,su).map(f2State);
+        if(sts.indexOf('absent')>=0||sts.indexOf('notassessed')>=0) return false;
+        return f1Complete(r.sid,su).length===0; });
+      const done=list.length-none.length-res.length;
+      const pct=Math.round((list.length-none.length)/list.length*100);
+      h+=`<div class="card"><div class="card-hdr" style="align-items:center;gap:0">
+          <span style="display:inline-flex;gap:7px;align-items:center;flex-shrink:0">
+            ${asgStamps(cl,su,stu)}
+            <span class="chip pick-cls on" style="font-size:12px;font-weight:700;margin:0">${esc(cl)}</span>
+            <span class="chip pick-subj on" style="font-size:12px;font-weight:700;margin:0">${esc(su)}</span>
+          </span>
+          <span class="tip">考前观察 <b>${done} / ${list.length} 位</b>
+            ${none.length?`<span class="badge b-warn">还剩 ${none.length} 位</span>`
+                         :`<span class="badge b-active">全班都观察完了</span>`}
+            ${res.length?`<span class="badge b-inactive">其中 ${res.length} 位缺席 / 本轮未评</span>`:''}</span></div>
+        <div class="progress ${pct>=100?'progress-ok':'progress-layer'}"><div class="progress-fill" style="width:${pct}%"></div></div>
+        <div class="chips-row" style="margin-top:10px">`;
+      list.forEach(r=>{
+        const sts=f2AllOf(r.sid,su).map(f2State);
+        if(sts.indexOf('absent')>=0||sts.indexOf('notassessed')>=0){
+          h+=`<span class="chip chip-muted" style="opacity:.6">${esc(r.en)} · ${
+            sts.indexOf('absent')>=0?'缺席':'本轮未评'}</span>`; return;
+        }
+        /* 数字 = 这位做了几个考前观察项目。v40 起尾巴不再挂考卷分析的 ✓/⚠。 */
+        const n=f1Complete(r.sid,su).length;
+        h+=`<span class="chip ${n?'chip-ok':'chip-muted'}">${esc(r.en)}${n?' · '+n:''}</span>`;
+      });
+      h+=`</div></div>`;
     });
-    h+=`</div></div>`;
   });
+  if(!cards) h+=`<div class="card"><div class="empty" style="padding:24px">这个范围里没有班级。</div></div>`;
   c.innerHTML=h;
 }
 
@@ -4267,6 +4495,17 @@ function renderManage(){
   </div>
 
   <div class="card">
+    <div class="card-hdr"><span class="card-title">④ 主数据维护</span>
+      <span class="tip" style="margin:0">红框 = 排了人，但这一格还没有他的学生资料</span></div>
+    <div class="mg-line" style="margin-bottom:8px"><strong>任课老师</strong>
+      　哪一班、哪一科，是谁负责。</div>
+    <div class="tw"><table class="data"><thead><tr>
+      <th style="min-width:72px">班级</th>
+      ${SUBJECTS.map(x=>`<th style="min-width:150px;text-align:center">${esc(x)}</th>`).join('')}
+    </tr></thead><tbody>${asgTableRows()}</tbody></table></div>
+  </div>
+
+  <div class="card">
     <div class="card-hdr"><span class="card-title">⑤ 资料备份</span>
       <span class="tip" style="margin:0">FORM 01 ${n1} 笔 · FORM 02 ${n2} 笔</span></div>
     ${CLOUD.exam&&CLOUD.session&&pend===0
@@ -4578,7 +4817,17 @@ async function pullAssign(){
     let n=0;
     (r.data||[]).forEach(x=>{
       const k=asgKey(x.teacher_id,x.class_name,x.subject);
-      if(S.assign[k]&&!S.assign[k].synced) return;
+      /* ══ v40 · 治根：本机未同步的那一笔，其实云端早就有同一格了。 ══
+         v32 这里是 `if(未同步) return;` —— 本机那笔带著自己的 client_uid 活下去，
+         upsert(onConflict:'client_uid') 永远对不上，撞唯一索引，
+         顶栏「⚠ 1 笔没送出」就永远清不掉。
+         改成**认领云端身份**：同一格就是同一笔，从此不再重送。 */
+      const cur=S.assign[k];
+      if(cur && !cur.synced){
+        cur.client_uid=x.client_uid||cur.client_uid;
+        cur.cloud_id=x.id; cur.synced=true; n++;
+        console.info('v40：任教登记认领云端身份',k); return;
+      }
       const t=(CLOUD.teachers||[]).find(y=>y.id===x.teacher_id);
       S.assign[k]={client_uid:x.client_uid||uid(),exam:CLOUD.exam.code,teacher_id:x.teacher_id,
         teacher_name:t?t.name:'',cls:x.class_name,subject:x.subject,
@@ -5018,11 +5267,14 @@ async function cloudPush(silent){
      是一座没有入口的死岛）。既然没人用，就不该再送上云端。
      → 本机这些纪录一律标成已同步，不再进 jobs、不再计入「没送出」。
      ⚠️ 云端既有的 evalgo_teacher_assign 资料一笔不动（要删得另外一个 GO）。 */
-  let taFixed=0;
-  Object.keys(S.assign||{}).forEach(k=>{ const a=S.assign[k];
-    if(a && a.savedAt && !a.synced){ a.synced=true; taFixed++; } });
-  if(taFixed){ saveData(true);
-    console.info('v32：任教登记已废止，'+taFixed+' 笔不再尝试上传（云端资料不动）'); }
+  /* ══ v40 · 任教登记回来了，但换了身分 ══
+     v28 废止的是「拿登记当闸门挡老师做事」，那件事不会回来。
+     v40 的登记是**管理层排班**：谁负责哪一班哪一科，只为了答「谁还没填」。
+     写入走 asgApply()（线上直接 upsert / delete），不进这个 jobs 队列；
+     这里只处理离线期间残留的旧纪录 —— 云端已有的那些在 pullAssign 已经认领过了。 */
+  if(CLOUD.hasTA)
+    Object.entries(S.assign||{}).filter(([k,a])=>a&&a.savedAt&&!a.synced)
+      .forEach(([k,a])=>jobs.push({t:'evalgo_teacher_assign',k,r:a,p:()=>asgPayload(a)}));
   const esJobs=Object.entries(S.es).filter(([k,e])=>e.savedAt&&!e.synced);
   if(CLOUD.hasES) esJobs.forEach(([k,e])=>jobs.push({t:'evalgo_essay_result',k,r:e,p:()=>esPayload(e)}));
   else if(esJobs.length) held.push(`写作结果 ${esJobs.length} 笔 —— 资料库还没有 evalgo_essay_result（delta v5 未跑）。`);
