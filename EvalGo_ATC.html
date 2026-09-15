@@ -271,6 +271,13 @@ button.chip.sel-w{background:var(--warn);color:#fff}
 .qbtn-sub{border-style:dashed}
 .qbtn-sub .qn{letter-spacing:.5px}
 
+.paper-card{display:flex;gap:14px;align-items:center;flex-wrap:wrap;
+  border:1.5px solid var(--bdr);border-radius:12px;padding:14px 16px;margin-bottom:10px;background:var(--sur)}
+.paper-card.mine{border-color:var(--d-atc);box-shadow:0 2px 10px rgba(122,176,90,.15)}
+.chip-me{background:var(--d-atc);color:#fff}
+.newpaper{width:100%;min-height:52px;border:2px dashed var(--bdr);border-radius:12px;
+  background:var(--sur);font-size:15px;font-weight:700;color:var(--layer);justify-content:center}
+
 /* ══════ TOPBAR 契约 · Academee_Topbar_Contract_v1 ══════ */
 .nav{min-height:56px}
 .ntab{min-height:44px;display:inline-flex;align-items:center}
@@ -365,6 +372,7 @@ button.chip.sel-w{background:var(--warn);color:#fff}
 <div class="page" id="page-bp"><div id="c-bp"></div></div>
 <div class="page" id="page-f1"><div id="c-f1"></div></div>
 <div class="page" id="page-f2"><div id="c-f2"></div></div>
+<div class="page" id="page-papers"><div id="c-papers"></div></div>
 <div class="page" id="page-records"><div id="c-records"></div></div>
 <div class="page" id="page-progress"><div id="c-progress"></div></div>
 <div class="page" id="page-coverage"><div id="c-coverage"></div></div>
@@ -406,7 +414,7 @@ button.chip.sel-w{background:var(--warn);color:#fff}
    权限码：RPT-EvalGo-ATC
    ══════════════════════════════════════════════════════════════════ */
 
-const APP_VERSION = 36;
+const APP_VERSION = 37;
 const STORAGE_KEY = 'evalgo_atc_v1';   /* 沿用 v1 key，旧资料不掉 */
 const SYS_CODE    = 'RPT-EvalGo-ATC';
 const SB_URL      = 'https://qnpvqsvvsgsantekgfbz.supabase.co';
@@ -858,17 +866,25 @@ document.addEventListener('keydown',e=>{
 });
 
 /* ══ 導覽 ══ */
-const PAGES=['home','bp','f1','f2','records','coverage','progress','report','manage'];
+const PAGES=['home','papers','bp','f1','f2','records','coverage','progress','report','manage'];
 /* v28：必须先选好「一格」（班级＋科目＋卷）才进得去的页。 */
 const CELL_PAGES=['bp','f1','f2'];
 /* 顶栏该亮哪一颗 —— 格子里的三个分页都算在「填写」底下（对齐 ObsGo：巡班进行中仍亮「巡班」）。 */
-function navOf(p){ return CELL_PAGES.indexOf(p)>=0 ? 'home' : p; }
+function navOf(p){ return (p==='papers'||CELL_PAGES.indexOf(p)>=0) ? 'home' : p; }
 function goPage(p){
   if(p==='manage' && !canSeeManage()) p='home';
   if(p==='report' && !canSeeReport()) p='home';
   /* v30：进度页跟报告同一层（OWNER / TOP_MGMT / ADMIN / MGMT）。
      「我的记录」谁都进得去 —— 它只看得到自己填的。 */
   if(p==='progress' && !canSeeReport()) p='home';
+  /* 「这一格有哪些考卷」—— 只要选好班级和科目就进得去（卷就是在这一页选的）。
+     卷清单还没取过就先去取，取完再回到这一页。 */
+  if(p==='papers'){
+    if(!(S.cls && S.subject)){ toast('请先选班级和科目',2200); p='home'; }
+    else if(CLOUD.hasPI && S._papersScope!==paperScopeKey()){
+      S._enterPage='papers'; toast('载入考卷中…',1200); loadPapers(); return;
+    }
+  }
   /* ══ v28 闸门重写 ══
      v26 这里是一句 `if(gateOpen() && p!=='manage' && p!=='home') p='home';`
      —— 没选好班科就**默默**把人送回首页，没有讯息、没有画面。
@@ -895,7 +911,7 @@ function goPage(p){
   render(p); window.scrollTo(0,0);
 }
 function render(p){
-  ({home:renderHome,bp:renderBP,f1:renderF1,f2:renderF2,records:renderRecords,
+  ({home:renderHome,papers:renderPapers,bp:renderBP,f1:renderF1,f2:renderF2,records:renderRecords,
     coverage:renderCoverage,progress:renderProgress,
     report:renderReport,manage:renderManage}[p]||function(){})();
   if(p==='home'){ asgGate(); return; }
@@ -950,7 +966,7 @@ async function loadPapers(){
     const cid=await classIdOf(S.cls);
     if(cid){
       const r=await _sb.from('evalgo_paper_scope')
-        .select('evalgo_paper_instance!inner(id,label,display_no,sort_order,status,exam_id,subject)')
+        .select('evalgo_paper_instance!inner(id,label,display_no,sort_order,status,exam_id,subject,created_by,created_at)')
         .eq('class_id',cid)
         .eq('evalgo_paper_instance.exam_id',CLOUD.exam.id)
         .eq('evalgo_paper_instance.subject',S.subject)
@@ -975,7 +991,17 @@ async function loadPapers(){
         const own=papers.filter(p=>mine.has(p.id));
         if(own.length) papers=own;                    /* 有分配 → 用自己的；没有 → 保留全部 */
       }
-      S.papers=papers.sort((a,b)=>(a.sort_order||0)-(b.sort_order||0));
+      S.papers=papers.sort((a,b)=>(a.sort_order||0)-(b.sort_order||0)
+                                 ||String(a.created_at||'').localeCompare(String(b.created_at||'')));
+      /* 卡片上要盖老师代号。新卷看 created_by；旧卷（LEGACY_SEED）没有建立者，
+         就盖 evalgo_paper_teacher 里负责这一班这一卷的老师。 */
+      try{
+        const tr2=await _sb.from('evalgo_paper_teacher')
+          .select('paper_instance_id,teacher_id').eq('class_id',cid);
+        if(!tr2.error){ const m={};
+          (tr2.data||[]).forEach(x=>{ (m[x.paper_instance_id]=m[x.paper_instance_id]||[]).push(x.teacher_id); });
+          CLOUD.paperTeachers=m; }
+      }catch(e){ /* 盖章拿不到不影响填写 */ }
       ok=true;
     }
   }catch(e){ ok=false; }
@@ -991,12 +1017,13 @@ async function loadPapers(){
   /* v28：只有带著目的地来的（按「继续」／「开始」／goPage 转介）才跳页；
      单纯在首页换班换科 → 留在首页重画。 */
   const dest=S._enterPage; S._enterPage=null;
-  if(dest && cellReady()) goPage(dest); else renderHome();
+  if(dest==='papers') goPage('papers');
+  else if(dest && cellReady()) goPage(dest); else renderHome();
 }
 function pickPaper(id){
   if(!(S.papers||[]).some(p=>p.id===id)){ toast('✕ 这份卷不在当前班级/科目'); return; }
   S.paperInstance=id; saveData(true);
-  if(cellReady()) startCell(); else renderHome();   /* v28：跟「开始 →」同一条落点规则 */
+  goPage('bp');
 }
 function paperLabelOf(p){ return (p.display_no?('卷'+p.display_no+' · '):'')+(p.label||'（未命名）'); }
 function paperSelectorHTML(){
@@ -1078,7 +1105,7 @@ function addSection(){
 /* 声明「每题同分」—— 不锁：改这个不会让旧证据漂移，
    它只影响分数怎么算，不影响任何一题挂在哪个项目。 */
 function setEven(id,v){
-  if(!bpCanEdit()){ toast('✕ 这一格不是你教的'); return; }
+  if(!bpCanEditPaper()){ toast('✕ 这份考卷不是你开的 —— 只能填学生资料，不能改它的考卷项目',3200); return; }
   const arr=S.sections[bpKey()]||[]; const sec=arr.find(x=>x.id===id); if(!sec) return;
   sec.even = (sec.even===v) ? '' : v;      /* 再点一次 = 取消声明 */
   markSecDirty(sec);
@@ -1303,7 +1330,7 @@ async function delSection(id){
   /* v28 · Owner 2026-09-15 裁定：**没有学生资料就可以改可以删；有学生资料只能删，不能改。**
      所以删除不再走 bpGuard（那支是挡「改」的）。把关交给下面本来就有的两段流程：
      无证据 → 确认一次即删；有证据 → 管理层权限 + 列出影响 + 强制备份 + 二次确认。 */
-  if(!bpCanEdit()){ toast('✕ 这个帐号没有填写权限，不能改考卷项目'); return; }
+  if(!bpCanEditPaper()){ toast('✕ 这份考卷不是你开的 —— 只能填学生资料，不能改它的考卷项目',3200); return; }
   const arr=S.sections[bpKey()]||[];
   const s=arr.find(x=>x.id===id); if(!s) return;
   const imp=secImpact(s);
@@ -1377,7 +1404,9 @@ function startCell(){
   if(!S.cls){ toast('请先选班级',2000); return; }
   if(!S.subject){ toast('请先选科目',2000); return; }
   saveData(true);
-  goPage('bp');   /* v28 · Owner 2026-09-15：从首页进来，永远先到「考卷项目」 */
+  /* v37 · Owner 2026-09-15：同班同科可以有多份考卷，所以进来先选卷。
+     卷选好了才进「考卷项目」。 */
+  goPage('papers');
 }
 function pickClass(v){ S.cls=v; onScopeChange(); }
 function pickSubject(v){ S.subject=v; onScopeChange(); }
@@ -1700,7 +1729,7 @@ function enterCell(cls,subj,page){
   S.cls=cls; S.subject=subj;
   /* v28 · Owner 2026-09-15：从首页进来永远先到「考卷项目」。
      page 有明确指定时才听它的（目前没有呼叫点会指定，保留给日後用）。 */
-  S._enterPage = page || 'bp';
+  S._enterPage = page || 'papers';
   saveData(true);
   /* v27：这一格的卷清单还没在这次开页取过 → 先去云端取，取完由 loadPapers 决定进哪一页。
      v26 在这里直接 goPage()，而 goPage 一发现「没有卷」就把人**默默踢回工作台** ——
@@ -1736,7 +1765,7 @@ function renderBP(){
      同一个人电脑看得到、手机看不到，更难解释。 */
   let h=cellChrome('bp');
   if(bpCanEdit() && CLOUD.bpEvid[bpKey()]===undefined){ CLOUD.bpEvid[bpKey()]=-1; bpProbe(); }
-  if(!bpCanEdit()){                       /* 老师端：一行状态，没有编辑入口 */
+  if(!bpCanEditPaper()){                  /* 别人开的卷 / 没权限：只看，没有编辑入口 */
     h+=bpStatusLine();
     c.innerHTML=h;
     return;
@@ -1850,6 +1879,10 @@ function bpToggle(){ bpRefresh(); }
    若还用它当条件，**所有老师都改不了考卷项目**，那 5 格永远填不起来。
    改成只看填写权限：能填资料的人就能登记这份卷的项目。 */
 function bpCanEdit(){ return isAdmin() || !!(CLOUD.perm && CLOUD.perm.can_edit); }
+/* 考卷项目能不能动 —— 卷是谁开的谁说了算。
+   别人开的卷，你可以填学生资料，但不能动她的考卷项目。
+   旧卷没有建立者 → 维持旧行为，谁都能动。 */
+function bpCanEditPaper(){ return bpCanEdit() && paperMine(paperCur()); }
 
 /* ══ Blueprint Freeze ══ Owner Work Order P0-5
    一旦这个 exam + subject + year 的考卷结构底下已经长出证据
@@ -1904,7 +1937,7 @@ function bpUnlock(){
 }
 /* v28：这支只管「改」。删除不走这里 —— Owner 裁定有学生资料时仍可删。 */
 function bpGuard(what){
-  if(!bpCanEdit()){ toast('✕ 这个帐号没有填写权限，不能改考卷项目'); return false; }
+  if(!bpCanEditPaper()){ toast('✕ 这份考卷不是你开的 —— 只能填学生资料，不能改它的考卷项目',3200); return false; }
   if(bpLocked()){
     alert('这个项目底下已经有 '+bpEvidCount()+' 笔学生资料，不能再'+what+'了。\n\n'
       +'改了会让旧资料对应到错的项目 —— 画面看起来正常，数字却全错。\n\n'
@@ -2264,7 +2297,7 @@ function rangeCell(s){
 /* 改「卷面起始号」**不锁**：它不动 q，没有任何一笔证据会挂到别题去。
    （对照 setSecRange 改 qf/qt \u2014 那个会漂移，所以要 bpGuard。） */
 function setPaperFrom(id){
-  if(!bpCanEdit()){ toast('\u2715 这一格不是你教的'); return; }
+  if(!bpCanEditPaper()){ toast('✕ 这份考卷不是你开的 —— 只能填学生资料，不能改它的考卷项目',3200); return; }
   const arr=S.sections[bpKey()]||[], sec=arr.find(x=>x.id===id); if(!sec) return;
   const v=prompt('考卷上，「'+sec.code+'」的第一题印的是第几题？\n\n'
     +'\u2022 每个部分从 1 重新编号的卷（大部分马来西亚卷）\u2192 填 1\n'
@@ -3339,6 +3372,115 @@ function myDone(cls,subj){
   feed(S.f1,r=>!!r.savedAt); feed(S.f2,r=>f2Started(r)||f2State(r)!=='none');
   feed(S.wi,null); feed(S.es,null);
   return Object.keys(set).length;
+}
+/* ══════════════════════════════════════════════════════════════════
+   v37 · 「这一格有哪些考卷」
+   Owner 2026-09-15：同班同科可以有多份考卷，不管是不是同一个老师。
+   老师进来先选一份卷；卷是谁开的，那份卷的考卷项目就谁说了算。
+   ══════════════════════════════════════════════════════════════════ */
+
+/* 卷的建立者。旧卷（LEGACY_SEED）没有建立者 → 回空字串。 */
+function paperOwner(p){ return (p && p.created_by) || ''; }
+/* 这份卷的考卷项目我能不能动。
+   旧卷没有建立者 → 维持旧行为（谁都能动），不动现有资料。 */
+function paperMine(p){ const o=paperOwner(p); return !o || o===S.me; }
+function paperCur(){ return (S.papers||[]).find(p=>p.id===S.paperInstance)||null; }
+/* 盖在卡片上的老师代号 */
+function paperStamps(p){
+  const o=paperOwner(p);
+  if(o) return [o];
+  const m=(CLOUD.paperTeachers||{})[p.id]||[];
+  return m.slice().sort();
+}
+/* 这份卷底下有几个考卷项目 */
+function paperSecCount(p){
+  return ((S.sections||{})[EXK()+'|'+S.subject+'|'+yearOf(S.cls)+piSuf(p.id)]||[]).length;
+}
+/* 我在这份卷里填过几位学生 */
+function paperMyDone(p){
+  const ex=EXK(), me=S.me, suf='|'+p.id, set={};
+  if(!me) return 0;
+  const feed=(store,ok)=>{ Object.keys(store||{}).forEach(k=>{
+    if(k.slice(-suf.length)!==suf) return;
+    const r=store[k];
+    if(!r||r.exam!==ex||r.by!==me||!r.sid||r.subject!==S.subject) return;
+    if(ok&&!ok(r)) return;
+    set[r.sid]=1; }); };
+  feed(S.f1,r=>!!r.savedAt); feed(S.f2,r=>f2Started(r)||f2State(r)!=='none');
+  feed(S.wi,null); feed(S.es,null);
+  return Object.keys(set).length;
+}
+function renderPapers(){
+  const c=document.getElementById('c-papers');
+  const ps=(S.papers||[]).slice();
+  let h=hero(esc(S.cls)+' · '+esc(S.subject),'这一格有哪些考卷',
+    'Year '+yearOf(S.cls)+' · '+inCls(S.cls).length+' 人');
+  h+=`<div class="card">
+    <div class="card-hdr"><span class="card-title">考卷</span>
+      <span class="tip" style="margin:0">${ps.length} 份</span></div>`;
+  if(!ps.length){
+    h+=`<div class="empty" style="padding:20px">还没有考卷</div>`;
+  }else{
+    ps.forEach((p,i)=>{
+      const mine=paperMine(p)&&!!paperOwner(p);
+      const nSec=paperSecCount(p), nMe=paperMyDone(p);
+      const d=p.created_at?new Date(p.created_at):null;
+      const dl=d?((d.getMonth()+1)+'月'+d.getDate()+'日'):'';
+      h+=`<div class="paper-card${mine?' mine':''}">
+        <div style="flex:1;min-width:190px">
+          <div style="font-size:17px;font-weight:700">考卷 ${i+1}</div>
+          <div style="margin-top:4px;display:flex;gap:4px;flex-wrap:wrap">
+            ${paperStamps(p).map(t=>`<span class="chip ${t===S.me?'chip-me':'chip-muted'}"
+               title="${esc(teacherLabel(t))}">${esc(t)}</span>`).join('')}
+            ${dl?`<span class="chip chip-muted">${dl}</span>`:''}
+          </div>
+          <div style="display:flex;gap:18px;flex-wrap:wrap;margin-top:8px">
+            <div><b style="font-size:15px">${nSec||'—'}</b>
+              <span style="display:block;font-size:11px;color:var(--hint)">考卷项目</span></div>
+            <div><b style="font-size:15px">${nMe||'—'}</b>
+              <span style="display:block;font-size:11px;color:var(--hint)">我填了几位</span></div>
+          </div>
+        </div>
+        <button class="btn ${nMe?'btn-pri':''}" style="min-height:44px;padding:0 18px;
+          font-weight:700;white-space:nowrap"
+          onclick="pickPaper('${p.id}')">${nMe?'继续填':'填写'} →</button>
+      </div>`;
+    });
+  }
+  h+=`<button class="btn newpaper" onclick="newPaper()">＋ 建立新考卷</button></div>`;
+  c.innerHTML=h;
+}
+/* 建立新考卷 —— 写三张表：卷本身、适用班级、负责老师。没有改结构。 */
+async function newPaper(){
+  if(!bpCanEdit()){ toast('✕ 这个帐号没有填写权限'); return; }
+  if(!_sb||!CLOUD.exam||!CLOUD.session){ toast('✕ 要连上系统才能建立考卷',2600); return; }
+  if(!(S.cls&&S.subject)){ toast('✕ 先选班级和科目'); return; }
+  const n=(S.papers||[]).length+1;
+  if(!confirm(`要在 ${S.cls} · ${S.subject} 建立「考卷 ${n}」吗？\n\n建立後你可以自己登记这份卷的考卷项目。`)) return;
+  try{
+    const cid=await classIdOf(S.cls);
+    if(!cid){ toast('✕ 找不到这个班级'); return; }
+    const cu=uid();
+    const ins=await _sb.from('evalgo_paper_instance').insert({
+      exam_id:CLOUD.exam.id, subject:S.subject, year_level:yearOf(S.cls),
+      label:'考卷 '+n, display_no:n, sort_order:n, status:'active',
+      created_by:S.me||null, client_uid:cu }).select('id').single();
+    if(ins.error) throw ins.error;
+    const pid=ins.data.id;
+    const sc=await _sb.from('evalgo_paper_scope').insert({paper_instance_id:pid, class_id:cid});
+    if(sc.error) throw sc.error;
+    const pt=await _sb.from('evalgo_paper_teacher').insert({
+      paper_instance_id:pid, class_id:cid, teacher_id:S.me,
+      role:'main', assignment_source:'EXPLICIT', created_by:S.me||null});
+    if(pt.error) throw pt.error;
+    toast('✓ 已建立考卷 '+n, 2200);
+    S._papersScope=null; S.paperInstance=pid; S._enterPage='bp';
+    await loadPapers();
+  }catch(e){
+    const m=(e&&e.message)?e.message:String(e);
+    console.warn('newPaper',m);
+    alert('建立不成功。\n\n'+m);
+  }
 }
 function renderRecords(){
   const c=document.getElementById('c-records');
