@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>EvalGo_ATC · Multi-Paper v27</title>
+<title>EvalGo_ATC · Multi-Paper v28</title>
 <style>
 :root{
   /* ══ LAYER ══ RPT = 文档灰 */
@@ -53,6 +53,11 @@ body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang 
   transition:all .15s;white-space:nowrap;flex-shrink:0;font-family:inherit}
 .sub-ntab:hover{color:var(--txt)}
 .sub-ntab.on{color:var(--layer);border-bottom-color:var(--layer);font-weight:600}
+/* v28 唯读遮罩：不是自己登记的格子 → 卡片不可点。情境列与分页列（.ro-keep / .sub-nav）留著，
+   否则老师连「我也要填这一格」和换分页都按不到。画面层保护，不是资料库层。 */
+.page.ro .card{pointer-events:none;opacity:.62}
+.page.ro .card.ro-keep{pointer-events:auto;opacity:1}
+.page.ro .sub-nav{pointer-events:auto;opacity:1}
 
 /* ══════ PAGES ══════ */
 .page{display:none;padding:16px;max-width:1200px;margin:0 auto}
@@ -311,13 +316,14 @@ button.chip.sel-w{background:var(--warn);color:#fff}
 <!-- ══════ NAV ══════ -->
 <div class="nav">
   <button class="nav-home" onclick="goPlatform()" title="回平台首页">←</button>
-  <div class="nav-logo">📊 EvalGo_ATC <span class="ver">v26</span></div>
-  <button class="ntab on" onclick="goPage('home')">工作台</button>
-  <button class="ntab" onclick="goPage('f1')">考前观察</button>
-  <button class="ntab" onclick="goPage('f2')">考卷分析</button>
-  <button class="ntab" onclick="goPage('coverage')">覆盖追踪</button>
-  <button class="ntab" id="ntab-report" hidden style="display:none" onclick="goPage('report')">考前报告</button>
-  <button class="ntab" id="ntab-manage" hidden style="display:none" onclick="goPage('manage')">设定</button>
+  <div class="nav-logo">📊 EvalGo_ATC <span class="ver" id="ver-badge">v28</span></div>
+  <!-- v28：顶栏只放「页」，不放「格子里的分页」。
+       考前观察 / 考卷分析 从这里移走，改成进入一格之后的 sub-nav（对齐 ObsGo 巡班）。
+       highlight 改用 data-pg 比对，不再用 PAGES 的索引 —— 索引法在页数与分页数不一致时会点错颗。 -->
+  <button class="ntab on" data-pg="home" onclick="goPage('home')">填写</button>
+  <button class="ntab" data-pg="coverage" onclick="goPage('coverage')">覆盖追踪</button>
+  <button class="ntab" id="ntab-report" data-pg="report" hidden style="display:none" onclick="goPage('report')">考前报告</button>
+  <button class="ntab" id="ntab-manage" data-pg="manage" hidden style="display:none" onclick="goPage('manage')">管理</button>
   <div class="nav-r">
     <span class="saved" id="last-saved"></span>
     <button class="readwarn" id="read-warn" hidden style="display:none"
@@ -328,11 +334,14 @@ button.chip.sel-w{background:var(--warn);color:#fff}
     <button class="btn-nav" onclick="exportData()">↓ Export</button>
     <label class="btn-nav" id="nav-import" style="cursor:pointer">↑ Import<input
       type="file" accept=".json" onchange="importData(event)" style="display:none"></label>
-    <button class="nav-out" onclick="cloudLogout()">登出</button>
+    <!-- v28 · Standard v8 §4-26：顶栏不得自备离开平台的入口，全平台唯一出口在平台首页右上角。
+         这里原本有一颗，已移除。能力本身保留（cloudLogout 仍在），只是不给这个入口。
+         注解刻意不写出那两个字 —— 否则日後稽核 grep 会扫到注解，误判本档没清乾净。 -->
   </div>
 </div>
 
 <div class="page on" id="page-home"><div id="c-home"></div></div>
+<div class="page" id="page-bp"><div id="c-bp"></div></div>
 <div class="page" id="page-f1"><div id="c-f1"></div></div>
 <div class="page" id="page-f2"><div id="c-f2"></div></div>
 <div class="page" id="page-coverage"><div id="c-coverage"></div></div>
@@ -374,12 +383,37 @@ button.chip.sel-w{background:var(--warn);color:#fff}
    权限码：RPT-EvalGo-ATC
    ══════════════════════════════════════════════════════════════════ */
 
-const APP_VERSION = 27;
+const APP_VERSION = 28;
 const STORAGE_KEY = 'evalgo_atc_v1';   /* 沿用 v1 key，旧资料不掉 */
 const SYS_CODE    = 'RPT-EvalGo-ATC';
 const SB_URL      = 'https://qnpvqsvvsgsantekgfbz.supabase.co';
 const SB_KEY      = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFucHZxc3Z2c2dzYW50ZWtnZmJ6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYxNzg4MzIsImV4cCI6MjA5MTc1NDgzMn0.8rfv0BQpWNNSD8yrhHNwCOkcG9q5_uMD7B7z_Y324a0';
 const PLATFORM    = 'https://angelteo.github.io/';
+/* v28：对齐平台既有做法。ObsGo（硬闸 R1）与 MiscGo 都是同一套函式名与流程 ——
+   没有登入状态就**直接跳去平台登入**，不停在自己的画面上要人再按一次。
+   EvalGo 到 v27 为止是唯一会停下来的系统，Owner 2026-09-15 指出这个不一致。 */
+const ALLOWED_ORIGIN = 'https://angelteo.github.io';
+function safeReturnUrl(raw){
+  try{ const u=new URL(raw, ALLOWED_ORIGIN); return u.origin===ALLOWED_ORIGIN ? u.href : null; }
+  catch(e){ return null; }
+}
+function redirectToPlatformLogin(){
+  const url=new URL(PLATFORM);
+  const back=safeReturnUrl(window.location.href);
+  if(back) url.searchParams.set('returnTo', back);
+  window.location.replace(url.toString());   /* replace：不把这一页留在上一页，Back 不会弹回死画面 */
+}
+/* 三个不自动跳的例外。都不是「去登入就好」的情况，硬跳只会把人锁在外面。
+   ObsGo / MiscGo 目前没有这三条 —— 我认为它们也该有，已列进交件报告的建议。 */
+function shouldAutoLogin(){
+  if(location.protocol==='file:') return false;        /* ① 本机开档：跳过去也拿不到状态，而且没办法本机验版 */
+  if(navigator.onLine===false)   return false;         /* ② 离线：平台一样载不出来，而本机可能还有没送出的草稿 */
+  try{                                                  /* ③ 防回圈：跳过一次还是没有状态 → 停下来给按钮 */
+    if(sessionStorage.getItem('evalgo_login_bounce')==='1') return false;
+    sessionStorage.setItem('evalgo_login_bounce','1');
+  }catch(e){}
+  return true;
+}
 
 const SUBJECTS = ['数学','华文','英文','马来文','科学'];
 const CLASSES  = ['ATC1','ATC2','ATC3','ATC4','ATC5','ATC6'];
@@ -621,14 +655,29 @@ let _sb=null;
 /* ══ 基礎 ══ */
 /* 管理页只给管理层。老师不需要知道 Storage Key / 同步 / 备份 这些内部设定，
    更不该让她去改。role 来自 internal.users_meta，前端只读。 */
-const ADMIN_ROLES=['OWNER','TOP_MGMT','MGMT','ADMIN'];
-function isAdmin(){ return ADMIN_ROLES.indexOf(String(CLOUD.role||'').toUpperCase())>=0; }
+/* v28 · Standard v8 §4-24：**系统页与业务页分开授权**，不可以共用同一份名单。
+   管理（Reset / 云端 / 备份 / 权限码 / storage key）= 系统 → MGMT 不给。
+   考前报告 = 业务 → MGMT 要看得到。ObsGo 的进度页是同一个道理。
+   ⚠️ v26 两者共用 ADMIN_ROLES。若只是把 MGMT 从那一份名单拿掉，
+      **会连考前报告一起关掉** —— 而报告是 9/15 的交付物。所以必须拆成两份。
+   护栏：MGMT 管业务，不管系统。 */
+const MANAGE_ROLES   = ['OWNER','TOP_MGMT','ADMIN'];            /* 系统页：管理 */
+const BUSINESS_ROLES = ['OWNER','TOP_MGMT','ADMIN','MGMT'];     /* 业务页：报告（v29 起还有进度） */
+function roleNow(){ return String(CLOUD.role||'').toUpperCase(); }
+function canSeeManage(){ return MANAGE_ROLES.indexOf(roleNow())>=0; }
+function canSeeReport(){ return BUSINESS_ROLES.indexOf(roleNow())>=0; }
+/* isAdmin 保留原语意「业务层管理者」（选卷不受 paper_teacher 限制、看得到别班…），
+   全档 60+ 处在用。拆开後它等於 BUSINESS_ROLES —— 与 v26 行为逐字相同，不制造回归。
+   要收紧的只有管理页，走 canSeeManage()。 */
+function isAdmin(){ return BUSINESS_ROLES.indexOf(roleNow())>=0; }
 function paintNav(){
-  const on=isAdmin();
-  ['ntab-manage','ntab-report'].forEach(id=>{
+  const mg=canSeeManage(), rp=canSeeReport();
+  [['ntab-manage',mg],['ntab-report',rp]].forEach(([id,on])=>{
     const t=document.getElementById(id); if(!t) return;
     t.hidden=!on; t.style.display=on?'':'none';
   });
+  const vb=document.getElementById('ver-badge');
+  if(vb) vb.textContent='v'+APP_VERSION;   /* v28：版本徽章不再手写，杜绝坑 3 */
   /* Import 只给有填写权限的帐号；还没连线时保留（老师要能救回本机备份） */
   const im=document.getElementById('nav-import');
   if(im){ const off = !!(CLOUD.session && CLOUD.perm && CLOUD.perm.can_edit!==true);
@@ -651,9 +700,9 @@ function readWarnTap(){
    +'如果重新整理后还是这样 —— 请截图找管理层。\n'
    +'⛔ 不要重新填一次，会卡住送不出去。');
 }
-/* 顶栏徽章：管理层点进设定页；老师点了要看得懂发生什么事 */
+/* 顶栏徽章：管理层点进管理页；老师点了要看得懂发生什么事 */
 function syncTap(){
-  if(isAdmin()){ goPage('manage'); return; }
+  if(canSeeManage()){ goPage('manage'); return; }   /* v28：系统页走 canSeeManage，MGMT 不进 */
   const p=pendingCount();
   if(p>0||CLOUD.pushErr){
     alert('还有 '+p+' 笔还没送到云端。\n\n资料还在这台电脑，没有掉。\n请截图这个讯息，找管理层处理。');
@@ -783,27 +832,74 @@ document.addEventListener('keydown',e=>{
 });
 
 /* ══ 導覽 ══ */
-const PAGES=['home','f1','f2','coverage','report','manage'];
+const PAGES=['home','bp','f1','f2','coverage','report','manage'];
+/* v28：必须先选好「一格」（班级＋科目＋卷）才进得去的页。 */
+const CELL_PAGES=['bp','f1','f2'];
+/* 顶栏该亮哪一颗 —— 格子里的三个分页都算在「填写」底下（对齐 ObsGo：巡班进行中仍亮「巡班」）。 */
+function navOf(p){ return CELL_PAGES.indexOf(p)>=0 ? 'home' : p; }
 function goPage(p){
-  if((p==='manage'||p==='report') && !isAdmin()) p='home';
-  if(gateOpen() && p!=='manage' && p!=='home'){ p='home'; }
+  if(p==='manage' && !canSeeManage()) p='home';
+  if(p==='report' && !canSeeReport()) p='home';
+  /* ══ v28 闸门重写 ══
+     v26 这里是一句 `if(gateOpen() && p!=='manage' && p!=='home') p='home';`
+     —— 没选好班科就**默默**把人送回首页，没有讯息、没有画面。
+     2026-09-14 全体老师「按了继续什么都没发生」就是这一句造成的。
+     新规矩三条，缺一不可：
+       ① 卷清单可能只是还没取 → 先去云端取，取完回到原本要去的那一页
+       ② 真的还没选班科 → 明讲，再回首页（首页现在就是选班科的地方）
+       ③ 永远不无声重导向 */
+  if(CELL_PAGES.indexOf(p)>=0 && !cellReady()){
+    if(CLOUD.hasPI && S.cls && S.subject && S._papersScope!==paperScopeKey()){
+      S._enterPage=p; toast('载入考卷中…',1500); loadPapers(); return;   /* ① */
+    }
+    if(!(S.cls && S.subject)) toast('请先选班级和科目',2200);             /* ② */
+    else if(!paperReady())    toast('这个班级 / 科目还没有建立考卷',2600);
+    p='home';
+  }
+  S._enterPage=null;                 /* 已经到站，清掉目的地，避免之後被误用 */
   document.querySelectorAll('.page').forEach(el=>el.classList.remove('on'));
   document.querySelectorAll('.ntab').forEach(el=>el.classList.remove('on'));
-  document.getElementById('page-'+p).classList.add('on');
-  const i=PAGES.indexOf(p); if(i>=0) document.querySelectorAll('.ntab')[i].classList.add('on');
+  const pg=document.getElementById('page-'+p); if(pg) pg.classList.add('on');
+  const nt=document.querySelector('.ntab[data-pg="'+navOf(p)+'"]');
+  if(nt) nt.classList.add('on');
+  S._page=p;
   render(p); window.scrollTo(0,0);
 }
 function render(p){
-  ({home:renderHome,f1:renderF1,f2:renderF2,
+  ({home:renderHome,bp:renderBP,f1:renderF1,f2:renderF2,
     coverage:renderCoverage,report:renderReport,manage:renderManage}[p]||function(){})();
+  const pg=document.getElementById('page-'+p);
+  if(pg) pg.classList.toggle('ro', CELL_PAGES.indexOf(p)>=0 && cellReady() && !cellWritable());
   if(p==='home'){ asgGate(); return; }
-  if((p==='f1'||p==='f2') && !gateOpen()) bpGate();
+  if(CELL_PAGES.indexOf(p)>=0 && cellReady()) bpGate();
 }
 function refreshAll(){ PAGES.forEach(p=>{ if(document.getElementById('page-'+p).classList.contains('on')) render(p); }); }
 
 /* ══ 進入閘門 ══ */
 function paperReady(){ return !CLOUD.hasPI || (!!S.paperInstance && (S.papers||[]).some(p=>p.id===S.paperInstance)); }
 function gateOpen(){ return !(S.subject && S.cls && paperReady()); }
+/* v28：正面说法。`gateOpen()==true` 的意思是「挡著」，名字跟直觉相反，读程式的人一再读错。
+   新程式一律用 cellReady()，旧呼叫点维持 gateOpen() 不动，避免大规模改名带来的回归。 */
+function cellReady(){ return !gateOpen(); }
+/* 这一格的身分：一格 = 班级 × 科目（卷由 loadPapers 决定）。 */
+function cellKey(){ return EXK()+'|'+S.cls+'|'+S.subject; }
+/* ══ v28 · 唯读闸门（Owner 2026-09-15 裁定「乙」）══
+   谁都进得去，但不是自己登记的格子预设**唯读**，要按「我也要填这一格」才解锁。
+   ⚠️ 诚实说清楚：这是**画面层**的保护，不是资料库层。
+      三张证据表的 RLS 只看「有没有 EvalGo 权限码 + 学生是不是 ATC」，
+      **没有按老师分隔**，所以这层挡得住误触，挡不住刻意。
+      「解锁留痕」（谁、几点、解锁哪一格）要新栏位，排 v30。
+      在那之前解锁**只在这台装置有效、不上云端**。 */
+const CELL_UNLOCK={};
+function cellMine(){ return isMine(S.cls,S.subject); }
+function cellWritable(){ return !CLOUD.hasTA || cellMine() || !!CELL_UNLOCK[cellKey()] || isAdmin(); }
+function cellUnlock(){
+  if(!confirm('这一格不是你登记任教的。\n\n继续填写会跟负责的老师写进**同一批资料**，'
+    +'后填的会盖掉先填的。\n\n确定你要接手填这一格吗？')) return;
+  CELL_UNLOCK[cellKey()]=Date.now();
+  toast('已解锁 —— 这一格在这台装置上可以填了',2600);
+  refreshAll();
+}
 /* ══ v26 Multi-Paper 选卷 ══
    Legacy（hasPI=false）：paperReady 恒真 → gateOpen 与 v25 完全一致，选卷层不触发。
    多卷在线：class+subject 选好后，先决定用哪一份卷才进 capture。 */
@@ -860,13 +956,15 @@ async function loadPapers(){
   if(ps.length===1) S.paperInstance=ps[0].id;
   else if(!ps.some(p=>p.id===S.paperInstance)) S.paperInstance=null;
   saveData(true);
-  const dest=S._enterPage||'f1'; S._enterPage=null;   /* v27：回到老师原本要去的那一页 */
-  if(!gateOpen()) goPage(dest); else renderHome();
+  /* v28：只有带著目的地来的（按「继续」／「开始」／goPage 转介）才跳页；
+     单纯在首页换班换科 → 留在首页重画。 */
+  const dest=S._enterPage; S._enterPage=null;
+  if(dest && cellReady()) goPage(dest); else renderHome();
 }
 function pickPaper(id){
   if(!(S.papers||[]).some(p=>p.id===id)){ toast('✕ 这份卷不在当前班级/科目'); return; }
   S.paperInstance=id; saveData(true);
-  if(!gateOpen()) goPage('f1'); else renderHome();
+  if(cellReady()) startCell(); else renderHome();   /* v28：跟「开始 →」同一条落点规则 */
 }
 function paperLabelOf(p){ return (p.display_no?('卷'+p.display_no+' · '):'')+(p.label||'（未命名）'); }
 function paperSelectorHTML(){
@@ -1055,15 +1153,30 @@ async function delSection(id){
 }
 function secOf(code){ return sections().find(x=>x.code===code)||null; }
 const SUBJ_EN={'数学':'Mathematics','英文':'English','马来文':'BM','华文':'Mandarin','科学':'Science'};
+/* v28：选班／选科**不再自动冲进填写页**。首页现在就是选班科的地方（对齐 ObsGo：
+   选部门 → 选班级 → 按「开始巡班」）。要进去，按「开始 →」。
+   v26 是一选好就跳，老师想换一科都得先被丢进填写页再退出来。 */
 function onScopeChange(){
   saveData(true);
-  if(!CLOUD.hasPI){ if(!gateOpen()) goPage('f1'); else renderHome(); return; }
-  /* 多卷：换班级/科目后，旧 paperInstance 未必属于新 scope —— 先清再依当前卷清单重决定 */
-  if(!(S.cls&&S.subject)){ S.paperInstance=null; S.papers=[]; renderHome(); return; }
-  loadPapers();  /* 内部会 auto-select / 清空 / 决定进 capture 或显示选卷器 */
+  if(!(S.cls&&S.subject)){
+    S.paperInstance=null; S.papers=[]; S._papersScope=null; renderHome(); return;
+  }
+  S._enterPage=null;                 /* 不带目的地 → loadPapers 取完只重画首页 */
+  if(CLOUD.hasPI) loadPapers();
+  renderHome();
+}
+/* 「开始 →」：项目还没登记 → 直接落在「考卷项目」分页；已登记 → 落在「考前观察」。
+   那 5 格（这一轮还没人登记项目）的老师第一眼就看到该填什么，不用自己找。 */
+function startCell(){
+  if(!S.cls){ toast('请先选班级',2000); return; }
+  if(!S.subject){ toast('请先选科目',2000); return; }
+  saveData(true);
+  goPage(secsCountFor(S.subject,yearOf(S.cls)) ? 'f1' : 'bp');
 }
 function pickClass(v){ S.cls=v; onScopeChange(); }
 function pickSubject(v){ S.subject=v; onScopeChange(); }
+/* ⚠️ v28 起**没有呼叫点** —— 选班科已经是首页本身（renderHome）。
+   不删：旧分页可能还开在某台装置上，函式消失会直接报错。选卷器仍由首页 startCell 流程使用。 */
 function gateHTML(){
   /* v26：class+subject 已选、多卷在线但卷未就绪 → 选卷器（0 份=挡；>=2=让老师选） */
   if(CLOUD.hasPI && S.cls && S.subject && !paperReady()){
@@ -1090,19 +1203,72 @@ function gateHTML(){
   </div>`;
 }
 /* 顶部工作情境列：随时可换班级／科目 */
-function ctxBar(){
+/* ══ v28 · 格子情境列 + 三分页 ══
+   Owner 2026-09-15：对齐 ObsGo 巡班页 —— 顶上一条「我现在在哪一格」，底下三个分页。
+   ObsGo 的「完成巡班 ✓」在这里叫「完成填写 ✓」，但**语意不一样**：
+   ObsGo 一次巡班是一个 session，按下去就封存；EvalGo 没有 session，完成是逐个学生的。
+   所以这颗钮是**检查式**（Owner 裁定「丙」）：按下去先算还剩谁，没做完就列出来、不放行，
+   全做完才收尾。**不写任何资料**，不制造假完成。 */
+const CELL_TABS=[['bp','考卷项目'],['f1','考前观察'],['f2','考卷分析']];
+function cellChrome(active){
   const st=cellStat(S.cls,S.subject);
-  return `<div class="card" style="padding:10px 14px;margin-bottom:10px">
-    <div class="toolbar" style="margin:0">
-      <span class="chip chip-layer" style="font-size:13px;font-weight:700">${esc(S.cls)} · ${esc(S.subject)}</span>
-      <span class="chip chip-muted">Year ${yearOf(S.cls)} · ${st.n} 人</span>
-      ${st.state==='done'?'<span class="chip chip-ok">✓ 这班这科全部完成</span>'
-        :`<span class="chip ${st.prog?'chip-warn':'chip-muted'}">考卷 ${st.done} / ${st.n}${st.prog?` · ${st.prog} 位填一半`:''}</span>`}
-      <span style="flex:1"></span>
-      <button class="btn btn-pri" style="padding:9px 18px;font-size:14px;font-weight:700"
-        onclick="goPage('home')">← 换班级 / 科目</button>
+  const pap=(S.papers||[]).find(x=>x.id===S.paperInstance);
+  let h=`<div class="card ro-keep" style="padding:12px 14px;margin-bottom:8px">
+    <div class="toolbar" style="margin:0;align-items:flex-start;gap:8px">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:17px;font-weight:800">${esc(S.cls)} · ${esc(S.subject)}</div>
+        <div style="font-size:12px;color:var(--mut);margin-top:2px">Year ${yearOf(S.cls)} · ${st.n} 人${
+          S.meName?' · '+esc(S.meName):''}${(pap&&(S.papers||[]).length>1)?' · '+esc(paperLabelOf(pap)):''}</div>
+      </div>
+      <button class="btn" style="min-height:44px;padding:10px 16px;font-weight:600"
+        onclick="goPage('home')">← 回主页</button>
+      ${cellWritable()?`<button class="btn btn-pri" style="min-height:44px;padding:10px 18px;font-weight:700"
+        onclick="cellDone()">完成填写 ✓</button>`:''}
     </div></div>`;
+  /* 唯读横幅 —— 不是自己登记的格子 */
+  if(!cellWritable()){
+    const who=asgFor(S.cls,S.subject).map(a=>teacherLabel(a.teacher_id)).filter(Boolean).join('、');
+    h+=`<div class="card ro-keep"><div class="alert alert-warn"><div>
+      <b>这一格不是你登记任教的${who?`（登记的是 ${esc(who)}）`:''} —— 目前只能看，不能改。</b><br>
+      <span style="font-size:12px">你跟他填的是<b>同一批资料</b>，后填的会盖掉先填的。
+      真的要接手（代课 / 协助），按右边解锁。</span>
+      <div style="margin-top:8px"><button class="btn btn-pri" style="min-height:44px;padding:9px 18px;font-weight:700"
+        onclick="cellUnlock()">我也要填这一格</button></div></div></div></div>`;
+  } else if(CELL_UNLOCK[cellKey()]){
+    h+=`<div class="card ro-keep" style="padding:8px 14px"><span class="chip chip-warn">已解锁代填 —— 这不是你登记的格子</span></div>`;
+  }
+  h+=`<div class="sub-nav" style="margin:0 0 10px;border-radius:8px;border:1px solid var(--bdr)">
+    ${CELL_TABS.map(([pg,lab])=>`<button class="sub-ntab${pg===active?' on':''}" style="min-height:44px"
+      onclick="goPage('${pg}')">${lab}${pg==='bp'&&!st.secs?' <span style="color:var(--warn)">●</span>':''}</button>`).join('')}
+  </div>`;
+  return h;
 }
+/* 老师代号 → 看得懂的名字；查不到就回代号本身。 */
+function teacherLabel(tid){
+  const t=(CLOUD.teachers||[]).find(x=>x&&(x.id===tid||x.teacher_id===tid||x.code===tid));
+  return (t&&(t.name||t.display_name||t.code))||tid||'';
+}
+function cellDone(){
+  const st=cardStat(S.cls,S.subject);
+  const left=[];
+  if(!st.secs) left.push('考卷项目还没登记');
+  if(st.obsLeft.length) left.push('考前观察还剩 '+st.obsLeft.length+' 位');
+  if(st.papLeft.length) left.push('考卷分析还剩 '+st.papLeft.length+' 位');
+  if(left.length){
+    const seen={}, names=[];
+    st.obsLeft.concat(st.papLeft).forEach(r=>{ if(!seen[r.sid]){ seen[r.sid]=1; names.push(nameOf(r)); } });
+    alert('还不能算完成 —— '+S.cls+' · '+S.subject+'\n\n· '+left.join('\n· ')
+      +(names.length?'\n\n还没处理的学生：\n'+names.slice(0,20).join('、')
+        +(names.length>20?'\n…等共 '+names.length+' 位':''):'')
+      +'\n\n提醒：缺席 / 本轮未评 也算「处理过了」—— 在考卷分析页标记就可以。');
+    return;
+  }
+  toast('✓ '+S.cls+' · '+S.subject+' 全部处理完了',3000);
+  try{ autoPush(); }catch(e){}
+  goPage('home');
+}
+/* v26 的 ctxBar 保留给「覆盖追踪」页用 —— 那一页不是格子里的分页。 */
+function ctxBar(){ return cellChrome(S._page==='f2'?'f2':(S._page==='bp'?'bp':'f1')); }
 
 /* ══ 今天 ══ */
 /* ══════════════════════════════════════════════════════════════════
@@ -1222,65 +1388,131 @@ function taskRow(cls,subj,lab,done,total,left,page,ready){
       onclick="enterCell('${cls}','${esc(subj)}','${page}')">${ok?'查看':'继续'}</button>
   </div>`;
 }
+/* ══ 首页 = 选班级 → 选科目 → 开始 ══
+   Owner 2026-09-15 裁定：对齐 ObsGo 的进入动线（选部门 → 选班级 → 开始巡班）。
+   ⚠️ 这一条**推翻不了** 2026-09-06 那句「30 格大表整张移除」—— 那张表回答的是
+      院长的问题（哪一格没人做），它搬去「进度」页（v29），不是回到老师的首页。
+      老师的问题（我还剩谁没填）由底下那段「我教的格子」回答，没有丢掉。 */
 function renderHome(){
   const c=document.getElementById('c-home');
   const mine=S.meName||S.me||'';
   const my=asgMine().sort((a,b)=>(a.cls+a.subject).localeCompare(b.cls+b.subject));
+  const mySet={}; my.forEach(a=>{ mySet[a.cls+'|'+a.subject]=1; });
 
   let h=`<div class="card" style="padding:12px 16px;margin-bottom:12px">
     <div class="toolbar" style="margin:0">
       <span class="tip" style="margin:0;flex:1">${esc(S.examLabel||'本轮考试')}${
-        S.examTerm?` · <b>${esc(termLabel(S.examTerm))}</b>`:''}${mine?' · 科任 '+esc(mine):''}</span>
+        termLabel(S.examTerm)?` · <b>${esc(termLabel(S.examTerm))}</b>`:''}${mine?' · 科任 '+esc(mine):''}</span>
       <button class="btn" style="padding:8px 16px;font-size:13.5px;font-weight:700"
         onclick="asgModal()">我教 ${my.length} 个班科 · 修改</button>
     </div></div>`;
 
-  /* 连线状态一律留在工作台顶部 —— 老师看到「假名单」三个字就该停手。 */
+  /* 连线状态一律留在顶部 —— 老师看到「假名单」三个字就该停手。 */
   if(S.rosterSource!=='cloud') h+=`<div class="card"><div class="alert alert-danger"><div>
     <b>还没连上系统，现在看到的是练习用的假名单。</b>
     这里填的东西不会保留。请重新整理页面；还是不行就找管理层。</div></div></div>`;
   else if(!CLOUD.session) h+=`<div class="card"><div class="alert alert-warn"><div>
     <b>目前离线</b> —— 你还是可以填，资料先存在这台电脑，连上网路会自动送出。</div></div></div>`;
 
+  /* ── ① 班级 ── */
+  h+=`<div class="card"><div class="card-hdr"><span class="card-title">① 班级</span>
+      <span class="tip" style="margin:0">有小圆点的是你登记任教的</span></div>
+    <div class="quick-grid" style="grid-template-columns:repeat(auto-fill,minmax(120px,1fr));margin-bottom:0">
+      ${CLASSES.map(x=>{
+        const n=my.filter(a=>a.cls===x).length;
+        return `<div class="quick-card${x===S.cls?' on':''}" style="padding:12px;min-height:44px;${
+          x===S.cls?'border-color:var(--layer);background:rgba(90,100,112,.07)':''}"
+          onclick="pickClass('${x}')">
+          <div class="quick-label" style="font-size:14px;font-weight:700">${x.replace('ATC','ATC ')}${
+            n?' <span style="color:var(--layer)">●</span>':''}</div>
+          <div class="stat-sub">Year ${yearOf(x)} · ${inCls(x).length} 人</div></div>`;
+      }).join('')}
+    </div></div>`;
+
+  /* ── ② 科目 ── */
+  h+=`<div class="card"><div class="card-hdr"><span class="card-title">② 科目</span>
+      ${S.cls?`<span class="tip" style="margin:0">${esc(S.cls)}</span>`:''}</div>
+    <div class="quick-grid" style="grid-template-columns:repeat(auto-fill,minmax(130px,1fr));margin-bottom:0">
+      ${SUBJECTS.map(x=>{
+        const owned=S.cls&&mySet[S.cls+'|'+x];
+        return `<div class="quick-card${x===S.subject?' on':''}" style="padding:12px;min-height:44px;${
+          x===S.subject?'border-color:var(--layer);background:rgba(90,100,112,.07)':''}"
+          onclick="pickSubject('${x}')">
+          <div class="quick-label" style="font-size:13px;font-weight:600">${x}${
+            owned?' <span style="color:var(--layer)">●</span>':''}</div>
+          <div class="stat-sub">${SUBJ_EN[x]}</div></div>`;
+      }).join('')}
+    </div></div>`;
+
+  /* ── ③ 开始 ── */
+  const ready=!!(S.cls&&S.subject);
+  const papersPending = ready && CLOUD.hasPI && !paperReady();
+  const noPaper = papersPending && S._papersScope===paperScopeKey() && !(S.papers||[]).length;
+  h+=`<div class="card"><div class="toolbar" style="margin:0;align-items:center">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:15px;font-weight:700">${ready
+          ? esc(S.cls)+' · '+esc(S.subject)+(cellMine()?'':'　<span class="chip chip-warn">不是你登记的</span>')
+          : '请选择班级与科目'}</div>
+        <div class="tip" style="margin:2px 0 0">${
+          noPaper ? '<span style="color:var(--warn)">这个班级 / 科目还没有建立考卷 —— 请找管理层</span>'
+          : papersPending ? '载入考卷中…'
+          : ready ? '系统会自动记录填写者与时间'
+          : '两个都选好才能开始'}</div>
+      </div>
+      <button class="btn btn-pri" ${ready&&!noPaper?'':'disabled'}
+        style="padding:12px 26px;font-size:15px;font-weight:700;min-height:44px"
+        onclick="startCell()">开始 →</button>
+    </div>`;
+  /* 这一格有两份以上的卷 → 就地选，不另外跳一个画面（首页是唯一入口）。 */
+  if(ready && CLOUD.hasPI && (S.papers||[]).length>1){
+    h+=`<div style="border-top:1px solid var(--bdr);margin-top:10px;padding-top:10px">
+      <div class="tip" style="margin:0 0 6px">这个班级 / 科目有 ${S.papers.length} 份卷 —— 请明确选一份</div>
+      <div class="dept-row" style="flex-wrap:wrap;gap:8px">${S.papers.map(pp=>
+        `<span class="dept-tag${pp.id===S.paperInstance?' on':''}" style="padding:10px 20px;font-size:13px;min-height:44px"
+          onclick="pickPaper('${pp.id}')">${esc(paperLabelOf(pp))}</span>`).join('')}</div></div>`;
+  }
+  h+=`</div>`;
+
+  /* ── 我教的格子 · 还剩谁 ──
+     Owner 2026-09-15：首页动线照 ObsGo，但「我还剩谁」不准丢。
+     对应 ObsGo 首页底部那行「今天完成 · N 班」。 */
   if(!my.length){
-    h+=`<div class="card"><div class="empty" style="padding:30px">
-      还没登记你教哪几个班、哪几科。<br>
+    h+=`<div class="card"><div class="empty" style="padding:24px">
+      还没登记你教哪几个班、哪几科 —— 登记了，管理层才知道这几格该由你完成。<br>
       <button class="btn btn-pri" style="margin-top:12px;padding:10px 22px;font-weight:700"
         onclick="asgModal()">现在登记</button></div></div>`;
     c.innerHTML=h; paintNav(); return;
   }
-
-  h+=`<div style="display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(340px,1fr))">`;
+  const tot=my.reduce((o,a)=>{const s2=cardStat(a.cls,a.subject);
+    o.n+=s2.n; o.obs+=s2.obsDone; o.pap+=s2.papDone;
+    o.left+=(s2.obsLeft.length+s2.papLeft.length); return o;},{n:0,obs:0,pap:0,left:0});
+  h+=`<div class="card"><div class="card-hdr">
+      <span class="card-title">我教的 ${my.length} 个班科</span>
+      <span class="tip" style="margin:0">${tot.left?`还剩 <b style="color:var(--warn)">${tot.left}</b> 笔没填`
+        :'<b style="color:var(--ok)">全部处理完了</b>'}</span></div>`;
   my.forEach(a=>{
     const st=cardStat(a.cls,a.subject);
     const allDone = st.n>0 && st.obsDone>=st.n && st.papDone>=st.n;
-    h+=`<div class="card" style="margin:0;${allDone?'border-color:var(--ok)':''}">
-      <div style="display:flex;align-items:baseline;gap:8px">
-        <span style="font-size:17px;font-weight:800">${esc(a.cls)} · ${esc(a.subject)}</span>
-        ${allDone?'<span class="badge b-active">✓ 全部处理完</span>':''}
+    h+=`<div style="display:flex;align-items:center;gap:10px;padding:10px 0;
+         border-top:1px solid var(--bdr);flex-wrap:wrap">
+      <div style="min-width:150px">
+        <div style="font-size:14px;font-weight:700">${esc(a.cls)} · ${esc(a.subject)}</div>
+        <div style="font-size:11.5px;color:var(--mut)">Year ${yearOf(a.cls)} · ${st.n} 人</div>
       </div>
-      <div style="font-size:12px;color:var(--mut);margin-top:2px">Year ${yearOf(a.cls)} · ${st.n} 人${
-        st.absent?` · 缺席 ${st.absent}`:''}${st.na?` · 本轮未评 ${st.na}`:''}</div>
-      ${st.secs?'':`<div class="alert alert-warn" style="margin:10px 0 0;padding:7px 10px">
-        <div style="font-size:12px">考卷项目还没登记 —— 进去会先请你填。</div></div>`}
-      ${taskRow(a.cls,a.subject,'考前观察',st.obsDone,st.n,st.obsLeft,'f1')}
-      ${taskRow(a.cls,a.subject,'考卷分析',st.papDone,st.n,st.papLeft,'f2')}
-      ${st.prog?`<div style="font-size:11.5px;color:var(--warn);padding:6px 0 0;border-top:1px dashed var(--bdr)">
-        其中 <b>${st.prog} 位填了一半</b> —— 没按「完成」不算数，也不会进报告。</div>`:''}
+      <div style="flex:1;min-width:150px;font-size:12.5px;color:var(--mut)">
+        观察 <b style="color:${st.obsDone>=st.n&&st.n?'var(--ok)':'var(--txt)'}">${st.obsDone}/${st.n}</b>
+        · 分析 <b style="color:${st.papDone>=st.n&&st.n?'var(--ok)':'var(--txt)'}">${st.papDone}/${st.n}</b>
+        ${st.secs?'':'<span class="chip chip-warn" style="margin-left:6px">项目未登记</span>'}
+        ${st.prog?`<span class="chip chip-warn" style="margin-left:6px">${st.prog} 位填一半</span>`:''}
+      </div>
+      ${allDone?'<span class="badge b-active">✓ 完成</span>'
+        :`<button class="btn btn-pri btn-sm" style="min-height:44px;padding:8px 18px;font-weight:700"
+            onclick="enterCell('${a.cls}','${esc(a.subject)}','f1')">继续</button>`}
     </div>`;
   });
-  h+=`</div>`;
-
-  const tot=my.reduce((o,a)=>{const s2=cardStat(a.cls,a.subject);
-    o.n+=s2.n; o.obs+=s2.obsDone; o.pap+=s2.papDone; return o;},{n:0,obs:0,pap:0});
-  if(tot.n){
-    const pct=Math.round((tot.obs+tot.pap)/(tot.n*2)*100);
-    h+=`<div class="card" style="margin-top:12px">
-      <div class="card-hdr"><span class="card-title">我的总进度</span>
-        <span class="tip" style="margin:0">考前观察 ${tot.obs}/${tot.n} · 考卷分析 ${tot.pap}/${tot.n}</span></div>
-      <div class="progress ${pct>=100?'progress-ok':'progress-layer'}">
-        <div class="progress-fill" style="width:${pct}%"></div></div></div>`;
-  }
+  const pct=tot.n?Math.round((tot.obs+tot.pap)/(tot.n*2)*100):0;
+  h+=`<div class="progress ${pct>=100?'progress-ok':'progress-layer'}" style="margin-top:10px">
+      <div class="progress-fill" style="width:${pct}%"></div></div></div>`;
   c.innerHTML=h;
   paintNav();
 }
@@ -1288,14 +1520,17 @@ function enterCell(cls,subj,page){
   /* Owner：路径应该「考前观察」先 —— 现场观察在第二节 PROVE 课后，
      考卷分析在第 3/4 次 FIX 课后，时间上观察在前。
      但工作台上两行各有自己的「继续」，所以要能指定进哪一页。 */
-  S.cls=cls; S.subject=subj; S._enterPage=page||'f1'; saveData(true);
+  S.cls=cls; S.subject=subj;
+  /* v28：项目还没登记就先去「考卷项目」分页，跟「开始 →」同一条规则 */
+  S._enterPage = page || (secsCountFor(subj,yearOf(cls)) ? 'f1' : 'bp');
+  saveData(true);
   /* v27：这一格的卷清单还没在这次开页取过 → 先去云端取，取完由 loadPapers 决定进哪一页。
      v26 在这里直接 goPage()，而 goPage 一发现「没有卷」就把人**默默踢回工作台** ——
      没有讯息、没有画面。老师看到的就是「我按了继续，什么都没发生」。 */
   if(CLOUD.hasPI && S._papersScope!==paperScopeKey()){
     toast('载入考卷中…',1500); loadPapers(); return;
   }
-  goPage(page||'f1');
+  goPage(S._enterPage);
 }
 
 function f1Key(sid,bah){ return EXK()+'|'+sid+'|'+S.subject+'|'+bah+piSuffix(); }
@@ -1307,20 +1542,24 @@ function f1Complete(sid,subject,exam){
   return Object.keys(S.f1).filter(k=>k.indexOf(pre)===0&&S.f1[k]&&S.f1[k].savedAt).map(k=>S.f1[k]);
 }
 function f1Done(sid){ return f1Complete(sid).length; }
-function renderF1(){
-  const c=document.getElementById('c-f1');
-  if(gateOpen()){ c.innerHTML=gateHTML(); return; }
+/* ══ v28 · 分页 ① 考卷项目 ══
+   v26 时这一段是塞在「考前观察」页顶端的折叠区，藏得太深 ——
+   还没登记项目的老师（这一轮有 5 格）根本找不到该从哪里开始。
+   Owner 2026-09-15：独立成第一个分页。内容逐字沿用 v27，只换外框与落点。 */
+function renderBP(){
+  const c=document.getElementById('c-bp');
+  if(!cellReady()){ goPage('home'); return; }
   const secs=sections();
   /* 考卷结构是「一份卷一次性 setup」，不是老师每天的工作。
      已经设好就折叠，只留一行摘要；还没设好才自动展开。 */
   const bpReady = bpReadyNow();
   if(S.ui.bpOpen===undefined) S.ui.bpOpen = !bpReady;
   const open = bpCanEdit() && (!bpReady || !!S.ui.bpOpen);
-  let h=ctxBar();
+  let h=cellChrome('bp');
   if(bpCanEdit() && CLOUD.bpEvid[bpKey()]===undefined){ CLOUD.bpEvid[bpKey()]=-1; bpProbe(); }
   if(!bpCanEdit()){                       /* 老师端：一行状态，没有编辑入口 */
     h+=bpStatusLine();
-    c.innerHTML = secs.length ? h+bpRest(secs) : h;
+    c.innerHTML=h;
     return;
   }
   if(!open){
@@ -1335,7 +1574,7 @@ function renderF1(){
         ${bpLocked()&&!isAdmin()?`<span class="tip" style="margin:0">要改请找管理层解锁</span>`:''}
         <button class="btn btn-sm" style="margin-left:auto" onclick="bpToggle()">查看 / 修改考卷结构</button>
       </div></div>`;
-    c.innerHTML=h+bpRest(secs);
+    c.innerHTML=h;
     return;
   }
   h+=`<div class="card">
@@ -1396,7 +1635,24 @@ function renderF1(){
     </div>
     </div>`;
 
-  if(!secs.length){ c.innerHTML=h; return; }
+  c.innerHTML=h;
+}
+
+/* ══ v28 · 分页 ② 考前观察 ══ 只剩学生名单；考卷项目移到分页 ①。 */
+function renderF1(){
+  const c=document.getElementById('c-f1');
+  if(!cellReady()){ goPage('home'); return; }
+  const secs=sections();
+  let h=cellChrome('f1');
+  if(!secs.length){
+    c.innerHTML=h+`<div class="card"><div class="alert alert-warn"><div>
+      <b>这份考卷的项目还没登记 —— 要先登记才填得了观察。</b><br>
+      <span style="font-size:12px">观察是「哪一个项目底下看到什么」，没有项目就没有地方挂。</span>
+      <div style="margin-top:8px"><button class="btn btn-pri"
+        style="min-height:44px;padding:9px 18px;font-weight:700"
+        onclick="goPage('bp')">去登记考卷项目 →</button></div></div></div></div>`;
+    return;
+  }
   c.innerHTML=h+bpRest(secs);
 }
 function bpEscape(){
@@ -1996,9 +2252,9 @@ function esStamp(sid,code,sec){
 /* ══ FORM 02 列表 ══ */
 function renderF2(){
   const c=document.getElementById('c-f2');
-  if(gateOpen()){ c.innerHTML=gateHTML(); return; }
+  if(!cellReady()){ goPage('home'); return; }
   const secs=sections(), tq=totalQ(), es=essaySections(), lg=legacySections();
-  let h=ctxBar()+`<div class="card">
+  let h=cellChrome('f2')+`<div class="card">
     <div class="card-hdr"><span class="card-title">考卷分析</span>
       <span class="tip" style="margin:0">${esc(S.subject)} · ${esc(S.cls)}</span></div>`;
   if(!secs.length){
@@ -2528,9 +2784,17 @@ function esScore(sid,code,secId,v,mx){
 /* ══ 覆蓋追踪 ══ */
 function renderCoverage(){
   const c=document.getElementById('c-coverage');
-  if(gateOpen()){ c.innerHTML=gateHTML(); return; }
+  /* v28：覆盖追踪要看的是「本科目在各班的轮换」，还是需要先选好班科。
+     但不再塞一份选班科的画面进来 —— 首页就是那个画面，明讲一句再送回去。 */
+  if(!cellReady()){ toast('覆盖追踪要先选班级和科目',2400); goPage('home'); return; }
   const myCls=asgMine().filter(a=>a.subject===S.subject).map(a=>a.cls);
-  let h=ctxBar()+`<div class="card"><div class="card-hdr"><span class="card-title">轮换覆盖追踪 · ${esc(S.subject)}</span>
+  let h=`<div class="card ro-keep" style="padding:10px 14px;margin-bottom:8px">
+    <div class="toolbar" style="margin:0">
+      <span class="chip chip-layer" style="font-size:13px;font-weight:700">${esc(S.cls)} · ${esc(S.subject)}</span>
+      <span style="flex:1"></span>
+      <button class="btn" style="min-height:44px;padding:9px 16px" onclick="goPage('home')">← 回主页</button>
+    </div></div>`
+    +`<div class="card"><div class="card-hdr"><span class="card-title">轮换覆盖追踪 · ${esc(S.subject)}</span>
       <span class="tip" style="margin:0">${myCls.length?('我教的 '+myCls.join('、')):'（还没登记任教班级 — 显示全部）'}</span></div>
     <div class="alert alert-info">SOP 图6：<b>一直轮换，直到全班都被观察到。</b>这一页只看这台机器上本科目的资料；${
       isAdmin()?'上传后可在云端看到全部科任的合并结果。':'全部科任的合并结果由管理层那边看。'}<br>
@@ -3122,6 +3386,10 @@ function printReport(){
 }
 
 /* ══ MANAGE ══ */
+/* v28 · Standard v8 §4-26：③ 云端连线那一排原本还有第二颗离开平台的按钮，已移除。
+   §12 整节废止：⑥ 进阶区的清空本机资料按钮也已移除。
+   两段说明都放在这里（JS 注解），不放进画面样板 —— 放进去会被渲染出来，
+   日後稽核 grep 扫 innerHTML 会命中注解、误判没清乾净（坑 6）。 */
 function renderManage(){
   const c=document.getElementById('c-manage');
   const n1=Object.keys(S.f1).length, n2=Object.keys(S.f2).length, pend=pendingCount();
@@ -3180,7 +3448,6 @@ function renderManage(){
       <button class="btn" onclick="cloudRoster(false)" ${CLOUD.exam?'':'disabled'}>重新载入名单</button>
       <button class="btn btn-pri" id="c-push" onclick="cloudPush()" ${CLOUD.exam?'':'disabled'}>${pend?('上传 '+pend+' 笔'):'全部已上传'}</button>
       <button class="btn" onclick="cloudPull(false)" ${CLOUD.exam?'':'disabled'}>拉回云端资料</button>
-      <button class="btn" onclick="cloudLogout()">🚪 登出</button>
     </div>
     <div class="mg-line">名单来源：<strong>${S.rosterSource==='cloud'?'来自资料库':(S.rosterSource==='demo'?'示范名单（假资料）':'手动汇入')}</strong> ·
       ${S.roster.length} 人${S.rosterAt?(' · 抓取时间 '+esc(S.rosterAt)):''}</div>
@@ -3219,23 +3486,18 @@ function renderManage(){
       <div>DSKP 学习领域：<strong>${DSKP_DOM.length}</strong> 条（五科 × 六年段）——
         <span style="color:var(--mut)">参考资料，v19.1 起不再接到老师端的「较弱项目」</span></div>
       <div>KSSR 旧字典：<strong>${KSSR.length}</strong> 条（保留，供旧资料解析）</div>
-      <div style="margin-top:14px;border-top:.5px solid var(--bdr);padding-top:10px">
-        <button class="mg-danger" onclick="resetAll()">⚠ Reset — 清空这台电脑的全部资料</button>
-        <div class="tip" style="margin:2px 0 0">执行前会自动 Export 备份，并要求输入 RESET。有未上传资料时会挡下。</div>
-      </div>
+
     </div>
   </div>`;
 }
 /* ① 的权限勾叉：唯一来源是 can_access() 回来的 CLOUD.perm，前端不自己推算 */
 function permTick(k){ return !!(CLOUD.perm && CLOUD.perm[k]===true); }
+/* v28：函式本体保留成一句拒绝，不删。
+   旧分页可能还开在某台装置上，若函式直接消失，那颗旧按钮会丢出例外；
+   更重要的是：留一句明确的拒绝，比让人以为「功能坏了」好。 */
 function resetAll(){
-  const _p=pendingCount();
-  if(_p>0){ alert('还有 '+_p+' 笔没有上传到云端。\n\n请先按 ③ 云端连线的「上传」，或 ⑤ Export 备份，再 Reset。'); return; }
-  if(!confirm('清空这台机器上的全部 FORM 01 / FORM 02 资料？\n执行前会先自动 Export 一份备份。')) return;
-  const t=prompt('确认请输入 RESET');
-  if(t!=='RESET'){ toast('✕ 已取消'); return; }
-  exportData();
-  S.f1={}; S.f2={}; S.wi={}; S.es={}; if(saveThen('✓ Reset complete')) renderManage();
+  alert('Reset 已经取消了（Academee 全平台一致）。\n\n'
+    +'要备份请用 ⑤ Export；要换装置请直接登入，资料在云端。');
 }
 
 /* ══ MODAL ══ */
@@ -3352,6 +3614,7 @@ async function cloudInit(silent){
     if(error) throw error;
     CLOUD.session=session||null;
     if(!session){ CLOUD.err='还没登入'; paintCloud(); return false; }
+    try{ sessionStorage.removeItem('evalgo_login_bounce'); }catch(e){}   /* v28：登入成功，解除防回圈 */
     const pr=await _sb.rpc('can_access',{p_system:SYS_CODE});
     if(pr.error) throw pr.error;
     const row=Array.isArray(pr.data)?pr.data[0]:pr.data;
@@ -3538,8 +3801,11 @@ function authGate(){
     M.textContent='可能是网路问题。连上网路后按下面重试。';
     B.textContent='重新连线'; B.onclick=()=>{ CLOUD.checked=false; authGate(); cloudInit(false).then(authGate); };
   }else if(!CLOUD.session){
+    if(shouldAutoLogin()){ redirectToPlatformLogin(); return; }   /* v28：照 ObsGo R1，直接跳 */
     I.textContent='🔒'; T.textContent='请先登入平台';
-    M.textContent='EvalGo_ATC 不另外设帐号，用你平常登入学校平台的那一个。按下面会跳去登入，登好会自动回来。';
+    M.textContent = (navigator.onLine===false)
+      ? '目前离线，暂时确认不了你的身分。你可以先不要关掉这一页 —— 已经填过的东西还在这台装置上，连上网路再登入就会送出。'
+      : 'EvalGo_ATC 不另外设帐号，用你平常登入学校平台的那一个。按下面会跳去登入，登好会自动回来。';
     B.textContent='去平台登入'; B.onclick=cloudLogin;
   }else if(!CLOUD.perm||CLOUD.perm.can_see!==true){
     I.textContent='🚫'; T.textContent='这个帐号还没有开通';
