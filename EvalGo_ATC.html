@@ -414,7 +414,7 @@ button.chip.sel-w{background:var(--warn);color:#fff}
    权限码：RPT-EvalGo-ATC
    ══════════════════════════════════════════════════════════════════ */
 
-const APP_VERSION = 37;
+const APP_VERSION = 38;
 const STORAGE_KEY = 'evalgo_atc_v1';   /* 沿用 v1 key，旧资料不掉 */
 const SYS_CODE    = 'RPT-EvalGo-ATC';
 const SB_URL      = 'https://qnpvqsvvsgsantekgfbz.supabase.co';
@@ -3266,7 +3266,8 @@ function renderProgress(){
       const lab  = st.state==='done' ? '✓' : (st.state==='prog' ? '' : '·');
       return `<td style="text-align:center;padding:6px 4px;cursor:pointer"
         title="点开看细节" onclick="pgOpen('${cls}','${esc(su)}')">
-        <span class="chip ${cls2}" style="font-size:12px;font-weight:700">${lab}${st.n?st.handled+'/'+st.n:'—'}</span>
+        <span class="chip ${cls2}" style="font-size:12px;font-weight:700">${lab}${
+          st.n?(st.handled+' / '+st.n+' 位'):'—'}</span>
         <div style="font-size:10px;color:${st.secs?'var(--hint)':'var(--dng,#b91c1c)'};margin-top:3px">${
           st.secs?('项目 '+st.secs):'无项目'}</div>
         <div style="margin-top:2px">${pgWhoChips(mp)}</div></td>`;
@@ -3285,7 +3286,7 @@ function renderProgress(){
       </div>
       <div class="tw"><table class="data"><thead><tr>
         <th style="min-width:72px">班级</th>
-        ${SUBJECTS.map(x=>`<th style="min-width:92px;text-align:center">${esc(x)}</th>`).join('')}
+        ${SUBJECTS.map(x=>`<th style="min-width:104px;text-align:center">${esc(x)}</th>`).join('')}
       </tr></thead><tbody>${rows}</tbody></table></div>
     </div>`;
   /* ⚠️ 这里原本把 noSec 全部列出来 —— 30 格里有 27 格没项目时，
@@ -3316,9 +3317,9 @@ function pgOpen(cls,subj){
       ${row('考卷项目', st.secs?st.secs+' 个':'<span style="color:var(--dng,#b91c1c)">还没登记</span>',
             st.secs?'同年级同科共用':'没有项目，逐题记录与报告分数都做不出来')}
       ${row('考前观察', st.obs+' / '+st.n+' 位', '')}
-      ${row('考卷分析', st.done+' / '+st.n+' 位完成',
+      ${row('考卷分析', st.done+' / '+st.n+' 位',
             st.prog?(st.prog+' 位填到一半'):'')}
-      ${row('缺席 / 未评', st.resolved+' 位', '已处理，不再催；不算证据、不进报告')}
+      ${row('缺席 / 未评', st.resolved+' / '+st.n+' 位', '不算证据、不进报告')}
       ${row('谁填的', pgWhoChips(who), '代号是老师登入平台的帐号')}
     </div>
     ${left.length?`<div class="alert alert-warn" style="margin-top:10px"><div>
@@ -3410,10 +3411,30 @@ function paperMyDone(p){
   feed(S.wi,null); feed(S.es,null);
   return Object.keys(set).length;
 }
+/* 这份卷有几位学生填过考前观察（Owner 2026-09-16 裁定「乙」：
+   算这份卷【全部老师】的 —— 这是「这份卷做到哪里」，不是「别人填了什么内容」。
+   藏起来只会害下一位老师整班重做。内容本身仍然只在「看内容」里，且只给自己的。 */
+function paperObsDone(p){
+  const ex=EXK(), suf='|'+p.id, set={};
+  Object.keys(S.f1||{}).forEach(k=>{
+    if(k.slice(-suf.length)!==suf) return;
+    const r=S.f1[k];
+    if(!r||r.exam!==ex||!r.savedAt||r.subject!==S.subject||!r.sid) return;
+    set[r.sid]=1; });
+  return inCls(S.cls).filter(x=>set[x.sid]).length;
+}
+/* 这份卷有几位学生的考卷分析【已完成】 */
+function paperF2Done(p){
+  const ex=EXK(); let n=0;
+  inCls(S.cls).forEach(x=>{
+    const r=S.f2[ex+'|'+x.sid+'|'+S.subject+'|'+p.id];
+    if(r && f2State(r)==='done') n++; });
+  return n;
+}
 function renderPapers(){
   const c=document.getElementById('c-papers');
   const ps=(S.papers||[]).slice();
-  let h=hero(esc(S.cls)+' · '+esc(S.subject),'这一格有哪些考卷',
+  let h=hero(esc(S.cls)+' · '+esc(S.subject),'选择考卷',
     'Year '+yearOf(S.cls)+' · '+inCls(S.cls).length+' 人');
   h+=`<div class="card">
     <div class="card-hdr"><span class="card-title">考卷</span>
@@ -3423,23 +3444,22 @@ function renderPapers(){
   }else{
     ps.forEach((p,i)=>{
       const mine=paperMine(p)&&!!paperOwner(p);
-      const nSec=paperSecCount(p), nMe=paperMyDone(p);
+      const nMe=paperMyDone(p), tot=inCls(S.cls).length;
+      const nObs=paperObsDone(p), nF2=paperF2Done(p);
       const d=p.created_at?new Date(p.created_at):null;
       const dl=d?((d.getMonth()+1)+'月'+d.getDate()+'日'):'';
+      const row=(lab,v)=>`<div style="display:flex;gap:10px;align-items:baseline;margin-top:4px">
+        <span style="min-width:72px;font-size:12px;color:var(--mut)">${lab}</span>
+        <b style="font-size:15px">${v} / ${tot} 位</b></div>`;
       h+=`<div class="paper-card${mine?' mine':''}">
         <div style="flex:1;min-width:190px">
-          <div style="font-size:17px;font-weight:700">考卷 ${i+1}</div>
-          <div style="margin-top:4px;display:flex;gap:4px;flex-wrap:wrap">
+          <div style="display:flex;gap:4px;flex-wrap:wrap">
             ${paperStamps(p).map(t=>`<span class="chip ${t===S.me?'chip-me':'chip-muted'}"
-               title="${esc(teacherLabel(t))}">${esc(t)}</span>`).join('')}
-            ${dl?`<span class="chip chip-muted">${dl}</span>`:''}
-          </div>
-          <div style="display:flex;gap:18px;flex-wrap:wrap;margin-top:8px">
-            <div><b style="font-size:15px">${nSec||'—'}</b>
-              <span style="display:block;font-size:11px;color:var(--hint)">考卷项目</span></div>
-            <div><b style="font-size:15px">${nMe||'—'}</b>
-              <span style="display:block;font-size:11px;color:var(--hint)">我填了几位</span></div>
-          </div>
+               title="${esc(teacherLabel(t))}">${esc(t)}</span>`).join('')}</div>
+          <div style="font-size:17px;font-weight:700;margin-top:5px">考卷 ${i+1}</div>
+          ${row('考前观察',nObs)}
+          ${row('考卷分析',nF2)}
+          ${dl?`<div style="font-size:11px;color:var(--hint);margin-top:7px">${dl}</div>`:''}
         </div>
         <button class="btn ${nMe?'btn-pri':''}" style="min-height:44px;padding:0 18px;
           font-weight:700;white-space:nowrap"
