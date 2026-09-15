@@ -544,7 +544,7 @@ body.teacher-mode .teacher-hide{display:none !important;}
    \u6539\u7248\u89c4\u5219\uff1a\u53ea\u7528\u6574\u6570\uff0c\u4e14\u4e09\u5904\u5fc5\u987b\u540c\u65f6\u6539 \u2014\u2014
    \u2460 <title>  \u2461 \u4e3b\u9875\u9876\u680f\u7684\u7248\u672c\u5fbd\u7ae0  \u2462 \u4e0b\u9762\u8fd9\u4e2a\u5e38\u6570
    \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550 */
-const APP_VERSION = 2;
+const APP_VERSION = 3;
 
 const B='\u2980';
 const H=(n,e='')=>`*${B}${B}${B}${B} ${n} ${B}${B}${B}${B}*`+(e?` ${e}`:'');
@@ -1461,9 +1461,19 @@ function osIsSubscribed(){
 // Sync students from Supabase (shared list)
 async function syncStudentsFromSupabase(){
   try{
-    const {data,error}=await _sb.from('students').select('*').order('name');
-    if(error||!data||!data.length)return;
-    S.students=data.map(r=>({name:r.name,cls:r.class||r.cls||'',prog:r.prog||'SRK'}));
+    /* ══ v3 · 线上日志实证：09-14 23:58 起 400 了 26 次 ══
+       `students` 表里没有 `name` 这一栏（只有 name_en / name_cn），
+       旧版拿那个不存在的栏位来排序，整支查询被 PostgREST 挡掉 → 学生名单一直是空的。
+       班级也不在 students 上，在 v_student_roster。改读那支 view，
+       名字、班级、部门一次拿齐。 */
+    const {data,error}=await _sb.from('v_student_roster')
+      .select('name_en,name_cn,class_name,department')
+      .order('name_en');
+    if(error){ console.warn('Supabase students sync failed:',error.message); return; }
+    if(!data||!data.length) return;
+    S.students=data.map(r=>({name:r.name_en||r.name_cn||'',
+                             cls:r.class_name||'', prog:r.department||'SRK'}))
+                   .filter(x=>x.name);
     save();
     console.log('✅ Students synced from Supabase:',S.students.length);
   }catch(e){console.warn('Supabase students sync failed:',e);}
@@ -1557,17 +1567,21 @@ async function getStudentHistory(name){
   }catch(e){console.warn('Supabase fetch error:',e);return[];}
 }
 
-// Upload students list to Supabase (run once from management)
+/* ══ v3 · 这条通道整个拆掉 ══════════════════════════════════════════
+   旧版做的是：先对 students 下一个「删掉 id 不等于 0 的全部列」，再整批 insert
+   三个栏位（姓名 / 班级 / 部门）。三个事实叠在一起，这是一颗地雷：
+   （⚠️ 照坑 6：注解里不留可被 grep 比对的原始码，只写文字描述。）
+     · `students.id` 是 **uuid**，`.neq('id',0)` 会转型失败回 400 —— 删除**从来没执行过**，
+       365 笔学生资料是靠这个**意外**活下来的，不是靠设计。
+     · 表里根本没有 `name` / `class` / `prog` 三栏，insert 也一定失败。
+     · DELETE 的 RLS 是 `internal.fn_is_owner_admin()` —— Owner 按得动。
+   学生名单的**正本在 Master Data**，由那边维护；MiscGo 是消费端，不是来源。
+   所以这里不修、不改栏位、不加确认框 —— **拿掉写入能力**，只留一句话讲清楚去哪里改。 */
 async function uploadStudentsToSupabase(){
-  try{
-    toast('Uploading students…');
-    // Clear old data
-    await _sb.from('students').delete().neq('id',0);
-    const rows=S.students.map(s=>({name:s.name,class:s.cls,prog:s.prog||'SRK'}));
-    const {error}=await _sb.from('students').insert(rows);
-    if(error){toast('Upload failed: '+error.message,true);return;}
-    toast('✅ '+rows.length+' students uploaded to Supabase!');
-  }catch(e){toast('Error: '+e.message,true);}
+  toast('学生名单的正本在 Master Data，不从这里上传', true);
+  alert('学生名单不从 MiscGo 上传。\n\n'
+    +'正本在 Master Data Hub，那里改了，这里按「🔄 从云端同步学生名单」就会拿到最新的。\n\n'
+    +'（旧版这颗按钮会先删掉云端整张学生表再塞回去，栏位又对不上 —— 已经拆掉。）');
 }
 
 // Render student history panel
@@ -1811,7 +1825,7 @@ function renderSettings(){
       `<div style="margin-top:8px;"><button class="btn btn-sm" onclick="syncAllFromSupabase().then(()=>{toast('已重新载入');renderSettings();})">🔄 立刻重新载入</button></div>`);
 
   h+=box('④','主数据维护',
-      `<button onclick="uploadStudentsToSupabase()" class="btn btn-sm" style="margin-right:8px;margin-bottom:6px;">⬆️ 上传学生名单到云端</button>
+      `<button onclick="uploadStudentsToSupabase()" class="btn btn-sm" style="margin-right:8px;margin-bottom:6px;" title="学生名单的正本在 Master Data Hub">ℹ️ 学生名单从哪里改？</button>
        <button onclick="syncStudentsFromSupabase().then(()=>{toast('学生名单已同步');renderSettings();})" class="btn btn-sm" style="margin-bottom:6px;">🔄 从云端同步学生名单</button>
        <div style="font-size:10px;color:var(--mut);margin-top:4px;">学生名单是主数据。上传会以本机为准覆盖云端，同步会以云端为准覆盖本机。</div>`);
 
