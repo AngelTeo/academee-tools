@@ -457,7 +457,7 @@ button.chip.sel-w{background:var(--warn);color:#fff}
    权限码：RPT-EvalGo-ATC
    ══════════════════════════════════════════════════════════════════ */
 
-const APP_VERSION = 44;
+const APP_VERSION = 45;
 const STORAGE_KEY = 'evalgo_atc_v1';   /* 沿用 v1 key，旧资料不掉 */
 const SYS_CODE    = 'RPT-EvalGo-ATC';
 const SB_URL      = 'https://qnpvqsvvsgsantekgfbz.supabase.co';
@@ -2150,6 +2150,78 @@ function bpEvenAll(){
      +'有哪一个其实不是每题同分，按完再逐个用「改分数」改回来。\n\n确定吗？')) return;
   g.forEach(x=>{ x.even='Y'; markSecDirty(x); });
   if(saveThen('✓ '+g.length+' 个项目已声明每题同分')){ bpRefresh(); autoPush(); }
+}
+/* ══ v45 · 撞车清单（管理层）══════════════════════════════════════
+   Owner 2026-09-15 拍板：管理层**可以覆盖，但要留痕**。
+   只能看的话，老师那一笔就永远卡在本机 —— 跟今天治好的 q_marks 死局是同一种错。
+   覆盖前强制先汇出备份；谁覆盖、何时、覆盖掉谁的，全部记进 S.s9log。 */
+function s9PanelHTML(){
+  const L=s9List();
+  if(!L.length) return `<div class="mg-line" style="margin-top:10px"><strong>撞车清单</strong>
+    　<span class="chip chip-ok">没有撞车</span></div>`;
+  const rows=L.map((it,i)=>{
+    const w=s9Where(it);
+    return `<tr>
+      <td>${i+1}</td>
+      <td><strong>${esc(w.cls)}</strong> · ${esc(w.subj)}<div style="font-size:11px;color:var(--mut)">${
+        esc(w.who)}${w.extra?(' · '+esc(w.extra)):''}</div></td>
+      <td>${esc(it.r.by||S.me||'—')}<div style="font-size:11px;color:var(--mut)">本机</div></td>
+      <td>${esc(it.c.by||'—')}<div style="font-size:11px;color:var(--mut)">云端 · ${esc(it.c.at||'')}</div></td>
+      <td style="font-size:12px">${esc(s9Mine(it))}</td>
+      <td style="white-space:nowrap">
+        <button class="btn btn-sm btn-dng" onclick="s9Override('${esc(it.store)}','${esc(it.k)}')"
+          title="用本机这一份覆盖云端 —— 会先要你汇出备份">用本机覆盖</button>
+        <button class="btn btn-sm" onclick="s9Drop('${esc(it.store)}','${esc(it.k)}')"
+          title="放弃本机这一份，保留云端">用云端</button></td></tr>`;
+  }).join('');
+  return `<div class="mg-line" style="margin-top:12px"><strong>撞车清单</strong>
+      　<span class="chip chip-danger">${L.length} 笔</span>
+      <span class="tip" style="margin:0">本机有资料、云端同一格已经是别人填的。系统不替人决定留哪一份。</span></div>
+    <div class="tw"><table class="data"><thead><tr>
+      <th style="width:34px">#</th><th>哪一格</th><th style="width:78px">本机</th>
+      <th style="width:120px">云端</th><th>本机填了什麽</th><th style="width:170px"></th>
+    </tr></thead><tbody>${rows}</tbody></table></div>
+    <div class="toolbar" style="margin-top:8px">
+      <button class="btn btn-sm" onclick="s9Export()">↓ 汇出撞车清单</button>
+      ${(S.s9log||[]).length?`<span class="tip" style="margin:0">已处理 ${S.s9log.length} 笔，纪录在备份档里</span>`:''}
+    </div>`;
+}
+function s9Export(){
+  const L=s9List();
+  if(!L.length){ toast('没有撞车'); return; }
+  const rows=[['班级','科目','学生','位置','本机填写者','云端填写者','发现时间','本机内容','本机key']]
+    .concat(L.map(it=>{ const w=s9Where(it);
+      return [w.cls,w.subj,w.who,w.extra,(it.r.by||S.me||''),(it.c.by||''),(it.c.at||''),s9Mine(it),it.k]; }));
+  const csv='\uFEFF'+rows.map(r=>r.map(x=>'"'+String(x==null?'':x).replace(/"/g,'""')+'"').join(',')).join('\r\n');
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
+  a.download='EvalGo_撞车清单_'+today()+'.csv'; a.click();
+  toast('✓ 已汇出');
+}
+function s9Override(store,k){
+  if(!canSeeManage()||!permTick('can_approve')){ toast('✕ 只有管理层可以覆盖',3000); return; }
+  const st=s9Store(store), r=st&&st[k];
+  if(!r||!r.conflict){ toast('✕ 找不到这一笔'); return; }
+  if(!confirm('先汇出备份。\n\n按「确定」会下载一份完整备份，下载完再问你一次。')) return;
+  try{ exportData(); }catch(e){ console.warn('备份失败',e);
+    if(!confirm('备份没有下载成功。\n\n还要继续覆盖吗？（不建议）')) return; }
+  if(!confirm('用本机这一份覆盖云端。\n\n云端那一份是别人填的，覆盖後**拿不回来**（只有刚才那份备份）。\n\n确定吗？')) return;
+  (S.s9log||(S.s9log=[])).push({at:new Date().toLocaleString('en-GB'), by:S.me||'',
+    store:store, k:k, over:r.conflict.by||'', cloud_id:r.conflict.cloud_id||''});
+  r.client_uid = r.conflict.cloud_uid || r.client_uid;   /* 认领云端身份 → 下一次 upsert 变 UPDATE */
+  r.cloud_id   = r.conflict.cloud_id  || r.cloud_id;
+  delete r.conflict; r.synced=false;
+  if(saveThen('✓ 已排入上传 —— 下一次同步会覆盖云端那一份')){ renderManage(); autoPush(); }
+}
+function s9Drop(store,k){
+  if(!canSeeManage()){ toast('✕ 只有管理层可以处理',3000); return; }
+  const st=s9Store(store), r=st&&st[k];
+  if(!r){ toast('✕ 找不到这一笔'); return; }
+  if(!confirm('放弃本机这一份，保留云端那一份。\n\n本机这一笔会被删掉，拿不回来。\n\n确定吗？')) return;
+  (S.s9log||(S.s9log=[])).push({at:new Date().toLocaleString('en-GB'), by:S.me||'',
+    store:store, k:k, dropped:true});
+  delete st[k];
+  if(saveThen('✓ 已放弃本机这一份')){ renderManage(); cloudPull(true); }
 }
 function bpReadyNow(){ return sections().length>0 && legacySections().length===0; }
 /* v28 · Owner 2026-09-15：任教登记已废止，bpCanEdit() 现在只看「有没有填写权限」。
@@ -4847,6 +4919,7 @@ function renderManage(){
       <span class="tip" style="margin:0">红框 = 排了人，但这一格还没有他的学生资料</span></div>
     <div class="mg-line" style="margin-bottom:8px"><strong>任课老师</strong>
       　哪一班、哪一科，是谁负责。</div>
+    ${s9PanelHTML()}
     <div class="tw"><table class="data"><thead><tr>
       <th style="min-width:72px">班级</th>
       ${SUBJECTS.map(x=>`<th style="min-width:150px;text-align:center">${esc(x)}</th>`).join('')}
@@ -5308,11 +5381,81 @@ async function cloudRoster(silent){
     return true;
   }catch(e){ if(!silent) alert('载入名单失败：'+(e.message||e)); return false; }
 }
+/* ══════════════════════════════════════════════════════════════════
+   v45 · S-9 方案 E —— Owner 2026-09-15 拍板
+   ------------------------------------------------------------------
+   本机有一笔未同步、云端同一个自然键已经有列时：
+     云端 entered_by === 我  → **认领**云端 client_uid
+                               （换装置 / pull 失败过，自己覆盖自己，无损）
+     不是我                  → **不认领、不上传、也不丢弃**，标成撞车
+   ⚠️ 这四张证据表的自然键**不含 entered_by** —— 自动认领别人那一列
+      等於静默盖掉别的老师。今天的 409 很粗暴，但它确实挡住了互相覆盖；
+      拆引信之前必须先决定撞到怎麽办，这就是那个决定。
+   ⚠️ teacher_assign（没有内容）与 paper_section（只有开卷者改得了）
+      不适用这一条 —— 见 v40 / v44 的理由，那两张直接认领是安全的。
+   ⚠️ 不改 onConflict 策略（L-4 一个字不动）、不用 DDL。
+   ══════════════════════════════════════════════════════════════════ */
+function s9Adopt(rec, x, label){
+  if(!rec || rec.synced!==false) return false;         /* 只处理本机未同步的 */
+  const mine = !!S.me && (x.entered_by||'')===S.me;
+  if(mine){
+    let ch=false;
+    if(x.client_uid && rec.client_uid!==x.client_uid){ rec.client_uid=x.client_uid; ch=true; }
+    if(x.id && rec.cloud_id!==x.id){ rec.cloud_id=x.id; ch=true; }
+    if(rec.conflict){ delete rec.conflict; ch=true; }
+    if(ch) console.info('v45：'+label+' 认领云端身份（同一个人）');
+    return ch;
+  }
+  const c=rec.conflict||{};
+  if(c.cloud_id!==x.id || c.by!==(x.entered_by||'')){
+    rec.conflict={by:x.entered_by||'', cloud_id:x.id, cloud_uid:x.client_uid||'',
+                  at:new Date().toLocaleString('en-GB'), what:label};
+    console.warn('v45：'+label+' 撞车 —— 云端那一列是别人填的，本机这一笔不送出');
+    return true;
+  }
+  return false;
+}
+/* 撞车清单。key 带得回去，管理层才改得动。 */
+function s9List(){
+  const out=[];
+  const scan=(store,lab)=>Object.keys(store||{}).forEach(k=>{ const r=store[k];
+    if(r && r.conflict && r.exam===EXK()) out.push({k,r,store:lab,c:r.conflict}); });
+  scan(S.f1,'f1'); scan(S.f2,'f2'); scan(S.wi,'wi'); scan(S.es,'es');
+  return out;
+}
+function s9Count(){ return s9List().length; }
+function s9Store(n){ return n==='f1'?S.f1:n==='f2'?S.f2:n==='wi'?S.wi:S.es; }
+/* 这一笔是哪一格、哪一位学生 —— 清单上要看得懂，不能只印 key */
+function s9Where(it){
+  const st=stuOf(it.r.sid);
+  const cls=st?st.cls:'?', who=st?nameOf(st):(it.r.sid||'?');
+  const extra = it.store==='f1' ? ('项目 '+(it.r.bahagian||'?'))
+              : it.store==='wi' ? ('第 '+it.r.q+(it.r.qsub?('('+it.r.qsub+')'):'')+' 题')
+              : it.store==='es' ? ('写作 '+(it.r.sec_code||''))
+              : '';
+  return {cls, who, subj:it.r.subject||'?', extra};
+}
+/* 本机这一笔填了什麽 —— 一句话，够管理层判断留哪一份 */
+function s9Mine(it){
+  const r=it.r;
+  if(it.store==='wi') return markLab(r.code)||r.code||'—';
+  if(it.store==='es') return (r.score!=null?r.score+' 分':'未评分')
+    +((r.weak||[]).length?(' · '+r.weak.join('、')):'');
+  if(it.store==='f1') return DIMS.map(d=>r[d.id]?(d.zh+r[d.id]):'').filter(Boolean).join(' ')||'（没填维度）';
+  return [r.tp?('TP '+r.tp):'', r.paper_checked?'已核对整份':'',
+          (r.weak_manual||[]).join('、'), r.weak_note||''].filter(Boolean).join(' · ')||'—';
+}
+function s9Table(n){ return n==='f1'?'evalgo_live_obs':n==='f2'?'evalgo_paper_analysis'
+                          :n==='wi'?'evalgo_wrong_item':'evalgo_essay_result'; }
+
+/* 撞车的那几笔不算「没送出」—— 它们不是送不出去，是**刻意不送**。
+   混在一起会让顶栏永远红著，老师按几次都清不掉（v32 那个坑的成因）。 */
+function notConflict(r){ return !r.conflict; }
 function pendingCount(){
-  return Object.values(S.f1).filter(r=>r.savedAt&&!r.synced).length
-       + Object.values(S.f2).filter(r=>r.savedAt&&!r.synced).length
-       + Object.values(S.wi).filter(w=>w.savedAt&&!w.synced).length
-       + Object.values(S.es).filter(e=>e.savedAt&&!e.synced).length
+  return Object.values(S.f1).filter(r=>r.savedAt&&!r.synced&&notConflict(r)).length
+       + Object.values(S.f2).filter(r=>r.savedAt&&!r.synced&&notConflict(r)).length
+       + Object.values(S.wi).filter(w=>w.savedAt&&!w.synced&&notConflict(w)).length
+       + Object.values(S.es).filter(e=>e.savedAt&&!e.synced&&notConflict(e)).length
        /* v32：任教登记已废止，不再上传，也不计入「没送出」。
           留著只会让顶栏永远红著，而老师按几次都清不掉（见 cloudPush 的注解）。 */
        + pendingSections().length;
@@ -5614,9 +5757,11 @@ async function cloudPush(silent){
     +inc.map(x=>x.code).join('、')+'。补齐后会自动一起上传。');
 
   const jobs=[]
-    .concat(Object.entries(S.f1).filter(([k,r])=>r.savedAt&&!r.synced).map(([k,r])=>({t:'evalgo_live_obs',k,r,p:()=>f1Payload(r)})))
-    .concat(Object.entries(S.f2).filter(([k,r])=>r.savedAt&&!r.synced).map(([k,r])=>({t:'evalgo_paper_analysis',k,r,p:()=>f2Payload(r)})));
-  const wiJobs=Object.entries(S.wi).filter(([k,w])=>w.savedAt&&!w.synced);
+    /* v45：撞车那几笔**刻意不送** —— 送了就是盖掉别的老师填的。
+       它们留在本机、进撞车清单，由管理层决定。 */
+    .concat(Object.entries(S.f1).filter(([k,r])=>r.savedAt&&!r.synced&&notConflict(r)).map(([k,r])=>({t:'evalgo_live_obs',k,r,p:()=>f1Payload(r)})))
+    .concat(Object.entries(S.f2).filter(([k,r])=>r.savedAt&&!r.synced&&notConflict(r)).map(([k,r])=>({t:'evalgo_paper_analysis',k,r,p:()=>f2Payload(r)})));
+  const wiJobs=Object.entries(S.wi).filter(([k,w])=>w.savedAt&&!w.synced&&notConflict(w));
   if(CLOUD.hasWI) wiJobs.forEach(([k,w])=>jobs.push({t:'evalgo_wrong_item',k,r:w,p:()=>wiPayload(w)}));
   /* ══ v32 · 任教登记不再上传 ══════════════════════════════════════
      Owner 2026-09-15（图1/图2）：顶栏「⚠ 1 笔没送出」永远清不掉，
@@ -5640,7 +5785,7 @@ async function cloudPush(silent){
   if(CLOUD.hasTA)
     Object.entries(S.assign||{}).filter(([k,a])=>a&&a.savedAt&&!a.synced)
       .forEach(([k,a])=>jobs.push({t:'evalgo_teacher_assign',k,r:a,p:()=>asgPayload(a)}));
-  const esJobs=Object.entries(S.es).filter(([k,e])=>e.savedAt&&!e.synced);
+  const esJobs=Object.entries(S.es).filter(([k,e])=>e.savedAt&&!e.synced&&notConflict(e));
   if(CLOUD.hasES) esJobs.forEach(([k,e])=>jobs.push({t:'evalgo_essay_result',k,r:e,p:()=>esPayload(e)}));
   else if(esJobs.length) held.push(`写作结果 ${esJobs.length} 笔 —— 资料库还没有 evalgo_essay_result（delta v5 未跑）。`);
   /* 🔴 v10 BUG：把「v5 有没有跑」和「wrong_item 在不在」串成 if/else，
@@ -5766,8 +5911,9 @@ async function cloudPull(silent){
       if(d.error) throw d.error;
     }
     let n1=0,n2=0,n3=0; const seenF1={},seenF2={},seenWI={},seenES={};
+    let s9dirty=false;
     (a.data||[]).forEach(x=>{ const k=CLOUD.exam.code+'|'+x.student_id+'|'+x.subject+'|'+x.bahagian+piSuf(x.paper_instance_id); seenF1[k]=1;
-      if(S.f1[k]&&!S.f1[k].synced) return;
+      if(S.f1[k]&&!S.f1[k].synced){ if(s9Adopt(S.f1[k],x,'考前观察')) s9dirty=true; return; }
       S.f1[k]={client_uid:x.client_uid||uid(),sid:x.student_id,subject:x.subject,bahagian:x.bahagian,
         focus_dim:x.focus_dim||null,
         cls:'',class_id:x.class_id,year:x.year_level,obs_date:x.obs_date,by:x.entered_by,exam:CLOUD.exam.code,
@@ -5775,7 +5921,7 @@ async function cloudPull(silent){
         ind:x.ind_v||'',speed:x.speed_v||'',handwriting:x.handwriting_v||'',issue:x.issue||'',
         savedAt:'(云端)',synced:true,cloud_id:x.id}; n1++; });
     (b.data||[]).forEach(x=>{ const k=CLOUD.exam.code+'|'+x.student_id+'|'+x.subject+piSuf(x.paper_instance_id); seenF2[k]=1;
-      if(S.f2[k]&&!S.f2[k].synced) return;
+      if(S.f2[k]&&!S.f2[k].synced){ if(s9Adopt(S.f2[k],x,'考卷分析')) s9dirty=true; return; }
       S.f2[k]={client_uid:x.client_uid||uid(),sid:x.student_id,subject:x.subject,class_id:x.class_id,
         year:x.year_level,paper_date:x.paper_date,by:x.entered_by,exam:CLOUD.exam.code,
         weak_options:x.weak_options||[],weak_note:x.weak_note||'',
@@ -5796,8 +5942,14 @@ async function cloudPull(silent){
         assess_status:x.assess_status||'ASSESSED',
         weak_manual:x.weak_manual||[],
         savedAt:'(云端)',synced:true,cloud_id:x.id}; n2++; });
-    (d.data||[]).forEach(x=>{ const k=CLOUD.exam.code+'|'+x.student_id+'|'+x.subject+'|'+x.q_no+piSuf(x.paper_instance_id); seenWI[k]=1;
-      if(S.wi[k]&&!S.wi[k].synced) return;
+    /* 🔴 v45 · 铁则 6（送出去的每个栏位，pull 都要抄得回来）被破了一个洞：
+       本机 key 是 uKey(q,sub) —— 6a 存成 '6@a'；
+       但这里拉回来只用 x.q_no，6a / 6b / 6c 全部落在同一个 key '6' 上，
+       **後面的把前面的盖掉** —— v33 的小题纪录过不了一趟来回。
+       q_sub 栏位 delta v12 就有了，这里一直没读。 */
+    (d.data||[]).forEach(x=>{ const k=CLOUD.exam.code+'|'+x.student_id+'|'+x.subject+'|'
+        +uKey(x.q_no, x.q_sub||null)+piSuf(x.paper_instance_id); seenWI[k]=1;
+      if(S.wi[k]&&!S.wi[k].synced){ if(s9Adopt(S.wi[k],x,'逐题')) s9dirty=true; return; }
       S.wi[k]={client_uid:x.client_uid||uid(),sid:x.student_id,subject:x.subject,q:x.q_no,
         qsub:x.q_sub||null,
         code:String(x.mark_code||'').toLowerCase(),diag:x.diagnosis||'',
@@ -5806,7 +5958,7 @@ async function cloudPull(silent){
         savedAt:'(云端)',synced:true,cloud_id:x.id}; n3++; });
     let n4=0;
     (e2.data||[]).forEach(x=>{ const k=CLOUD.exam.code+'|'+x.student_id+'|'+x.subject+'|'+x.section_code+piSuf(x.paper_instance_id); seenES[k]=1;
-      if(S.es[k]&&!S.es[k].synced) return;
+      if(S.es[k]&&!S.es[k].synced){ if(s9Adopt(S.es[k],x,'写作')) s9dirty=true; return; }
       S.es[k]={client_uid:x.client_uid||uid(),sid:x.student_id,subject:x.subject,
         sec_code:x.section_code,sec_cloud_id:x.section_id,score:x.score,max:x.max_score,
         weak:x.weak||[],star:!!x.is_star,cls:'',class_id:x.class_id,year:x.year_level,
@@ -5826,9 +5978,20 @@ async function cloudPull(silent){
     alert(`已拉回 考卷项目 ${nPS} 个 · FORM 01 ${n1} 笔 · FORM 02 ${n2} 笔 · 逐题 ${n3} 笔 · 写作 ${n4} 笔`
       +(CLOUD.hasWI?'':'\n（逐题表尚未建立，跳过）')
       +'\n（本机还没上传的资料不会被盖掉）');
+    if(s9dirty){ saveData(true); s9Notify(); }
   }catch(e){ const m=e&&e.message?e.message:String(e);
     CLOUD.readErr='资料读不回来：'+m; paintReadWarn();
     if(silent) console.warn('pull:',m); else alert('拉回失败：'+m); }
+}
+/* 老师端的撞车讯息。
+   ⚠️ Owner 2026-09-15 拍板：**不说是谁填的**。
+      老师知道了也处理不了（她没有覆盖权限），只会多一个跟同事争的理由；
+      而且说了会踩到「老师只看得见自己填的」那条裁定。名字只在管理层那张清单上。 */
+function s9Notify(){
+  const n=s9Count(); if(!n) return;
+  paintCloud();
+  if(isAdmin()) return;                 /* 管理层看清单，不看这个 toast */
+  toast('⚠ 有 '+n+' 笔跟云端撞到了 —— 你的资料还在，但没有送出去。请截图找管理层。', 8000);
 }
 /* 失败讯息必须「老师做得到」。叫老师去按 Export 是假的出口 ——
    那颗按钮在管理页，老师根本看不到。 */
@@ -5853,6 +6016,11 @@ function paintCloud(){
     el.style.color='#F9CB42';
   }else if(CLOUD.pushErr || p>0){
     el.textContent='⚠ '+p+' 笔没送出 — 请截图找管理层';
+    el.style.color='#FFD0D0';
+  }else if(s9Count()){
+    /* v45：撞车不是「送不出去」，是**刻意不送**。混进上面那一条，
+       老师会一直按重试，而重试永远没用（v32 那个坑）。 */
+    el.textContent='⚠ '+s9Count()+' 笔跟云端撞到了 — 请找管理层';
     el.style.color='#FFD0D0';
   }else{
     el.textContent='✓ 已储存到云端';
