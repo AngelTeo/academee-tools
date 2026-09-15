@@ -113,6 +113,34 @@ table.data tbody tr:hover{background:#FFF9E6}
   width:auto;padding:0 7px}
 .stampcol{display:flex;flex-direction:column;gap:3px;align-items:center;flex-shrink:0}
 label.fl{font-size:11px;font-weight:700;letter-spacing:.5px;display:block;margin-bottom:4px}
+/* ══ v42 · 考卷分析三段式 ══ */
+.must{border:2px solid var(--warn);border-radius:12px;background:#fffdf7;padding:14px 15px;margin-bottom:10px}
+.must.done{border-color:var(--ok);background:#f4faf7}
+.must-hd{font-size:15px;font-weight:800;margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.must-hd .cnt{font-size:12px;font-weight:700;color:var(--warn);background:#f6eddd;border-radius:999px;padding:3px 10px}
+.must.done .must-hd .cnt{color:var(--ok);background:#e4f0eb}
+.must-row{display:flex;gap:12px;align-items:center;padding:9px 0;border-top:1px solid #eee6d4;flex-wrap:wrap}
+.must-row:first-of-type{border-top:0}
+.must-num{width:22px;height:22px;border-radius:50%;background:var(--warn);color:#fff;font-size:12px;
+  font-weight:800;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
+.must-num.ok{background:var(--ok)}
+.must-lab{min-width:104px;font-weight:700;font-size:13.5px}
+.must-note{width:100%;font-size:11.5px;color:var(--mut);margin-top:2px}
+.big-toggle{font-size:14px;font-weight:700;padding:11px 20px;border-radius:10px;min-height:44px;
+  background:#f6eddd;color:var(--warn);border:2px solid #e6d2ab;cursor:pointer;font-family:inherit}
+.big-toggle.on{background:var(--ok);color:#fff;border-color:var(--ok)}
+.fold{background:#fff;border:1px solid var(--bdr);border-radius:12px;margin-bottom:10px;overflow:hidden}
+.fold-hd{padding:13px 15px;font-size:14px;font-weight:700;cursor:pointer;display:flex;
+  align-items:center;gap:8px;min-height:44px}
+.fold-hd .sub{font-weight:400;font-size:11.5px;color:var(--mut)}
+.fold-hd .car{margin-left:auto;color:var(--mut)}
+.fold-bd{padding:0 15px 14px;border-top:1px solid var(--bdr);display:none}
+.fold.open .fold-bd{display:block}
+.sub-sec{padding:11px 0;border-top:1px dashed var(--bdr)}
+.sub-sec:first-child{border-top:0}
+.sub-sec h4{margin:0 0 6px;font-size:13px;font-weight:700}
+.sub-sec h4 span{font-weight:400;font-size:11px;color:var(--mut);margin-left:6px}
+
 .cellrow{display:flex;gap:9px;align-items:center}
 .cellnum{text-align:left;flex:1;min-width:0}
 
@@ -429,7 +457,7 @@ button.chip.sel-w{background:var(--warn);color:#fff}
    权限码：RPT-EvalGo-ATC
    ══════════════════════════════════════════════════════════════════ */
 
-const APP_VERSION = 40;
+const APP_VERSION = 43;
 const STORAGE_KEY = 'evalgo_atc_v1';   /* 沿用 v1 key，旧资料不掉 */
 const SYS_CODE    = 'RPT-EvalGo-ATC';
 const SB_URL      = 'https://qnpvqsvvsgsantekgfbz.supabase.co';
@@ -1612,19 +1640,41 @@ function cellStat(cls,subj){
    28 格是灰的，纯粹噪音；而且它回答的是院长的问题（谁没做完），
    不是老师的问题（我还剩谁没填）。整张表移除。
    新版只列老师自己勾的班科，一个班科一张卡，卡里直接给「还剩谁」。 */
+/* v41 · 同样吃三条规矩。
+   ⚠️ 这一支同时喂老师的待办（「还剩 N 位」），所以两种数字都要，不能只留一种：
+     obsDone / papStarted → 画面上的「N / M 位」，数**有资料的人**
+     papFull              → 「其中完成」
+     obsLeft / papLeft    → 待办清单，语意不动（缺席不催、完成才算做完）
+   旧版把缺席直接算成「考前观察已完成」—— 考前观察是考前做的，
+   跟考试当天缺席无关，那是灌水。v41 拆开：缺席只进 absent，不进 obsDone。 */
 function cardStat(cls,subj){
-  const list=inCls(cls), pre=EXK()+'|';
+  const list=inCls(cls);
   const obsLeft=[], papLeft=[];
-  let obsDone=0, papDone=0, absent=0, na=0, prog=0;
+  let obsDone=0, papStarted=0, papFull=0, absent=0, na=0, prog=0;
   list.forEach(r=>{
-    const st=f2State(S.f2[pre+r.sid+'|'+subj]);
+    /* 🔴 v41 顺手治好的旧病：这里本来读 S.f2[EXK()+'|'+sid+'|'+subj] ——
+       **没有卷号後缀**。多卷上线後这支永远查不到资料，於是
+       「完成填写 ✓」不管老师做了多少，一律回「还剩 N 位」。
+       改走 f2AllOf(sid, subj)，跟 pgStat 同一支真相，任一份卷都算。 */
+    const sts=f2AllOf(r.sid,subj).map(f2State);
+    const st = sts.indexOf('done')>=0        ? 'done'
+             : sts.indexOf('progress')>=0    ? 'progress'
+             : sts.indexOf('absent')>=0      ? 'absent'
+             : sts.indexOf('notassessed')>=0 ? 'notassessed' : 'none';
+    /* 考前观察先数 —— 缺席与否都算（洞 3） */
+    const hasObs=f1Complete(r.sid,subj).length>0;
+    if(hasObs) obsDone++;
     /* ① Operational Resolved —— 不再催，但绝不等於有证据（见 reportReady） */
-    if(st==='absent'){ absent++; obsDone++; papDone++; return; }
-    if(st==='notassessed'){ na++; obsDone++; papDone++; return; }
-    if(f1Complete(r.sid,subj).length) obsDone++; else obsLeft.push(r);
-    if(st==='done') papDone++; else { papLeft.push(r); if(st==='progress') prog++; }
+    if(st==='absent'||st==='notassessed'){
+      if(st==='absent') absent++; else na++;
+      return;                      /* 不进 obsLeft / papLeft：不催 */
+    }
+    if(!hasObs) obsLeft.push(r);
+    if(st==='done'){ papStarted++; papFull++; }
+    else { papLeft.push(r); if(st==='progress'){ papStarted++; prog++; } }
   });
-  return {n:list.length, obsDone, papDone, obsLeft, papLeft, absent, na, prog,
+  return {n:list.length, obsDone, papStarted, papFull, obsLeft, papLeft, absent, na, prog,
+          papDone:papFull,                 /* 旧名保留：还有别处在读 */
           secs:secsCountFor(subj,yearOf(cls))};   /* v27：改扫整格，见 secsCountFor */
 }
 /* Owner 2026-09-06：卡片上不列学生名字。
@@ -1829,7 +1879,10 @@ function renderBP(){
              :'<span class="chip chip-ok">✓</span>'}</td>
         <td style="white-space:nowrap">${bpLocked()?'':
           `<button class="btn btn-sm" style="margin-right:4px" title="修改这个项目"
-             onclick="bpModal(false,'${s.id}')">改</button>`}<button class="btn btn-sm btn-dng"
+             onclick="bpModal(false,'${s.id}')">改</button>`
+          }<button class="btn btn-sm" style="margin-right:4px"
+            title="只改分数：满分 / 每题同分 / 每题几分。题号范围不会动。"
+            onclick="bpScoreOpen('${s.id}')">改分数</button><button class="btn btn-sm btn-dng"
             title="${bpLocked()?'已有学生资料 —— 删除会连资料一起删，会先备份并再问一次':'删除这个项目'}"
             onclick="delSection('${s.id}')">×</button></td></tr>`;
     });
@@ -1939,7 +1992,8 @@ function bpLockBadge(){
   /* 笔数是别的老师填的资料 —— 不给老师看。
      锁本身照旧看全部证据（bpEvidCount），只是画面不报数字。 */
   if(!bpEvidCount()) return '<span class="chip chip-ok">还没有学生资料 · 可以改、也可以删</span>';
-  return '<span class="chip chip-warn">已经有学生资料 · <b>不能改</b>，只能删</span>';
+  return '<span class="chip chip-warn">已经有学生资料 · <b>题号不能改</b>，只能删</span>'
+       + '<span class="chip chip-ok">分数（满分 / 每题几分）仍然可以改 —— 按「改分数」</span>';
 }
 /* v28 · Owner 2026-09-15：「解锁修正」整条通道废止。
    理由：改题号会让旧证据**静静地**漂到错的项目上 —— 画面正常，数字全错。
@@ -1949,6 +2003,107 @@ function bpUnlock(){
   alert('已经有学生资料挂在这个项目上，不能再修改了。\n\n'
     +'改题号会让旧资料对应到错的项目，画面看起来正常、数字却全错。\n\n'
     +'如果这个项目真的建错了，请直接**删除**它 —— 删除会先让你下载备份，再问你一次。');
+}
+/* ══════════════════════════════════════════════════════════════════
+   v43 · Owner 2026-09-15 裁决 2：有学生资料时，「每题几分」可以改 + 留痕
+   ------------------------------------------------------------------
+   为什麽这一条跟「有资料不能改」不冲突：
+     · 改**题号范围** → 已存的逐题纪录整批漂到别的项目，画面正常数字全错 → 照旧锁死
+     · 改**每题几分** → 一个题号都没动，只改分数权重；分数是即时算的，改完全班立刻对
+   而且锁死会造成死局：云端 84 个项目里，声明了「每题同分」的是 0 个 ——
+   它们多半已经有学生资料，锁死就等於永远算不出分数，报告永远印不出来。
+   ⚠️ 这个通道**只开分数**：项目名称、题型、题号范围一律唯读。
+   ⚠️ 留痕写进 q_marks 的 _log（jsonb 本来就有这个栏位）—— 零 DDL。 */
+function bpScoreOpen(id){
+  const sec=sections().find(x=>x.id===id);
+  if(!sec){ toast('✕ 找不到这个项目'); return; }
+  if(!bpCanEditPaper()){ toast('✕ 这份考卷不是你开的',3000); return; }
+  BPQM=qmToRows(sec.qm);
+  const isE=(sec.type||'MCQ')==='ESSAY';
+  const n=bpEvidCount();
+  const body=`
+    <div class="tip" style="margin-top:0">${esc(sec.code)} · ${esc(typeLab(sec.type||'MCQ'))}${
+      isE?'':` · 第 ${sec.qf}–${sec.qt} 题`}</div>
+    ${n?`<div class="alert alert-warn"><div><b>这个项目底下已经有 ${n} 笔学生资料。</b>
+      改了分数，这些学生的得分会立刻跟著变。项目名称、题型、题号范围不能改。</div></div>`:''}
+    <div class="secbox" style="padding:12px">
+      <div class="form-row"><label class="form-label">这个项目共几分 *</label>
+        <input type="number" id="mMax" min="0" step="0.5" value="${esc(sec.max==null?'':sec.max)}"></div>
+      ${isE?'':`
+      <div class="form-row" style="margin-top:8px"><label class="form-label">每题同分？</label>
+        <div class="chips-row">
+          <button class="chip ${sec.even==='Y'?'sel':'chip-layer'}" onclick="bpSEven('Y',this)">Y 每题同分</button>
+          <button class="chip ${sec.even==='N'?'sel':'chip-layer'}" onclick="bpSEven('N',this)">N 每题不同分</button>
+        </div>
+        <input type="hidden" id="mEven" value="${esc(sec.even||'')}">
+        <div class="tip" style="margin-top:4px">没有声明 = 这个项目<b>不算分</b>，报告会标「算不出」。</div></div>
+      <div class="form-row" style="margin-top:10px">
+        <label class="form-label">哪几题分数不一样 / 有小题</label>
+        <div id="mQmRows"></div>
+        <button class="btn btn-sm" style="margin-top:6px" onclick="bpQmAdd()">＋ 加一题</button>
+        <div class="tip" style="margin-top:6px" id="mQmHint"></div>
+      </div>
+      <input type="hidden" id="mQf" value="${esc(sec.qf==null?'':sec.qf)}">
+      <input type="hidden" id="mQt" value="${esc(sec.qt==null?'':sec.qt)}">`}
+    </div>
+    ${(sec.qm&&(sec.qm._log||[]).length)?`<div class="secbox" style="padding:10px 12px">
+      <div class="form-label">改过的纪录</div>
+      ${sec.qm._log.slice(-5).reverse().map(l=>`<div class="tip">${esc(l.at||'')} · ${
+        esc(teacherLabel(l.by||''))} · 满分 ${esc(String(l.max==null?'—':l.max))} · 同分 ${
+        esc(l.even||'未声明')}</div>`).join('')}</div>`:''}`;
+  openModal(`改分数 · ${esc(sec.code)}`, body,
+    `<span class="tip" style="margin:0;flex:1">只能改分数。题号范围要改，请删掉整个项目重建。</span>
+     <button class="btn" style="min-height:44px" onclick="closeModal(true)">取消</button>
+     <button class="btn btn-pri" style="min-height:44px" onclick="bpScoreSave('${id}')">储存</button>`, true);
+  if((sec.type||'MCQ')!=='ESSAY') bpQmRender();
+}
+function bpSEven(v,btn){
+  const h=document.getElementById('mEven'); if(!h) return;
+  h.value = (h.value===v)?'':v;
+  const row=btn.parentElement;
+  [].forEach.call(row.querySelectorAll('.chip'),c=>c.className='chip chip-layer');
+  if(h.value) btn.className='chip sel';
+  const hint=document.getElementById('mQmHint'); if(hint) hint.innerHTML=bpQmHint();
+}
+function bpScoreSave(id){
+  const arr=S.sections[bpKey()]||[], sec=arr.find(x=>x.id===id);
+  if(!sec){ toast('✕ 找不到这个项目'); return; }
+  const isE=(sec.type||'MCQ')==='ESSAY';
+  const mx=parseFloat(String(((document.getElementById('mMax')||{}).value)||'').trim());
+  if(!(mx>0)){ toast('✕ 请填这个项目共几分'); return; }
+  let even='', qm=null;
+  if(!isE){
+    even=String(((document.getElementById('mEven')||{}).value)||'').trim();
+    bpQmSync(); qm=qmFromRows(BPQM);
+    if(qm){
+      const exQ=qmExcQs(qm);
+      for(const q of exQ) if(!(+q>=+sec.qf && +q<=+sec.qt)){
+        toast(`✕ 第 ${q} 题不在 ${sec.qf}–${sec.qt} 范围内`); return; }
+      for(const q of Object.keys(qm.subs||{})) if(Object.keys(qm.subs[q]).length<2){
+        toast(`✕ 第 ${q} 题只有一个小题 —— 至少要两个（a、b）`); return; }
+      const sum=qmExcSum(qm), totQ=(+sec.qt)-(+sec.qf)+1, rest=totQ-exQ.length;
+      if(sum!=null){
+        if(sum>mx){ toast(`✕ 例外题加起来 ${sum} 分，超过 ${mx} 分`); return; }
+        if(rest>0 && sum===mx){ toast(`✕ 其余 ${rest} 题会变成 0 分`); return; }
+        if(rest===0 && sum!==mx){ toast(`✕ 加起来 ${sum} 分 ≠ ${mx} 分`); return; }
+      }
+    }
+  }
+  const n=bpEvidCount();
+  if(n && !confirm('这个项目底下有 '+n+' 笔学生资料。\n\n'
+      +'改了分数，这些学生的得分会立刻跟著变。\n题号一个都不会动，旧资料不会跑位。\n\n确定要改吗？')) return;
+  /* 留痕：谁改、何时、改之前长什麽样。写进 q_marks 的 _log —— 零 DDL。 */
+  const log=(sec.qm&&sec.qm._log)?sec.qm._log.slice():[];
+  log.push({by:S.me||'', at:new Date().toLocaleString('en-GB'),
+            max:(sec.max==null?null:+sec.max), even:sec.even||'',
+            qm:(sec.qm?{per_q:sec.qm.per_q||null,subs:sec.qm.subs||null}:null)});
+  const next = qm ? Object.assign({},qm) : {};
+  next._log = log.slice(-20);
+  sec.max=mx; sec.even=isE?'':even; sec.qm=next;
+  markSecDirty(sec);
+  if(saveThen('✓ 分数已更新'+(n?('，'+n+' 笔学生资料的得分跟著重算'):''))){
+    closeModal(true); bpRefresh(); autoPush();
+  }
 }
 /* v28：这支只管「改」。删除不走这里 —— Owner 裁定有学生资料时仍可删。 */
 function bpGuard(what){
@@ -2381,14 +2536,14 @@ function paperScore(sid){
       } else missing.push(esc(sec.code)+'（写作还没填得分）');
       return;
     }
-    const pq=secPerQ(sec);
-    if(pq==null){
-      missing.push(esc(sec.code)+(sec.even==='N'?'（每题不同分）':'（还没声明每题同分）'));
+    /* v43：改走共用核心 —— 旧版 wrong × 平均分，不认 q_marks，
+       6b 值 2 分也只扣平均分。现在每一格照它自己的分数扣。 */
+    const r2=secScoreOf(sec, wi.filter(w=>+w.q>=+sec.qf && +w.q<=+sec.qt));
+    if(!r2){
+      missing.push(esc(sec.code)+(sec.even==='N'?'（每题不同分，还没填 q_marks）':'（还没声明每题几分）'));
       return;
     }
-    const wrong=wi.filter(w=>+w.q>=+sec.qf && +w.q<=+sec.qt && w.code!=='star').length;
-    got += Math.max(0, (+sec.max) - wrong*pq);
-    max += (+sec.max); covered++;
+    got += r2.got; max += r2.max; covered++;
   });
   if(!covered) return {got:null,max:0,covered:0,total:secs.length,missing};
   return {got:Math.round(got*10)/10, max:Math.round(max*10)/10,
@@ -2445,14 +2600,78 @@ function qHasSubs(q){ return !!qmSubsOfQ(q); }
 function uKey(q,sub){ return String(q)+(sub?'@'+sub:''); }
 function uParse(k){ const p=String(k).split('@'); return {q:+p[0], sub:p[1]||null}; }
 /* 一个项目底下所有「可以点」的单位 */
+/* v43：小题标签改成直接读 sec.qm —— 旧版走 qmSubLabs(q) → secOfQ(q) → qSections()，
+   那是**当下选到的格**。老师端结果一样，但报告层要跨科跨年段跑，
+   偷读环境变数会算到别人的卷上去。现在这支只吃参数。 */
 function qUnits(sec){
-  const out=[];
+  const out=[], subs=(sec&&sec.qm&&sec.qm.subs)||{};
   for(let q=+sec.qf;q<=+sec.qt;q++){
-    const labs=qmSubLabs(q);
-    if(labs&&labs.length) labs.forEach(l=>out.push({q:q,sub:l}));
+    const o=subs[String(q)];
+    const labs=(o&&Object.keys(o).length)?Object.keys(o).sort():null;
+    if(labs) labs.forEach(l=>out.push({q:q,sub:l}));
     else out.push({q:q,sub:null});
   }
   return out;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   v43 · 算分核心 —— 老师端与报告层共用这一支，不准各写各的
+   ------------------------------------------------------------------
+   Owner 2026-09-15 裁决 3：「空 · 漏答」= 0 分，跟做错一样扣满。
+     报告上分开讲（不会做 / 没时间写完），但扣分一样。
+   分数来源优先序：
+     ① q_marks 明写（第 6 题 a 1 分 b 2 分 c 3 分）
+     ② 其余题平均分 =（项目满分 − 例外题总分）÷ 其余题数
+     ③ 只声明「每题同分」→ 满分 ÷ 题数
+     ④ 都没有 → null。**null 不是 0 分**，是「还没声明」，整个项目不进总分并标出来。
+   ⚠️ 云端现况：84 个项目里 even_marks='Y' 的是 0 个、有 q_marks 的 1 个
+      —— 所以现在几乎每一格都会走到 ④。这是资料还没填，不是程式坏。
+   ══════════════════════════════════════════════════════════════════ */
+function qmRest(sec){
+  const qm=sec&&sec.qm, mx=+sec.max;
+  if(!(mx>0)||!(+sec.qt>=+sec.qf)) return null;
+  const totQ=(+sec.qt)-(+sec.qf)+1;
+  if(qmEmpty(qm)) return sec.even==='Y' ? mx/totQ : null;
+  const exQ=qmExcQs(qm), sum=qmExcSum(qm);
+  if(sum==null) return null;                 /* 例外题还有分数没填 → 不硬算 */
+  const rest=totQ-exQ.length;
+  if(rest<0) return null;
+  if(rest===0) return 0;                     /* 全部题都列出来了，没有「其余题」 */
+  return (mx-sum)/rest;
+}
+function qMarkOf(sec,q,sub){
+  const qm=sec&&sec.qm;
+  if(qm){
+    const o=(qm.subs||{})[String(q)];
+    if(sub!=null){
+      if(o) return (o[sub]==null)?null:(+o[sub]);
+    }else if(o){
+      let t=0, ok=true;
+      Object.keys(o).forEach(l=>{ const v=o[l]; if(v==null) ok=false; else t+=(+v); });
+      return ok?t:null;                      /* 整题分 = 小题总和 */
+    }else if((qm.per_q||{})[String(q)]!=null){
+      return +qm.per_q[String(q)];
+    }
+  }
+  return qmRest(sec);
+}
+/* 这个项目学生拿几分。回 {got,max}，或 null = 算不出（分数还没声明）。
+   前提：呼叫端已确认老师按过「整份都看过了」—— 没点的格才算答对。 */
+function secScoreOf(sec, wiList){
+  if(!sec || (sec.type||'MCQ')==='ESSAY') return null;
+  const mx=+sec.max; if(!(mx>0)) return null;
+  let lost=0;
+  for(const u of qUnits(sec)){
+    /* 🔴 先确认这一格声明了分数，再看学生对不对。
+       顺序反过来的话，「全对」的学生一格都不会被检查 ——
+       一个分数还没声明的项目会**静静地给满分**。fail-closed 必须在前面。 */
+    const m=qMarkOf(sec,u.q,u.sub);
+    if(m==null) return null;                  /* 这一格还没声明分数 → 整个项目算不出 */
+    const w=(wiList||[]).find(x=>+x.q===u.q && ((x.qsub||null)===(u.sub||null)));
+    if(!w || w.code==='star') continue;       /* 没点 = 答对 */
+    lost+=m;                                  /* 裁决 3：漏答与做错同样扣满 */
+  }
+  return {got:Math.max(0, mx-lost), max:mx};
 }
 function allUnits(){ const o=[]; qSections().forEach(sec=>{ qUnits(sec).forEach(u=>o.push(u)); }); return o; }
 function totalUnits(){ return allUnits().length; }
@@ -2734,7 +2953,7 @@ function clSub(sid,q,v){
   const w=wiGet(sid,q); if(!w) return;
   w.cl_subtype = w.cl_subtype===v?null:v;
   w.synced=false; w.savedAt=new Date().toLocaleString('en-GB');
-  const r=f2Draft(sid); r.synced=false; saveData(); paintLive(sid);
+  const r=f2Draft(sid); r.synced=false; saveData(); paintTail(sid);
 }
 
 /* ══ 完成状态：三态。追踪只认「已完成」 ══ */
@@ -2743,7 +2962,9 @@ function f2State(p){
   const a=aStat(p);
   if(a==='ABSENT')       return 'absent';
   if(a==='NOT_ASSESSED') return 'notassessed';
-  if(p.paper_checked && p.tp) return 'done';
+  /* v42：纯作文卷不要求 paper_checked —— 跟 f2Missing 同一支判断，
+     否则会出现「弹窗说可以完成、进度矩阵说还没完成」这种自相矛盾。 */
+  if(p.tp && (p.paper_checked || !f2NeedsCheck(p))) return 'done';
   if(f2Started(p)) return 'progress';
   return 'none';
 }
@@ -2751,10 +2972,48 @@ const F2STATE={ none:{lab:'未开始',cls:''}, progress:{lab:'进行中',cls:'b-
                 done:{lab:'已完成',cls:'b-active'},
                 absent:{lab:'缺席',cls:'b-inactive'}, notassessed:{lab:'本轮未评',cls:'b-inactive'} };
 /* 还差什么 —— 老师要看得到自己离「完成」还有多远，才不会填一半就走 */
+/* ══ v42 · Owner 2026-09-15 ══
+   「整份都看过了」的意思是「没点到的题算答对」。
+   纯作文卷一道题都没有（已点 0 / 0 题），这句话讲不通 ——
+   ATC3 华文「写日记」14 位有考前观察、0 位完成，就是卡在这个讲不通的要求上。
+   → 有逐题才要求；纯作文卷只要求 TP。 */
+/* 这一格（科目 + 年段）登记了哪几种项目。
+   ⚠️ 跟 secsCountFor 一样扫整格（跨卷）—— 只回答「有没有」，绝不可当分母。 */
+function secKindsFor(subject,year){
+  const pre=EXK()+'|'+subject+'|'+year; let q=false, e=false;
+  Object.keys(S.sections||{}).forEach(k=>{
+    if(!(k===pre||k.indexOf(pre+'|')===0)) return;
+    (S.sections[k]||[]).forEach(x=>{
+      if(!x) return;
+      if(x.type==='ESSAY') e=true;
+      else if(QTYPES.indexOf(x.type||'MCQ')>=0 && hasRange(x)) q=true; });
+  });
+  return {q,e};
+}
+/* 要不要老师按「整份都看过了」。
+   有逐题 → 要。纯作文 → 不要（没有「没点的题」可以算答对）。
+   ⚠️ 什麽都还没登记 → **照旧要求**（fail-closed）。不然一个没有结构的格子
+      只要点一下 TP 就会变成「已完成」，那是凭空造出完成状态。 */
+function f2NeedsCheck(p){
+  /* ⚠️ f2Draft() 新建的纪录只有 client_uid，还没有 subject / year ——
+     老师一打开弹窗就是这种纪录，所以必须退回「当下这一格」，
+     否则作文卷第一次打开照样被要求按那个钮（这个洞害我第一版没修到）。
+     退回只在科目对得上时才做，免得跨格误判。 */
+  const subj=(p&&p.subject)||S.subject;
+  if(!subj) return true;
+  const st=(p&&p.sid)?stuOf(p.sid):null;
+  let yr=(p&&p.year)||(st?yearOf(st.cls):null);
+  if(!yr && subj===S.subject && S.cls) yr=yearOf(S.cls);
+  if(!yr) return true;
+  const k=secKindsFor(subj,yr);
+  if(k.q) return true;
+  if(k.e) return false;
+  return true;
+}
 function f2Missing(sid){
   const r=f2Draft(sid), out=[];
-  if(!r.paper_checked) out.push('先亲自按「整份都看过了」');
-  if(!r.tp)            out.push('选掌握程度 TP');
+  if(f2NeedsCheck(r) && !r.paper_checked) out.push('整份看完了');
+  if(!r.tp)            out.push('掌握程度');
   /* v31 这里曾经有一条「有小题的题目标了错就必须说是哪个小题」。
      v33 起小题本身就是一格（6a / 6b / 6c 各自要点），
      「只标整题错、不标小题」这个模糊情况**在结构上就不存在了**，
@@ -2768,7 +3027,12 @@ function f2Open(sid){
   window._f2cur=sid;
   const rec=f2Draft(sid), y=r.year||yearOf(r.cls);
   const qs=qSections(), es=essaySections(), lg=legacySections();
-  let b=navBar(sid,'f2');
+  /* ══ v42 · Owner 2026-09-15：「这个太复杂了！老师不需要填的应该删除」 ══
+     旧版 13 个区块，必做的 2 件夹在第 5 与第 9，跟可不做的长得一模一样 ——
+     全校 16 位卡在「整份都看过了」没按，根因在这里。
+     新版三段：【必做】最上面 → 【这份卷】→ 【其他 · 折叠】。
+     ⚠️ 选填栏位一个都没删 —— 它们全部印在家长报告上，删了报告会空白。 */
+  let b=navBar(sid,'f2')+`<div id="f2must"></div>`;
 
   if(!qs.length && !es.length){
     b+=`<div class="alert alert-danger"><div><b>这份考卷还没办法逐题记录。</b><br>
@@ -2820,172 +3084,147 @@ function f2Open(sid){
           <span style="color:var(--mut)">/ ${sec.max}</span></div></div></div>`;
   });
 
-  b+=`<div id="f2live"></div><div id="f2tail"></div>`;
+  b+=`<div id="f2opt"></div>`;
 
   openModal(`${esc(nameOf(r))} · Year ${y} · ${esc(S.subject)}`, b,
     `<span id="f2foot" class="tip" style="margin:0;flex:1"></span>
-     <button class="btn btn-sm" onclick="closeModal()">先关掉</button>
-     <button class="btn btn-sm" id="f2done1" onclick="f2Finish('${sid}')">只完成</button>
-     <button class="btn btn-pri" id="f2done" onclick="f2Finish('${sid}',1)">✓ 完成并到下一位</button>`);
+     <button class="btn btn-sm" onclick="closeModal()">关闭</button>
+     <button class="btn btn-sm" id="f2done1" onclick="f2Finish('${sid}')">完成</button>
+     <button class="btn btn-pri" id="f2done" onclick="f2Finish('${sid}',1)">完成 → 下一位</button>`);
   paintLive(sid); paintTail(sid); paintFoot(sid);
 }
 
-/* 系统算出来的 + 已核对整份 —— 点题号即时刷新 */
+/* ══ v42 · 【必做】—— 这一页唯一非做不可的两件事，放最上面 ══
+   旧版这里是「整份考卷看完了吗」+「系统算出来的」+「粗心」+「理解文」+「TP」五块。
+   「系统算出来的」整块删掉：它是纯显示，上传时 n_star…n_sos 与 total_q
+   由 f2Payload 自己从逐题资料重算（见该函式），删画面不丢任何资料、报告照印。
+   其余搬进【其他】折叠区。 */
 function paintLive(sid){
-  const el=document.getElementById('f2live'); if(!el) return;
-  const rec=f2Draft(sid), m=markCounts(sid), td=topicDiag(sid);
-  const weak=autoWeak(sid), strong=autoStrong(sid);
-  const subjQ=wiOf(sid).filter(w=>w.sec_type==='SUBJ').sort((a,b)=>a.q-b.q);
-  const clQ=wiOf(sid).filter(w=>w.code==='cl').sort((a,b)=>a.q-b.q);
-  let h='';
+  const el=document.getElementById('f2must'); if(!el) return;
+  const rec=f2Draft(sid), m=markCounts(sid);
+  const needChk=f2NeedsCheck(rec);
+  const miss=f2Missing(sid);
+  let n=0;
+  const num=ok=>`<span class="must-num${ok?' ok':''}">${++n}</span>`;
 
-  h+=`<div class="secbox" style="border-color:${rec.paper_checked?'var(--ok)':'var(--warn)'};border-width:2px">
-    <div class="sechd">整份考卷看完了吗
-      <span class="sub">按了这一下，没点的题才算答对</span></div>
-    <button class="chip ${rec.paper_checked?'sel':'chip-warn'}" style="font-size:14px;padding:9px 18px"
-      onclick="f2Checked('${sid}')">${rec.paper_checked?'✓ 整份都看过了':'○ 按这里：整份都看过了'}</button>
-    <div class="tip" style="margin-top:8px">${rec.paper_checked
-      ? `没点到的 ${Math.max(0,m.total-m.marked)} 题 = <b>答对</b>。答对率 ${m.rate==null?'—':m.rate+'%'}。`
-      : `没点的题先当「还没看」。<b>全对的直接按这一下。</b>`}</div></div>`;
+  let h=`<div class="must${miss.length?'':' done'}">
+    <div class="must-hd">必做
+      <span class="cnt">${miss.length?('还差 '+miss.length+' 件'):'✓ 都做好了'}</span></div>`;
 
-  h+=`<div class="secbox"><div class="sechd">系统算出来的<span class="sub">老师不用填</span></div>
-    <div class="chips-row">
-      ${MARKS.map(k=>`<span class="chip ${m[k.id]?k.chip:'chip-muted'}">${k.lab} ${m[k.id]}</span>`).join('')}
-      <span class="chip chip-muted">${m.checked?`答对 ${m.right} / ${m.total}`:`已点 ${m.marked} / ${m.total} 题`}</span>
-      ${m.rate==null?'':`<span class="badge ${m.rate>=75?'b-active':(m.rate>=50?'b-warn':'b-inactive')}">${m.rate}%</span>`}
-    </div>`;
-  if(td.some(t=>t.wrong||t.star)){
-    h+=`<div class="tw" style="margin-top:8px"><table class="data"><thead><tr>
-      <th>技能 / 主题</th><th style="width:80px">错 / 共</th><th style="width:56px">不会</th>
-      <th style="width:56px">粗心</th><th style="width:56px">漏答</th><th style="width:70px">正确率</th></tr></thead><tbody>`;
-    td.forEach(t=>{ h+=`<tr><td><strong>${esc(t.topic)}</strong>${t.star?` <span class="chip chip-ok">★${t.star}</span>`:''}</td>
-      <td>${t.wrong} / ${t.total||'?'}</td>
-      <td>${t.dk?`<span style="color:var(--danger);font-weight:600">${t.dk}</span>`:'<span style="color:var(--hint)">·</span>'}</td>
-      <td>${t.cl?`<span style="color:var(--warn);font-weight:600">${t.cl}</span>`:'<span style="color:var(--hint)">·</span>'}</td>
-      <td>${t.blank?`<span style="color:var(--danger);font-weight:600">${t.blank}</span>`:'<span style="color:var(--hint)">·</span>'}</td>
-      <td>${t.rate==null?'<span style="color:var(--hint)">—</span>':`<span class="badge ${t.rate>=75?'b-active':(t.rate>=50?'b-warn':'b-inactive')}">${t.rate}%</span>`}</td></tr>`; });
-    h+=`</tbody></table></div>`;
-  }else h+=`<div class="tip">还没点任何题 — 上面点错的题，这里就会长出真数据。</div>`;
-  h+=scoreLine(sid,true);
-  /* Owner：系统推导只看得到「错在哪一题」，看不到老师现场看到的其他东西 —— 两者并存。 */
-  {
-    const kw=paperWeakOpts();
-    const sel=rec.weak_manual||[];
-    h+=`<div style="margin-top:10px">
-      <span class="form-label" style="display:inline">老师补充：这份卷他弱在哪
-        <span style="color:var(--mut);font-size:10px">选填 · 这份考卷登记的考点</span></span>
-      ${kw.length?`<div class="chips-row">${kw.map(t=>`<button class="chip ${sel.indexOf(t)>=0?'sel-w':'chip-warn'}"
-        onclick="f2TogL(this,'${sid}','weak_manual')" data-v="${esc(t)}">${esc(t)}</button>`).join('')}</div>`
-      :`<div class="tip" style="margin:4px 0 0">这份考卷的项目还没填「文法 / 主题」，所以没有考点可以勾。
-         直接写在下面就行；要出现在这里，请负责人在考卷结构里把每个项目的「文法 / 主题」补上
-         （一个项目可以填多个，用「、」分开）。</div>`}
-      <textarea rows="2" style="margin-top:6px" placeholder="其他（可留空）"
-        oninput="f2Field('${sid}','weak_note',this.value)">${esc(rec.weak_note||'')}</textarea></div>`;
+  if(needChk){
+    h+=`<div class="must-row${rec.paper_checked?' ok':''}">
+      ${num(rec.paper_checked)}<span class="must-lab">整份看完了</span>
+      <button class="big-toggle${rec.paper_checked?' on':''}"
+        onclick="f2Checked('${sid}')">${rec.paper_checked
+          ? '✓ 整份都看过了' : '○ 按这里：整份都看过了'}</button>
+      <div class="must-note">${rec.paper_checked
+        ? `没点到的 <b>${Math.max(0,m.total-m.marked)}</b> 题 = <b>答对</b>`
+        : '没点到的题，按了才算<b>答对</b> · 答对率、报告分数都要靠这一下'}</div></div>`;
   }
-  if(weak.length||strong.length){
-    h+=`<div style="margin-top:8px">
-      ${weak.length?`<div style="margin-bottom:4px"><span class="form-label" style="display:inline">📌 需加强</span>
-        ${weak.map(t=>`<span class="chip chip-warn">${esc(t.topic)} ${t.wrong}/${t.total||'?'}</span>`).join('')}</div>`:''}
-      ${strong.length?`<div><span class="form-label" style="display:inline">✅ 强项</span>
-        ${strong.map(t=>`<span class="chip chip-ok">${esc(t.topic)} 全对</span>`).join('')}</div>`:''}</div>`;
-  }
+
+  h+=`<div class="must-row${rec.tp?' ok':''}">
+    ${num(!!rec.tp)}<span class="must-lab">掌握程度</span>
+    <span class="chips-row" id="chipsTP" style="margin:0">
+      ${TPS.map(t=>`<button class="chip ${rec.tp===t.v?'sel':'chip-layer'}"
+        data-v="${t.v}" onclick="f2TPL(this,'${sid}','${t.v}')">${t.v} ${t.zh}</button>`).join('')}
+      ${rec.tp?`<button class="chip chip-muted" onclick="f2TPL(null,'${sid}',null)">✕ 清除</button>`:''}
+    </span>
+    <div class="must-note">${m.rate==null
+      ? (needChk ? '按了上面那一下，这里会出现答对率' : '老师判断 · 系统不代替你判')
+      : `这份卷答对率 <b>${m.rate}%</b>`}</div></div>`;
+
+  if(!needChk)
+    h+=`<div class="tip" style="margin-top:8px">这是作文卷，不逐题，所以没有「整份都看过了」这一项。</div>`;
+
   h+=`</div>`;
-
-  if(clQ.length){
-    h+=`<div class="secbox"><div class="sechd">粗心是哪一种<span class="sub">选填 · 算错 / 抄错 / 没写完，教法完全不同</span></div>`;
-    clQ.forEach(w=>{ h+=`<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:5px">
-        <span class="chip chip-warn">第 ${w.q} 题</span>
-        ${CL_SUB.map(c=>`<button class="chip ${w.cl_subtype===c.v?'sel':'chip-muted'}"
-          onclick="clSub('${sid}',${w.q},'${c.v}')">${c.zh}</button>`).join('')}</div>`; });
-    h+=`</div>`;
-  }
-  if(subjQ.length){
-    h+=`<div class="secbox"><div class="sechd">理解文 · 老师诊断<span class="sub">写一句就好，这是报告里最有用的一段</span></div>`;
-    subjQ.forEach(w=>{ h+=`<div class="form-row" style="margin-bottom:6px">
-        <label class="form-label">第 ${w.q} 题 · ${esc(markLab(w.code))}${w.topic?' · '+esc(w.topic):''}</label>
-        <input type="text" value="${esc(w.diag||'')}" placeholder="例：抄了不相干的句子 / 只答了一半 / 看不懂 tersirat"
-          oninput="wiDiag('${sid}',${w.q},this.value)"></div>`; });
-    h+=`</div>`;
-  }
-
-  h+=`<div class="secbox" style="${rec.tp?'':'border-color:var(--warn);border-width:2px'}">
-    <div class="sechd">掌握程度 TP<span class="sub">老师判断 · 系统不代替你判</span></div>
-    <div class="tip" style="margin-top:0">${m.rate==null
-      ?'这份卷还没有答对率（要先按「整份都看过了」）。'
-      :`这份卷答对率 <b>${m.rate}%</b>。`}</div>
-    <div class="chips-row" id="chipsTP">${TPS.map(t=>`<button class="chip ${rec.tp===t.v?'sel':'chip-layer'}"
-      data-v="${t.v}" onclick="f2TPL(this,'${sid}','${t.v}')">${t.v} ${t.zh}</button>`).join('')}
-      ${rec.tp?`<button class="chip chip-muted" onclick="f2TPL(null,'${sid}',null)">✕ 清除</button>`:''}</div></div>`;
-
   el.innerHTML=h;
   paintFoot(sid);
 }
 
-/* 下半部：已做 / 会做 / 订正结果 / 学生的话 / 家长 —— 可独立重画 */
+/* ══ v42 · 【其他】—— 全部选填，收进一个折叠，预设关起来 ══
+   ⚠️ 这里每一个栏位都印在**家长报告**上（学生的话 / 家长配合 / 已做什麽 /
+      学生现在怎样 / 还需要做什麽 / 弱在哪 / 粗心哪一种 / 理解文诊断）。
+      删掉它们 = 家长报告那几段变空白。所以只收起来，一个都不删。
+   旧版的三层小折叠（NEXT / 补充资料）拿掉 —— 折叠里再折叠，老师更找不到。 */
 function paintTail(sid){
-  const el=document.getElementById('f2tail'); if(!el) return;
+  const el=document.getElementById('f2opt'); if(!el) return;
   const rec=f2Draft(sid);
   const selD=rec.done_options||[], selN=rec.next_options||[];
-  /* NEXT 自动展开的条件：已经有计划，或结果是「还需要练习 / 需要更多帮助」 */
-  const nextOpen = needsNext(rec) || selN.length>0 || !!(rec.next_note||'').trim();
-  el.innerHTML=`
-  <!-- ══ 教学动作链：DID → RESULT → NEXT ══
-       Owner 2026-09-06：「老师会感觉『我刚刚已经说做了什么，为什么下面又问一次』。」
-       旧版把 done / next 塞在同一个盒子（老师做了什么），再另开一个「FIX 模块」问
-       订正结果 —— 老师要同时理解两套概念。现在改成她自然的思考顺序：
-         DID   我已经做了什么   （FACT，不可与 PLAN 混）
-         RESULT 学生现在怎样    （承接 FIX / 再测证据）
-         NEXT  还需要继续做什么 （选填；只有还需要跟进时才自动展开）
-       ⚠️ 资料库栏位一栏没动 —— done_* / fix_* / next_* 语义不变。
-          这次只减少老师的理解负担，不动 Evidence 语义。 -->
-  <div class="secbox"><div class="sechd"><span style="color:var(--mut)">1</span> 我已经做了什么
-      <span class="sub">DID · 已经发生的事实</span></div>
-    <div class="chips-row" id="chipsDone">${ACTIONS.map(a=>`<button class="chip ${selD.indexOf(a)>=0?'sel':'chip-layer'}"
-      data-v="${esc(a)}" onclick="f2TogL(this,'${sid}','done_options')">${esc(a)}</button>`).join('')}</div>
-    <textarea rows="2" style="margin-top:6px" placeholder="其他已经做的（可留空）"
-      oninput="f2Field('${sid}','done_note',this.value)">${esc(rec.done_note||'')}</textarea>
-  </div>
+  const clQ=wiOf(sid).filter(w=>w.code==='cl').sort((a,b)=>a.q-b.q);
+  const subjQ=wiOf(sid).filter(w=>w.sec_type==='SUBJ').sort((a,b)=>a.q-b.q);
+  const open=!!S.ui.optOpen;
+  const kw=paperWeakOpts(), selW=rec.weak_manual||[];
+  let n=0;
+  const sub=(title,hint,body)=>`<div class="sub-sec">
+    <h4>${title}${hint?`<span>${hint}</span>`:''}</h4>${body}</div>`;
 
-  <div class="secbox"><div class="sechd"><span style="color:var(--mut)">2</span> 学生现在怎样
-      <span class="sub">RESULT · 讲解 + 订正后，让他再做一题同类型的 · 选填</span></div>
-    <div class="chips-row" id="chipsFix">${FIXOUT.map(f=>`<button class="chip ${rec.fix_outcome===f.v?'sel':f.chip}"
-      data-v="${f.v}" onclick="f2FixL(this,'${sid}','${f.v}')">${f.lab}</button>`).join('')}
-      ${rec.fix_outcome?`<button class="chip chip-muted" onclick="f2FixL(null,'${sid}',null)">✕ 清除</button>`:''}</div>
-    <div id="fixTgt" style="margin-top:8px;${rec.fix_outcome?'':'display:none'}">
-      <label class="form-label">针对哪一项？<span style="color:var(--mut);font-size:10px">留空 = 整份卷</span></label>
-      <input type="text" placeholder="例：进位加法"
-        value="${esc(rec.fix_target||'')}" oninput="f2Field('${sid}','fix_target',this.value)"></div>
-  </div>
+  let inner='';
+  if(clQ.length) inner+=sub('粗心是哪一种','算错 / 抄错 / 没写完，教法完全不同',
+    clQ.map(w=>`<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:5px">
+      <span class="chip chip-warn">第 ${w.q} 题</span>
+      ${CL_SUB.map(c=>`<button class="chip ${w.cl_subtype===c.v?'sel':'chip-muted'}"
+        onclick="clSub('${sid}',${w.q},'${c.v}')">${c.zh}</button>`).join('')}</div>`).join(''));
 
-  <div class="secbox" id="nextBox"><div class="sechd" style="cursor:pointer" onclick="tglNext()">
-      <span style="color:var(--mut)">3</span> 还需要继续做什么
-      <span class="sub">NEXT · 计划 · 选填 <span id="nextCaret">▸</span></span></div>
-    <div id="nextBody" style="display:${nextOpen?'block':'none'}">
-      <div class="chips-row" id="chipsNext">${ACTIONS.map(a=>`<button class="chip ${selN.indexOf(a)>=0?'sel':'chip-layer'}"
-        data-v="${esc(a)}" onclick="f2TogL(this,'${sid}','next_options')">${esc(a)}</button>`).join('')}</div>
-      <textarea rows="2" style="margin-top:6px" placeholder="其他计划（可留空）"
-        oninput="f2Field('${sid}','next_note',this.value)">${esc(rec.next_note||'')}</textarea>
-    </div>
-  </div>
+  if(subjQ.length) inner+=sub('理解文 · 老师诊断','写一句就好，这是报告里最有用的一段',
+    subjQ.map(w=>`<div class="form-row" style="margin-bottom:6px">
+      <label class="form-label">第 ${w.q} 题 · ${esc(markLab(w.code))}${w.topic?' · '+esc(w.topic):''}</label>
+      <input type="text" value="${esc(w.diag||'')}" placeholder="例：抄了不相干的句子 / 只答了一半"
+        oninput="wiDiag('${sid}',${w.q},this.value)"></div>`).join(''));
 
-  <div class="secbox"><div class="sechd" style="cursor:pointer" onclick="tglExtra()">补充资料
-      <span class="sub">学生的话 · 家长配合 · 全部选填 <span id="extraCaret">${S.ui.extraOpen?'▾':'▸'}</span></span></div>
-    <div id="extraBody" style="display:${S.ui.extraOpen?'block':'none'}">
-      <label class="form-label">学生自己讲的话<span style="color:var(--mut);font-size:10px"> · 用他的原话</span></label>
-      <div class="form-grid-2">
-        <div class="form-row"><label class="form-label">「刚才我会错 ___」</label>
-          <textarea rows="2" placeholder="例：我把 3 看成 8"
-            oninput="f2Field('${sid}','reflect_was_wrong',this.value)">${esc(rec.reflect_was_wrong||'')}</textarea></div>
-        <div class="form-row"><label class="form-label">「现在我知道要 ___」</label>
-          <textarea rows="2" placeholder="例：我要先把数字圈起来才算"
-            oninput="f2Field('${sid}','reflect_now_know',this.value)">${esc(rec.reflect_now_know||'')}</textarea></div>
-      </div>
-      <label class="form-label" style="margin-top:10px">考前家长可以配合</label>
-      <textarea rows="2" placeholder="例：考前两天让他早点睡，不需要额外加练习。"
-        oninput="f2Field('${sid}','parent_support',this.value)">${esc(rec.parent_support||'')}</textarea>
-    </div>
-  </div>`;
+  inner+=sub('这份卷他弱在哪','这份考卷登记的考点',
+    (kw.length?`<div class="chips-row">${kw.map(t=>`<button class="chip ${selW.indexOf(t)>=0?'sel':'chip-warn'}"
+        onclick="f2TogL(this,'${sid}','weak_manual')" data-v="${esc(t)}">${esc(t)}</button>`).join('')}</div>`
+      :`<div class="tip" style="margin:0 0 4px">这份考卷的项目还没填「文法 / 主题」，直接写在下面就行。</div>`)
+    +`<textarea rows="2" style="margin-top:6px" placeholder="其他（可留空）"
+       oninput="f2Field('${sid}','weak_note',this.value)">${esc(rec.weak_note||'')}</textarea>`);
+
+  inner+=sub('我已经做了什么','已经发生的事实',
+    `<div class="chips-row" id="chipsDone">${ACTIONS.map(a=>`<button class="chip ${selD.indexOf(a)>=0?'sel':'chip-layer'}"
+       data-v="${esc(a)}" onclick="f2TogL(this,'${sid}','done_options')">${esc(a)}</button>`).join('')}</div>
+     <textarea rows="2" style="margin-top:6px" placeholder="其他已经做的（可留空）"
+       oninput="f2Field('${sid}','done_note',this.value)">${esc(rec.done_note||'')}</textarea>`);
+
+  inner+=sub('学生现在怎样','讲解 + 订正后，让他再做一题同类型的',
+    `<div class="chips-row" id="chipsFix">${FIXOUT.map(f=>`<button class="chip ${rec.fix_outcome===f.v?'sel':f.chip}"
+       data-v="${f.v}" onclick="f2FixL(this,'${sid}','${f.v}')">${f.lab}</button>`).join('')}
+     ${rec.fix_outcome?`<button class="chip chip-muted" onclick="f2FixL(null,'${sid}',null)">✕ 清除</button>`:''}</div>
+     <div id="fixTgt" style="margin-top:8px;${rec.fix_outcome?'':'display:none'}">
+       <label class="form-label">针对哪一项？<span style="font-weight:400">留空 = 整份卷</span></label>
+       <input type="text" placeholder="例：进位加法" value="${esc(rec.fix_target||'')}"
+         oninput="f2Field('${sid}','fix_target',this.value)"></div>`);
+
+  inner+=sub('还需要继续做什么','计划',
+    `<div class="chips-row" id="chipsNext">${ACTIONS.map(a=>`<button class="chip ${selN.indexOf(a)>=0?'sel':'chip-layer'}"
+       data-v="${esc(a)}" onclick="f2TogL(this,'${sid}','next_options')">${esc(a)}</button>`).join('')}</div>
+     <textarea rows="2" style="margin-top:6px" placeholder="其他计划（可留空）"
+       oninput="f2Field('${sid}','next_note',this.value)">${esc(rec.next_note||'')}</textarea>`);
+
+  inner+=sub('学生自己讲的话','用他的原话',
+    `<div class="form-grid-2">
+      <div class="form-row"><label class="form-label">「刚才我会错 ___」</label>
+        <textarea rows="2" placeholder="例：我把 3 看成 8"
+          oninput="f2Field('${sid}','reflect_was_wrong',this.value)">${esc(rec.reflect_was_wrong||'')}</textarea></div>
+      <div class="form-row"><label class="form-label">「现在我知道要 ___」</label>
+        <textarea rows="2" placeholder="例：我要先把数字圈起来才算"
+          oninput="f2Field('${sid}','reflect_now_know',this.value)">${esc(rec.reflect_now_know||'')}</textarea></div>
+    </div>`);
+
+  inner+=sub('考前家长可以配合','',
+    `<textarea rows="2" placeholder="例：考前两天让他早点睡，不需要额外加练习。"
+       oninput="f2Field('${sid}','parent_support',this.value)">${esc(rec.parent_support||'')}</textarea>`);
+
+  el.innerHTML=`<div class="fold${open?' open':''}" id="f2fold">
+    <div class="fold-hd" onclick="tglOpt()">其他
+      <span class="sub">全部选填 · 填了会进家长报告</span>
+      <span class="car" id="optCaret">${open?'▾':'▸'}</span></div>
+    <div class="fold-bd">${inner}</div></div>`;
   paintFoot(sid);
+}
+function tglOpt(){
+  S.ui.optOpen=!S.ui.optOpen; saveData(true);
+  const f=document.getElementById('f2fold'), c=document.getElementById('optCaret');
+  if(f) f.className='fold'+(S.ui.optOpen?' open':'');
+  if(c) c.textContent=S.ui.optOpen?'▾':'▸';
 }
 /* 底部永远告诉老师「还差什么」—— 防止填一半就走 */
 function paintFoot(sid){
@@ -2995,8 +3234,8 @@ function paintFoot(sid){
     ? `<span style="color:var(--warn);font-weight:700">还差 ${miss.length} 项：</span>
        <span style="color:var(--warn)">${miss.join(' · ')}</span>`
     : `<span style="color:var(--ok);font-weight:700">✓ 都填好了，可以按完成</span>`;
-  const btn=document.getElementById('f2done');
-  if(btn) btn.textContent = miss.length? `✓ 完成（还差 ${miss.length} 项）` : '✓ 完成并到下一位';
+  /* v42：按钮不再写「完成（还差 2 项）」—— 那句话自己打自己嘴巴。
+     还差什麽只在左边文字讲一次。 */
 }
 function f2Finish(sid,goNext){
   const r=f2Draft(sid);
@@ -3010,8 +3249,8 @@ function f2Finish(sid,goNext){
     if(saveData(true)===false){ alert(saveFailMsg()); return; }
     paintLive(sid); paintFoot(sid);
     toast('还差：'+miss.join(' · '),4000);
-    const tp=document.getElementById('chipsTP');
-    if(tp) tp.scrollIntoView({behavior:'smooth',block:'center'});
+    const mb=document.querySelector('#f2must .must')||document.getElementById('chipsTP');
+    if(mb) mb.scrollIntoView({behavior:'smooth',block:'center'});
     return;
   }
   if(saveData(true)===false){ alert(saveFailMsg()); return; }
@@ -3059,17 +3298,11 @@ function f2FixL(btn,sid,v){
 /* NEXT 预设折叠。只有「还需要练习 / 需要更多帮助」才自动展开 ——
    已经改善的学生不需要再问计划，多一个问题就是多一次犹豫。 */
 function needsNext(r){ return r.fix_outcome==='NEEDS_PRACTICE'||r.fix_outcome==='NEED_HELP'; }
-function tglNext(){
-  const b=document.getElementById('nextBody'), c=document.getElementById('nextCaret');
-  if(!b) return; const on=b.style.display==='none';
-  b.style.display=on?'block':'none'; if(c) c.textContent=on?'▾':'▸';
-}
-function tglExtra(){
-  S.ui.extraOpen=!S.ui.extraOpen; saveData(true);
-  const b=document.getElementById('extraBody'), c=document.getElementById('extraCaret');
-  if(b) b.style.display=S.ui.extraOpen?'block':'none';
-  if(c) c.textContent=S.ui.extraOpen?'▾':'▸';
-}
+/* v42：NEXT / 补充资料 的两层小折叠拿掉了（折叠里再折叠，老师更找不到），
+   现在只有一个【其他】折叠，见 tglOpt()。这两支留成空壳 ——
+   旧的 localStorage 里还存著 ui.extraOpen，而 needsNext() 仍被别处引用。 */
+function tglNext(){}
+function tglExtra(){}
 function f2TPL(btn,sid,v){
   const r=f2Draft(sid);
   r.tp = (v===null||r.tp===v)?null:v;
@@ -3138,22 +3371,37 @@ function f1AnyDone(sid,subj){
   return Object.keys(S.f1||{}).some(k=>k.indexOf(pre)===0 && S.f1[k] && S.f1[k].savedAt);
 }
 /* 一格（班级 × 科目）的进度。语意与 cellStat 逐字相同，只差「扫全部卷」。 */
+/* ══════════════════════════════════════════════════════════════════
+   v41 · Owner 2026-09-15 裁定的三条规矩（ATC3 数学 0 / 17 那件事）
+     ① 分母永远是全班人数 —— 17 就是 17，每一位都要交代
+     ② 分子永远是「有资料的人数」—— 考前观察、考卷分析同一把尺
+     ③ 「完成」单独一行，不准塞进上面那两行
+   ------------------------------------------------------------------
+   旧版的病：同一句「N / M 位」，考前观察数「有资料」，考卷分析数「完成」。
+   ATC3 数学 SQ 老师做了 14 位、逐题全点完，画面印 0 / 17 ——
+   跟一位都没动的老师长得一模一样。全校被藏起来的是 3 格、16 位。
+   ══════════════════════════════════════════════════════════════════ */
 function pgStat(cls,subj){
   const list=inCls(cls);
-  let obs=0, done=0, prog=0, resolved=0;
+  let obs=0, started=0, done=0, prog=0, resolved=0;
   list.forEach(r=>{
     const sts=f2AllOf(r.sid,subj).map(f2State);
     const st = sts.indexOf('done')>=0        ? 'done'
              : sts.indexOf('progress')>=0    ? 'progress'
              : sts.indexOf('absent')>=0      ? 'absent'
              : sts.indexOf('notassessed')>=0 ? 'notassessed' : 'none';
+    /* 🔴 v41 洞 3：考前观察是**考前**做的，跟考试当天缺席是两件事。
+       旧版在这里就 return，缺席的学生就算有考前观察也被画面吃掉。
+       现在先数考前观察，再看考卷分析的状态。 */
+    if(f1AnyDone(r.sid,subj)) obs++;
     /* 缺席 / 本轮未评：已处理，不再催 —— 但绝不等於有证据 */
     if(st==='absent'||st==='notassessed'){ resolved++; return; }
-    if(f1AnyDone(r.sid,subj)) obs++;
-    if(st==='done') done++; else if(st==='progress') prog++;
+    /* 规矩②：考卷分析的分子 = 有资料的人数（done + progress），不是只有 done */
+    if(st==='done'){ started++; done++; }
+    else if(st==='progress'){ started++; prog++; }
   });
   const n=list.length, secs=secsCountFor(subj,yearOf(cls)), handled=done+resolved;
-  return {n,obs,done,prog,resolved,handled,secs,
+  return {n,obs,started,done,prog,resolved,handled,secs,
     /* Owner 2026-09-15：只登记了考卷项目、一个学生都没填，不算「进行中」。
        之前把 secs 也算进去，格子变黄 —— 管理层以为老师在做，其实只写了题型。 */
     state: (n&&handled===n) ? 'done'
@@ -3459,9 +3707,14 @@ function renderProgress(){
          考前观察 N / M 位、考卷分析 N / M 位。
          「项目 N」拿掉（卡片已经拿掉，这里漏改了）；空格子那个「·」也拿掉。
          没有项目的格子不在格子里喊，页顶那条警示已经统计了。 */
-      const f2col = st.done===st.n && st.n ? 'var(--ok)' : (st.done ? 'var(--warn)' : 'var(--mut)');
+      const f2col = st.started ? 'var(--txt)' : 'var(--mut)';
       const mrow=(lab,v,col)=>`<div style="font-size:11px;color:var(--mut);margin-top:2px;white-space:nowrap">${lab}
         <b style="font-size:12px;color:${col}">${v} / ${st.n} 位</b></div>`;
+      /* 规矩③：完成单独一行。有人在做才印 —— 没人做就不占位。 */
+      const fullRow = st.started
+        ? `<div style="font-size:11px;margin-top:2px;white-space:nowrap;color:var(--mut)">其中完成
+             <b style="font-size:12px;color:${st.done===st.started?'var(--ok)':'var(--warn)'}">${st.done} 位</b></div>`
+        : '';
       /* v40 · Owner：只在**左边**加一个四方形 stamp = 负责老师。
          格子里原有的东西（考前观察 / 考卷分析 / 缺席 / 底下填写者代号）一个字不动。 */
       return `<td style="padding:6px 5px;cursor:pointer"
@@ -3471,7 +3724,8 @@ function renderProgress(){
           <div class="cellnum">
             ${st.n
               ? mrow('考前观察', st.obs, st.obs?'var(--txt)':'var(--mut)')
-                + mrow('考卷分析', st.done, f2col)
+                + mrow('考卷分析', st.started, f2col)
+                + fullRow
                 + (st.resolved?`<div style="font-size:10px;color:var(--hint);margin-top:2px">缺席 / 未评 ${st.resolved} 位</div>`:'')
               : '<span class="chip chip-muted" style="font-size:12px">—</span>'}
             <div style="margin-top:3px">${pgWhoChips(mp)}</div>
@@ -3538,8 +3792,9 @@ function pgOpen(cls,subj){
       ${row('考卷项目', st.secs?st.secs+' 个':'<span style="color:var(--dng,#b91c1c)">还没登记</span>',
             st.secs?'同年级同科共用':'没有项目，逐题记录与报告分数都做不出来')}
       ${row('考前观察', st.obs+' / '+st.n+' 位', '')}
-      ${row('考卷分析', st.done+' / '+st.n+' 位',
-            st.prog?(st.prog+' 位填到一半'):'')}
+      ${row('考卷分析', st.started+' / '+st.n+' 位', '有资料的人数')}
+      ${row('其中完成', st.done+' 位',
+            st.prog?(st.prog+' 位还差「整份都看过了」或 TP'):'')}
       ${row('缺席 / 未评', st.resolved+' / '+st.n+' 位', '不算证据、不进报告')}
       ${row('谁填的', pgWhoChips(who), '代号是老师登入平台的帐号')}
     </div>
@@ -3644,12 +3899,20 @@ function paperObsDone(p){
     set[r.sid]=1; });
   return inCls(S.cls).filter(x=>set[x.sid]).length;
 }
-/* 这份卷有几位学生的考卷分析【已完成】 */
+/* v41 规矩②：这份卷有几位学生【有考卷分析资料】（done + progress）。
+   旧版只数 done —— 卡片上跟矩阵犯同一个错，老师做了一半看起来像没做。 */
 function paperF2Done(p){
   const ex=EXK(); let n=0;
   inCls(S.cls).forEach(x=>{
-    const r=S.f2[ex+'|'+x.sid+'|'+S.subject+'|'+p.id];
-    if(r && f2State(r)==='done') n++; });
+    const st=f2State(S.f2[ex+'|'+x.sid+'|'+S.subject+'|'+p.id]);
+    if(st==='done'||st==='progress') n++; });
+  return n;
+}
+/* v41 规矩③：完成是另一件事，单独数、单独印。 */
+function paperF2Full(p){
+  const ex=EXK(); let n=0;
+  inCls(S.cls).forEach(x=>{
+    if(f2State(S.f2[ex+'|'+x.sid+'|'+S.subject+'|'+p.id])==='done') n++; });
   return n;
 }
 function renderPapers(){
@@ -3666,7 +3929,7 @@ function renderPapers(){
     ps.forEach((p,i)=>{
       const mine=paperMine(p)&&!!paperOwner(p);
       const nMe=paperMyDone(p), tot=inCls(S.cls).length;
-      const nObs=paperObsDone(p), nF2=paperF2Done(p);
+      const nObs=paperObsDone(p), nF2=paperF2Done(p), nFull=paperF2Full(p);
       const d=p.created_at?new Date(p.created_at):null;
       const dl=d?((d.getMonth()+1)+'月'+d.getDate()+'日'):'';
       const row=(lab,v)=>`<div style="display:flex;gap:10px;align-items:baseline;margin-top:4px">
@@ -3680,6 +3943,9 @@ function renderPapers(){
           <div style="font-size:17px;font-weight:700;margin-top:5px">考卷 ${i+1}</div>
           ${row('考前观察',nObs)}
           ${row('考卷分析',nF2)}
+          ${nF2?`<div style="display:flex;gap:10px;align-items:baseline;margin-top:4px">
+            <span style="min-width:72px;font-size:12px;color:var(--mut)">其中完成</span>
+            <b style="font-size:15px;color:${nFull===nF2?'var(--ok)':'var(--warn)'}">${nFull} 位</b></div>`:''}
           ${dl?`<div style="font-size:11px;color:var(--hint);margin-top:7px">${dl}</div>`:''}
         </div>
         <button class="btn ${nMe?'btn-pri':''}" style="min-height:44px;padding:0 18px;
@@ -3911,15 +4177,45 @@ function rptPull(){
    cloudPull() 抓的是整场考试（`.eq('exam_id', …)`，没有科目筛选），
    所以拉一次就有全班全科；报告页按「重新拉资料」就是跑它。
    ══════════════════════════════════════════════════════════════════ */
-function rpF2(sid,su){ return S.f2[EXK()+'|'+sid+'|'+su]||null; }
-function rpObs(sid,su){ return f1Complete(sid,su); }
-function rpWI(sid,su){
-  const pre=EXK()+'|'+sid+'|'+su+'|';
-  return Object.keys(S.wi).filter(k=>k.indexOf(pre)===0).map(k=>S.wi[k]);
+/* ══ v43 · 报告印不出来的【第一根因】══════════════════════════════
+   v26 起本机 key 一律带卷号後缀（见 piSuffix）。但报告层这几支
+   自始至终用**不带後缀**的 key 去读：
+     S.f2[EXK()+'|'+sid+'|'+su]        ← 多卷上线後永远 undefined
+   → rpF2 回 null → rpReady 永远 false → **整份报告空白**。
+   这比「算不出分数」更前面：不是分数算错，是资料根本没读到。
+   ⚠️ 不可以改成「扫整格跨卷加总」—— 两份卷的项目加起来会把题数灌水
+      （secsCountFor 的警告就是这一条）。要选**这位学生的资料在哪一份卷**。 */
+function rpPaper(sid,su){
+  const pre=EXK()+'|'+sid+'|'+su;
+  let best=null;
+  Object.keys(S.f2||{}).forEach(k=>{
+    if(k!==pre && k.indexOf(pre+'|')!==0) return;
+    const r=S.f2[k]; if(!r) return;
+    const pid=(k===pre)?'':k.slice(pre.length+1);
+    /* 优先选进得了报告的那一份；否则拿有资料的那一份 */
+    const sc=(aStat(r)==='ASSESSED'&&r.paper_checked&&r.tp)?2:(f2Started(r)?1:0);
+    if(!best||sc>best.sc) best={pid,rec:r,sc};
+  });
+  return best;
 }
-function rpES(sid,su,code){ return S.es[EXK()+'|'+sid+'|'+su+'|'+code]||null; }
-function rpSecs(su,yr){
-  return (S.sections[EXK()+'|'+su+'|'+yr]||[]).slice()
+function rpPid(sid,su){ const b=rpPaper(sid,su); return b?b.pid:''; }
+function rpF2(sid,su){ const b=rpPaper(sid,su); return b?b.rec:null; }
+function rpObs(sid,su){ return f1Complete(sid,su); }
+function rpWI(sid,su,pid){
+  if(pid===undefined) pid=rpPid(sid,su);
+  const pre=EXK()+'|'+sid+'|'+su+'|', suf=pid?('|'+pid):'';
+  return Object.keys(S.wi).filter(k=>{
+    if(k.indexOf(pre)!==0) return false;
+    const rest=k.slice(pre.length);
+    return pid ? (rest.slice(-suf.length)===suf) : (rest.indexOf('|')<0);
+  }).map(k=>S.wi[k]);
+}
+function rpES(sid,su,code,pid){
+  if(pid===undefined) pid=rpPid(sid,su);
+  return S.es[EXK()+'|'+sid+'|'+su+'|'+code+(pid?'|'+pid:'')]||null;
+}
+function rpSecs(su,yr,pid){
+  return (S.sections[EXK()+'|'+su+'|'+yr+(pid?'|'+pid:'')]||[]).slice()
          .sort((a,b)=>(+a.sort||0)-(+b.sort||0));
 }
 /* 进报告的门槛与单科版一致：已评量 + 老师亲自核对整份 + 有掌握程度 TP。
@@ -3928,38 +4224,47 @@ function rpReady(sid,su){
   const r=rpF2(sid,su);
   return !!(r && aStat(r)==='ASSESSED' && r.paper_checked && r.tp);
 }
-function rpTotalQ(su,yr){
-  return rpSecs(su,yr).filter(x=>QTYPES.indexOf(x.type||'MCQ')>=0 && +x.qf>=1 && +x.qt>=+x.qf)
-         .reduce((a,x)=>a+((+x.qt||0)-(+x.qf||0)+1),0);
+/* v43：分母改数「格数」，跟老师画面上点的格子一致。
+   6a / 6b / 6c 是三格，旧版只算一题 —— 分母比画面少，答对率会虚高。 */
+function rpTotalQ(su,yr,pid){
+  return rpSecs(su,yr,pid)
+    .filter(x=>QTYPES.indexOf(x.type||'MCQ')>=0 && +x.qf>=1 && +x.qt>=+x.qf)
+    .reduce((a,x)=>a+qUnits(x).length,0);
 }
 function rpStats(sid,su,yr){
+  const pid=rpPid(sid,su);
   const c={star:0,dk:0,cl:0,nr:0,sos:0,blank:0};
-  rpWI(sid,su).forEach(w=>{ if(c[w.code]!=null) c[w.code]++; });
-  const wrong=c.dk+c.cl+c.nr+c.sos+c.blank;
-  const total=rpTotalQ(su,yr)||0;
+  rpWI(sid,su,pid).forEach(w=>{ if(c[w.code]!=null) c[w.code]++; });
+  /* 裁决 3：漏答扣分跟做错一样，但**分开数**，报告要分开讲 ——
+     「不会做」补概念，「没时间写完」练速度，两件事。 */
+  const missed=c.blank;
+  const wrong=c.dk+c.cl+c.nr+c.sos;
+  const bad=wrong+missed;
+  const total=rpTotalQ(su,yr,pid)||0;
   const p=rpF2(sid,su); const checked=!!(p&&p.paper_checked);
-  const right=checked?Math.max(0,total-wrong):null;
-  return Object.assign(c,{wrong,total,right,checked,
+  const right=checked?Math.max(0,total-bad):null;
+  return Object.assign(c,{wrong,missed,bad,total,right,checked,pid,
     rate:(checked&&total)?Math.round(right/total*100):null});
 }
 /* 得分：与 paperScore 同一套规矩 —— 只有声明「每题同分」的项目才算得出，
    写作用老师亲填的实得分。算不满整份就标 *，绝不外推。 */
 function rpScore(sid,su,yr){
   if(!rpReady(sid,su)) return null;
-  const wi=rpWI(sid,su), secs=rpSecs(su,yr);
+  const pid=rpPid(sid,su);
+  const wi=rpWI(sid,su,pid), secs=rpSecs(su,yr,pid);
   let got=0,max=0,covered=0; const missing=[];
   secs.forEach(sec=>{
     if((sec.type||'MCQ')==='ESSAY'){
-      const er=rpES(sid,su,sec.code);
+      const er=rpES(sid,su,sec.code,pid);
       if(er && er.score!=null && er.score!=='' && +sec.max>0){
         got+=+er.score; max+=+sec.max; covered++;
       } else missing.push(sec.code+'（写作未填分）');
       return;
     }
-    const pq=secPerQ(sec);
-    if(pq==null){ missing.push(sec.code+(sec.even==='N'?'（每题不同分）':'（未声明每题同分）')); return; }
-    const wrong=wi.filter(w=>+w.q>=+sec.qf && +w.q<=+sec.qt && w.code!=='star').length;
-    got+=Math.max(0,(+sec.max)-wrong*pq); max+=(+sec.max); covered++;
+    /* v43：跟老师端走同一支核心（含 q_marks：6b 错扣 2 分） */
+    const r2=secScoreOf(sec, wi.filter(w=>+w.q>=+sec.qf && +w.q<=+sec.qt));
+    if(!r2){ missing.push(sec.code+(sec.even==='N'?'（每题不同分，未填 q_marks）':'（未声明每题几分）')); return; }
+    got+=r2.got; max+=r2.max; covered++;
   });
   if(!covered) return {got:null,max:0,covered:0,total:secs.length,missing};
   return {got:Math.round(got*10)/10,max:Math.round(max*10)/10,
@@ -4242,7 +4547,12 @@ function printInternal(){
     body+='<section class="sec'+(si?' brk':'')+'"><h2>'+esc(su)+'</h2>';
     if(!rows.length){ body+='<div class="empty">本科尚无学生达到报告门槛</div>'; }
     else{
-      body+='<table><thead><tr><th>#</th><th>学生</th><th>得分</th><th>答对率</th>'
+      /* v43 · 双指标：答对率（每题等重）与得分率（照每题分数加权）不是同一件事，
+         两个都印，老师才看得出「错的是不是重分的题」。
+         漏答独立一栏 —— Owner 裁决 3：扣分跟做错一样，但报告分开讲。
+         ⚠️ 家长版一个字都没动（2026-09-08 拍板 D 维持）。 */
+      body+='<table><thead><tr><th>#</th><th>学生</th><th>得分</th><th>得分率</th><th>答对率</th>'
+        +'<th>做错</th><th>漏答</th>'
         +'<th>TP</th><th>主问题</th><th>较弱（系统）</th>'
         +'<th>较弱（老师）</th><th>下一步</th></tr></thead><tbody>';
       rows.forEach((r,i)=>{
@@ -4250,8 +4560,12 @@ function printInternal(){
         const mi=mainIssue(ms);
         const sc=!ps?'—':(ps.got==null?'算不出'
                  :(ps.got+' / '+ps.max+(ps.covered===ps.total?'':' *')));
+        const scr=(ps&&ps.got!=null&&ps.max>0)?Math.round(ps.got/ps.max*100)+'%':'—';
         body+='<tr><td>'+(i+1)+'</td><td>'+esc(nameOf(r))+'</td><td>'+sc+'</td>'
+          +'<td>'+scr+'</td>'
           +'<td>'+(ms.rate==null?'—':ms.rate+'%')+'</td>'
+          +'<td>'+(ms.wrong||0)+'</td>'
+          +'<td>'+(ms.missed?('<b>'+ms.missed+'</b>'):'0')+'</td>'
           +'<td>'+esc(x.tp||'—')+'</td>'
           +'<td>'+(mi?esc(mi.lab)+' '+mi.n+' 题':'—')+'</td>'
           +'<td>'+esc((x.weak_options||[]).join('、')||'—')+'</td>'
@@ -5005,7 +5319,9 @@ function psPayload(sec){
     /* 卷面题号：只在老师声明过才送。没声明就留 NULL —— 云端的 CHECK 会挡住
        半套（paper_from 有、paper_to 没有）的资料。 */
     /* v29 小题结构：栏位没上线就不送，本机留著，delta v13 一跑就自动补 */
-    ...(CLOUD.hasV13 ? {q_marks: qmEmpty(sec.qm)?null:sec.qm} : {}),
+    /* v43：只有 _log 没有 per_q/subs 的 qm 也要送 —— 那是改分数的留痕 */
+    ...(CLOUD.hasV13 ? {q_marks: (sec.qm && (!qmEmpty(sec.qm) || (sec.qm._log||[]).length))
+                                  ? sec.qm : null} : {}),
     ...(CLOUD.hasV12 && !isEssay && +sec.pf>=1
         ? {paper_from:+sec.pf, paper_to:+sec.pf+((+sec.qt||0)-(+sec.qf||0))} : {}),
     ...(CLOUD.hasV10 ? {even_marks: sec.even==='Y'?'YES':(sec.even==='N'?'NO':'UNKNOWN')} : {}),
