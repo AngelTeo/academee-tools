@@ -406,7 +406,7 @@ button.chip.sel-w{background:var(--warn);color:#fff}
    权限码：RPT-EvalGo-ATC
    ══════════════════════════════════════════════════════════════════ */
 
-const APP_VERSION = 34;
+const APP_VERSION = 35;
 const STORAGE_KEY = 'evalgo_atc_v1';   /* 沿用 v1 key，旧资料不掉 */
 const SYS_CODE    = 'RPT-EvalGo-ATC';
 const SB_URL      = 'https://qnpvqsvvsgsantekgfbz.supabase.co';
@@ -1754,10 +1754,14 @@ function renderBP(){
       <th style="width:88px">题号</th><th style="width:62px">满分</th>
       <th style="width:100px" title="每题同分才算得出分数">每题同分？</th>
       <th>文法 / 主题</th><th>作答方式</th>
-      <th style="width:90px">已观察</th><th style="width:56px">完整</th>
+      <th style="width:96px">我填的</th><th style="width:56px">完整</th>
       <th style="width:60px"></th></tr></thead><tbody>`;
     secs.forEach((s,i)=>{
-      const used=Object.values(S.f1).filter(r=>r.subject===S.subject&&r.bahagian===s.code).length;
+      /* 只算【自己】填的，而且要同一场考试、同一年段、同一份卷。
+         旧写法只比对科目与项目名称 → 三个年段都有「写日记」就全加在一起（25 vs 10）。 */
+      const used=Object.values(S.f1).filter(r=>r&&r.savedAt&&r.by===S.me
+        &&r.exam===EXK()&&r.subject===S.subject&&r.bahagian===s.code
+        &&(+r.year||0)===yearOf(S.cls)).length;
       const ty=SECTYPES.find(t=>t.v===(s.type||'MCQ'))||{lab:typeLab(s.type)};
       const rng=(s.type==='ESSAY')?'—'
         : (hasRange(s)?rangeCell(s)
@@ -1774,7 +1778,7 @@ function renderBP(){
         <td>${evenCell(s)}</td>
         <td>${s.topic?esc(s.topic):'<span style="color:var(--hint)">—</span>'}</td>
         <td>${s.fmt?esc(s.fmt):'<span style="color:var(--hint)">—</span>'}</td>
-        <td>${used?`<span class="badge b-active">${used} 人次</span>`:'<span style="color:var(--hint)">未开始</span>'}</td>
+        <td>${used?`<span class="badge b-active">你填了 ${used} 位</span>`:'<span style="color:var(--hint)">—</span>'}</td>
         <td>${!secComplete(s)?'<span class="chip chip-warn">缺题号</span>'
              :'<span class="chip chip-ok">✓</span>'}</td>
         <td style="white-space:nowrap">${bpLocked()?'':
@@ -1880,9 +1884,10 @@ async function bpProbe(){
 /* v28 · 文案照 Owner 2026-09-15 的规矩讲白：
    没有学生资料 → 可改可删；有学生资料 → 不能改，只能删。 */
 function bpLockBadge(){
-  const n=bpEvidCount();
-  if(!n) return '<span class="chip chip-ok">还没有学生资料 · 可以改、也可以删</span>';
-  return `<span class="chip chip-warn">已有 ${n} 笔学生资料 · <b>不能改</b>，只能删</span>`;
+  /* 笔数是别的老师填的资料 —— 不给老师看。
+     锁本身照旧看全部证据（bpEvidCount），只是画面不报数字。 */
+  if(!bpEvidCount()) return '<span class="chip chip-ok">还没有学生资料 · 可以改、也可以删</span>';
+  return '<span class="chip chip-warn">已经有学生资料 · <b>不能改</b>，只能删</span>';
 }
 /* v28 · Owner 2026-09-15：「解锁修正」整条通道废止。
    理由：改题号会让旧证据**静静地**漂到错的项目上 —— 画面正常，数字全错。
@@ -3140,14 +3145,14 @@ function vcScan(store,sid,subj){
     .map(k=>store[k]).filter(Boolean);
 }
 function vcTP(v){ const t=TPS.find(x=>x.v===v); return t?(v+' '+t.zh):(v||''); }
-/* ══ v33 · Owner 2026-09-15（图2 vs 图3）══
-   「看内容」说「你在这一格还没有填过任何东西」，同一格的页面却写「已有 3 笔学生资料」。
-   两句都没说谎 —— 那 3 笔是别的老师填的，v32 的 onlyMe 把它们藏起来了。
-   但并排看就是系统自相矛盾，而且老师按「看内容」本来就是要看**这一格有什么**。
-   改：永远显示整格，把「你填的」标出来。onlyMe 只影响措辞与标记，不再藏资料。 */
+/* ══ Owner 2026-09-15 裁定：老师只看得见自己填的。别人填的不该出现。
+   全团队资料只有一个地方看得到 —— 「进度」页，只给管理层。
+   ⚠️ v33/v34 我一度改成「永远显示整格」，违反这条裁定，已改回。
+   onlyMe=true  → 我的记录（老师）：只有自己填的
+   onlyMe=false → 进度页细节窗（管理层）：全部 */
 function viewCell(cls,subj,onlyMe){
   const list=inCls(cls), mine=!!onlyMe, me=S.me;
-  const keep=r=>true;
+  const keep=r=>!mine||!!(r&&me&&r.by===me);
   const isMe=r=>!!(r&&me&&r.by===me);
   let nMine=0;
   let shown=0, blank=0;
@@ -3186,8 +3191,8 @@ function viewCell(cls,subj,onlyMe){
         <span style="color:var(--hint);font-size:12px">${i+1}</span>
         <strong>${esc(st.en)}</strong>${st.cn?`<span style="color:var(--mut);font-size:12px">${esc(st.cn)}</span>`:''}
         <span style="flex:1"></span>
-        ${Object.keys(by).sort().map(t=>`<span class="chip ${t===me?'chip-ok':'chip-muted'}" style="font-size:10px"
-          title="${esc(teacherLabel(t))}${t===me?'（你）':''}">${esc(t)}${t===me?' · 你':''}</span>`).join('')}
+        ${mine?'':Object.keys(by).sort().map(t=>`<span class="chip chip-muted" style="font-size:10px"
+          title="${esc(teacherLabel(t))}">${esc(t)}</span>`).join('')}
       </div>
       ${line('考前观察', obs.length
         ? obs.map(r=>`<span class="chip chip-ok" style="font-size:11px">${esc(r.bahagian||'—')}</span>`).join('')
@@ -3201,11 +3206,10 @@ function viewCell(cls,subj,onlyMe){
     </div>`;
   });
   const body = shown
-    ? `<div class="tip" style="margin-top:0">${esc(cls)} · ${esc(subj)} ·
-         <b>${shown} 位有记录</b>${blank?` · ${blank} 位还没有`:''}${
-         (me&&nMine)?` · 你填了 ${nMine} 位`:''}</div>
+    ? `<div class="tip" style="margin-top:0">${esc(cls)} · ${esc(subj)} · <b>${shown} 位</b></div>
        <div class="secbox" style="padding:0 12px 10px">${rows}</div>`
-    : `<div class="empty" style="padding:24px">这一格还没有任何人填过东西。</div>`;
+    : `<div class="empty" style="padding:24px">${
+        mine?'你在这一格还没有填过东西。':'这一格还没有任何人填过东西。'}</div>`;
   openModal(`看内容 · ${esc(cls)} ${esc(subj)}`, body,
     `<span style="flex:1"></span>
      <button class="btn" style="min-height:44px" onclick="closeModal(true)">关闭</button>`, false);
@@ -3284,7 +3288,7 @@ function pgOpen(cls,subj){
       <b>还差 ${left.length} 位：</b>${left.map(r=>esc(r.en)).join('、')}</div></div>`:
       `<div class="alert alert-info" style="margin-top:10px"><div>这一格全部处理完了。</div></div>`}
     <button class="btn" style="margin-top:10px;width:100%;min-height:44px"
-      onclick="closeModal(true);viewCell('${cls}','${esc(subj)}',false)">👁 看内容 —— 老师到底填了什么</button>`;
+      onclick="closeModal(true);viewCell('${cls}','${esc(subj)}',false)">👁 看内容</button>`;
   openModal(`进度 · ${esc(cls)} ${esc(subj)}`, body,
     `<span class="tip" style="margin:0;flex:1"></span>
      <button class="btn" style="min-height:44px" onclick="closeModal(true)">关闭</button>
@@ -3319,6 +3323,19 @@ function myCells(){
   return Object.keys(out).map(k=>out[k])
     .sort((a,b)=> a.cls===b.cls ? (a.su<b.su?-1:1) : (a.cls<b.cls?-1:1));
 }
+/* 这一格里，【自己】填过的学生有几位（四种证据任一笔都算） */
+function myDone(cls,subj){
+  const ex=EXK(), me=S.me; if(!me) return 0;
+  const set={};
+  const feed=(store,ok)=>{ Object.keys(store||{}).forEach(k=>{ const r=store[k];
+    if(!r||r.exam!==ex||r.by!==me||!r.sid||r.subject!==subj) return;
+    if(ok&&!ok(r)) return;
+    const st=stuOf(r.sid); if(!st||st.cls!==cls) return;
+    set[r.sid]=1; }); };
+  feed(S.f1,r=>!!r.savedAt); feed(S.f2,r=>f2Started(r)||f2State(r)!=='none');
+  feed(S.wi,null); feed(S.es,null);
+  return Object.keys(set).length;
+}
 function renderRecords(){
   const c=document.getElementById('c-records');
   const mine=myCells();
@@ -3341,23 +3358,22 @@ function renderRecords(){
      等於老师看不到入口（跟 v29 之前「看不到添加按钮」同一个坑）。
      改成一格一列的卡片，按钮永远跟班科同一行。 */
   mine.forEach(m=>{
-    const st=pgStat(m.cls,m.su);
-    const ok=st.n&&st.handled===st.n;
+    const my=myDone(m.cls,m.su);
     const bit=(lab,v)=>`<span class="chip ${v?'chip-layer':'chip-muted'}" style="font-size:11px">${lab} ${v||'—'}</span>`;
     h+=`<div style="border-top:1px solid var(--bdr);padding:12px 0">
       <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
         <div style="flex:1;min-width:0">
           <div style="font-size:16px;font-weight:700">${esc(m.cls)} · ${esc(m.su)}</div>
-          <div style="font-size:12px;margin-top:2px;${ok?'color:var(--ok)':'color:var(--mut)'}">${
-            ok?'✓ 这一格处理完了':('全格进度 '+st.handled+' / '+st.n)}</div>
+          <div style="font-size:12px;margin-top:2px;color:var(--mut)">${
+            my?('你填了 '+my+' 位学生'):'还没填过学生'}</div>
           ${(m.secs&&!m.f1&&!m.f2&&!m.wi&&!m.es)
             ? `<div style="font-size:11px;color:var(--hint);margin-top:2px">你只登记过考卷项目</div>`:''}
         </div>
         <button class="btn" style="min-height:44px;padding:0 14px;white-space:nowrap"
           onclick="viewCell('${m.cls}','${esc(m.su)}',true)">👁 看内容</button>
-        <button class="btn ${ok?'':'btn-pri'}" style="min-height:44px;padding:0 18px;
+        <button class="btn btn-pri" style="min-height:44px;padding:0 18px;
           font-weight:700;white-space:nowrap"
-          onclick="enterCell('${m.cls}','${esc(m.su)}')">${ok?'查看':'继续填'}</button>
+          onclick="enterCell('${m.cls}','${esc(m.su)}')">继续填</button>
       </div>
       <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:8px">
         ${bit('考卷项目',m.secs)}${bit('考前观察',m.f1)}${bit('考卷分析',m.f2)}${bit('逐题',m.wi)}${bit('写作',m.es)}
