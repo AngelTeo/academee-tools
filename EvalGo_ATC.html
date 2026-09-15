@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>EvalGo_ATC · Multi-Paper v26</title>
+<title>EvalGo_ATC · Multi-Paper v27</title>
 <style>
 :root{
   /* ══ LAYER ══ RPT = 文档灰 */
@@ -374,7 +374,7 @@ button.chip.sel-w{background:var(--warn);color:#fff}
    权限码：RPT-EvalGo-ATC
    ══════════════════════════════════════════════════════════════════ */
 
-const APP_VERSION = 26;
+const APP_VERSION = 27;
 const STORAGE_KEY = 'evalgo_atc_v1';   /* 沿用 v1 key，旧资料不掉 */
 const SYS_CODE    = 'RPT-EvalGo-ATC';
 const SB_URL      = 'https://qnpvqsvvsgsantekgfbz.supabase.co';
@@ -819,6 +819,11 @@ async function classIdOf(clsName){
 }
 async function loadPapers(){
   if(!CLOUD.hasPI || !_sb || !CLOUD.exam || !(S.cls&&S.subject)){ S.papers=[]; return; }
+  /* v27：「查不到」和「查失败」是两件事，v26 都当成零份。
+     离线或逾时的时候把清单清空，等於老师自己把自己挡在门外，连离线填写都不行。
+     所以先备份，只有**确定查成功**才覆盖；失败就退回原样，并撤销「已查过」标记好让下次重试。 */
+  const prevPapers=(S.papers||[]).slice(), prevPI=S.paperInstance;
+  let ok=false;
   S._papersScope=paperScopeKey(); S.papers=[];
   try{
     /* P0-4 canonical：卷↔班 membership 以 evalgo_paper_scope 为准，不得用 year_level 代替 scope */
@@ -830,27 +835,33 @@ async function loadPapers(){
         .eq('evalgo_paper_instance.exam_id',CLOUD.exam.id)
         .eq('evalgo_paper_instance.subject',S.subject)
         .eq('evalgo_paper_instance.status','active');
-      let papers=(!r.error && r.data)? r.data.map(x=>x.evalgo_paper_instance).filter(Boolean):[];
+      if(r.error) throw r.error;                      /* v27：查失败走 catch，不当成零份 */
+      let papers=(r.data||[]).map(x=>x.evalgo_paper_instance).filter(Boolean);
       /* P0-2 canonical：卷责任=evalgo_paper_teacher。老师只见自己被分配的卷；
          管理层(isAdmin: OWNER/TOP_MGMT/MGMT/ADMIN)见该 scope 全部卷。
          routing 只认 paper_teacher（含 LEGACY_SEED）；teacher_assign 不参与、不覆盖 EXPLICIT。 */
       if(papers.length && !isAdmin() && S.me){
-        try{
-          const tr=await _sb.from('evalgo_paper_teacher')
-            .select('paper_instance_id').eq('class_id',cid).eq('teacher_id',S.me);
-          const mine=(!tr.error && tr.data)? new Set(tr.data.map(x=>x.paper_instance_id)) : new Set();
-          papers=papers.filter(p=>mine.has(p.id));
-        }catch(e){ papers=[]; }
+        const tr=await _sb.from('evalgo_paper_teacher')
+          .select('paper_instance_id').eq('class_id',cid).eq('teacher_id',S.me);
+        if(tr.error) throw tr.error;                  /* v27：同上，不可默默变成零份 */
+        const mine=new Set((tr.data||[]).map(x=>x.paper_instance_id));
+        papers=papers.filter(p=>mine.has(p.id));
       }
       S.papers=papers.sort((a,b)=>(a.sort_order||0)-(b.sort_order||0));
+      ok=true;
     }
-  }catch(e){ S.papers=[]; }
+  }catch(e){ ok=false; }
+  if(!ok){
+    S.papers=prevPapers; S.paperInstance=prevPI; S._papersScope=null;
+    if(!prevPapers.length) toast('连不上系统，暂时拿不到考卷清单 —— 连上网路后再进来一次',4500);
+  }
   /* 决定：1 份自动选；0 份或 >=2 份且当前选择不在清单 → 清空（>=2 强制老师选） */
   const ps=S.papers||[];
   if(ps.length===1) S.paperInstance=ps[0].id;
   else if(!ps.some(p=>p.id===S.paperInstance)) S.paperInstance=null;
   saveData(true);
-  if(!gateOpen()) goPage('f1'); else renderHome();
+  const dest=S._enterPage||'f1'; S._enterPage=null;   /* v27：回到老师原本要去的那一页 */
+  if(!gateOpen()) goPage(dest); else renderHome();
 }
 function pickPaper(id){
   if(!(S.papers||[]).some(p=>p.id===id)){ toast('✕ 这份卷不在当前班级/科目'); return; }
@@ -885,6 +896,19 @@ function piSuf(pi){ return (CLOUD.hasPI && pi) ? '|'+pi : ''; }
 function piReady(){ return !CLOUD.hasPI || !!S.paperInstance; }
 function bpKey(){ return EXK()+'|'+S.subject+'|'+yearOf(S.cls)+piSuffix(); }
 function sections(){ return (S.sections[bpKey()]||[]); }
+/* v27：工作台卡片问的是「这一格有没有登记考卷项目」，不是「哪一份卷的项目」。
+   v26 起项目的 key 带卷号后缀（见 piSuffix），卡片却用不带后缀的 key 去读，
+   永远读到空 —— 於是每一张卡都印「考卷项目还没登记」，全是假的。
+   卡片只要回答有／没有，不必知道是哪一卷，所以扫整格（含 Legacy 的无后缀旧 key）。
+   ⚠️ 只可用於「有没有」的判断。**不可当分母** —— 多卷时这是跨卷加总，会把题数灌水。 */
+function secsCountFor(subject,year){
+  const pre=EXK()+'|'+subject+'|'+year;
+  let n=0;
+  Object.keys(S.sections||{}).forEach(k=>{
+    if(k===pre || k.indexOf(pre+'|')===0) n+=(S.sections[k]||[]).length;
+  });
+  return n;
+}
 /* ⚠️ v9 用 hidden 属性 + inline display —— inline style 会盖掉 hidden，
    所以「满分」栏在选择题时也一直看得到。改成直接控制 display。 */
 function bpTypeChg(){
@@ -1155,10 +1179,10 @@ function cellStat(cls,subj){
     if(f1Complete(r.sid,subj).length) obs++;
     if(st==='done') done++; else if(st==='progress') prog++;
   });
-  const secs=(S.sections[EXK()+'|'+subj+'|'+yearOf(cls)]||[]);
+  const nSecs=secsCountFor(subj,yearOf(cls));   /* v27：改扫整格，见 secsCountFor */
   const handled=done+resolved;
-  return {n,obs,done,prog,resolved,handled,secs:secs.length,
-          state: n&&handled===n ? 'done' : (obs||done||prog||resolved||secs.length ? 'prog' : 'none')};
+  return {n,obs,done,prog,resolved,handled,secs:nSecs,
+          state: n&&handled===n ? 'done' : (obs||done||prog||resolved||nSecs ? 'prog' : 'none')};
 }
 /* ══ 工作台 ══ Owner 2026-09-06
    旧版是「6 班 × 5 科」的 30 格大表 —— 老师只教 1–2 个班科，
@@ -1178,7 +1202,7 @@ function cardStat(cls,subj){
     if(st==='done') papDone++; else { papLeft.push(r); if(st==='progress') prog++; }
   });
   return {n:list.length, obsDone, papDone, obsLeft, papLeft, absent, na, prog,
-          secs:(S.sections[EXK()+'|'+subj+'|'+yearOf(cls)]||[]).length};
+          secs:secsCountFor(subj,yearOf(cls))};   /* v27：改扫整格，见 secsCountFor */
 }
 /* Owner 2026-09-06：卡片上不列学生名字。
    一班 14 人，两行各印一次名单 = 28 个名字，把「还剩几个」这个唯一重点淹掉了。
@@ -1264,7 +1288,14 @@ function enterCell(cls,subj,page){
   /* Owner：路径应该「考前观察」先 —— 现场观察在第二节 PROVE 课后，
      考卷分析在第 3/4 次 FIX 课后，时间上观察在前。
      但工作台上两行各有自己的「继续」，所以要能指定进哪一页。 */
-  S.cls=cls; S.subject=subj; saveData(true); goPage(page||'f1');
+  S.cls=cls; S.subject=subj; S._enterPage=page||'f1'; saveData(true);
+  /* v27：这一格的卷清单还没在这次开页取过 → 先去云端取，取完由 loadPapers 决定进哪一页。
+     v26 在这里直接 goPage()，而 goPage 一发现「没有卷」就把人**默默踢回工作台** ——
+     没有讯息、没有画面。老师看到的就是「我按了继续，什么都没发生」。 */
+  if(CLOUD.hasPI && S._papersScope!==paperScopeKey()){
+    toast('载入考卷中…',1500); loadPapers(); return;
+  }
+  goPage(page||'f1');
 }
 
 function f1Key(sid,bah){ return EXK()+'|'+sid+'|'+S.subject+'|'+bah+piSuffix(); }
@@ -3591,7 +3622,10 @@ function allSections(){
     if(parts.length<3) return;                     /* v7 旧格式，由 migrateExamKeys 处理 */
     const [ex,subject,yr]=parts;
     if(ex!==EXK()) return;                          /* 别轮考试的结构不参与本轮 */
-    (S.sections[k]||[]).forEach(x=>out.push(Object.assign({_subject:subject,_year:+yr},x)));
+    /* v27：带上项目自己的完整 key（含卷号后缀）。上传成功後要靠它找回本机那一列标记已同步；
+       v26 是用 bpKeyOf() 重拼，而 bpKeyOf 接的是**当下选中的卷**，
+       上传别份卷的项目时就找不到 → 那一列永远停在「未同步」，每次推送重传一次。 */
+    (S.sections[k]||[]).forEach(x=>out.push(Object.assign({_subject:subject,_year:+yr,_key:k},x)));
   });
   return out;
 }
@@ -3841,7 +3875,8 @@ async function cloudPush(silent){
             .upsert(psPayload(sec),{onConflict:'client_uid'}).select('id').single();
         }
         if(res.error) throw res.error;
-        const live=(S.sections[bpKeyOf(sec._subject,sec._year)]||[]).find(x=>x.id===sec.id);
+        /* v27：用项目自己的 key（allSections 带出来的 _key），不再用当下选中卷重拼 */
+        const live=(S.sections[sec._key||bpKeyOf(sec._subject,sec._year)]||[]).find(x=>x.id===sec.id);
         if(live){ live.cloud_id=res.data.id; live.synced=true; }
         secOk++;
       }catch(e){ secFail++; }
@@ -4054,6 +4089,12 @@ function paintCloud(){
 
 /* ══ BOOT ══ */
 loadData();
+/* v27：把「这一格的卷清单已经查过了」这个标记清掉，强迫开页后第一次进某格时重新向云端查。
+   v26 的问题是：老师昨天「这一格没有卷」的结论会被带到今天，而程式只有在班／科**改变**时
+   才重查 —— 同一格再点不重查，於是老师卡死。
+   ⚠️ 只清标记，**不清 papers / paperInstance** —— 那两个要留著给离线的老师继续填。
+   本机的填写资料完全不受影响。 */
+S._papersScope=null; S._enterPage=null;
 renderHome();
 paintCloud();
 window.addEventListener('load',()=>{
