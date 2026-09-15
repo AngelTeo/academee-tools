@@ -1,6 +1,7 @@
 <!doctype html><html lang="zh"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>LoveGo</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" onerror="window.__SUPA_FAIL=1;console.error('[LoveGo] supabase-js failed to load')"></script><script>
 const LOVEGO_TEACHER_FLOW_V33=['学生','长期观察','生活片段','提交'];
+(function(){try{var _si=Storage.prototype.setItem;Storage.prototype.setItem=function(k,v){try{return _si.call(this,k,v);}catch(e){if(e&&(e.name==='QuotaExceededError'||e.code===22||e.code===1014||/quota/i.test(String(e.message||'')))){window.__LOVEGO_QUOTA_FULL=1;console.warn('[LoveGo] localStorage quota full; skipped persist for',k);return;}throw e;}};}catch(_){}})();
 function validateInsufficientVsPriority(review){const insufficient=new Set(Object.entries(review?.domains||{}).filter(([,v])=>v?.insufficient_observation===true).map(([code])=>code));const refs=[...(review?.strength_refs||[]),...(review?.growth_refs||[])];const conflicts=refs.filter(r=>insufficient.has(r.domain_code));return {ok:conflicts.length===0,conflicts};}
 function lovegoSubmitGateV22(review){const checks={domains:(typeof validateDomainCompletion==='function')?validateDomainCompletion(review):{ok:true},daily:(typeof validateDailyLifeGate==='function')?validateDailyLifeGate(review):{ok:true},consistency:{ok:true}};return {ok:Object.values(checks).every(x=>x?.ok!==false),checks};}
 function growthSupportRef(indicatorRef,supportCode,note=''){return {indicator_ref:indicatorRef,support_code:supportCode||null,note:String(note||'').trim()};}
@@ -221,7 +222,7 @@ window.esc=esc;
 <section class="screen" id="s-manage"><div class="hero"><div class="eyebrow">Settings</div><h1>LoveGo 设定</h1></div><div class="manage-card"><h3>① 我的身份</h3><div class="lines" id="m1"></div></div><div class="manage-card"><h3>② 系统资讯</h3><div class="lines">系统名：LoveGo<br>版本：<span id="verText">v61</span><br>Layer：OPR<br>权限码：<span class="tech">OPR-LoveGo</span><br>Storage key：<span class="tech">lovego</span><br>资料笔数：<span id="mcount">0</span></div></div><div class="manage-card"><h3>③ 云端连线</h3><div class="lines">当前版本：LoveGo Production · ObsGo taxonomy authority · OPR-LoveGo<br>名单来源：Academee Student Master / Supabase<br>云端 submission table：LoveGo Cloud · production schema</div></div><div class="manage-card"><h3>⑤ 资料备份</h3><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="ghost" onclick="exportData()">Export JSON</button><button class="ghost" onclick="exportCSV()">Export CSV</button><label class="ghost" style="display:inline-flex;align-items:center;cursor:pointer">Import<input type="file" hidden accept=".json" onchange="importData(event)"></label><button class="ghost" onclick="window.print()">列印</button></div></div><div class="acc" id="adv"><div class="acc-h" onclick="toggleAdv()">⑥ 进阶 · 管理员用 <span>▼</span></div><div class="acc-b"><div class="lines">Taxonomy authority：ObsGo Student Domains<br>Teacher assignment：Management manually assigns up to 4 teachers per student; one class may have multiple teachers<br>Teacher Lens policy：Default 4 teachers × 15%; management may approve fewer with reason; no auto-reweight<br>Teacher Lens policy ceiling：4 teachers × 15% = 60%<br>PTMGo readiness：all current valid assigned teachers must Submit; management may preview partial evidence anytime<br>Cycle timing：no hard closing date<br>Teacher entry：current-cycle only; previous-cycle Review hidden during entry<br>Evidence model：no manual U/B/D/S rating; observed indicators + qualitative evidence only<br>Submit gate：every applicable domain must be answered; explicit Insufficient Observation is accepted<br>Daily Student Life：at least 1 meaningful entry; individual fields may be blank<br>Narrative gate：no separate Strength/Growth re-selection; Summary optional<br>Teacher flow：学生 → 长期观察 → 生活片段 → 提交<br>Strength/Growth interpretation：downstream PTMGo uses submitted observation evidence; teachers do not repeat-select the same indicators<br>ObsGo Management Lens：40%<br>Management visibility：LoveGo content always visible to management<br>Daily Student Life：qualitative evidence, no percentage<br><span style="color:var(--danger)">Reset：production cloud deployment 前不开放。</span></div></div></div></section>
 </main><div class="toast" id="toast"></div>
 <script>
-const APP_VERSION=62,KEY='lovego';
+const APP_VERSION=63,KEY='lovego';
 const SUPABASE_URL='https://qnpvqsvvsgsantekgfbz.supabase.co';
 const SUPABASE_KEY='sb_publishable_v3Y3BD3XiPz33t-hfdX58g_BaFIkjPF';
 const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true}});
@@ -242,6 +243,16 @@ function lovegoModuleError(p){window.__LOVEGO_MODULE_ERRORS.push(p);console.erro
 <script src="https://cdn.jsdelivr.net/gh/AngelTeo/angelteo.github.io@8bd17ad97765a4f98a88d419439585df16eed790/OPR/lovego-review.js" onerror="lovegoModuleError('lovego-review.js')"></script>
 <script src="https://cdn.jsdelivr.net/gh/AngelTeo/angelteo.github.io@8bd17ad97765a4f98a88d419439585df16eed790/OPR/lovego-assignments.js" onerror="lovegoModuleError('lovego-assignments.js')"></script>
 <script>
+(function(){
+  if(typeof window.save!=='function')return;
+  var _origSave=window.save;
+  window.save=function(){
+    var _c=S.classes,_s=S.students,_e=S.enroll;
+    try{ S.classes=undefined;S.students=undefined;S.enroll=undefined;
+         return _origSave.apply(this,arguments);
+    } finally { S.classes=_c;S.students=_s;S.enroll=_e; }
+  };
+})();
 (async function loveGoDirectTestBootstrap(){
   const MANAGEMENT_SRC="https://cdn.jsdelivr.net/gh/AngelTeo/angelteo.github.io@8bd17ad97765a4f98a88d419439585df16eed790/OPR/lovego-management.js";
   let hasSession=false;
