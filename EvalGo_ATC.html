@@ -406,7 +406,7 @@ button.chip.sel-w{background:var(--warn);color:#fff}
    权限码：RPT-EvalGo-ATC
    ══════════════════════════════════════════════════════════════════ */
 
-const APP_VERSION = 35;
+const APP_VERSION = 36;
 const STORAGE_KEY = 'evalgo_atc_v1';   /* 沿用 v1 key，旧资料不掉 */
 const SYS_CODE    = 'RPT-EvalGo-ATC';
 const SB_URL      = 'https://qnpvqsvvsgsantekgfbz.supabase.co';
@@ -1083,7 +1083,9 @@ function setEven(id,v){
   sec.even = (sec.even===v) ? '' : v;      /* 再点一次 = 取消声明 */
   markSecDirty(sec);
   if(saveThen(sec.even==='Y'?'✓ 记为每题同分':(sec.even==='N'?'✓ 记为每题不同分':'已取消声明'))){
-    renderF1(); autoPush(); }
+    /* 老师人在「考卷项目」页，renderF1() 重画的是「考前观察」页 →
+       按了看起来没反应。跟 bpAdd / delSection 同一个坑，这支漏了。 */
+    bpRefresh(); autoPush(); }
 }
 /* ══ v29 · 小题结构 q_marks ══════════════════════════════════════════
    Owner 2026-09-15：老师手上已经有实体考卷，必须能登记「第 10 题有 a/b/c」。
@@ -1878,7 +1880,9 @@ async function bpProbe(){
     const b=await _sb.from('evalgo_paper_analysis').select('id',{count:'exact',head:true})
       .eq('exam_id',CLOUD.exam.id).eq('subject',su).eq('year_level',yr);
     const n=(a.count||0)+(b.count||0);
-    if(CLOUD.bpEvid[k]!==n){ CLOUD.bpEvid[k]=n; renderF1(); }
+    /* 同一个坑：老师人在「考卷项目」页，renderF1() 重画的是别页 →
+       云端查回来了，锁的状态却还是旧的。 */
+    if(CLOUD.bpEvid[k]!==n){ CLOUD.bpEvid[k]=n; bpRefresh(); }
   }catch(e){ console.warn('bpProbe',e); }
 }
 /* v28 · 文案照 Owner 2026-09-15 的规矩讲白：
