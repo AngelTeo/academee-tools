@@ -403,6 +403,13 @@ body.teacher-mode .teacher-hide{display:none !important;}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body>
+<div id="mg-stale-bar" style="display:none;position:fixed;left:0;right:0;top:0;z-index:99998;
+  background:#1d4ed8;color:#fff;font-size:13px;font-weight:600;padding:9px 14px;text-align:center;
+  font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei',sans-serif">
+  你这台装置跑的是旧版本。<span id="mg-stale-ver"></span>
+  <button onclick="mgApplyUpdate()" style="margin-left:10px;background:#fff;color:#1d4ed8;border:0;
+    border-radius:6px;padding:4px 12px;font-weight:700;font-size:12px;cursor:pointer;">立即更新</button>
+</div>
 
 <!-- ══ ENTRY SCREEN ══ -->
 <div class="scr on" id="s-entry">
@@ -544,7 +551,7 @@ body.teacher-mode .teacher-hide{display:none !important;}
    \u6539\u7248\u89c4\u5219\uff1a\u53ea\u7528\u6574\u6570\uff0c\u4e14\u4e09\u5904\u5fc5\u987b\u540c\u65f6\u6539 \u2014\u2014
    \u2460 <title>  \u2461 \u4e3b\u9875\u9876\u680f\u7684\u7248\u672c\u5fbd\u7ae0  \u2462 \u4e0b\u9762\u8fd9\u4e2a\u5e38\u6570
    \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550 */
-const APP_VERSION = 4;
+const APP_VERSION = 5;
 
 const B='\u2980';
 const H=(n,e='')=>`*${B}${B}${B}${B} ${n} ${B}${B}${B}${B}*`+(e?` ${e}`:'');
@@ -5579,7 +5586,7 @@ function scheduleMidnightCheck(){
 // ══ INIT ══
 // ══ DOMAIN LOCK ══
 (function(){
-  const allowed=['angelteo.github.io','misc-system.netlify.app','localhost','127.0.0.1'];
+  const allowed=['angelteo.github.io','localhost','127.0.0.1'];   /* v5：舊的第二個主機已停用，不再放行 */
   const host=location.hostname;
   if(!allowed.some(d=>host===d||host.endsWith('.'+d))){
     document.body.innerHTML=`<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;font-family:sans-serif;background:#f4f7f5;padding:32px;text-align:center;">
@@ -5589,6 +5596,62 @@ function scheduleMidnightCheck(){
     </div>`;
     throw new Error('Domain not authorized');
   }
+})();
+
+/* ══ v5 · 旧版本守门 ═════════════════════════════════════
+   日志实证：09-15 22:45 一台 iPhone、09-16 08:32 一台 Android，
+   网址是对的（angelteo.github.io），跑的却是 v3 之前的程式
+   （还在发 students?order=name.asc —— 必然 400）。
+   原因：本档没有任何版本检查，手机的 HTTP 快取 / 加到主畫面
+   把旧 HTML 钉住了，而 GitHub Pages 的快取标头我们改不了。
+
+   做法：向伺服器要一份本档的正本（带 cache-buster），比 APP_VERSION。
+   落后就跳到 ?v=N —— **换一个网址**才会真的重拿，
+   location.reload() 很可能又把同一份快取拿回来。
+
+   两条红线：
+   ① 老师已经动过画面就**不准自己跳** —— 正在填的东西会没；
+      改成出一条横幅，她自己按。
+   ② 同一次会话最多跳 2 次，绝不无限转。 */
+let _mgTouched=false;
+['pointerdown','keydown','input'].forEach(function(ev){
+  document.addEventListener(ev,function(){_mgTouched=true;},{once:true,capture:true});
+});
+let _mgNewVer=null;
+function mgApplyUpdate(){
+  try{
+    const u=new URL(location.href);
+    u.searchParams.set('v', String(_mgNewVer||Date.now()));
+    location.replace(u.toString());
+  }catch(e){ location.reload(); }
+}
+(function mgVersionGuard(){
+  const TRY='mg_vtry', LAST='mg_vchk', GAP=60*60*1000;   /* 一小时最多查一次 */
+  let tries=0;
+  try{ tries=+(sessionStorage.getItem(TRY)||0); }catch(e){}
+  if(tries>=2) return;                                    /* 红线 ② */
+  try{ if(Date.now()-(+localStorage.getItem(LAST)||0) < GAP) return; }catch(e){}
+  setTimeout(async function(){
+    try{
+      try{ localStorage.setItem(LAST,String(Date.now())); }catch(e){}
+      const r=await fetch(location.pathname+'?vchk='+Date.now(),{cache:'no-store'});
+      if(!r.ok) return;
+      const m=(await r.text()).match(/const APP_VERSION\s*=\s*(\d+)/);
+      if(!m) return;
+      const server=+m[1];
+      if(!(server>APP_VERSION)) return;
+      _mgNewVer=server;
+      try{ sessionStorage.setItem(TRY,String(tries+1)); }catch(e){}
+      if(_mgTouched){                                     /* 红线 ① */
+        const bar=document.getElementById('mg-stale-bar');
+        const lab=document.getElementById('mg-stale-ver');
+        if(lab) lab.textContent='（你的 v'+APP_VERSION+' → 最新 v'+server+'）';
+        if(bar) bar.style.display='block';
+        return;
+      }
+      mgApplyUpdate();
+    }catch(e){ console.warn('[MiscGo] version check failed',e); }
+  }, 3000);
 })();
 
 loadS();
