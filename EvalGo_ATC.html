@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>EvalGo_ATC · Multi-Paper v28</title>
+<title>EvalGo_ATC · Multi-Paper</title>
 <style>
 :root{
   /* ══ LAYER ══ RPT = 文档灰 */
@@ -464,7 +464,7 @@ button.chip.sel-w{background:var(--warn);color:#fff}
    权限码：RPT-EvalGo-ATC
    ══════════════════════════════════════════════════════════════════ */
 
-const APP_VERSION = 46;
+const APP_VERSION = 47;
 
 /* ══ v46 · 旧版本守门 ══════════════════════════════════
    MiscGo 那边抓到实例：网址对、程式旧（手机快取把旧 HTML 钉住）。
@@ -797,6 +797,16 @@ let _sb=null;
    护栏：MGMT 管业务，不管系统。 */
 const MANAGE_ROLES   = ['OWNER','TOP_MGMT','ADMIN'];            /* 系统页：管理 */
 const BUSINESS_ROLES = ['OWNER','TOP_MGMT','ADMIN','MGMT'];     /* 业务页：报告（v29 起还有进度） */
+/* ══ v47 · S-5：拉回来的资料不该把班级丢掉 ══════════════════
+   f1 / wi / es 三支从云端拉回时把 `cls` 硬写成 ''，
+   CSV 匯出的班级栏就空了。云端那边本来就没存班名（只有 class_id），
+   但 S.roster 每一位学生都带着 cls（来源 v_evalgo_coverage.class_name），
+   所以不必查 DB，直接在记忆体里对回去就行。
+   名单还没载入时回 '' —— 跟现在一模一样，不会更糟。 */
+function clsOfSid(sid){
+  const r=(S.roster||[]).find(x=>x.sid===sid);
+  return (r && r.cls) || '';
+}
 function roleNow(){ return String(CLOUD.role||'').toUpperCase(); }
 function canSeeManage(){ return MANAGE_ROLES.indexOf(roleNow())>=0; }
 function canSeeReport(){ return BUSINESS_ROLES.indexOf(roleNow())>=0; }
@@ -812,6 +822,13 @@ function paintNav(){
   });
   const vb=document.getElementById('ver-badge');
   if(vb) vb.textContent='v'+APP_VERSION;   /* v28：版本徽章不再手写，杜绝坑 3 */
+  /* ══ v47 · 坑 3 的漏网之鱼 ═══════════════════════════
+     v28 把 nav 徽章改成由 APP_VERSION 衍生，**但 <title> 没改**，
+     也没有任何地方改写它 —— 结果分页名稱、书签、加到主畫面的名字
+     从 v28 一路到 v46 都印着 v28，走了 18 版没人发现。
+     （OPEN_ITEMS §1 写「v28 起 <title> 与 nav 徽章都由它衍生」—— title 那半句是假的。）
+     现在两者同一个来源，标籤里不再留硬写版号。 */
+  document.title='EvalGo_ATC · Multi-Paper v'+APP_VERSION;
   /* Import 只给有填写权限的帐号；还没连线时保留（老师要能救回本机备份） */
   const im=document.getElementById('nav-import');
   if(im){ const off = !!(CLOUD.session && CLOUD.perm && CLOUD.perm.can_edit!==true);
@@ -5976,7 +5993,7 @@ async function cloudPull(silent){
       if(S.f1[k]&&!S.f1[k].synced){ if(s9Adopt(S.f1[k],x,'考前观察')) s9dirty=true; return; }
       S.f1[k]={client_uid:x.client_uid||uid(),sid:x.student_id,subject:x.subject,bahagian:x.bahagian,
         focus_dim:x.focus_dim||null,
-        cls:'',class_id:x.class_id,year:x.year_level,obs_date:x.obs_date,by:x.entered_by,exam:CLOUD.exam.code,
+        cls:clsOfSid(x.student_id),class_id:x.class_id,year:x.year_level,obs_date:x.obs_date,by:x.entered_by,exam:CLOUD.exam.code,
         read:x.read_v||'',think:x.think_v||'',answer:x.answer_v||'',check:x.check_v||'',
         ind:x.ind_v||'',speed:x.speed_v||'',handwriting:x.handwriting_v||'',issue:x.issue||'',
         savedAt:'(云端)',synced:true,cloud_id:x.id}; n1++; });
@@ -6014,14 +6031,14 @@ async function cloudPull(silent){
         qsub:x.q_sub||null,
         code:String(x.mark_code||'').toLowerCase(),diag:x.diagnosis||'',
         topic:x.topic||'',fmt:x.answer_format||'',sec_code:'',sec_type:x.diagnosis?'SUBJ':'OBJ',
-        cls:'',class_id:x.class_id,year:x.year_level,by:x.entered_by,exam:CLOUD.exam.code,
+        cls:clsOfSid(x.student_id),class_id:x.class_id,year:x.year_level,by:x.entered_by,exam:CLOUD.exam.code,
         savedAt:'(云端)',synced:true,cloud_id:x.id}; n3++; });
     let n4=0;
     (e2.data||[]).forEach(x=>{ const k=CLOUD.exam.code+'|'+x.student_id+'|'+x.subject+'|'+x.section_code+piSuf(x.paper_instance_id); seenES[k]=1;
       if(S.es[k]&&!S.es[k].synced){ if(s9Adopt(S.es[k],x,'写作')) s9dirty=true; return; }
       S.es[k]={client_uid:x.client_uid||uid(),sid:x.student_id,subject:x.subject,
         sec_code:x.section_code,sec_cloud_id:x.section_id,score:x.score,max:x.max_score,
-        weak:x.weak||[],star:!!x.is_star,cls:'',class_id:x.class_id,year:x.year_level,
+        weak:x.weak||[],star:!!x.is_star,cls:clsOfSid(x.student_id),class_id:x.class_id,year:x.year_level,
         by:x.entered_by,exam:CLOUD.exam.code,savedAt:'(云端)',synced:true,cloud_id:x.id}; n4++; });
     /* F5 对账：只在【本次 pull 成功 + 多卷在线 + 已选卷】时执行；
        只删【synced + 当前 exam + 当前卷 namespace + 云端明确没有】的 local row。
