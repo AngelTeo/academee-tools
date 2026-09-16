@@ -181,6 +181,13 @@ html,body{background:var(--sur2);color:var(--txt);font-family:'DM Sans',sans-ser
 </style>
 </head>
 <body>
+<div id="pg-stale-bar" style="display:none;position:fixed;left:0;right:0;top:0;z-index:99998;
+  background:#1d4ed8;color:#fff;font-size:13px;font-weight:600;padding:9px 14px;text-align:center;
+  font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei',sans-serif">
+  你这台装置跑的是旧版本。<span id="pg-stale-ver"></span>
+  <button onclick="pgApplyUpdate()" style="margin-left:10px;background:#fff;color:#1d4ed8;border:0;
+    border-radius:6px;padding:4px 12px;font-weight:700;font-size:12px;cursor:pointer;">写完这一笔再按</button>
+</div>
 
 <!-- ══ ENTRY SCREEN ══ -->
 <div class="scr on" id="s-entry">
@@ -288,7 +295,61 @@ html,body{background:var(--sur2);color:var(--txt);font-family:'DM Sans',sans-ser
    改版规则：只用整数，且三处必须同时改 ——
    ① <title>  ② .topbar-ver 徽章  ③ 下面这个常数
    ══════════════════════════════════════════════════════════════ */
-const APP_VERSION=2;
+const APP_VERSION=3;
+
+/* ══ v3 · 旧版本守门（跟 MiscGo v5 / EvalGo_ATC v46 同一套）══════════
+   MiscGo 那边日志抓到实例：网址对、程式旧（手机快取把旧 HTML 钉住）。
+   ParentGo 的后果：旧版还带着硬写密码闸门，一直跑就一直绕过平台登入。
+
+   向伺服器要一份本档正本（带 cache-buster）比 APP_VERSION，
+   落后就换到 ?v=N（**换网址**才真的重拿；reload() 往往又拿快取）。
+
+   两条红线：
+   ① 使用者已经动过画面就**绝不自己跳** —— 正在写的家长沟通纪录会没。
+   ② 同一次会话最多跳 2 次，绝不无限转。
+
+   ⚠ checkUrlParams() 读 `misc_id`；?v= 是用 searchParams.set 加上去的，
+     原有 query 与 hash 都保留，不会把 MiscGo 过来的连结弄丢。 */
+let _pgTouched=false;
+['pointerdown','keydown','input'].forEach(function(ev){
+  document.addEventListener(ev,function(){_pgTouched=true;},{once:true,capture:true});
+});
+let _pgNewVer=null;
+function pgApplyUpdate(){
+  try{
+    const u=new URL(location.href);
+    u.searchParams.set('v', String(_pgNewVer||Date.now()));
+    location.replace(u.toString());
+  }catch(e){ location.reload(); }
+}
+(function pgVersionGuard(){
+  const TRY='pg_vtry', LAST='pg_vchk', GAP=60*60*1000;
+  let tries=0;
+  try{ tries=+(sessionStorage.getItem(TRY)||0); }catch(e){}
+  if(tries>=2) return;
+  try{ if(Date.now()-(+localStorage.getItem(LAST)||0) < GAP) return; }catch(e){}
+  setTimeout(async function(){
+    try{
+      try{ localStorage.setItem(LAST,String(Date.now())); }catch(e){}
+      const r=await fetch(location.pathname+'?vchk='+Date.now(),{cache:'no-store'});
+      if(!r.ok) return;
+      const m=(await r.text()).match(/const APP_VERSION\s*=\s*(\d+)/);
+      if(!m) return;
+      const server=+m[1];
+      if(!(server>APP_VERSION)) return;
+      _pgNewVer=server;
+      try{ sessionStorage.setItem(TRY,String(tries+1)); }catch(e){}
+      if(_pgTouched){
+        const bar=document.getElementById('pg-stale-bar');
+        const lab=document.getElementById('pg-stale-ver');
+        if(lab) lab.textContent='（你的 v'+APP_VERSION+' → 最新 v'+server+'）';
+        if(bar) bar.style.display='block';
+        return;
+      }
+      pgApplyUpdate();
+    }catch(e){ console.warn('[ParentGo] version check failed',e); }
+  }, 3000);
+})();
 
 const SUPABASE_URL='https://qnpvqsvvsgsantekgfbz.supabase.co';
 const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFucHZxc3Z2c2dzYW50ZWtnZmJ6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYxNzg4MzIsImV4cCI6MjA5MTc1NDgzMn0.8rfv0BQpWNNSD8yrhHNwCOkcG9q5_uMD7B7z_Y324a0';
@@ -1216,7 +1277,7 @@ function checkUrlParams(){
 
 // ══ DOMAIN LOCK ══
 (function(){
-  const allowed=['angelteo.github.io','misc-system.netlify.app','localhost','127.0.0.1'];
+  const allowed=['angelteo.github.io','localhost','127.0.0.1'];   /* v3：舊的第二主机 2026-09-16 已删站，不再放行 */
   const host=location.hostname;
   if(!allowed.some(d=>host===d||host.endsWith('.'+d))){
     document.body.innerHTML=`<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;font-family:sans-serif;background:#f4f7f5;padding:32px;text-align:center;">
