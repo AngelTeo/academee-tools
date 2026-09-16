@@ -544,7 +544,7 @@ body.teacher-mode .teacher-hide{display:none !important;}
    \u6539\u7248\u89c4\u5219\uff1a\u53ea\u7528\u6574\u6570\uff0c\u4e14\u4e09\u5904\u5fc5\u987b\u540c\u65f6\u6539 \u2014\u2014
    \u2460 <title>  \u2461 \u4e3b\u9875\u9876\u680f\u7684\u7248\u672c\u5fbd\u7ae0  \u2462 \u4e0b\u9762\u8fd9\u4e2a\u5e38\u6570
    \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550 */
-const APP_VERSION = 3;
+const APP_VERSION = 4;
 
 const B='\u2980';
 const H=(n,e='')=>`*${B}${B}${B}${B} ${n} ${B}${B}${B}${B}*`+(e?` ${e}`:'');
@@ -1063,7 +1063,7 @@ const FORMATS=[
 {id:'FORGOT',label:'Forgot Items',cat:'Items',icon:'🎒',desc:'Per student — tap what they forgot',st:true,dk:null,
  sum:(v)=>{
   const prog=v.prog||'SRK';
-  const predefined=FORGOT_ITEMS[prog]||[];
+  const predefined=FORGOT_ITEMS[prog]||FORGOT_ITEMS.SRK||[];   /* GAK 没自己的清单 → 退回 SRK（跟下面 UI 那两支一致） */
   const customItems=Object.keys(v.forgot||{}).filter(k=>!predefined.includes(k));
   const allItems=[...predefined,...customItems].filter(k=>(v.forgot||{})[k]?.length>0);
   if(!allItems.length)return'—';
@@ -1077,7 +1077,7 @@ const FORMATS=[
  ],
  gen:(v,ini)=>{
   const prog=v.prog||forgotState.prog||'SRK';
-  const predefined=FORGOT_ITEMS[prog]||[];
+  const predefined=FORGOT_ITEMS[prog]||FORGOT_ITEMS.SRK||[];   /* GAK 没自己的清单 → 退回 SRK（跟下面 UI 那两支一致） */
   const customItems=Object.keys(v.forgot||{}).filter(k=>!predefined.includes(k));
   const allItems=[...predefined,...customItems];
   // Build student → items map
@@ -1461,21 +1461,59 @@ function osIsSubscribed(){
 // Sync students from Supabase (shared list)
 async function syncStudentsFromSupabase(){
   try{
-    /* ══ v3 · 线上日志实证：09-14 23:58 起 400 了 26 次 ══
-       `students` 表里没有 `name` 这一栏（只有 name_en / name_cn），
-       旧版拿那个不存在的栏位来排序，整支查询被 PostgREST 挡掉 → 学生名单一直是空的。
-       班级也不在 students 上，在 v_student_roster。改读那支 view，
-       名字、班级、部门一次拿齐。 */
+    /* ══ v4 · v3 拿错了粒度 ══
+       v_student_roster 一列是一筆「入班」，不是一位学生：
+       564 列 = 365 位学生，135 位同时在两个以上部门。
+       而本档的 S.students 全档是拿 **名字** 当 key 在用
+       （find(x=>x.name===n) · removeStu(n) · 名单计数）。
+       v3 直接 map 没去重 → find() 回到哪一笔看运气，名单会印 564。
+       此处改成以 student_id 去重，一位学生一列。 */
     const {data,error}=await _sb.from('v_student_roster')
-      .select('name_en,name_cn,class_name,department')
+      .select('student_id,name_en,name_cn,class_name,department,status,enrollment_active')
       .order('name_en');
     if(error){ console.warn('Supabase students sync failed:',error.message); return; }
     if(!data||!data.length) return;
-    S.students=data.map(r=>({name:r.name_en||r.name_cn||'',
-                             cls:r.class_name||'', prog:r.department||'SRK'}))
-                   .filter(x=>x.name);
+
+    /* 已退班 / 已停的不要拉进来 */
+    const live=data.filter(r=>r.enrollment_active!==false && (r.status||'')!=='Stopped');
+    if(!live.length) return;
+
+    /* 部门优先序：决定哪一班算「主班」，颜色跟 FORGOT 预设清单看它。
+       排在前面的赢。GAK 在 index 注册表里本来就跟 SRK 共用一张卡
+       （OPR-MiscGo-SRK-GAK），所以排最后。 */
+    const DEPT_RANK=['ATC','SRT','SRK','GAK'];
+    const byId=new Map();
+    live.forEach(r=>{
+      const nm=(r.name_en||r.name_cn||'').trim();
+      if(!nm) return;
+      const id=r.student_id||('name:'+nm);
+      let e=byId.get(id);
+      if(!e){ e={name:nm, rows:[]}; byId.set(id,e); }
+      e.rows.push({cls:r.class_name||'', dep:r.department||''});
+    });
+
+    const out=[];
+    byId.forEach(e=>{
+      const rows=e.rows.slice().sort((a,b)=>{
+        const ai=DEPT_RANK.indexOf(a.dep), bi=DEPT_RANK.indexOf(b.dep);
+        const aa=ai<0?99:ai, bb=bi<0?99:bi;
+        return aa!==bb ? aa-bb : (a.cls||'').localeCompare(b.cls||'');
+      });
+      const main=rows[0];
+      const extra=rows.slice(1).map(r=>r.cls).filter(Boolean);
+      out.push({
+        name : e.name,
+        cls  : main.cls||'',
+        prog : main.dep||'SRK',
+        cls2 : extra.join(' · '),     /* 其他班：只用于显示跟搜尋，不当 key */
+        depts: Array.from(new Set(rows.map(r=>r.dep).filter(Boolean)))
+      });
+    });
+    out.sort((a,b)=>a.name.localeCompare(b.name));
+
+    S.students=out;
     save();
-    console.log('✅ Students synced from Supabase:',S.students.length);
+    console.log('✅ Students synced:',out.length,'students from',live.length,'enrollments');
   }catch(e){console.warn('Supabase students sync failed:',e);}
 }
 
@@ -2504,8 +2542,8 @@ function stuPickerSearch(q){
   const list=document.getElementById('stu-picker-list');
   if(!list)return;
   const uq=(q||'').toUpperCase().trim();
-  const matches=uq?S.students.filter(s=>s.name.includes(uq)||s.cls.toUpperCase().includes(uq)):S.students;
-  const pc={SRK:'#2563eb',SRT:'#059669',ATC:'#d97706'};
+  const matches=uq?S.students.filter(s=>s.name.includes(uq)||(s.cls||'').toUpperCase().includes(uq)||(s.cls2||'').toUpperCase().includes(uq)):S.students;
+  const pc={SRK:'#2563eb',SRT:'#059669',ATC:'#d97706',GAK:'#7c3aed'};
   if(!matches.length){
     list.innerHTML='<div style="padding:20px;text-align:center;color:var(--mut);font-size:13px;">No students found</div>';
     return;
@@ -2519,7 +2557,7 @@ function stuPickerSearch(q){
     byClass[cls].forEach(function(s){
       const col=pc[s.prog]||'#6b7280';
       h+='<div data-name="'+s.name+'" data-cls="'+s.cls+'" onclick="stuPickerPick(this.dataset.name,this.dataset.cls)" style="display:flex;align-items:center;justify-content:space-between;padding:11px 12px;background:var(--sur);border-radius:var(--rs);margin-bottom:5px;cursor:pointer;border:.5px solid var(--bdr);">'
-        +'<span style="font-size:13px;font-weight:600;">'+s.name+'</span>'
+        +'<span style="font-size:13px;font-weight:600;">'+s.name+(s.cls2?'<span style="font-weight:500;color:var(--mut);font-size:10.5px;"> · '+s.cls2+'</span>':'')+'</span>'
         +'<span style="font-size:11px;font-weight:700;color:'+col+';background:'+col+'15;padding:3px 9px;border-radius:10px;">'+s.cls+'</span>'
         +'</div>';
     });
@@ -4072,7 +4110,7 @@ function getStuSum(r,fmt){
 function openStuProfile(name){
   const stu=S.students.find(s=>s.name===name);
   if(!stu)return;
-  const pc={SRK:'#2563eb',SRT:'#059669',ATC:'#d97706'};
+  const pc={SRK:'#2563eb',SRT:'#059669',ATC:'#d97706',GAK:'#7c3aed'};
   const col=pc[stu.prog]||'#6b7280';
   // All records where this student appears
   const recs=[...S.records].filter(function(r){
@@ -4143,7 +4181,7 @@ function closeStuProfile(){
 }
 
 function renderStudents(){
-  const pc={SRK:'#2563eb',SRT:'#059669',ATC:'#d97706'};
+  const pc={SRK:'#2563eb',SRT:'#059669',ATC:'#d97706',GAK:'#7c3aed'};
   // Build top bar only once (check if already built)
   const topbar=document.getElementById('stu-topbar');
   if(topbar&&!topbar.innerHTML){
@@ -4152,12 +4190,12 @@ function renderStudents(){
   renderStuList();
 }
 function renderStuList(){
-  const pc={SRK:'#2563eb',SRT:'#059669',ATC:'#d97706'};
+  const pc={SRK:'#2563eb',SRT:'#059669',ATC:'#d97706',GAK:'#7c3aed'};
   const listEl=document.getElementById('stu-list');
   if(!listEl)return;
   const q=(document.getElementById('stu-search-inp')?document.getElementById('stu-search-inp').value:'').toLowerCase().trim();
   const all=[...S.students].sort(function(a,b){return a.name.localeCompare(b.name);});
-  const filt=q?all.filter(function(s){return s.name.toLowerCase().includes(q)||s.cls.toLowerCase().includes(q);}):all;
+  const filt=q?all.filter(function(s){return s.name.toLowerCase().includes(q)||(s.cls||'').toLowerCase().includes(q)||(s.cls2||'').toLowerCase().includes(q);}):all;
   if(!S.students.length){
     listEl.innerHTML=`<div class="empty"><div class="eico">👥</div><div class="ettl">No students</div><div class="esub">Import Excel or add manually</div></div>`;
     return;
