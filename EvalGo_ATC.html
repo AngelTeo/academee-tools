@@ -377,6 +377,13 @@ button.chip.sel-w{background:var(--warn);color:#fff}
 </style>
 </head>
 <body>
+<div id="eg-stale-bar" style="display:none;position:fixed;left:0;right:0;top:0;z-index:99998;
+  background:#1d4ed8;color:#fff;font-size:13px;font-weight:600;padding:9px 14px;text-align:center;
+  font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei',sans-serif">
+  你这台装置跑的是旧版本。<span id="eg-stale-ver"></span>
+  <button onclick="egApplyUpdate()" style="margin-left:10px;background:#fff;color:#1d4ed8;border:0;
+    border-radius:6px;padding:4px 12px;font-weight:700;font-size:12px;cursor:pointer;">做完这一位再按</button>
+</div>
 
 <!-- ══════ NAV ══════ -->
 <div class="nav">
@@ -457,7 +464,60 @@ button.chip.sel-w{background:var(--warn);color:#fff}
    权限码：RPT-EvalGo-ATC
    ══════════════════════════════════════════════════════════════════ */
 
-const APP_VERSION = 45;
+const APP_VERSION = 46;
+
+/* ══ v46 · 旧版本守门 ══════════════════════════════════
+   MiscGo 那边抓到实例：网址对、程式旧（手机快取把旧 HTML 钉住）。
+   EvalGo 出这个问题后果更重：旧版的本机 key 不带卷号后缀、
+   逐题不分 6a/6b/6c —— 一写上去就是脏资料，而且老师看不出来。
+
+   向伺服器要一份本档正本（带 cache-buster）比 APP_VERSION，
+   落后就换到 ?v=N（**换网址**才真的重拿；reload() 往往又拿快取）。
+
+   两条红线：
+   ① 老师已经动过画面就**绝不自己跳** —— 正在填的考卷分析会没；
+      只出一条横幅，写「做完这一位再按」，由她决定什么时候换。
+   ② 同一次会话最多跳 2 次，绝不无限转。 */
+let _egTouched=false;
+['pointerdown','keydown','input'].forEach(function(ev){
+  document.addEventListener(ev,function(){_egTouched=true;},{once:true,capture:true});
+});
+let _egNewVer=null;
+function egApplyUpdate(){
+  try{
+    const u=new URL(location.href);
+    u.searchParams.set('v', String(_egNewVer||Date.now()));
+    location.replace(u.toString());
+  }catch(e){ location.reload(); }
+}
+(function egVersionGuard(){
+  const TRY='eg_vtry', LAST='eg_vchk', GAP=60*60*1000;
+  let tries=0;
+  try{ tries=+(sessionStorage.getItem(TRY)||0); }catch(e){}
+  if(tries>=2) return;
+  try{ if(Date.now()-(+localStorage.getItem(LAST)||0) < GAP) return; }catch(e){}
+  setTimeout(async function(){
+    try{
+      try{ localStorage.setItem(LAST,String(Date.now())); }catch(e){}
+      const r=await fetch(location.pathname+'?vchk='+Date.now(),{cache:'no-store'});
+      if(!r.ok) return;
+      const m=(await r.text()).match(/const APP_VERSION\s*=\s*(\d+)/);
+      if(!m) return;
+      const server=+m[1];
+      if(!(server>APP_VERSION)) return;
+      _egNewVer=server;
+      try{ sessionStorage.setItem(TRY,String(tries+1)); }catch(e){}
+      if(_egTouched){
+        const bar=document.getElementById('eg-stale-bar');
+        const lab=document.getElementById('eg-stale-ver');
+        if(lab) lab.textContent='（你的 v'+APP_VERSION+' → 最新 v'+server+'）';
+        if(bar) bar.style.display='block';
+        return;
+      }
+      egApplyUpdate();
+    }catch(e){ console.warn('[EvalGo] version check failed',e); }
+  }, 3000);
+})();
 const STORAGE_KEY = 'evalgo_atc_v1';   /* 沿用 v1 key，旧资料不掉 */
 const SYS_CODE    = 'RPT-EvalGo-ATC';
 const SB_URL      = 'https://qnpvqsvvsgsantekgfbz.supabase.co';
