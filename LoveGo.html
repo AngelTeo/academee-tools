@@ -207,7 +207,7 @@ window.esc=esc;
   <div id="collectSummary" style="display:none"></div>
   <div id="studentList" style="display:none"></div>
 </section>
-<section class="screen" id="s-review"><div class="review-head"><div class="review-card"><div><b id="reviewName"></b><div class="meta" id="reviewMeta"></div></div><div class="review-actions"><span class="review-live">● LIVE</span><button class="review-top-btn" onclick="loveGoReviewHome()">← 回主页</button><button class="review-top-btn" onclick="loveGoFinishWriting()">完成填写 ✓</button></div></div></div><div class="lg-roster-board">
+<section class="screen" id="s-review"><div class="review-head"><div class="review-card"><div><b id="reviewName"></b><div class="meta" id="reviewMeta"></div></div><div class="review-actions"><span class="review-live">● LIVE</span><button class="review-top-btn" id="lg-btn-home" onclick="loveGoReviewHome()">← 回主页</button><button class="review-top-btn" id="lg-btn-finish" style="display:none" onclick="loveGoFinishWriting()">完成填写 ✓</button></div></div></div><div class="lg-fillnav" id="lg-fillnav" style="display:none;align-items:center;gap:8px;flex-wrap:wrap;background:#fff;border:0.5px solid var(--line,#e5e0d8);border-radius:12px;padding:8px 10px;margin:0 0 10px"><button class="review-top-btn" onclick="lgBackToRoster()">← 返回名单</button><span id="lg-fill-progress" style="font-size:13px;color:#6b6459"></span><span style="margin-left:auto"></span><button class="review-top-btn" id="lg-prev-btn" onclick="lgPrevStudent()">← 上一位</button><button class="review-top-btn" id="lg-next-btn" onclick="lgNextStudent()">下一位 →</button><button class="review-top-btn" onclick="lgCompleteAndNext()" style="border-color:#7BA05B;color:#3f6b2f">完成这一位 ✓</button></div><div class="lg-roster-board">
   <div class="lg-roster-head">
     <div>
       <div class="lg-addbar-title">学生观察</div>
@@ -216,13 +216,13 @@ window.esc=esc;
     <div class="lg-roster-count" id="lg-roster-count"></div>
   </div>
   <div class="lg-roster-grid" id="lg-roster-grid"></div>
-</div><div class="alert"><b>⚠ Cloud 状态</b>　<span id="cloudReviewStatus">正在确认正式写入路径…</span></div><div class="alert"><b>长期观察</b>　根据这一阶段你平常真正看到的学生表现填写。没有足够机会观察的 Domain，请直接选「无法判断」。</div><div id="domains"></div><div class="review-fold" id="dailyFold"><div class="review-fold-head" onclick="lgToggleReviewFold('dailyFold')">生活片段 · Daily Student Life</div><div class="review-fold-body"><div class="sub" style="margin:10px 0 8px">四项不需要全部写；至少留下一项真正有意义的日常观察。</div><div class="daily-grid"><label><span>习惯 / Routine</span><textarea class="note" id="dailyRoutine" placeholder="平常的习惯、独立性、责任感…"></textarea></label><label><span>与人相处 / Social</span><textarea class="note" id="dailySocial" placeholder="与同伴、老师互动时常见的样子…"></textarea></label><label><span>情绪 / Regulation</span><textarea class="note" id="dailyEmotion" placeholder="面对提醒、挫折、变化时常见的反应…"></textarea></label><label><span>特别变化 / Something I noticed</span><textarea class="note" id="dailyChange" placeholder="这一阶段明显的进步、变化或值得家长知道的小事…"></textarea></label></div></div></div><div class="review-fold" id="summaryFold"><div class="review-fold-head" onclick="lgToggleReviewFold('summaryFold')">Teacher Summary（选填）</div><div class="review-fold-body"><textarea class="note" id="summary" placeholder="如果还有一件你觉得值得补充的事，可以写在这里。"></textarea></div></div></section>
+</div><div id="lg-fillbody" style="display:none"><div class="alert"><b>⚠ Cloud 状态</b>　<span id="cloudReviewStatus">正在确认正式写入路径…</span></div><div class="alert"><b>长期观察</b>　根据这一阶段你平常真正看到的学生表现填写。没有足够机会观察的 Domain，请直接选「无法判断」。</div><div id="domains"></div><div class="review-fold" id="dailyFold"><div class="review-fold-head" onclick="lgToggleReviewFold('dailyFold')">生活片段 · Daily Student Life</div><div class="review-fold-body"><div class="sub" style="margin:10px 0 8px">四项不需要全部写；至少留下一项真正有意义的日常观察。</div><div class="daily-grid"><label><span>习惯 / Routine</span><textarea class="note" id="dailyRoutine" placeholder="平常的习惯、独立性、责任感…"></textarea></label><label><span>与人相处 / Social</span><textarea class="note" id="dailySocial" placeholder="与同伴、老师互动时常见的样子…"></textarea></label><label><span>情绪 / Regulation</span><textarea class="note" id="dailyEmotion" placeholder="面对提醒、挫折、变化时常见的反应…"></textarea></label><label><span>特别变化 / Something I noticed</span><textarea class="note" id="dailyChange" placeholder="这一阶段明显的进步、变化或值得家长知道的小事…"></textarea></label></div></div></div><div class="review-fold" id="summaryFold"><div class="review-fold-head" onclick="lgToggleReviewFold('summaryFold')">Teacher Summary（选填）</div><div class="review-fold-body"><textarea class="note" id="summary" placeholder="如果还有一件你觉得值得补充的事，可以写在这里。"></textarea></div></div></div></section>
 <section class="screen" id="s-progress"><div class="hero"><div class="eyebrow">Completion</div><h1>Review Progress</h1><div class="sub" id="progressIntro">查看本轮 Review 完成情况。</div></div><div id="progressBody"></div></section>
 <section class="screen" id="s-assign"><div class="hero"><div class="eyebrow">Teacher Assignment</div><h1>指定本轮 LoveGo 老师</h1><div class="sub">管理层逐生指定本轮负责 Review 的老师，每位学生最多 4 位。管理层可随时查看已保存/已提交的 LoveGo 内容；系统不设硬性填写截止日。</div></div><div class="card"><div class="toolbar" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><select id="assignCycle" onchange="renderAssignments()"></select><select id="assignDept" onchange="renderAssignClasses()"></select><select id="assignClass" onchange="renderAssignments()"></select></div></div><div id="assignList"></div><div class="card" id="mgmtReviewView" style="display:none"><div class="title">Teacher Review · 管理层查看</div><div class="sub">这是 LoveGo Teacher Lens 原始 evidence。管理层可随时预览部分资料；只有全部当前有效老师 Submit 后，学生才是 Completed / Ready for PTMGo。查看不会改变 ObsGo，也不会改变原老师提交内容。</div><div id="mgmtReviewBody"></div></div></section>
 <section class="screen" id="s-manage"><div class="hero"><div class="eyebrow">Settings</div><h1>LoveGo 设定</h1></div><div class="manage-card"><h3>① 我的身份</h3><div class="lines" id="m1"></div></div><div class="manage-card"><h3>② 系统资讯</h3><div class="lines">系统名：LoveGo<br>版本：<span id="verText">v61</span><br>Layer：OPR<br>权限码：<span class="tech">OPR-LoveGo</span><br>Storage key：<span class="tech">lovego</span><br>资料笔数：<span id="mcount">0</span></div></div><div class="manage-card"><h3>③ 云端连线</h3><div class="lines">当前版本：LoveGo Production · ObsGo taxonomy authority · OPR-LoveGo<br>名单来源：Academee Student Master / Supabase<br>云端 submission table：LoveGo Cloud · production schema</div></div><div class="manage-card"><h3>⑤ 资料备份</h3><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="ghost" onclick="exportData()">Export JSON</button><button class="ghost" onclick="exportCSV()">Export CSV</button><label class="ghost" style="display:inline-flex;align-items:center;cursor:pointer">Import<input type="file" hidden accept=".json" onchange="importData(event)"></label><button class="ghost" onclick="window.print()">列印</button></div></div><div class="acc" id="adv"><div class="acc-h" onclick="toggleAdv()">⑥ 进阶 · 管理员用 <span>▼</span></div><div class="acc-b"><div class="lines">Taxonomy authority：ObsGo Student Domains<br>Teacher assignment：Management manually assigns up to 4 teachers per student; one class may have multiple teachers<br>Teacher Lens policy：Default 4 teachers × 15%; management may approve fewer with reason; no auto-reweight<br>Teacher Lens policy ceiling：4 teachers × 15% = 60%<br>PTMGo readiness：all current valid assigned teachers must Submit; management may preview partial evidence anytime<br>Cycle timing：no hard closing date<br>Teacher entry：current-cycle only; previous-cycle Review hidden during entry<br>Evidence model：no manual U/B/D/S rating; observed indicators + qualitative evidence only<br>Submit gate：every applicable domain must be answered; explicit Insufficient Observation is accepted<br>Daily Student Life：at least 1 meaningful entry; individual fields may be blank<br>Narrative gate：no separate Strength/Growth re-selection; Summary optional<br>Teacher flow：学生 → 长期观察 → 生活片段 → 提交<br>Strength/Growth interpretation：downstream PTMGo uses submitted observation evidence; teachers do not repeat-select the same indicators<br>ObsGo Management Lens：40%<br>Management visibility：LoveGo content always visible to management<br>Daily Student Life：qualitative evidence, no percentage<br><span style="color:var(--danger)">Reset：production cloud deployment 前不开放。</span></div></div></div></section>
 </main><div class="toast" id="toast"></div>
 <script>
-const APP_VERSION=63,KEY='lovego';
+const APP_VERSION=64,KEY='lovego';
 const SUPABASE_URL='https://qnpvqsvvsgsantekgfbz.supabase.co';
 const SUPABASE_KEY='sb_publishable_v3Y3BD3XiPz33t-hfdX58g_BaFIkjPF';
 const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true}});
@@ -508,12 +508,57 @@ function lovegoModuleError(p){window.__LOVEGO_MODULE_ERRORS.push(p);console.erro
         </button>`;
       }).join('');
     }
+    function lgRosterList(){ return (typeof lgRosterOf==='function'?lgRosterOf(S.ui.classId):[])||[]; }
+    function lgFillEls(){ return {
+      board:document.querySelector('#s-review .lg-roster-board'),
+      body:document.getElementById('lg-fillbody'),
+      nav:document.getElementById('lg-fillnav'),
+      home:document.getElementById('lg-btn-home'),
+      finish:document.getElementById('lg-btn-finish')
+    };}
+    function lgUpdateFillNav(id){
+      const list=lgRosterList(); const i=list.findIndex(s=>String(s.id)===String(id));
+      const st=list[i]; const nm=st&&(st.name_en||st.name||st.display_name||st.name_cn||'');
+      const prog=document.getElementById('lg-fill-progress');
+      if(prog) prog.textContent=(i>=0?('第 '+(i+1)+' / '+list.length+' 位'+(nm?' · '+nm:'')):'');
+      const prev=document.getElementById('lg-prev-btn'), next=document.getElementById('lg-next-btn');
+      if(prev) prev.disabled=(i<=0);
+      if(next) next.disabled=(i<0||i>=list.length-1);
+    }
     window.lgOpenRosterStudent=function(id){
+      S.ui.studentId=id;
       if(typeof openReview==='function') openReview(id);
-      const domains=document.getElementById('domains');
-      if(domains) domains.style.display='';
+      const e=lgFillEls();
+      if(e.board) e.board.style.display='none';
+      if(e.body) e.body.style.display='';
+      if(e.nav) e.nav.style.display='';
+      if(e.home) e.home.style.display='none';
+      if(e.finish) e.finish.style.display='none';
+      const domains=document.getElementById('domains'); if(domains) domains.style.display='';
       ['dailyFold','summaryFold'].forEach(k=>{const el=document.getElementById(k);if(el)el.style.display='';});
+      lgUpdateFillNav(id);
+      window.scrollTo(0,0);
+    };
+    window.lgBackToRoster=function(){
+      const e=lgFillEls();
+      if(e.board) e.board.style.display='';
+      if(e.body) e.body.style.display='none';
+      if(e.nav) e.nav.style.display='none';
+      if(e.home) e.home.style.display='';
+      if(e.finish) e.finish.style.display='none';
       setTimeout(lgRenderClassRoster,0);
+      window.scrollTo(0,0);
+    };
+    window.lgPrevStudent=function(){ const list=lgRosterList(); const i=list.findIndex(s=>String(s.id)===String(S.ui.studentId)); if(i>0) lgOpenRosterStudent(list[i-1].id); };
+    window.lgNextStudent=function(){ const list=lgRosterList(); const i=list.findIndex(s=>String(s.id)===String(S.ui.studentId)); if(i>=0&&i<list.length-1) lgOpenRosterStudent(list[i+1].id); };
+    window.lgCompleteAndNext=async function(){
+      try{
+        if(typeof saveReview==='function'){ const out=saveReview(true); if(out&&typeof out.then==='function') await out; }
+        else if(typeof save==='function') save();
+      }catch(e){ console.warn('[LoveGo] complete-and-next',e); return; }
+      const list=lgRosterList(); const i=list.findIndex(s=>String(s.id)===String(S.ui.studentId));
+      if(i>=0&&i<list.length-1){ lgOpenRosterStudent(list[i+1].id); }
+      else { lgBackToRoster(); }
     };
 
     function lgAgeOf(st){if(st?.age!=null)return st.age;if(st?.birth_year)return new Date().getFullYear()-Number(st.birth_year);if(st?.dob){const d=new Date(st.dob);if(!isNaN(d))return new Date().getFullYear()-d.getFullYear();}return '';}
@@ -543,6 +588,13 @@ function lovegoModuleError(p){window.__LOVEGO_MODULE_ERRORS.push(p);console.erro
       const domains=document.getElementById('domains');
       if(domains) domains.style.display='none';
       ['dailyFold','summaryFold'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});
+
+      // Always enter in roster mode (restore if a previous session left fill mode open).
+      const _board=document.querySelector('#s-review .lg-roster-board'); if(_board) _board.style.display='';
+      const _fb=document.getElementById('lg-fillbody'); if(_fb) _fb.style.display='none';
+      const _fn=document.getElementById('lg-fillnav'); if(_fn) _fn.style.display='none';
+      const _home=document.getElementById('lg-btn-home'); if(_home) _home.style.display='';
+      const _fin=document.getElementById('lg-btn-finish'); if(_fin) _fin.style.display='none';
 
       lgRenderClassRoster();
       window.scrollTo({top:0,behavior:'auto'});
