@@ -1,7 +1,22 @@
 <!doctype html><html lang="zh"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>LoveGo</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" onerror="window.__SUPA_FAIL=1;console.error('[LoveGo] supabase-js failed to load')"></script><script>
 const LOVEGO_TEACHER_FLOW_V33=['学生','长期观察','生活片段','提交'];
-(function(){try{var _si=Storage.prototype.setItem;Storage.prototype.setItem=function(k,v){try{return _si.call(this,k,v);}catch(e){if(e&&(e.name==='QuotaExceededError'||e.code===22||e.code===1014||/quota/i.test(String(e.message||'')))){window.__LOVEGO_QUOTA_FULL=1;console.warn('[LoveGo] localStorage quota full; skipped persist for',k);return;}throw e;}};}catch(_){}})();
+/* ══ v66 · 铁则 7：写不进去不准只留 console ═══════════════
+   旧版把 QuotaExceededError 吞掉、设一个**没有任何地方读**的旗标、
+   印一行老师永远看不到的 console.warn —— 画面一切正常，她的东西没存进去。
+   这一支必须定义在最前面、无条件定义：空间满的时候 DOM 可能还没好，
+   所以它自己等 DOM，等到了就挂一条不会自己消失的红色横幅。
+   横幅用固定 id，跟 v65 的 lgScrubSystemInfo 不冲突（那支只摸 #s-collect /
+   #lg-cloudbox / #reviewMeta / #saved / #sync，不碰 #lovego-quota-bar）。 */
+window.__lovegoQuotaBanner=function(){
+  var show=function(){ var b=document.getElementById('lovego-quota-bar');
+    if(b){ b.style.display='block'; return true; } return false; };
+  if(show()) return;
+  if(document.readyState==='loading')
+    document.addEventListener('DOMContentLoaded',show,{once:true});
+  else setTimeout(show,300);
+};
+(function(){try{var _si=Storage.prototype.setItem;Storage.prototype.setItem=function(k,v){try{return _si.call(this,k,v);}catch(e){if(e&&(e.name==='QuotaExceededError'||e.code===22||e.code===1014||/quota/i.test(String(e.message||'')))){window.__LOVEGO_QUOTA_FULL=1;console.warn('[LoveGo] localStorage quota full; skipped persist for',k);try{window.__lovegoQuotaBanner&&window.__lovegoQuotaBanner();}catch(_){}return;}throw e;}};}catch(_){}})();
 function validateInsufficientVsPriority(review){const insufficient=new Set(Object.entries(review?.domains||{}).filter(([,v])=>v?.insufficient_observation===true).map(([code])=>code));const refs=[...(review?.strength_refs||[]),...(review?.growth_refs||[])];const conflicts=refs.filter(r=>insufficient.has(r.domain_code));return {ok:conflicts.length===0,conflicts};}
 function lovegoSubmitGateV22(review){const checks={domains:(typeof validateDomainCompletion==='function')?validateDomainCompletion(review):{ok:true},daily:(typeof validateDailyLifeGate==='function')?validateDailyLifeGate(review):{ok:true},consistency:{ok:true}};return {ok:Object.values(checks).every(x=>x?.ok!==false),checks};}
 function growthSupportRef(indicatorRef,supportCode,note=''){return {indicator_ref:indicatorRef,support_code:supportCode||null,note:String(note||'').trim()};}
@@ -163,6 +178,11 @@ window.esc=esc;
 @media(max-width:700px){.lg-roster-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.lg-roster-board{padding:14px}}
 
 </style></head><body>
+<div id="lovego-quota-bar" style="display:none;position:fixed;left:0;right:0;top:0;z-index:99999;
+  background:#A32D2D;color:#fff;font-size:13px;font-weight:700;padding:10px 14px;text-align:center;
+  font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei',sans-serif">
+  ⚠ 这台电脑的储存空间满了 —— <u>刚才那一笔没有存起来</u>。请先按「↓ Export」备份，然后截图找管理层。不要继续填。
+</div>
 <div class="gate" id="gate" style="display:none"><div class="gatebox"><div style="font-size:42px">💗</div><h2 id="gateTitle">正在确认你的登入…</h2><p id="gateMsg">LoveGo 会读取你的 Academee 身份与权限。</p><div id="gateAct"></div></div></div><div id="app"><header class="topbar"><button class="home" onclick="location.href='../index.html'">←</button><div class="brand">💗 LoveGo <span class="ver" id="verBadge">v61</span></div><button class="ntab on" data-p="collect" onclick="go('collect')">收集</button><button class="ntab" data-p="progress" onclick="go('progress')">进度</button><button class="ntab" id="manageTab" data-p="manage" onclick="go('manage')" style="display:none">设定</button><div class="navr"><span class="saved" id="saved"></span><button class="sync" id="sync">● 已保存</button><button class="navbtn" onclick="exportData()">↓ Export</button><label class="navbtn">↑ Import<input type="file" hidden accept=".json" onchange="importData(event)"></label><button class="logout" onclick="logout()">登出</button></div></header>
 <main class="shell">
 <section class="screen on" id="s-collect">
@@ -222,7 +242,7 @@ window.esc=esc;
 <section class="screen" id="s-manage"><div class="hero"><div class="eyebrow">Settings</div><h1>LoveGo 设定</h1></div><div class="manage-card"><h3>① 我的身份</h3><div class="lines" id="m1"></div></div><div class="manage-card"><h3>② 系统资讯</h3><div class="lines">系统名：LoveGo<br>版本：<span id="verText">v61</span><br>资料笔数：<span id="mcount">0</span></div></div><div class="manage-card"><h3>⑤ 资料备份</h3><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="ghost" onclick="exportData()">Export JSON</button><button class="ghost" onclick="exportCSV()">Export CSV</button><label class="ghost" style="display:inline-flex;align-items:center;cursor:pointer">Import<input type="file" hidden accept=".json" onchange="importData(event)"></label><button class="ghost" onclick="window.print()">列印</button></div></div></section>
 </main><div class="toast" id="toast"></div>
 <script>
-const APP_VERSION=65,KEY='lovego';
+const APP_VERSION=66,KEY='lovego';
 const SUPABASE_URL='https://qnpvqsvvsgsantekgfbz.supabase.co';
 const SUPABASE_KEY='sb_publishable_v3Y3BD3XiPz33t-hfdX58g_BaFIkjPF';
 const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true}});
@@ -279,7 +299,17 @@ function lovegoModuleError(p){window.__LOVEGO_MODULE_ERRORS.push(p);console.erro
   const MANAGEMENT_SRC="https://cdn.jsdelivr.net/gh/AngelTeo/angelteo.github.io@8bd17ad97765a4f98a88d419439585df16eed790/OPR/lovego-management.js";
   let hasSession=false;
   try{const r=await sb.auth.getSession();hasSession=!!r?.data?.session;}catch(e){}
-  if(!hasSession){
+  /* ══ v66 · 2026-09-16 ══════════════════════════════════
+     旧版是「**没有 session 就自动**开预览模式」：停掉登入闸门、
+     假造一个 TEST-OWNER 的 session、把 sb.rpc / sb.from 换成假资料。
+     结果是任何人打开这个公开网址，都会直接变成「Owner Test」进到管理画面。
+     假资料本身没有真实学生（全是 Preview Student N），也写不进云端，
+     但这是开发用的引导程序，不该在正式档里自动启动。
+     改成**要手动开**：网址加 ?preview=1 才进预览；
+     没有 session 又没写这个参数 → 走真正的登入闸门。 */
+  const _wantPreview = /[?&]preview=1(?:&|$)/.test(location.search);
+  if(!hasSession && _wantPreview){
+    console.warn('[LoveGo] PREVIEW MODE —— 假资料、假身份，不会写进云端。');
     window.LOVEGO_DIRECT_TEST_MODE=true;
     const _legacyShowGate = window.showGate;
     window.showGate = function(title,msg,act=''){
@@ -1297,6 +1327,7 @@ function lovegoModuleError(p){window.__LOVEGO_MODULE_ERRORS.push(p);console.erro
     const __vlabel='v'+APP_VERSION+(window.LOVEGO_DIRECT_TEST_MODE?' · TEST':'');
     const __vb=document.getElementById('verBadge'); if(__vb)__vb.textContent=__vlabel;
     const __vt=document.getElementById('verText'); if(__vt)__vt.textContent=__vlabel;
+    if(window.__LOVEGO_QUOTA_FULL && window.__lovegoQuotaBanner) window.__lovegoQuotaBanner();
   },300);
 })();
 </script>
