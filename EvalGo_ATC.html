@@ -483,7 +483,7 @@ button.chip.sel-w{background:var(--warn);color:#fff}
    权限码：RPT-EvalGo-ATC
    ══════════════════════════════════════════════════════════════════ */
 
-const APP_VERSION = 59;
+const APP_VERSION = 60;
 
 /* ══ v46 · 旧版本守门 ══════════════════════════════════
    MiscGo 那边抓到实例：网址对、程式旧（手机快取把旧 HTML 钉住）。
@@ -6346,6 +6346,7 @@ async function pullSections(){
          ⚠️ 只搬 client_uid / cloud_id，一个内容栏位都不碰 —— 老师改到一半的东西不能掉。 */
       if(mine&&mine.synced===false){
         let adopted=false;
+        if(!x.client_uid && x.id && !mine.cuidClaim){ mine.cuidClaim=true; adopted=true; }   /* v60 */
         if(x.client_uid && mine.client_uid!==x.client_uid){ mine.client_uid=x.client_uid; adopted=true; }
         if(x.id && mine.cloud_id!==x.id){ mine.cloud_id=x.id; adopted=true; }
         if(adopted){ saveData(true); console.info('v44：考卷项目认领云端身份',k,x.code); }
@@ -6359,6 +6360,11 @@ async function pullSections(){
         /* 云端还没有 q_marks 栏位时 x.q_marks 是 undefined → 保留本机的，不要洗掉 */
         qm:(x.q_marks!==undefined?(x.q_marks||null):(mine?mine.qm:null)),
         needV13:(mine?!!mine.needV13:false),
+        cuidClaim:!x.client_uid,                  /* v60：云端这一列没有编号 → 上传前要先认领 */
+        /* v60：「同分 / 不同分」以前只送不读 → 手机选了，电脑永远是「请选」。
+           栏位还没上线（undefined）才保留本机的。 */
+        even:(x.even_marks===undefined ? ((mine&&mine.even)||'')
+              : (x.even_marks==='YES'?'Y':(x.even_marks==='NO'?'N':''))),
         sort:x.sort_order||0, by:x.created_by||'',
         synced:true, cloud_id:x.id};
       if(mine) Object.assign(mine,row); else { arr.push(row); n++; }
@@ -6617,6 +6623,36 @@ function secCloudIdForCode(code,subject,year,pi){
   const hit=arr.find(x=>x.code===code);
   return hit&&hit.cloud_id?hit.cloud_id:null;
 }
+/* ══ v60 · Owner 2026-09-17：手机按了「不同分」，电脑一直是「请选同分或不同分」══
+   实查：系统里有 60 个考卷项目是早期直接建进资料库的，**没有编号（client_uid 空白）**。
+   这台装置读回来时自己编了一个号 → 上传时用这个号找不到那一列 → 当成新增 →
+   撞到「同一份卷不能有两个同名项目」→ 失败。而且失败被吞掉，顶栏只说几个没上传。
+   这 60 个项目，老师改的「同分 / 不同分」「改分数」「卷面题号」**全部送不上去**。
+   做法（上传方式不变）：先把这台的编号写到那一列上（只在那一列还没有编号时）；
+   已经被别台装置写上编号 → 改用那个编号。之后照旧上传。 */
+function secDupErr(e){
+  const m=String((e&&e.message)||'')+' '+String((e&&e.code)||'')+' '+String((e&&e.details)||'');
+  return /duplicate key|23505|pi_key|409|conflict/i.test(m);
+}
+async function secClaimCuid(sec,live){
+  const read=async()=>{
+    const g=await _sb.from('evalgo_paper_section').select('id,client_uid').eq('id',sec.cloud_id);
+    if(g.error) throw g.error;
+    return (g.data||[])[0]||null;
+  };
+  const adopt=u=>{ sec.client_uid=u; if(live) live.client_uid=u; };
+  const done=()=>{ sec.cuidClaim=false; if(live) live.cuidClaim=false; saveData(true); return true; };
+  let row=await read();
+  if(!row) return false;                               /* 那一列已经不在了 → 照原本的错误处理 */
+  if(row.client_uid){ adopt(row.client_uid); return done(); }
+  const u=await _sb.from('evalgo_paper_section').update({client_uid:sec.client_uid})
+    .eq('id',sec.cloud_id).is('client_uid',null).select('id,client_uid');
+  if(u.error) throw u.error;
+  if((u.data||[]).length===1) return done();
+  row=await read();                                     /* 刚好被别台装置抢先写上 → 用那个编号 */
+  if(row && row.client_uid){ adopt(row.client_uid); return done(); }
+  return false;
+}
 function markSecDirty(sec){ sec.synced=false; if(!sec.client_uid) sec.client_uid=uid(); }
 function secComplete(x){
   return x.type==='ESSAY' ? +x.max>0
@@ -6832,9 +6868,17 @@ async function cloudPush(silent){
       if(noPaper(sec._key)) continue;
       try{
         if(!sec.client_uid) sec.client_uid=uid();
-        const secSnap=paySnap(psPayload(sec));
+        const live0=(S.sections[sec._key||bpKeyOf(sec._subject,sec._year)]||[]).find(x=>x.id===sec.id);
+        if(sec.cloud_id && sec.cuidClaim) await secClaimCuid(sec,live0);
+        let secSnap=paySnap(psPayload(sec));
         let res=await _sb.from('evalgo_paper_section')
           .upsert(psPayload(sec),{onConflict:'client_uid'}).select('id').single();
+        /* v60：旧版装置读回来时自己编了号 → 撞「同一份卷同名项目」→ 认领后再送一次 */
+        if(res.error && sec.cloud_id && secDupErr(res.error) && await secClaimCuid(sec,live0)){
+          secSnap=paySnap(psPayload(sec));
+          res=await _sb.from('evalgo_paper_section')
+            .upsert(psPayload(sec),{onConflict:'client_uid'}).select('id').single();
+        }
         if(res.error && /section_type|check constraint/i.test(res.error.message||'')){
           /* delta v6 还没跑 —— 降级重试一次，并记住，不要每一列都撞一次 */
           CLOUD.hasV6=false;
@@ -6851,7 +6895,9 @@ async function cloudPush(silent){
           /* 有小题结构但栏位还没上线 → 记一笔，等 delta v13 跑完自动重送 */
           live.needV13 = (!CLOUD.hasV13 && !qmEmpty(live.qm)); }
         secOk++;
-      }catch(e){ secFail++; }
+      }catch(e){ secFail++;
+        errs.push('考卷项目「'+(sec.code||'')+'」没上传成功：'+plainErr(e&&e.message?e.message:String(e)));
+        console.warn('section push',sec.code,e); }
     }
     if(secOk) saveData(true);
   }else if(pendingSections().length){
@@ -7082,6 +7128,7 @@ async function cloudPullInner(silent){
       S.wi[k]={client_uid:x.client_uid||uid(),sid:x.student_id,subject:x.subject,q:x.q_no,
         qsub:x.q_sub||null,
         code:String(x.mark_code||'').toLowerCase(),diag:x.diagnosis||'',
+        cl_subtype:x.cl_subtype||null,              /* v60：粗心类型以前只送不读 */
         topic:x.topic||'',fmt:x.answer_format||'',sec_code:'',sec_type:x.diagnosis?'SUBJ':'OBJ',
         cls:clsOfSid(x.student_id),class_id:x.class_id,year:x.year_level,by:x.entered_by,exam:CLOUD.exam.code,
         savedAt:'(云端)',synced:true,cloud_id:x.id}; n3++; });
