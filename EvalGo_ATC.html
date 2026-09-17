@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>EvalGo_ATC · Multi-Paper</title>
+<title>EvalGo_ATC · 考况记录</title>
 <style>
 :root{
   /* ══ LAYER ══ RPT = 文档灰 */
@@ -53,6 +53,25 @@ body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang 
   transition:all .15s;white-space:nowrap;flex-shrink:0;font-family:inherit}
 .sub-ntab:hover{color:var(--txt)}
 .sub-ntab.on{color:var(--layer);border-bottom-color:var(--layer);font-weight:600}
+/* v52 · 填写三步引导 */
+.steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:0 0 8px}
+.steps .sub-ntab.step{display:flex;align-items:center;gap:8px;text-align:left;min-height:54px;
+  padding:8px 10px;border:1px solid var(--bdr);border-radius:10px;background:var(--sur);
+  white-space:normal;font-size:13px;color:var(--txt);min-width:0}
+.steps .step-no{flex:0 0 26px;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-size:15px;font-weight:800;background:var(--sur2);color:var(--mut)}
+.steps .step-body{display:flex;flex-direction:column;min-width:0}
+.steps .step-lab{font-weight:700;font-size:14px}
+.steps .step-st{font-size:11px;color:var(--mut);margin-top:1px}
+.steps .step.on{border-color:var(--layer);box-shadow:inset 0 0 0 1px var(--layer)}
+.steps .step.on .step-no{background:var(--layer);color:#fff}
+.steps .step.done .step-no{background:var(--ok);color:#fff}
+.steps .step.lock{opacity:.55}
+.steps .step-dot{color:var(--warn);margin-left:auto}
+.step-next{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:space-between;
+  padding:8px 12px;margin:0 0 10px;border-radius:10px;background:var(--sur2);font-size:13px}
+@media(max-width:480px){.steps .sub-ntab.step{flex-direction:column;align-items:flex-start;gap:3px;padding:7px 8px}
+  .steps .step-lab{font-size:13px}}
 /* v28 · 对齐 ObsGo：每一页顶端一个标题区（eyebrow + h1）。数值照抄 ObsGo，不自己调。 */
 .hero{padding:18px 4px 14px}
 .hero .eyebrow{font-size:11px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--layer)}
@@ -368,7 +387,7 @@ button.chip.sel-w{background:var(--warn);color:#fff}
 /* ══════ PRINT ══════ */
 @media print{
   @page{margin:12mm 14mm;size:A4 portrait}
-  .nav,.sub-nav,.btn,.btn-nav,.toast,.toolbar,.no-print{display:none!important}
+  .nav,.sub-nav,.steps,.step-next,.btn,.btn-nav,.toast,.toolbar,.no-print{display:none!important}
   body{font-size:11pt;background:#fff}
   .card,table{page-break-inside:avoid}
   table.data thead th{background:#333!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
@@ -406,7 +425,7 @@ button.chip.sel-w{background:var(--warn);color:#fff}
     <span class="saved" id="last-saved"></span>
     <button class="readwarn" id="read-warn" hidden style="display:none"
       onclick="readWarnTap()">⚠ 有资料没读回来</button>
-    <span class="sync" id="sync-chip" onclick="syncTap()" title="点开看云端连线状况"><span
+    <span class="sync" id="sync-chip" onclick="syncTap()" title="点开看资料有没有上传"><span
       class="sync-dot"></span><span class="sync-lab">同步</span><span
       class="saved" id="cloud-state"></span></span>
     <button class="btn-nav" onclick="exportData()">↓ Export</button>
@@ -464,7 +483,7 @@ button.chip.sel-w{background:var(--warn);color:#fff}
    权限码：RPT-EvalGo-ATC
    ══════════════════════════════════════════════════════════════════ */
 
-const APP_VERSION = 51;
+const APP_VERSION = 52;
 
 /* ══ v46 · 旧版本守门 ══════════════════════════════════
    MiscGo 那边抓到实例：网址对、程式旧（手机快取把旧 HTML 钉住）。
@@ -829,7 +848,7 @@ function paintNav(){
      从 v28 一路到 v46 都印着 v28，走了 18 版没人发现。
      （OPEN_ITEMS §1 写「v28 起 <title> 与 nav 徽章都由它衍生」—— title 那半句是假的。）
      现在两者同一个来源，标籤里不再留硬写版号。 */
-  document.title='EvalGo_ATC · Multi-Paper v'+APP_VERSION;
+  document.title='EvalGo_ATC · 考况记录 v'+APP_VERSION;
   /* Import 只给有填写权限的帐号；还没连线时保留（老师要能救回本机备份） */
   const im=document.getElementById('nav-import');
   if(im){ const off = !!(CLOUD.session && CLOUD.perm && CLOUD.perm.can_edit!==true);
@@ -846,7 +865,7 @@ function paintReadWarn(){
   el.hidden=!on; el.style.display=on?'':'none';
 }
 function readWarnTap(){
-  alert('有资料没有从云端读回来。\n\n（'+(CLOUD.readErr||'原因不明')+'）\n\n'
+  alert('有资料没有读回来。\n\n（'+plainErr(CLOUD.readErr)+'）\n\n'
    +'⚠ 你现在看到的进度可能不完整，也可能看不到你之前登记过的班科。\n\n'
    +'请先「重新整理页面」。\n'
    +'如果重新整理后还是这样 —— 请截图找管理层。\n'
@@ -857,16 +876,16 @@ function syncTap(){
   if(canSeeManage()){ goPage('manage'); return; }   /* v28：系统页走 canSeeManage，MGMT 不进 */
   const p=pendingCount();
   if(p>0||CLOUD.pushErr){
-    alert('还有 '+p+' 笔还没送到云端。\n\n资料还在这台电脑，没有掉。\n请截图这个讯息，找管理层处理。');
+    alert('还有 '+p+' 笔还没上传。\n\n资料还在这台电脑，没有掉。\n请截图这个讯息，找管理层处理。');
   }else if(CLOUD.exam&&CLOUD.session){
-    alert('✓ 你填的资料都已经进入云端了。');
+    alert('✓ 你填的资料都已经上传了。');
   }else{
-    alert('还没连上云端，资料只存在这台电脑。\n\n请重新整理页面；还是不行就找管理层。');
+    alert('现在没连上网路，资料先存在这台电脑。\n\n请重新整理页面；还是不行就找管理层。');
   }
 }
 async function cloudLogout(){
   const p=pendingCount();
-  if(p>0 && !confirm('还有 '+p+' 笔没上传云端。\n登出后资料仍留在这台电脑，但建议先上传或 Export。\n\n仍要登出？')) return;
+  if(p>0 && !confirm('还有 '+p+' 笔没上传。\n登出后资料仍留在这台电脑，但建议先上传或下载备份。\n\n仍要登出？')) return;
   try{ if(_sb) await _sb.auth.signOut(); }catch(e){ console.warn('signOut',e); }
   location.href=PLATFORM;
 }
@@ -1146,7 +1165,12 @@ function pickPaper(id){
   S.paperInstance=id; saveData(true);
   goPage('bp');
 }
-function paperLabelOf(p){ return (p.display_no?('卷'+p.display_no+' · '):'')+(p.label||'（未命名）'); }
+function paperLabelOf(p){
+  /* v52：旧卷的名字是程式预设的 Legacy —— 画面上一律叫「考卷 N」 */
+  const base=p.display_no?('考卷 '+p.display_no):'考卷';
+  const lab=String(p.label||'').trim();
+  return (!lab||/^legacy$/i.test(lab)) ? base : base+' · '+lab;
+}
 function paperSelectorHTML(){
   const ps=S.papers||[];
   if(!ps.length) return `<div class="card"><div class="empty" style="padding:26px">
@@ -1465,11 +1489,11 @@ async function delSection(id){
 
   /* ---- 无 student evidence ---- */
   if(imp.total===0){
-    if(!confirm(`删除项目「${s.code}」？目前没有任何 student evidence。`)) return;
+    if(!confirm(`删除项目「${s.code}」？目前还没有任何学生资料。`)) return;
     if(s.cloud_id && _sb && CLOUD.exam){
-      if(!(CLOUD.perm&&CLOUD.perm.can_approve)){ alert('云端删除需要管理层权限（can_approve）。本机未删。'); return; }
+      if(!(CLOUD.perm&&CLOUD.perm.can_approve)){ alert('删除需要管理层权限。什么都没删。'); return; }
       const r=await cloudDelById('evalgo_paper_section',s.cloud_id);
-      if(!r.ok || r.n<1){ alert('删除没有成功（云端返回 '+(r.n||0)+' 列）。资料仍保留，本机也不删。\n'+(r.error||'')); return; }
+      if(!r.ok || r.n<1){ alert('删除没有成功，资料都还在。\n'+(r.error?plainErr(r.error):'')); return; }
     }
     S.sections[bpKey()]=arr.filter(x=>x.id!==id);
     delAudit('删除项目·无证据',1,S.subject+'|'+s.code);
@@ -1479,7 +1503,7 @@ async function delSection(id){
 
   /* ---- 有 evidence：受控永久删除 ---- */
   if(!(CLOUD.perm&&CLOUD.perm.can_approve)){
-    alert('这个项目已关联 '+imp.total+' 笔资料，删除需要管理层（can_approve）。'); return; }
+    alert('这个项目底下已经有 '+imp.total+' 笔学生资料，删除需要管理层权限。'); return; }
   if(!confirm(`项目「${s.code}」已关联：\n考前观察 ${imp.f1.length} · 逐题 ${imp.wi.length} · 作文 ${imp.es.length}（共 ${imp.total} 笔）\n\n删除会永久删除这些资料，无法复原。确定继续？`)) return;
 
   /* Step A + B：完整备份 + 下载闸（未成功启动 → BLOCK） */
@@ -1506,21 +1530,21 @@ async function delSection(id){
     ];
     for(const st of steps){
       const c=await cloudCountBy(st.t,st.col,st.val);
-      if(!c.ok){ alert('删除中止：数不到云端的'+st.lab+'（'+(c.error||'')+'）。一笔都没删。'); return; }
+      if(!c.ok){ alert('删除中止：查不到系统里的'+st.lab+'笔数（'+plainErr(c.error)+'）。一笔都没删。'); return; }
       if(c.n>st.expect){
-        alert('删除中止：云端这个项目底下有 '+c.n+' 笔'+st.lab+'，这台装置只知道 '+st.expect+' 笔。\n'
-          +'多出来的是别台装置填的，没有进刚才的备份档。一笔都没删。\n\n请先到「管理」按「拉回云端资料」，再删一次。');
+        alert('删除中止：系统里这个项目底下有 '+c.n+' 笔'+st.lab+'，这台装置只知道 '+st.expect+' 笔。\n'
+          +'多出来的是别台装置填的，没有进刚才的备份档。一笔都没删。\n\n请先到「管理」按「重新读取资料」，再删一次。');
         return; }
       st.cloudN=c.n;
     }
     for(const st of steps){
       if(!st.cloudN) continue;
       const r=await cloudDelBy(st.t,st.col,st.val);
-      if(!r.ok){ alert('删除中止：'+st.lab+' 删除失败（'+(r.error||'')+'）。项目未删，请找管理层。'); return; }
-      if(r.n!==st.cloudN){ alert('删除中止：'+st.lab+' 预期删 '+st.cloudN+' 笔、云端实际删了 '+r.n+' 笔。项目未删，请截图找管理层。'); return; }
+      if(!r.ok){ alert('删除中止：'+st.lab+' 没删成（'+plainErr(r.error)+'）。项目未删，请找管理层。'); return; }
+      if(r.n!==st.cloudN){ alert('删除中止：'+st.lab+' 应该删 '+st.cloudN+' 笔、实际删了 '+r.n+' 笔。项目未删，请截图找管理层。'); return; }
     }
     const rp=await cloudDelById('evalgo_paper_section',s.cloud_id);
-    if(!rp.ok || rp.n<1){ alert('子资料已删，但 section 本身删除返回 0 列。请找管理层核对，勿重复操作。'); return; }
+    if(!rp.ok || rp.n<1){ alert('学生资料已删，但项目本身没删掉。请截图找管理层核对，不要重复操作。'); return; }
   }
   /* 云端确认后才动本机（子 + section） */
   imp.f1.forEach(([k])=>delete S.f1[k]);
@@ -1605,6 +1629,43 @@ function myTouchedCells(){
   return Object.keys(set).map(k=>set[k])
     .sort((a,b)=>(a.cls+a.subject).localeCompare(b.cls+b.subject));
 }
+/* v52 · Owner 2026-09-17：画面上不准出现程式字眼。
+   原始错误只进 console（给维护的人看），画面一律讲人话。 */
+function plainErr(e){
+  const m=String((e&&e.message)||e||'');
+  if(!m) return '原因不明，请截图找管理层';
+  console.warn('[原始错误]',m);
+  if(/failed to fetch|network|timeout|程式库|load failed/i.test(m)) return '网路连不上，请检查网路后再试';
+  if(/permission|row-level|42501|\b401\b|\b403\b|jwt|not authorized/i.test(m)) return '这个帐号没有做这件事的权限，请找管理层';
+  if(/duplicate|23505|\b409\b|conflict/i.test(m)) return '同一格已经有人填过了';
+  if(/[\u4e00-\u9fff]/.test(m) && !/[A-Za-z_]{4,}/.test(m)) return m;
+  return '系统暂时出错，请稍后再试；还是不行请截图找管理层';
+}
+const ROLE_LAB={OWNER:'负责人',ADMIN:'管理员',MGMT:'管理层',MANAGEMENT:'管理层',TEACHER:'老师'};
+function roleLab(r){ return r?(ROLE_LAB[String(r).toUpperCase()]||r):'—'; }
+/* v52 · 填写三步引导的数字 —— 只算【这一份卷】 */
+function stepStat(){
+  const list=inCls(S.cls), tot=list.length;
+  const pap=(S.papers||[]).find(x=>x.id===S.paperInstance);
+  const nSec=sections().length, nLg=legacySections().length;
+  let obs=0, full=0, obsLeft=0, papLeft=0;
+  if(pap){
+    const ex=EXK(), suf='|'+pap.id, has={};
+    Object.keys(S.f1||{}).forEach(k=>{ if(k.slice(-suf.length)!==suf) return; const r=S.f1[k];
+      if(r&&r.exam===ex&&r.savedAt&&r.subject===S.subject&&r.sid) has[r.sid]=1; });
+    list.forEach(x=>{
+      const st=f2State(S.f2[ex+'|'+x.sid+'|'+S.subject+'|'+pap.id]);
+      if(has[x.sid]) obs++;
+      if(st==='absent'||st==='notassessed') return;
+      if(!has[x.sid]) obsLeft++;
+      if(st==='done') full++; else papLeft++;
+    });
+  }else{
+    const cs=cardStat(S.cls,S.subject);
+    obs=cs.obsDone; full=cs.papFull; obsLeft=cs.obsLeft.length; papLeft=cs.papLeft.length;
+  }
+  return {tot,nSec,nLg,obs,full,obsLeft,papLeft};
+}
 function hero(eyebrow,title,sub){
   return `<div class="hero"><div class="eyebrow">${esc(eyebrow)}</div><h1>${esc(title)}</h1>${
     sub?`<div class="sub">${sub}</div>`:''}</div>`;
@@ -1624,10 +1685,30 @@ function cellChrome(active){
       <button class="btn btn-pri" style="min-height:44px;padding:10px 18px;font-weight:700"
         onclick="cellDone()">完成填写 ✓</button>
     </div></div>`;
-  h+=`<div class="sub-nav" style="margin:0 0 10px;border-radius:8px;border:1px solid var(--bdr)">
-    ${CELL_TABS.map(([pg,lab])=>`<button class="sub-ntab${pg===active?' on':''}" style="min-height:44px"
-      onclick="goPage('${pg}')">${lab}${pg==='bp'&&!st.secs?' <span style="color:var(--warn)">●</span>':''}</button>`).join('')}
+  /* v52 · Owner 2026-09-17：填写要先是「步骤引导」，不是三个平排分页。
+     ① 考卷项目 → ② 考前观察 → ③ 考卷分析，每一步写清楚做到哪里；下面一行告诉老师「现在要做什么」。 */
+  const ss=stepStat();
+  const NO=['①','②','③'];
+  const stat={
+    bp: ss.nSec ? (ss.nLg ? ss.nLg+' 个项目缺题号' : '✓ '+ss.nSec+' 个项目') : '还没登记',
+    f1: ss.nSec ? ss.obs+' / '+ss.tot+' 位' : '先做第 ① 步',
+    f2: ss.nSec ? ss.full+' / '+ss.tot+' 位完成' : '先做第 ① 步'
+  };
+  const done={ bp: ss.nSec>0&&!ss.nLg, f1: ss.nSec>0&&ss.tot>0&&!ss.obsLeft, f2: ss.nSec>0&&ss.tot>0&&!ss.papLeft };
+  h+=`<div class="steps">
+    ${CELL_TABS.map(([pg,lab],i)=>`<button class="sub-ntab step${pg===active?' on':''}${done[pg]?' done':''}${
+      pg!=='bp'&&!ss.nSec?' lock':''}" onclick="goPage('${pg}')"><span class="step-no">${done[pg]?'✓':NO[i]}</span><span
+      class="step-body"><span class="step-lab">${lab}</span><span class="step-st">${stat[pg]}</span></span>${
+      pg==='bp'&&!st.secs?'<span class="step-dot">●</span>':''}</button>`).join('')}
   </div>`;
+  let nx, go='';
+  if(!ss.nSec){ nx='第 ① 步：先把这份考卷有哪些项目列出来（Bahagian、题型、题号范围）。'; go='bp'; }
+  else if(ss.nLg){ nx='第 ① 步还没做完：'+ss.nLg+' 个项目没填题号范围。'; go='bp'; }
+  else if(ss.obsLeft){ nx='第 ② 步：还有 '+ss.obsLeft+' 位学生没做考前观察。'; go='f1'; }
+  else if(ss.papLeft){ nx='第 ③ 步：还有 '+ss.papLeft+' 位学生的考卷没分析完。'; go='f2'; }
+  else nx='三步都做完了 —— 按右上的「完成填写 ✓」。';
+  h+=`<div class="step-next"><span><b>现在要做</b>　${nx}</span>${go&&go!==active
+    ?`<button class="btn btn-pri btn-sm" style="min-height:44px;padding:0 16px" onclick="goPage('${go}')">去第 ${NO[go==='bp'?0:(go==='f1'?1:2)]} 步 →</button>`:''}</div>`;
   return h;
 }
 /* 老师代号 → 看得懂的名字；查不到就回代号本身。 */
@@ -1691,7 +1772,7 @@ function asgGate(){ return false; }
 function asgModal(lock){
   const body=`
     ${CLOUD.readErr?`<div class="alert alert-danger"><div>
-      <b>⚠ 先不要勾。</b>这次没能从云端读回登记纪录，<b>你可能已经登记过了</b>。<br>
+      <b>⚠ 先不要勾。</b>这次没能读回登记纪录，<b>你可能已经登记过了</b>。<br>
       请先<b>重新整理页面</b>再看一次。重新整理后还是空的，才勾选。<br>
       <span style="font-size:11px">（重复登记同一格会送不出去，而且重试也没用）</span></div></div>`:''}
     <div class="tip" style="margin-top:0">勾选你这一轮<b>负责的班级和科目</b>。
@@ -1993,7 +2074,7 @@ function renderBP(){
   } else h+=`<div class="empty">还没有项目 — 先加第一个</div>`;
   const lg=legacySections();
   if(lg.length) h+=`<div class="alert alert-warn"><div><b>${lg.length} 个项目还没有题号范围</b>
-     —— ${lg.map(x=>esc(x.code)).join('、')}。FORM 02 靠题号才知道第几题属于哪个项目，
+     —— ${lg.map(x=>esc(x.code)).join('、')}。考卷分析靠题号才知道第几题属于哪个项目，
      <b>没补上的项目不会计入总题数</b>。请在上表就地填「第 __ 到 __ 题」。</div></div>`;
   /* v20：这里原本是一整排 inline 输入框（项目/题型/题号/满分/同分/主题/作答方式）。
      在手机与窄萤幕上会挤成一团，老师看不完就按下去，常常漏填。
@@ -2017,11 +2098,11 @@ function renderF1(){
   let h=cellChrome('f1');
   if(!secs.length){
     c.innerHTML=h+`<div class="card"><div class="alert alert-warn"><div>
-      <b>这份考卷的项目还没登记 —— 要先登记才填得了观察。</b><br>
+      <b>这份考卷的项目还没登记 —— 先完成第 ① 步「考卷项目」，才填得了考前观察。</b><br>
       <span style="font-size:12px">观察是「哪一个项目底下看到什么」，没有项目就没有地方挂。</span>
       <div style="margin-top:8px"><button class="btn btn-pri"
         style="min-height:44px;padding:9px 18px;font-weight:700"
-        onclick="goPage('bp')">去登记考卷项目 →</button></div></div></div></div>`;
+        onclick="goPage('bp')">去第 ① 步：登记考卷项目 →</button></div></div></div></div>`;
     return;
   }
   c.innerHTML=h+bpRest(secs);
@@ -2106,6 +2187,7 @@ async function bpProbe(){
 /* v28 · 文案照 Owner 2026-09-15 的规矩讲白：
    没有学生资料 → 可改可删；有学生资料 → 不能改，只能删。 */
 function bpLockBadge(){
+  if(!sections().length) return '';      /* v52：还没有任何项目 → 没有东西可锁，不显示 */
   /* 笔数是别的老师填的资料 —— 不给老师看。
      锁本身照旧看全部证据（bpEvidCount），只是画面不报数字。 */
   if(!bpEvidCount()) return '<span class="chip chip-ok">还没有学生资料 · 可以改、也可以删</span>';
@@ -2228,7 +2310,7 @@ function bpGuard(what){
   if(bpLocked()){
     alert('这个项目底下已经有 '+bpEvidCount()+' 笔学生资料，不能再'+what+'了。\n\n'
       +'改了会让旧资料对应到错的项目 —— 画面看起来正常，数字却全错。\n\n'
-      +'如果这个项目真的建错了，请直接按「×」**删除**它。\n'
+      +'如果这个项目真的建错了，请直接按「×」删除它。\n'
       +'删除会先让你下载一份备份，再问你一次，然后连同底下的资料一起永久删除。');
     return false;
   }
@@ -2281,21 +2363,21 @@ function s9PanelHTML(){
       <td>${i+1}</td>
       <td><strong>${esc(w.cls)}</strong> · ${esc(w.subj)}<div style="font-size:11px;color:var(--mut)">${
         esc(w.who)}${w.extra?(' · '+esc(w.extra)):''}</div></td>
-      <td>${esc(it.r.by||S.me||'—')}<div style="font-size:11px;color:var(--mut)">本机</div></td>
-      <td>${esc(it.c.by||'—')}<div style="font-size:11px;color:var(--mut)">云端 · ${esc(it.c.at||'')}</div></td>
+      <td>${esc(it.r.by||S.me||'—')}<div style="font-size:11px;color:var(--mut)">这台装置</div></td>
+      <td>${esc(it.c.by||'—')}<div style="font-size:11px;color:var(--mut)">系统里 · ${esc(it.c.at||'')}</div></td>
       <td style="font-size:12px">${esc(s9Mine(it))}</td>
       <td style="white-space:nowrap">
         <button class="btn btn-sm btn-dng" onclick="s9Override('${esc(it.store)}','${esc(it.k)}')"
-          title="用本机这一份覆盖云端 —— 会先要你汇出备份">用本机覆盖</button>
+          title="用这台装置上的这一份，覆盖系统里那一份 —— 会先要你下载备份">用这台的覆盖</button>
         <button class="btn btn-sm" onclick="s9Drop('${esc(it.store)}','${esc(it.k)}')"
-          title="放弃本机这一份，保留云端">用云端</button></td></tr>`;
+          title="放弃这台装置上的这一份，保留系统里那一份">保留系统里的</button></td></tr>`;
   }).join('');
   return `<div class="mg-line" style="margin-top:12px"><strong>撞车清单</strong>
       　<span class="chip chip-danger">${L.length} 笔</span>
-      <span class="tip" style="margin:0">本机有资料、云端同一格已经是别人填的。系统不替人决定留哪一份。</span></div>
+      <span class="tip" style="margin:0">这台装置有资料，但同一格在系统里已经是别人填的。系统不替人决定留哪一份。</span></div>
     <div class="tw"><table class="data"><thead><tr>
-      <th style="width:34px">#</th><th>哪一格</th><th style="width:78px">本机</th>
-      <th style="width:120px">云端</th><th>本机填了什麽</th><th style="width:170px"></th>
+      <th style="width:34px">#</th><th>哪一格</th><th style="width:78px">这台装置</th>
+      <th style="width:120px">系统里</th><th>这台装置填了什么</th><th style="width:170px"></th>
     </tr></thead><tbody>${rows}</tbody></table></div>
     <div class="toolbar" style="margin-top:8px">
       <button class="btn btn-sm" onclick="s9Export()">↓ 汇出撞车清单</button>
@@ -2305,7 +2387,7 @@ function s9PanelHTML(){
 function s9Export(){
   const L=s9List();
   if(!L.length){ toast('没有撞车'); return; }
-  const rows=[['班级','科目','学生','位置','本机填写者','云端填写者','发现时间','本机内容','本机key']]
+  const rows=[['班级','科目','学生','位置','这台装置的填写者','系统里的填写者','发现时间','这台装置的内容','编号']]
     .concat(L.map(it=>{ const w=s9Where(it);
       return [w.cls,w.subj,w.who,w.extra,(it.r.by||S.me||''),(it.c.by||''),(it.c.at||''),s9Mine(it),it.k]; }));
   const csv='\uFEFF'+rows.map(r=>r.map(x=>'"'+String(x==null?'':x).replace(/"/g,'""')+'"').join(',')).join('\r\n');
@@ -2321,23 +2403,23 @@ function s9Override(store,k){
   if(!confirm('先汇出备份。\n\n按「确定」会下载一份完整备份，下载完再问你一次。')) return;
   try{ exportData(); }catch(e){ console.warn('备份失败',e);
     if(!confirm('备份没有下载成功。\n\n还要继续覆盖吗？（不建议）')) return; }
-  if(!confirm('用本机这一份覆盖云端。\n\n云端那一份是别人填的，覆盖後**拿不回来**（只有刚才那份备份）。\n\n确定吗？')) return;
+  if(!confirm('用这台装置上的这一份，覆盖系统里那一份。\n\n系统里那一份是别人填的，覆盖后拿不回来（只有刚才那份备份）。\n\n确定吗？')) return;
   (S.s9log||(S.s9log=[])).push({at:new Date().toLocaleString('en-GB'), by:S.me||'',
     store:store, k:k, over:r.conflict.by||'', cloud_id:r.conflict.cloud_id||''});
   r.client_uid = r.conflict.cloud_uid || r.client_uid;   /* 认领云端身份 → 下一次 upsert 变 UPDATE */
   r.cloud_id   = r.conflict.cloud_id  || r.cloud_id;
   delete r.conflict; r.synced=false;
-  if(saveThen('✓ 已排入上传 —— 下一次同步会覆盖云端那一份')){ renderManage(); autoPush(); }
+  if(saveThen('✓ 已排入上传 —— 下一次上传会覆盖系统里那一份')){ renderManage(); autoPush(); }
 }
 function s9Drop(store,k){
   if(!canSeeManage()){ toast('✕ 只有管理层可以处理',3000); return; }
   const st=s9Store(store), r=st&&st[k];
   if(!r){ toast('✕ 找不到这一笔'); return; }
-  if(!confirm('放弃本机这一份，保留云端那一份。\n\n本机这一笔会被删掉，拿不回来。\n\n确定吗？')) return;
+  if(!confirm('放弃这台装置上的这一份，保留系统里那一份。\n\n这台装置上的这一笔会被删掉，拿不回来。\n\n确定吗？')) return;
   (S.s9log||(S.s9log=[])).push({at:new Date().toLocaleString('en-GB'), by:S.me||'',
     store:store, k:k, dropped:true});
   delete st[k];
-  if(saveThen('✓ 已放弃本机这一份')){ renderManage(); cloudPull(true); }
+  if(saveThen('✓ 已放弃这台装置上的这一份')){ renderManage(); cloudPull(true); }
 }
 function bpReadyNow(){ return sections().length>0 && legacySections().length===0; }
 /* v28 · Owner 2026-09-15：任教登记已废止，bpCanEdit() 现在只看「有没有填写权限」。
@@ -3005,13 +3087,15 @@ function renderF2(){
       <span class="tip" style="margin:0">${esc(S.subject)} · ${esc(S.cls)}</span></div>`;
   if(!secs.length){
     h+=`<div class="alert alert-warn"><div>${bpCanEdit()
-      ? `还没登记这份考卷的结构。请先到 <b>考前观察</b> 把项目列出来（含<b>题型</b>与<b>题号范围</b>）
-         —— 考卷分析要靠它才知道第几题属于哪个项目。`
+      ? `<b>先完成第 ① 步「考卷项目」。</b>把这份考卷的项目列出来（含<b>题型</b>与<b>题号范围</b>）
+         —— 考卷分析要靠它才知道第几题属于哪个项目。
+         <div style="margin-top:8px"><button class="btn btn-pri" style="min-height:44px;padding:9px 18px;font-weight:700"
+           onclick="goPage('bp')">去第 ① 步：登记考卷项目 →</button></div>`
       : `<b>考卷结构尚未设定。</b>这一格不是你教的，请教这一科的科任先登记考卷项目。`}</div></div></div>`;
     c.innerHTML=h; return;
   }
   if(lg.length) h+=`<div class="alert alert-warn"><div><b>${lg.length} 个项目还没有题号范围</b>
-    —— ${lg.map(x=>esc(x.code)).join('、')}。这些题在下面<b>点不到</b>。请先回<b>考前观察</b>补上。</div></div>`;
+    —— ${lg.map(x=>esc(x.code)).join('、')}。这些题在下面<b>点不到</b>。请先回第 ① 步 <b>考卷项目</b> 补上题号。</div></div>`;
   h+=`<div class="alert alert-info"><div><b>只点错的题</b>，没点到的先当「还没看」。
       批完整份卷按一次 <b>✓ 已核对整份</b>，系统才把没点的题算成答对
       —— 所以<b>全对的学生你一题都不用点</b>，只按那一下就完成。</div></div>
@@ -3713,7 +3797,7 @@ function asgGaps(){
 function asgOpen(cls,subj){
   const cur=asgTeachers(cls,subj), pool=asgPool();
   const stu=pgStuAll()[cls+'|'+subj]||{};
-  if(!pool.length){ toast('✕ 读不到老师名单，先连上云端'); return; }
+  if(!pool.length){ toast('✕ 读不到老师名单，请检查网路后重新整理'); return; }
   const body=`
     <div class="tip" style="margin-top:0">${esc(cls)} · ${esc(subj)}</div>
     <div class="secbox" style="padding:10px 12px">
@@ -3744,7 +3828,7 @@ function asgSave(cls,subj){
   asgApply(cls,subj,want);
 }
 async function asgApply(cls,subj,want){
-  if(!_sb||!CLOUD.exam){ toast('✕ 排任课要先连上云端，现在离线'); return; }
+  if(!_sb||!CLOUD.exam){ toast('✕ 现在没连上网路，连上后才能排任课'); return; }
   const cur=asgTeachers(cls,subj);
   const add=want.filter(t=>cur.indexOf(t)<0);
   const del=cur.filter(t=>want.indexOf(t)<0);
@@ -3771,7 +3855,7 @@ async function asgApply(cls,subj,want){
     }
   }catch(e){ err=(e&&e.message)?e.message:String(e); }
   saveData(true); closeModal(true);
-  if(err){ toast('✕ 存不进云端：'+err, 6000); }
+  if(err){ toast('✕ 没存进去：'+plainErr(err), 6000); }
   else toast(`✓ ${cls} · ${subj} 负责老师已更新`);
   if(S._page==='progress') renderProgress();
   else if(S._page==='manage') renderManage();
@@ -4217,7 +4301,7 @@ async function newPaper(){
    流程：列出笔数 → 下载备份 → 再确认 → 云端逐笔按 id 删、每笔核对删到 1 笔 → 云端确认后才删本机。
    任何一笔失败就停，没删成的留着，照实报。 */
 async function clearMyCell(cls,subj){
-  if(!(CLOUD.perm&&CLOUD.perm.can_approve)){ alert('清除云端资料需要管理层权限。'); return; }
+  if(!(CLOUD.perm&&CLOUD.perm.can_approve)){ alert('清除资料需要管理层权限。'); return; }
   if(!_sb||!CLOUD.exam){ alert('要连上系统才能清除。'); return; }
   const ex=EXK(), me=S.me, picks=[];
   [['evalgo_live_obs',S.f1,'考前观察'],['evalgo_paper_analysis',S.f2,'考卷分析'],
@@ -4228,11 +4312,11 @@ async function clearMyCell(cls,subj){
       picks.push({t,store,k,r,lab}); }); });
   if(!picks.length){ toast('这一格没有你填的资料'); return; }
   const bad=picks.filter(p=>p.r.synced && !p.r.cloud_id);
-  if(bad.length){ alert('有 '+bad.length+' 笔已上传、但本机不知道云端编号。请先到「管理」按「拉回云端资料」，再清除一次。'); return; }
+  if(bad.length){ alert('有 '+bad.length+' 笔已上传的资料，这台装置对不上它在系统里的位置。请先到「管理」按「重新读取资料」，再清除一次。'); return; }
   const cnt={}; picks.forEach(p=>{ cnt[p.lab]=(cnt[p.lab]||0)+1; });
   const nStu=new Set(picks.map(p=>p.r.sid)).size;
   if(!confirm(`清除你在 ${cls} · ${subj} 填的资料？\n\n${nStu} 位学生 · `+Object.keys(cnt).map(x=>x+' '+cnt[x]+' 笔').join(' · ')
-    +'\n\n考卷项目不会被删。云端与本机都会删掉，无法复原。确定继续？')) return;
+    +'\n\n考卷项目不会被删。系统里和这台装置上都会删掉，无法复原。确定继续？')) return;
   try{ dl(`EvalGo_clear_backup_${cls}_${subj}_${stamp()}.json`, JSON.stringify(
     {when:new Date().toISOString(),exam:CLOUD.exam.code,by:me,cls,subj,rows:picks.map(p=>({table:p.t,key:p.k,row:p.r}))},null,2)); }
   catch(e){ alert('备份下载没有启动 —— 为安全起见取消清除。'); return; }
@@ -4241,7 +4325,7 @@ async function clearMyCell(cls,subj){
   for(const p of picks){
     if(p.r.cloud_id){
       const r=await cloudDelById(p.t,p.r.cloud_id);
-      if(!r.ok || r.n!==1){ fails.push(p.lab+'：'+(r.error||('云端删了 '+r.n+' 笔'))); continue; }
+      if(!r.ok || r.n!==1){ fails.push(p.lab+'：'+(r.error?plainErr(r.error):('删到 '+r.n+' 笔，跟预期不符'))); continue; }
     }
     delete p.store[p.k]; okN++;
   }
@@ -4400,17 +4484,17 @@ function renderReport(){
   /* 跨科报告**不需要**先选科目 —— 它读的是整场考试的资料，不是当下这一格。
      所以这一页不再走 gateOpen() 挡人；单科预览才需要选了班+科。 */
   const cl=(document.getElementById('rptCls')||{}).value||S.cls||CLASSES[0];
-  let h=hero('Report','考前报告','五科合并 · 资料来自云端。')
+  let h=hero('Report','考前报告','五科合并 · 用全部老师已上传的资料。')
    +`<div class="card">
     <div class="card-hdr"><span class="card-title">出报告 · ${esc(S.examLabel||'本轮')}</span>
-      <span class="tip" style="margin:0">五科合并 · 资料来自云端</span></div>
+      <span class="tip" style="margin:0">五科合并 · 用全部老师已上传的资料</span></div>
     <div class="toolbar no-print">
       <select id="rptCls" onchange="renderReport()">
         ${CLASSES.map(x=>`<option${x===cl?' selected':''}>${x}</option>`).join('')}
       </select>
       <button class="btn btn-pri" onclick="printParent()">🖨 家长版 · 每生一页 · 无分数</button>
       <button class="btn" onclick="printInternal()">🖨 内部版 · 全班五科 · 有分数</button>
-      <button class="btn btn-sm" onclick="rptPull()">↻ 重新从云端拉资料</button>
+      <button class="btn btn-sm" onclick="rptPull()">↻ 重新读取资料</button>
     </div>
   </div>` + rptReadyHTML(cl);
   if(!gateOpen()){
@@ -4577,7 +4661,7 @@ function reportRows(){
 function rptReadyHTML(cl){
   const list=inCls(cl);
   if(!list.length) return `<div class="card"><div class="empty">
-    ${esc(cl)} 名单是空的 —— 先按「重新从云端拉资料」。</div></div>`;
+    ${esc(cl)} 名单是空的 —— 先按「重新读取资料」。</div></div>`;
   const rows=SUBJECTS.map(su=>{
     let ok=0,ab=0,na=0,half=0,none=0;
     list.forEach(r=>{
@@ -4937,13 +5021,12 @@ function printBackup(){
   </style></head><body>
   <h1>EvalGo_ATC · 资料盘点表</h1>
   <div class="meta">
-    System：EvalGo_ATC（ATC 部 · 考况记录） · Version：v${APP_VERSION} · Layer：RPT · 权限码 ${SYS_CODE}<br>
-    Storage Key：${STORAGE_KEY}<br>
-    列印人：${esc(S.me||'—')}${S.meName?('（'+esc(S.meName)+'）'):''} · 角色 ${esc(CLOUD.role||'—')} · 列印日期 ${today()}<br>
-    考试：${esc(S.examLabel||S.examCode||'未连线')} · 名单来源：${S.rosterSource==='cloud'?'资料库':(S.rosterSource==='demo'?'示范名单（假资料）':'手动汇入')}（${S.roster.length} 人）${S.rosterAt?(' · 抓取 '+esc(S.rosterAt)):''}<br>
-    <b>本机总笔数：FORM 01 ${n1} · FORM 02 ${n2} · 错题 ${nw} · 作文 ${ne} ／ 待上传 ${pend}</b>
+    系统：EvalGo_ATC（ATC 部 · 考况记录） · 版本：v${APP_VERSION}<br>
+    列印人：${esc(S.me||'—')}${S.meName?('（'+esc(S.meName)+'）'):''} · 角色 ${esc(roleLab(CLOUD.role))} · 列印日期 ${today()}<br>
+    考试：${esc(S.examLabel||S.examCode||'未连线')} · 名单来源：${S.rosterSource==='cloud'?'学校名单':(S.rosterSource==='demo'?'示范名单（假资料）':'手动汇入')}（${S.roster.length} 人）${S.rosterAt?(' · 抓取 '+esc(S.rosterAt)):''}<br>
+    <b>这台装置上的笔数：考前观察 ${n1} · 考卷分析 ${n2} · 错题 ${nw} · 作文 ${ne} ／ 待上传 ${pend}</b>
   </div>
-  <table><thead><tr><th>班级</th><th>科目</th><th>FORM 01</th><th>FORM 02</th></tr></thead>
+  <table><thead><tr><th>班级</th><th>科目</th><th>考前观察</th><th>考卷分析</th></tr></thead>
   <tbody>${rows}</tbody></table>
   <div class="sig"><div>列印人签名<div class="sig-line"></div></div>
                    <div>管理层签收<div class="sig-line"></div></div></div>
@@ -5006,7 +5089,7 @@ function printReport(){
 function renderManage(){
   const c=document.getElementById('c-manage');
   const n1=Object.keys(S.f1).length, n2=Object.keys(S.f2).length, pend=pendingCount();
-  c.innerHTML=hero('Manage','管理','身份 · 系统 · 云端 · 备份 · 进阶。')+`
+  c.innerHTML=hero('Manage','管理','身份 · 系统 · 连线 · 备份 · 进阶。')+`
   <div class="card">
     <div class="alert alert-info"><div><b>这一页只有管理层看得到。</b>
       老师端不显示同步、备份、系统设定 —— 那些是系统该自己处理的事。</div></div>
@@ -5018,10 +5101,10 @@ function renderManage(){
       <span class="chip ${S.cls?'chip-layer':'chip-muted'}">${esc(S.cls||'未选班级')}</span>
       <button class="btn btn-sm" onclick="goPage('home')">换班级／科目</button>
     </div>
-    <div class="mg-line" style="margin-top:6px">角色　<strong>${esc(CLOUD.role||'—')}</strong>　权限
-      <span class="chip ${permTick('can_see')?'chip-ok':'chip-muted'}">${permTick('can_see')?'✓':'✕'} can_see</span>
-      <span class="chip ${permTick('can_edit')?'chip-ok':'chip-muted'}">${permTick('can_edit')?'✓':'✕'} can_edit</span>
-      <span class="chip ${permTick('can_approve')?'chip-ok':'chip-muted'}">${permTick('can_approve')?'✓':'✕'} can_approve</span>
+    <div class="mg-line" style="margin-top:6px">角色　<strong>${esc(roleLab(CLOUD.role))}</strong>　可以做的事
+      <span class="chip ${permTick('can_see')?'chip-ok':'chip-muted'}">${permTick('can_see')?'✓':'✕'} 查看</span>
+      <span class="chip ${permTick('can_edit')?'chip-ok':'chip-muted'}">${permTick('can_edit')?'✓':'✕'} 填写</span>
+      <span class="chip ${permTick('can_approve')?'chip-ok':'chip-muted'}">${permTick('can_approve')?'✓':'✕'} 删除 / 覆盖</span>
       ${CLOUD.session?'':'<span class="tip" style="margin:0">（未登入，读不到权限）</span>'}
     </div>
     ${CLOUD.idFrom==='users_meta'
@@ -5029,19 +5112,17 @@ function renderManage(){
            身份由<b>平台帐号自动认出</b>，不需要你选，也不会认错。</div></div>`
       : (authUid()
          ? `<div class="alert alert-warn" style="margin-top:10px"><div>
-              <b>没能从帐号认出你是谁</b>${CLOUD.idErr?('（'+esc(CLOUD.idErr)+'）'):''}，
+              <b>没能从帐号认出你是谁</b>${CLOUD.idErr?('（'+esc(plainErr(CLOUD.idErr))+'）'):''}，
               目前用的是这台电脑上暂存的选择。请回报管理层。</div></div>`
          : `<div class="alert alert-info" style="margin-top:10px"><div>
-              还没登入平台，所以是本机暂存的身份。连上云端后会自动认出你。</div></div>`)}
+              还没登入平台，所以用的是这台装置上暂存的身份。登入后会自动认出你。</div></div>`)}
   </div>
 
   <div class="card">
     <div class="card-hdr"><span class="card-title">② 系统资讯</span></div>
-    <div class="mg-line">System：<strong>EvalGo_ATC</strong>（ATC 部 · 考况记录）</div>
-    <div class="mg-line">Version：<strong>v${APP_VERSION}</strong></div>
-    <div class="mg-line">Layer：<strong>RPT</strong> · 权限码 <code>${SYS_CODE}</code></div>
-    <div class="mg-line">Storage Key：<code>${STORAGE_KEY}</code></div>
-    <div class="mg-line">资料笔数：FORM 01 <strong>${n1}</strong> 笔 · FORM 02 <strong>${n2}</strong> 笔 ·
+    <div class="mg-line">系统：<strong>EvalGo_ATC</strong>（ATC 部 · 考况记录）</div>
+    <div class="mg-line">版本：<strong>v${APP_VERSION}</strong></div>
+    <div class="mg-line">这台装置上的资料：考前观察 <strong>${n1}</strong> 笔 · 考卷分析 <strong>${n2}</strong> 笔 ·
       错题 <strong>${Object.keys(S.wi).length}</strong> 笔 · 作文 <strong>${Object.keys(S.es).length}</strong> 笔 ·
       待上传 <strong>${pend}</strong> 笔</div>
   </div>
@@ -5053,21 +5134,21 @@ function renderManage(){
       ? `<div class="alert alert-ok"><div><b>已连上。</b>${esc(CLOUD.exam.label)} ·
            输入到 ${esc(CLOUD.exam.input_closes||'—')} ·
            权限 ${CLOUD.perm&&CLOUD.perm.can_edit?'可填写':'唯读'}${CLOUD.lastSync?(' · 上次上传 '+esc(CLOUD.lastSync)):''}</div></div>`
-      : `<div class="alert alert-warn"><div><b>还没连上云端。</b>${esc(CLOUD.err||'未尝试')}<br>
-           没连上时资料只存在这台电脑，请务必天天 Export 备份。</div></div>`}
+      : `<div class="alert alert-warn"><div><b>还没连上。</b>${esc(CLOUD.err?plainErr(CLOUD.err):'还没试过')}<br>
+           没连上时资料只存在这台电脑，请务必每天按「↓ Export」下载备份。</div></div>`}
     <div class="toolbar">
       <button class="btn" onclick="cloudInit()">重新连线</button>
       ${!CLOUD.session?`<button class="btn btn-pri" onclick="cloudLogin()">去平台登入</button>`:''}
       <button class="btn" onclick="cloudRoster(false)" ${CLOUD.exam?'':'disabled'}>重新载入名单</button>
       <button class="btn btn-pri" id="c-push" onclick="cloudPush()" ${CLOUD.exam?'':'disabled'}>${pend?('上传 '+pend+' 笔'):'全部已上传'}</button>
-      <button class="btn" onclick="cloudPull(false)" ${CLOUD.exam?'':'disabled'}>拉回云端资料</button>
+      <button class="btn" onclick="cloudPull(false)" ${CLOUD.exam?'':'disabled'}>重新读取资料</button>
     </div>
-    <div class="mg-line">名单来源：<strong>${S.rosterSource==='cloud'?'来自资料库':(S.rosterSource==='demo'?'示范名单（假资料）':'手动汇入')}</strong> ·
+    <div class="mg-line">名单来源：<strong>${S.rosterSource==='cloud'?'学校名单':(S.rosterSource==='demo'?'示范名单（假资料）':'手动汇入')}</strong> ·
       ${S.roster.length} 人${S.rosterAt?(' · 抓取时间 '+esc(S.rosterAt)):''}</div>
     <div class="mg-line">读取状态：${CLOUD.readErr
-      ? ('<b style="color:var(--danger)">不完整 —— '+esc(CLOUD.readErr)+'</b>')
+      ? ('<b style="color:var(--danger)">不完整 —— '+esc(plainErr(CLOUD.readErr))+'</b>')
       : '<strong>完整</strong>'}</div>
-    <div class="mg-line">待上传：<strong>${pend}</strong> 笔　最近错误：${CLOUD.pushErr?('<b style="color:var(--danger)">'+esc(CLOUD.pushErr)+'</b>'):(CLOUD.err?esc(CLOUD.err):'（无）')}</div>
+    <div class="mg-line">待上传：<strong>${pend}</strong> 笔　最近的问题：${CLOUD.pushErr?('<b style="color:var(--danger)">'+esc(plainErr(CLOUD.pushErr))+'</b>'):(CLOUD.err?esc(plainErr(CLOUD.err)):'（无）')}</div>
     ${S.rosterSource==='demo'?`<div class="alert alert-warn" style="margin-top:8px"><div>目前是练习用的假名单（连线后会自动换成真实名单）。<b>假资料不会上传。</b></div></div>`:''}
   </div>
 
@@ -5085,15 +5166,15 @@ function renderManage(){
 
   <div class="card">
     <div class="card-hdr"><span class="card-title">⑤ 资料备份</span>
-      <span class="tip" style="margin:0">FORM 01 ${n1} 笔 · FORM 02 ${n2} 笔</span></div>
+      <span class="tip" style="margin:0">考前观察 ${n1} 笔 · 考卷分析 ${n2} 笔</span></div>
     ${CLOUD.exam&&CLOUD.session&&pend===0
-      ? `<div class="alert alert-ok"><div><b>全部已上传云端。</b>就算这台电脑资料没了也救得回来。</div></div>`
+      ? `<div class="alert alert-ok"><div><b>全部已上传。</b>就算这台电脑资料没了也救得回来。</div></div>`
       : `<div class="alert alert-danger"><div><b>还有 ${pend} 笔只存在这台电脑的浏览器里。</b>
-         清除浏览器资料这些就消失，救不回来。请按上面的「上传」，或先 Export 备份。</div></div>`}
+         清除浏览器资料这些就消失，救不回来。请按上面的「上传」，或先下载备份档。</div></div>`}
     <div class="toolbar">
-      <button class="btn btn-pri" onclick="exportData()">↓ Export JSON</button>
-      <button class="btn" onclick="exportCSV()">↓ Export CSV</button>
-      <label class="btn" style="cursor:pointer">↑ Import
+      <button class="btn btn-pri" onclick="exportData()">↓ 下载备份档</button>
+      <button class="btn" onclick="exportCSV()">↓ 下载表格（Excel 可开）</button>
+      <label class="btn" style="cursor:pointer">↑ 从备份档还原
         <input type="file" accept=".json" onchange="importData(event)" style="display:none"></label>
       <button class="btn" onclick="printBackup()">🖨 列印</button>
     </div>
@@ -5103,14 +5184,14 @@ function renderManage(){
     <div class="card-hdr"><span class="card-title">⑥ 进阶 · 管理员用</span>
       <button class="btn btn-sm" onclick="S.ui.advOpen=!S.ui.advOpen;saveData(true);renderManage()">${S.ui.advOpen?'收起':'展开'}</button></div>
     <div ${S.ui.advOpen?'':'hidden'} style="font-size:12px;line-height:2.2">
-      <div>weak_manual 栏（delta v9）：<strong>${CLOUD.hasV9?'✓ 已就绪':'✕ 未跑 — 老师手填弱项暂留本机'}</strong></div>
-      <div>even_marks 栏（delta v10）：<strong>${CLOUD.hasV10?'✓ 已就绪':'✕ 未跑 — 每题同分声明暂留本机'}</strong></div>
-      <div>本机 weak_manual 词汇分布：<strong>${(()=>{const c={};
+      <div>老师手填弱项：<strong>${CLOUD.hasV9?'✓ 可以上传':'✕ 还不能上传 —— 先存在这台装置'}</strong></div>
+      <div>每题同分声明：<strong>${CLOUD.hasV10?'✓ 可以上传':'✕ 还不能上传 —— 先存在这台装置'}</strong></div>
+      <div>老师手填弱项用的词：<strong>${(()=>{const c={}, L={DSKP_DOMAIN:'全用课纲词',PAPER_TOPIC:'全用考卷题目',MIXED:'两种混用'};
         Object.keys(S.f2).forEach(k=>{const v=weakVocabOf(S.f2[k]); if(v!=='NONE')c[v]=(c[v]||0)+1;});
-        const ks=Object.keys(c); return ks.length?ks.map(x=>x+' '+c[x]+' 笔').join(' · '):'（还没有）';})()}</strong></div>
+        const ks=Object.keys(c); return ks.length?ks.map(x=>(L[x]||x)+' '+c[x]+' 笔').join(' · '):'（还没有）';})()}</strong></div>
       <div>DSKP 学习领域：<strong>${DSKP_DOM.length}</strong> 条（五科 × 六年段）——
-        <span style="color:var(--mut)">参考资料，v19.1 起不再接到老师端的「较弱项目」</span></div>
-      <div>KSSR 旧字典：<strong>${KSSR.length}</strong> 条（保留，供旧资料解析）</div>
+        <span style="color:var(--mut)">参考用，目前不接到老师端的「较弱项目」</span></div>
+      <div>KSSR 旧词库：<strong>${KSSR.length}</strong> 条（保留，用来读旧资料）</div>
     </div>
   </div>`;
 }
@@ -5124,7 +5205,7 @@ function permTick(k){ return !!(CLOUD.perm && CLOUD.perm[k]===true); }
       要做就照这次的规矩：强制先 Export、把未同步笔数讲出来、要打字确认、清完立刻从云端重建、只给 OWNER。
    函式保留成一句拒绝，不删 —— 旧分页可能还开在某台装置上。 */
 async function rebuildFromCloud(){
-  alert('这个临时工具已经移除了。\n\n要备份请用 ⑤ Export；要重新拉云端资料请按 ③ 的「拉回云端资料」。');
+  alert('这个功能已经移除了。\n\n要备份请用 ⑤ 的「下载备份档」；要重新读取资料请按 ③ 的「重新读取资料」。');
 }
 
 /* v28：函式本体保留成一句拒绝，不删。
@@ -5132,7 +5213,7 @@ async function rebuildFromCloud(){
    更重要的是：留一句明确的拒绝，比让人以为「功能坏了」好。 */
 function resetAll(){
   alert('Reset 已经取消了（Academee 全平台一致）。\n\n'
-    +'要备份请用 ⑤ Export；要换装置请直接登入，资料在云端。');
+    +'要备份请用 ⑤ 的「下载备份档」；要换装置请直接登入，资料都在系统里。');
 }
 
 /* ══ MODAL ══ */
@@ -5141,7 +5222,7 @@ function openModal(title,body,foot,lock){
   MODAL_LOCK=!!lock;
   document.getElementById('modal-title').innerHTML=title;
   document.getElementById('modal-body').innerHTML=body;
-  document.getElementById('modal-foot').innerHTML=foot||'<button class="btn" onclick="closeModal()">Close</button>';
+  document.getElementById('modal-foot').innerHTML=foot||'<button class="btn" onclick="closeModal()">关闭</button>';
   const x=document.querySelector('#modal .x-btn'); if(x) x.style.display=lock?'none':'';
   document.getElementById('modal').style.display='flex';
 }
@@ -5162,31 +5243,33 @@ function exportData(){
     itemCount:Object.keys(S.f1).length+Object.keys(S.f2).length
              +Object.keys(S.wi).length+Object.keys(S.es).length}};
   dl(`EvalGo_ATC_${stamp()}.json`, JSON.stringify(payload,null,2));
-  toast('✓ Exported');
+  toast('✓ 备份档已下载');
 }
 function csvCell(v){const s=String(v==null?'':v);return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;}
 function exportCSV(){
-  const L1=[['form','exam','teacher','subject','class','year','student_id','student','bahagian','obs_date']
-    .concat(DIMS.map(d=>d.en)).concat(['issue','client_uid','synced']).map(csvCell).join(',')];
+  const H0=['表','考试','老师','科目','班级','年级','学生编号','学生'];
+  const YN=v=>v?'是':'否';
+  const L1=[H0.concat(['项目','观察日期'])
+    .concat(DIMS.map(d=>d.zh)).concat(['问题','已上传']).map(csvCell).join(',')];
   Object.values(S.f1).forEach(r=>{const st=stuOf(r.sid)||{};
-    L1.push(['FORM01',r.exam,r.by,r.subject,r.cls,r.year,r.sid,st.en,r.bahagian,r.obs_date]
-      .concat(DIMS.map(d=>r[d.id]||'')).concat([r.issue||'',r.client_uid,r.synced?'Y':'N']).map(csvCell).join(','));});
-  const L2=[['form','exam','teacher','subject','class','year','student_id','student','paper_date','total_q']
-    .concat(MARKS.map(m=>m.lab))
-    .concat(['score_got','score_max','score_covered_sections','score_total_sections',
-             'rate','tp','assess_status','paper_checked','paper_checked_at',
-             'weak_auto','weak_manual','weak_note','strong_topics',
-             'done_actions','done_note','next_actions','next_note','fix_target','fix_outcome',
-             'reflect_was_wrong','reflect_now_know','parent_support','client_uid','synced'])
+    L1.push(['考前观察',r.exam,r.by,r.subject,r.cls,r.year,r.sid,st.en,r.bahagian,r.obs_date]
+      .concat(DIMS.map(d=>r[d.id]||'')).concat([r.issue||'',YN(r.synced)]).map(csvCell).join(','));});
+  const L2=[H0.concat(['考卷日期','总题数'])
+    .concat(MARKS.map(m=>m.zh||m.lab))
+    .concat(['得分','满分','已算分的项目','全部项目',
+             '答对率','掌握程度 TP','状态','已核对整份','核对时间',
+             '较弱（系统）','较弱（老师）','较弱备注','强项',
+             '已经做了','已做备注','下一步','下一步备注','针对哪一项','结果',
+             '学生：刚才我会错','学生：现在我知道','家长配合','已上传'])
     .map(csvCell).join(',')];
   Object.values(S.f2).forEach(r=>{const st=stuOf(r.sid)||{}; const ms=recStats(r);
-    L2.push(['FORM02',r.exam,r.by,r.subject,r.cls,r.year,r.sid,st.en,r.paper_date,ms.total]
+    L2.push(['考卷分析',r.exam,r.by,r.subject,r.cls,r.year,r.sid,st.en,r.paper_date,ms.total]
       .concat(MARKS.map(m=>ms[m.id]))
       .concat((()=>{const q=paperScore(r.sid)||{};
         return [q.got==null?'':q.got, q.max==null?'':q.max,
                 q.covered==null?'':q.covered, q.total==null?'':q.total];})())
       .concat([ms.rate==null?'':ms.rate,r.tp||'',aStat(r),
-        r.paper_checked?'Y':'N',r.paper_checked_at||'',
+        YN(r.paper_checked),r.paper_checked_at||'',
         (r.weak_options||[]).join(' '),
         (r.weak_manual||[]).map(optText).filter(Boolean).join(' '),
         r.weak_note||'',(r.strong_topics||[]).join(' '),
@@ -5194,23 +5277,21 @@ function exportCSV(){
         (r.next_options||[]).join(' '),r.next_note||'',
         r.fix_target||'',r.fix_outcome||'',
         r.reflect_was_wrong||'',r.reflect_now_know||'',
-        r.parent_support||'',r.client_uid,r.synced?'Y':'N']).map(csvCell).join(','));});
-  const L3=[['form','exam','teacher','subject','class','year','student_id','student','q_no','mark_code',
-    'cl_subtype','topic','answer_format','diagnosis','client_uid','synced'].map(csvCell).join(',')];
+        r.parent_support||'',YN(r.synced)]).map(csvCell).join(','));});
+  const L3=[H0.concat(['题号','标记','粗心类型','主题','作答方式','诊断','已上传']).map(csvCell).join(',')];
   Object.keys(S.wi).sort().forEach(k=>{const w=S.wi[k];const st=stuOf(w.sid)||{};
-    L3.push(['WRONG_ITEM',w.exam,w.by,w.subject,w.cls,w.year,w.sid,st.en,w.q,
+    L3.push(['逐题',w.exam,w.by,w.subject,w.cls,w.year,w.sid,st.en,w.q,
       String(w.code||'').toUpperCase(),w.cl_subtype||'',w.topic||'',w.fmt||'',w.diag||'',
-      w.client_uid,w.synced?'Y':'N'].map(csvCell).join(','));});
-  const L4=[['form','exam','teacher','subject','class','year','student_id','student',
-    'section_code','score','max_score','weak','is_star','client_uid','synced'].map(csvCell).join(',')];
+      YN(w.synced)].map(csvCell).join(','));});
+  const L4=[H0.concat(['项目','得分','满分','弱在哪','佳作','已上传']).map(csvCell).join(',')];
   Object.keys(S.es).sort().forEach(k=>{const e=S.es[k];const st=stuOf(e.sid)||{};
-    L4.push(['ESSAY_RESULT',e.exam,e.by,e.subject,e.cls,e.year,e.sid,st.en,e.sec_code,
-      e.score!=null?e.score:'',e.max!=null?e.max:'',(e.weak||[]).join(' '),e.star?'Y':'',
-      e.client_uid,e.synced?'Y':'N'].map(csvCell).join(','));});
+    L4.push(['写作',e.exam,e.by,e.subject,e.cls,e.year,e.sid,st.en,e.sec_code,
+      e.score!=null?e.score:'',e.max!=null?e.max:'',(e.weak||[]).join(' '),e.star?'是':'',
+      YN(e.synced)].map(csvCell).join(','));});
   dl(`EvalGo_ATC_${stamp()}.csv`,
      '﻿'+L1.join('\n')+'\n\n'+L2.join('\n')+'\n\n'+L3.join('\n')+'\n\n'+L4.join('\n'),
      'text/csv;charset=utf-8');
-  toast('✓ Exported CSV');
+  toast('✓ 表格已下载');
 }
 function importData(e){
   const f=e.target.files[0]; if(!f) return;
@@ -5242,7 +5323,7 @@ function importData(e){
 function cloudLibReady(){ return typeof window.supabase!=='undefined' && !!window.supabase.createClient; }
 async function cloudInit(silent){
   CLOUD.err=''; CLOUD.checked=false;
-  if(!cloudLibReady()){ CLOUD.err='连不到 Supabase 程式库（可能没网路）'; paintCloud(); return false; }
+  if(!cloudLibReady()){ CLOUD.err='网路连不上，请检查网路后重新整理'; paintCloud(); return false; }
   try{
     if(!_sb) _sb=window.supabase.createClient(SB_URL,SB_KEY);
     const {data:{session},error}=await _sb.auth.getSession();
@@ -5254,11 +5335,11 @@ async function cloudInit(silent){
     if(pr.error) throw pr.error;
     const row=Array.isArray(pr.data)?pr.data[0]:pr.data;
     CLOUD.perm=row||null;
-    if(!CLOUD.perm||CLOUD.perm.can_see!==true){ CLOUD.err='这个帐号没有 EvalGo_ATC 权限（权限码 RPT-EvalGo-ATC）——请找院长开通'; paintCloud(); return false; }
+    if(!CLOUD.perm||CLOUD.perm.can_see!==true){ CLOUD.err='这个帐号还没有开通 EvalGo_ATC —— 请找院长开通'; paintCloud(); return false; }
     const ex=await _sb.from('evalgo_exam').select('*').eq('department','ATC').eq('is_active',true)
                       .order('report_due',{ascending:true}).limit(1);
     if(ex.error) throw ex.error;
-    if(!ex.data||!ex.data.length){ CLOUD.err='资料库没有进行中的考试'; paintCloud(); return false; }
+    if(!ex.data||!ex.data.length){ CLOUD.err='目前没有进行中的考试'; paintCloud(); return false; }
     CLOUD.exam=ex.data[0];
     const prevEx=S.examCode;
     S.examCode=CLOUD.exam.code; S.examLabel=CLOUD.exam.label;
@@ -5328,12 +5409,12 @@ async function cloudInit(silent){
     await flushPendingAfterLogin();
     paintNav();
     paintCloud();
-    if(!silent) toast(CLOUD.readErr ? ('⚠ 已连上，但有资料没读回来 —— '+CLOUD.readErr) : '✓ 已连上',
+    if(!silent) toast(CLOUD.readErr ? ('⚠ 已连上，但有资料没读回来 —— '+plainErr(CLOUD.readErr)) : '✓ 已连上',
                       CLOUD.readErr?7000:undefined);
     refreshAll();
     if(needTeacherBind()) askTeacher();
     return true;
-  }catch(e){ CLOUD.err=(e&&e.message)?e.message:String(e); paintCloud(); return false; }
+  }catch(e){ CLOUD.err=plainErr(e); paintCloud(); return false; }
 }
 /* 老师身份 —— 平台已经认得她是谁
    internal.users_meta.display_name === public.teachers.id（17/17 实测全中）
@@ -5351,11 +5432,11 @@ async function resolveTeacher(){
     if(code){
       const hit=(CLOUD.teachers||[]).find(t=>String(t.id).trim().toUpperCase()===code);
       if(hit){ S.me=hit.id; S.meName=hit.name; CLOUD.idFrom='users_meta'; saveData(true); return; }
-      CLOUD.idErr='帐号代号「'+code+'」在 teachers 表找不到对应';
+      CLOUD.idErr='老师名单里找不到代号「'+code+'」';
     }else{
-      CLOUD.idErr='users_meta 读不到 display_name';
+      CLOUD.idErr='帐号资料里没有老师代号';
     }
-  }catch(e){ CLOUD.idErr=(e&&e.message)?e.message:String(e); }
+  }catch(e){ CLOUD.idErr=plainErr(e); }
   if(S.teacherByUid && S.teacherByUid[u]) S.me=S.teacherByUid[u];   // 旧资料相容
 }
 function needTeacherBind(){ return !!authUid() && !S.me; }
@@ -5523,11 +5604,11 @@ function authGate(){
     B.textContent='去平台登入'; B.onclick=cloudLogin;
   }else if(!CLOUD.perm||CLOUD.perm.can_see!==true){
     I.textContent='🚫'; T.textContent='这个帐号还没有开通';
-    M.textContent='你已经登入了，但这个帐号还没有 EvalGo_ATC 的权限（权限码 RPT-EvalGo-ATC）。请找院长开通 —— 不是你的问题。';
+    M.textContent='你已经登入了，但这个帐号还没有开通 EvalGo_ATC。请找院长开通 —— 不是你的问题。';
     B.textContent='重新检查'; B.onclick=()=>{ cloudInit(false).then(authGate); };
   }else if(!CLOUD.exam){
     I.textContent='📅'; T.textContent='目前没有进行中的考试';
-    M.textContent='资料库里没有开放中的 ATC 考试。请找院长确认。';
+    M.textContent='目前没有开放中的 ATC 考试。请找院长确认。';
     B.textContent='重新检查'; B.onclick=()=>{ cloudInit(false).then(authGate); };
   }else show=false;
   el.style.display = show?'flex':'none';
@@ -5558,7 +5639,7 @@ async function cloudRoster(silent){
       .eq('exam_id',CLOUD.exam.id)
       .order('class_name').order('student_name_en');
     if(r.error) throw r.error;
-    if(!r.data||!r.data.length){ if(!silent) toast('✕ 云端没有名单'); return false; }
+    if(!r.data||!r.data.length){ if(!silent) toast('✕ 系统里还没有这场考试的学生名单'); return false; }
     const seen={}, byCls={}, out=[];
     r.data.forEach(x=>{ if(seen[x.student_id]) return; seen[x.student_id]=1;
       byCls[x.class_name]=(byCls[x.class_name]||0)+1;
@@ -5937,7 +6018,7 @@ async function cloudPush(silent){
         if(res.error && /section_type|check constraint/i.test(res.error.message||'')){
           /* delta v6 还没跑 —— 降级重试一次，并记住，不要每一列都撞一次 */
           CLOUD.hasV6=false;
-          held.push('题型「选择题 / 填写题」暂时以旧的「客观题」上传 —— delta v6 未跑。跑完再上传一次即可写入正确题型。');
+          held.push('题型「选择题 / 填写题」暂时记成「客观题」，系统更新后会自动改正。');
           res=await _sb.from('evalgo_paper_section')
             .upsert(psPayload(sec),{onConflict:'client_uid'}).select('id').single();
         }
@@ -5952,10 +6033,10 @@ async function cloudPush(silent){
     }
     if(secOk) saveData(true);
   }else if(pendingSections().length){
-    held.push(`考卷结构 ${pendingSections().length} 笔 —— 资料库还没有 evalgo_paper_section。`);
+    held.push(`考卷项目 ${pendingSections().length} 个暂时存在这台装置，系统更新后会自动送出。`);
   }
   const inc=incompleteSections();
-  if(inc.length) held.push(`考卷结构 ${inc.length} 个项目缺题号 / 满分，没有上传：`
+  if(inc.length) held.push(`考卷项目有 ${inc.length} 个缺题号 / 满分，还没上传：`
     +inc.map(x=>x.code).join('、')+'。补齐后会自动一起上传。');
 
   const jobs=[]
@@ -5989,29 +6070,27 @@ async function cloudPush(silent){
       .forEach(([k,a])=>jobs.push({t:'evalgo_teacher_assign',k,r:a,p:()=>asgPayload(a)}));
   const esJobs=Object.entries(S.es).filter(([k,e])=>e.savedAt&&!e.synced&&notConflict(e));
   if(CLOUD.hasES) esJobs.forEach(([k,e])=>jobs.push({t:'evalgo_essay_result',k,r:e,p:()=>esPayload(e,k)}));
-  else if(esJobs.length) held.push(`写作结果 ${esJobs.length} 笔 —— 资料库还没有 evalgo_essay_result（delta v5 未跑）。`);
+  else if(esJobs.length) held.push(`写作结果 ${esJobs.length} 笔暂时存在这台装置，系统更新后会自动送出。`);
   /* 🔴 v10 BUG：把「v5 有没有跑」和「wrong_item 在不在」串成 if/else，
      结果 hasV5=true 且有逐题资料时，会谎报「资料库还没有 evalgo_wrong_item」。
      两件事互不相干，必须各判各的。 */
-  if(!CLOUD.hasV5) held.push('「已核对整份 / 已做 / FIX 针对」暂留本机 —— delta v5 未跑。');
-  if(!CLOUD.hasV8) held.push('「缺席 / 本轮未评」只留在本机 —— 资料库还没有 assess_status（delta v8 未跑）。');
+  if(!CLOUD.hasV5) held.push('「已核对整份 / 已经做了 / 针对哪一项」暂时存在这台装置，系统更新后会自动送出。');
+  if(!CLOUD.hasV8) held.push('「缺席 / 本轮未评」暂时存在这台装置，系统更新后会自动送出。');
   if(!CLOUD.hasV10){
     const nEv=Object.keys(S.sections).reduce((a,k)=>a+(S.sections[k]||[]).filter(x=>x.even).length,0);
-    if(nEv) held.push(`「每题同分」声明 ${nEv} 个项目暂留本机 —— 资料库还没有 even_marks（delta v10 未跑）。`);
+    if(nEv) held.push(`「每题同分」${nEv} 个项目暂时存在这台装置，系统更新后会自动送出。`);
   }
   if(!CLOUD.hasV9){
     const nWM=Object.keys(S.f2).filter(k=>((S.f2[k]||{}).weak_manual||[]).length).length;
-    if(nWM) held.push(`老师手填的弱项 ${nWM} 笔暂留本机 —— 资料库还没有 weak_manual 栏（delta v9 未跑）。`
-      +'绝不会併进 weak_options 冒充系统推导；v9 一上线会自动重送。');
+    if(nWM) held.push(`老师手填的弱项 ${nWM} 笔暂时存在这台装置，系统更新后会自动送出。`);
   }
-  if(!CLOUD.hasWI && wiJobs.length) held.push(`逐题资料 ${wiJobs.length} 笔暂留本机 —— 资料库还没有 evalgo_wrong_item。`);
+  if(!CLOUD.hasWI && wiJobs.length) held.push(`逐题资料 ${wiJobs.length} 笔暂时存在这台装置，系统更新后会自动送出。`);
   if(!CLOUD.hasV12){
     const nPF=allSections().filter(x=>+x.pf>=1).length;
     const nQS=Object.values(S.wi).filter(w=>w&&w.qsub).length;
-    if(nPF||nQS) held.push(`卷面题号 ${nPF} 个项目、小题 ${nQS} 笔只留在本机 —— `
-      +`资料库还没有 paper_from / q_sub（delta v12 未跑）。跑完会自动重送。`);
+    if(nPF||nQS) held.push(`卷面题号 ${nPF} 个项目、小题 ${nQS} 笔暂时存在这台装置，系统更新后会自动送出。`);
   }
-  if(!CLOUD.hasV4) held.push('TP 与「家长配合」暂留本机 —— 资料库还没有这两栏（delta v4 未跑）。');
+  if(!CLOUD.hasV4) held.push('掌握程度（TP）与「家长配合」暂时存在这台装置，系统更新后会自动送出。');
   /* v22 · WritePath Iron Rule 2：每张表验证自己的必要栏位。
      旧版统一要求 class_id，导致 evalgo_teacher_assign（正确栏位是 class_name）
      从上线第一天起 100% 被跳过。不同 write path 不准共用错误的假设。 */
@@ -6022,8 +6101,10 @@ async function cloudPush(silent){
     evalgo_essay_result:   {required:['exam_id','student_id','class_id','subject']},
     evalgo_teacher_assign: {required:['exam_id','teacher_id','class_name','subject']}
   };
+  const TLAB={evalgo_live_obs:'考前观察',evalgo_paper_analysis:'考卷分析',evalgo_wrong_item:'逐题资料',
+    evalgo_essay_result:'写作结果',evalgo_teacher_assign:'任课安排'};
   const jobNoPaper=jobs.filter(j=>j.t!=='evalgo_teacher_assign' && noPaper(j.k)).length;
-  if(jobNoPaper) held.push(jobNoPaper+' 笔资料是旧格式（没有卷编号）—— 暂不上传。');
+  if(jobNoPaper) held.push(jobNoPaper+' 笔旧资料对不上是哪一份考卷，暂不上传。');
   for(const j of jobs){
     try{
       if(j.t!=='evalgo_teacher_assign' && noPaper(j.k)) continue;
@@ -6031,7 +6112,8 @@ async function cloudPush(silent){
       const spec=JOB_SPEC[j.t];
       if(!spec) throw new Error('没有 write spec：'+j.t);
       const miss=spec.required.filter(f=>pl[f]==null||pl[f]==='');
-      if(miss.length){ fail++; errs.push(j.t+' 缺栏位：'+miss.join('、')+'（'+j.k+'）'); continue; }
+      if(miss.length){ fail++; console.warn('缺栏位',j.t,miss,j.k);
+        errs.push((TLAB[j.t]||'资料')+'有一笔缺少必要内容（例如学生或班级），没有上传'); continue; }
       const res=await _sb.from(j.t).upsert(pl,{onConflict:'client_uid'}).select('id').single();
       if(res.error) throw res.error;
       j.r.synced=true; j.r.cloud_id=res.data.id; ok++;
@@ -6068,13 +6150,14 @@ async function cloudPush(silent){
               console.info('v44：考卷项目撞自然键 → 已认领云端身份并重送成功',pl2.code); continue; }
           }
         }catch(e2){ console.warn('v44 自愈失败',e2&&e2.message); }
-        fail++; errs.push('考卷项目「'+(j.r&&j.r.code||'')+'」云端已经有同名的一列，自动接管失败：'+msg);
+        fail++; console.warn('考卷项目自动合并失败',msg);
+        errs.push('考卷项目「'+(j.r&&j.r.code||'')+'」已经有人登记过同名的，没能自动合并。请截图找管理层。');
         continue;
       }
       if(j.t==='evalgo_wrong_item' && /evalgo_wrong_item_pi_key/.test(msg)){
         j.r.needV14=true; j.r.synced=true;
-        held.push('小题纪录暂留本机 —— 资料库的唯一索引还没加 q_sub（delta v14）。跑完会自动送出。');
-      }else{ fail++; errs.push(msg); }
+        held.push('有小题纪录暂时存在这台装置，系统更新后会自动送出。');
+      }else{ fail++; errs.push(plainErr(msg)); }
     }
   }
   CLOUD.busy=false; CLOUD.lastSync=new Date().toLocaleString('en-GB');
@@ -6083,7 +6166,7 @@ async function cloudPush(silent){
      现在 pendingCount() 是最终真相：只要还有未同步资料，就绝不显示绿勾。 */
   const leftAfterPush=pendingCount();
   CLOUD.pushErr = (fail||secFail||leftAfterPush)
-    ? (errs[0] || (secFail?('考卷结构 '+secFail+' 笔上传失败') : ('还有 '+leftAfterPush+' 笔未送出')))
+    ? (errs[0] || (secFail?('考卷项目 '+secFail+' 个没上传成功') : ('还有 '+leftAfterPush+' 笔没上传')))
     : '';
   saveData(true); paintCloud();
   if(silent){ if(CLOUD.pushErr) console.warn('autoPush 未完全送出',CLOUD.pushErr); return; }
@@ -6091,9 +6174,9 @@ async function cloudPush(silent){
   const held2=held.filter((x,i)=>held.indexOf(x)===i);
   held.length=0; held2.forEach(x=>held.push(x));
   if(errs.length) console.warn('push errors:',errs);
-  alert(`上传完成\n考卷结构 ${secOk} 笔`+(secFail?`（失败 ${secFail}）`:'')+`\n资料 ${ok} 笔`
-    +(fail?`\n失败 ${fail} 笔（资料仍留在本机，可再试）\n\n第一个错误：${errs[0]}`:'')
-    +(held.length?`\n\n⏸ 暂缓：\n· ${held.join('\n· ')}`:''));
+  alert(`上传完成\n考卷项目 ${secOk} 个`+(secFail?`（没成功 ${secFail} 个）`:'')+`\n学生资料 ${ok} 笔`
+    +(fail?`\n没成功 ${fail} 笔（资料仍留在这台装置，可以再试）\n\n原因：${errs[0]}`:'')
+    +(held.length?`\n\n⏸ 先放着：\n· ${held.join('\n· ')}`:''));
 }
 async function cloudPull(silent){
   if(!CLOUD.exam){ if(!silent) toast('✕ 还没连上'); return; }
@@ -6186,14 +6269,14 @@ async function cloudPull(silent){
     CLOUD.readErr=''; paintReadWarn();
     saveData(true); refreshAll(); renderManage();
     if(silent) return;
-    alert(`已拉回 考卷项目 ${nPS} 个 · FORM 01 ${n1} 笔 · FORM 02 ${n2} 笔 · 逐题 ${n3} 笔 · 写作 ${n4} 笔`
-      +(CLOUD.hasWI?'':'\n（逐题表尚未建立，跳过）')
-      +(nGone?'\n已清掉本机过期资料 '+nGone+' 笔（云端已经删掉的）':'')
-      +'\n（本机还没上传的资料不会被盖掉）');
+    alert(`已重新读取：考卷项目 ${nPS} 个 · 考前观察 ${n1} 笔 · 考卷分析 ${n2} 笔 · 逐题 ${n3} 笔 · 写作 ${n4} 笔`
+      +(CLOUD.hasWI?'':'\n（逐题资料暂时读不到，先跳过）')
+      +(nGone?'\n这台装置上有 '+nGone+' 笔已经被删掉的旧资料，已一并清掉':'')
+      +'\n（这台装置还没上传的资料不会被盖掉）');
     if(s9dirty){ saveData(true); s9Notify(); }
   }catch(e){ const m=e&&e.message?e.message:String(e);
-    CLOUD.readErr='资料读不回来：'+m; paintReadWarn();
-    if(silent) console.warn('pull:',m); else alert('拉回失败：'+m); }
+    CLOUD.readErr=plainErr(m); paintReadWarn();
+    if(silent) console.warn('pull:',m); else alert('重新读取没有成功：'+plainErr(m)); }
 }
 /* 老师端的撞车讯息。
    ⚠️ Owner 2026-09-15 拍板：**不说是谁填的**。
@@ -6203,13 +6286,13 @@ function s9Notify(){
   const n=s9Count(); if(!n) return;
   paintCloud();
   if(isAdmin()) return;                 /* 管理层看清单，不看这个 toast */
-  toast('⚠ 有 '+n+' 笔跟云端撞到了 —— 你的资料还在，但没有送出去。请截图找管理层。', 8000);
+  toast('⚠ 有 '+n+' 笔跟别人填的撞到了 —— 你的资料还在，但没有送出去。请截图找管理层。', 8000);
 }
 /* 失败讯息必须「老师做得到」。叫老师去按 Export 是假的出口 ——
    那颗按钮在管理页，老师根本看不到。 */
 function saveFailMsg(){
   return isAdmin()
-    ? '资料没有存进这台电脑（浏览器空间可能满了）。\n\n请先按 Manage → Export 备份，再重试。'
+    ? '资料没有存进这台电脑（浏览器空间可能满了）。\n\n请先到「管理」按「↓ Export」下载备份，再重试。'
     : '这一笔没有存进这台电脑（浏览器空间可能满了）。\n\n'
     + '请先不要关掉这个页面，也不要重复输入。\n'
     + '截图这个讯息，直接找管理层处理。';
@@ -6221,10 +6304,10 @@ function paintCloud(){
   /* v22 · 常驻同步徽章：绿勾只代表「云端已经收到」。
      toast 会消失、console 老师看不到，所以失败必须一直留在顶栏。 */
   if(!online){
-    el.textContent='⚠ 未连线 · 资料只在这台电脑';
+    el.textContent='⚠ 离线 · 资料先存在这台电脑';
     el.style.color='var(--warn)';
   }else if(CLOUD.busy || (p>0 && !CLOUD.pushErr)){
-    el.textContent='↑ 正在送出 '+p+' 笔…';
+    el.textContent='↑ 正在上传 '+p+' 笔…';
     el.style.color='#F9CB42';
   }else if(CLOUD.pushErr || p>0){
     el.textContent='⚠ '+p+' 笔没送出 — 请截图找管理层';
@@ -6232,15 +6315,15 @@ function paintCloud(){
   }else if(s9Count()){
     /* v45：撞车不是「送不出去」，是**刻意不送**。混进上面那一条，
        老师会一直按重试，而重试永远没用（v32 那个坑）。 */
-    el.textContent='⚠ '+s9Count()+' 笔跟云端撞到了 — 请找管理层';
+    el.textContent='⚠ '+s9Count()+' 笔跟别人填的撞到了 — 请找管理层';
     el.style.color='#FFD0D0';
   }else{
-    el.textContent='✓ 已储存到云端';
+    el.textContent='✓ 全部已上传';
     el.style.color='#D8FFE9';
   }
   const _chip=document.getElementById('sync-chip'); if(_chip) _chip.style.color=el.style.color;
-  el.title = (CLOUD.pushErr||p>0) ? '资料仍留在这台电脑，没有掉；但还没全部进入云端。请截图找管理层。'
-           : (CLOUD.err||(CLOUD.exam?('考试 '+CLOUD.exam.code+' · 已同步'):'尚未连线'));
+  el.title = (CLOUD.pushErr||p>0) ? '资料仍留在这台电脑，没有掉；但还没全部上传。请截图找管理层。'
+           : (CLOUD.err?plainErr(CLOUD.err):(CLOUD.exam?((CLOUD.exam.label||'本轮考试')+' · 全部已上传'):'还没连线'));
   const btn=document.getElementById('c-push');
   if(btn) btn.textContent = p?('上传 '+p+' 笔'):'全部已上传';
   authGate();
