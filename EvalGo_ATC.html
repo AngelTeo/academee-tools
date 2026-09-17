@@ -483,7 +483,7 @@ button.chip.sel-w{background:var(--warn);color:#fff}
    权限码：RPT-EvalGo-ATC
    ══════════════════════════════════════════════════════════════════ */
 
-const APP_VERSION = 58;
+const APP_VERSION = 59;
 
 /* ══ v46 · 旧版本守门 ══════════════════════════════════
    MiscGo 那边抓到实例：网址对、程式旧（手机快取把旧 HTML 钉住）。
@@ -681,7 +681,7 @@ function navTodo(sid,kind){          /* 从当前往後绕一圈，找第一个�
 function navLeft(kind){ return navList().filter(r=>!navDone(r.sid,kind)).length; }
 function navGo(sid,kind){
   if(!sid) return;
-  if(saveData(true)===false){ alert(saveFailMsg()); return; }
+  if(!saveOk()) return;
   if(kind==='f1'){ renderF1(); f1Open(sid); } else { renderF2(); f2Open(sid); }
 }
 function navBar(sid,kind){
@@ -938,23 +938,36 @@ let _saveT=null;
 function isQuotaErr(e){
   return !!e && (e.name==='QuotaExceededError' || e.name==='NS_ERROR_DOM_QUOTA_REACHED' || e.code===22 || e.code===1014);
 }
-function slimCopy(){
+/* level 1：别人的、已上传的不留；level 2（v59）：**所有**已上传的都不留，只留还没上传的
+   —— 已上传的云端都有，重新打开会自动读回来；还没上传的一笔都不省。 */
+function slimCopy(level){
   const me=S.me, T=Object.assign({},S);
   ['f1','f2','wi','es'].forEach(n=>{
     const src=S[n]||{}, o={};
     Object.keys(src).forEach(k=>{ const r=src[k];
-      if(r && r.synced===true && r.by && r.by!==me) return;   /* 别人的、已上传的 → 只留在云端 */
+      if(r && r.synced===true && (level>=2 || (r.by && r.by!==me))) return;
       o[k]=r; });
     T[n]=o;
   });
   return T;
 }
 function writeLocal(){
-  try{ localStorage.setItem(STORAGE_KEY,JSON.stringify(S)); return {ok:true,slim:false}; }
-  catch(e){
-    try{ localStorage.setItem(STORAGE_KEY,JSON.stringify(slimCopy())); return {ok:true,slim:true,err:e}; }
-    catch(e2){ return {ok:false,slim:false,err:e2}; }
+  let err=null;
+  try{ localStorage.setItem(STORAGE_KEY,JSON.stringify(S)); return {ok:true,slim:0}; }catch(e){ err=e; }
+  for(const lv of [1,2]){
+    try{ localStorage.setItem(STORAGE_KEY,JSON.stringify(slimCopy(lv))); return {ok:true,slim:lv,err}; }
+    catch(e){ err=e; }
   }
+  return {ok:false,slim:0,err};
+}
+/* v59 · Owner 2026-09-17 SQ 手机截图：按「下一位」就跳「资料没有存进这台电脑」，右下角一直「储存失败」。
+   实查：SQ 那几题**都已经上传到系统了**。这台存不进去，不代表资料会丢 —— 连着网路时会直接上传。
+   所以：存不进这台电脑、但连着系统 → 不挡老师，马上上传；离线才挡下来讲清楚。 */
+function saveOk(){
+  const r=saveData(true);
+  if(r!==false) return true;
+  if(CLOUD.exam && CLOUD.session && navigator.onLine!==false){ autoPush(); return true; }
+  alert(saveFailMsg()); return false;
 }
 /* 这个网址底下的储存空间用了多少（给管理页看） */
 function storageUse(){
@@ -972,7 +985,14 @@ function saveData(now){
       S.meta.save_failed=true;
       const p=pendingCount(), full=isQuotaErr(w.err);
       const why=full?'这台电脑的浏览器储存空间满了':'这台电脑没存进去';
-      toast(p
+      const online=!!(CLOUD.exam && CLOUD.session && navigator.onLine!==false);
+      /* v59：连着系统时，同一句一分钟只讲一次（每按一下都跳会盖掉别的讯息）；离线每次都讲 */
+      if(online && Date.now()-(CLOUD.saveFailToastAt||0)<60000){ console.error(w.err); paintCloud(); return false; }
+      CLOUD.saveFailToastAt=Date.now();
+      if(online) toast(p
+        ? ('这台'+(full?'手机 / 电脑的储存空间满了':'装置没存进去')+'，资料改成直接上传（还有 '+p+' 笔在上传）—— 顶栏变「全部已上传」前先别关页面')
+        : ('这台'+(full?'手机 / 电脑的储存空间满了':'装置没存进去')+'，资料都已经上传到系统，没有丢'),7000);
+      else toast(p
         ? ('✕ '+why+'，还有 '+p+' 笔没上传 —— 先别关页面，'+(isAdmin()?'到「管理」按「↓ Export」下载备份':'截图找管理层'))
         : ('✕ '+why+'。你的资料都已经上传，没有丢；'+(isAdmin()?'到「管理」看空间用量':'截图给管理层')),9000);
       console.error(w.err);
@@ -982,7 +1002,7 @@ function saveData(now){
       CLOUD.slimNoted=true;
       console.warn('储存空间不够，改存精简版：', w.err);
     }
-    S.meta.slim=!!w.slim;
+    S.meta.slim=w.slim||0;
     S.meta.save_failed=false;
     const el=document.getElementById('last-saved');
     if(el) el.textContent='已存 '+new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
@@ -996,7 +1016,11 @@ function saveData(now){
 /* 存档成功才报喜；失败时不覆盖失败讯息，並把 modal 留着让老师能 Export。 */
 function saveThen(okMsg){
   const ok=saveData(true);
-  if(ok===false) return false;
+  if(ok===false){
+    /* v59：存不进这台、但连着系统 → 照样往下走、马上上传；不再用成功讯息盖掉那句提醒 */
+    if(CLOUD.exam && CLOUD.session && navigator.onLine!==false){ autoPush(); return true; }
+    return false;
+  }
   if(okMsg) toast(okMsg);
   return true;
 }
@@ -1059,7 +1083,10 @@ function loadData(){
     return true;
   }catch(e){ console.error(e); S.roster=DEMO_ROSTER.slice(); return false; }
 }
-window.addEventListener('beforeunload',()=>{ clearTimeout(_saveT); writeLocal(); });
+window.addEventListener('beforeunload',e=>{ clearTimeout(_saveT);
+  const w=writeLocal();
+  if(!w.ok){ let p=0; try{ p=pendingCount(); }catch(x){}
+    if(p){ e.preventDefault(); e.returnValue='还有资料没上传，离开会不见'; return e.returnValue; } } });
 document.addEventListener('keydown',e=>{
   if(e.key==='Escape') closeModal();
   if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='s'){ e.preventDefault(); saveThen('✓ Saved'); }
@@ -3071,10 +3098,7 @@ function f1Save(k,sid,goNext){
   r.by=S.me; r.exam=S.examCode; r.savedAt=new Date().toLocaleString('en-GB'); r.synced=false;
   /* ⚠️ 存档成功才报喜。v7 是无条件 toast('✓ Saved')，
      会把 saveData 内部的「✕ 储存失败」用同一个元素盖掉，老师永远看不到失败。 */
-  if(saveData(true)===false){
-    alert(saveFailMsg());
-    return;
-  }
+  if(!saveOk()) return;
   if(goNext){
     const nx=navTodo(sid,'f1');
     if(nx && nx!==sid){ renderF1(); toast('✓ 已完成 · '+kBah); autoPush(); f1Open(nx); return; }
@@ -4063,7 +4087,7 @@ function f2Finish(sid,goNext){
      paper_checked 只能由 f2Checked() 里老师亲手那一下产生。 */
   const miss=f2Missing(sid);
   if(miss.length){
-    if(saveData(true)===false){ alert(saveFailMsg()); return; }
+    if(!saveOk()) return;
     paintLive(sid); paintFoot(sid);
     autoPush();
     toast('还不能算完成 —— 还差：'+miss.join('、')+'（资料已经存了）',4500);
@@ -4071,7 +4095,7 @@ function f2Finish(sid,goNext){
     if(mb) mb.scrollIntoView({behavior:'smooth',block:'center'});
     return;
   }
-  if(saveData(true)===false){ alert(saveFailMsg()); return; }
+  if(!saveOk()) return;
   const nm=nameOf(stuOf(sid));
   if(goNext){
     const nx=navTodo(sid,'f2');
@@ -4136,7 +4160,7 @@ function f2Checked(sid){
   r.paper_checked = !r.paper_checked;
   r.paper_checked_at = r.paper_checked ? new Date().toISOString() : null;
   r.synced=false; stampF2(r,sid);
-  if(saveData(true)===false){ alert(saveFailMsg()); return; }
+  if(!saveOk()) return;
   paintLive(sid); renderF2(); autoPush();
   toast(r.paper_checked?'✓ 没点的题算答对了':'已取消 — 没点的题回到「还没看」');
 }
@@ -5923,7 +5947,7 @@ function renderManage(){
       ? ('<b style="color:var(--danger)">不完整 —— '+esc(plainErr(CLOUD.readErr))+'</b>')
       : '<strong>完整</strong>'}</div>
     ${(()=>{ const u=storageUse(); return `<div class="mg-line">这台电脑的储存空间：本系统 <strong>${mbOf(u.mine)}</strong> · 同网址其他系统 <strong>${mbOf(u.other)}</strong>（共用约 5 MB）${
-      S.meta&&S.meta.slim?' · <b style="color:var(--warn)">空间不够，别位老师已上传的资料只留在云端（重新打开会自动读回来）</b>':''}${
+      S.meta&&S.meta.slim?(' · <b style="color:var(--warn)">空间不够，'+(S.meta.slim>=2?'已上传的资料':'别位老师已上传的资料')+'只留在云端（重新打开会自动读回来）</b>'):''}${
       S.meta&&S.meta.save_failed?' · <b style="color:var(--danger)">最近一次没存进这台电脑</b>':''}</div>`; })()}
     <div class="mg-line">待上传：<strong>${pend}</strong> 笔　最近的问题：${CLOUD.pushErr?('<b style="color:var(--danger)">'+esc(plainErr(CLOUD.pushErr))+'</b>'):(CLOUD.err?esc(plainErr(CLOUD.err)):'（无）')}</div>
     ${S.rosterSource==='demo'?`<div class="alert alert-warn" style="margin-top:8px"><div>目前是练习用的假名单（连线后会自动换成真实名单）。<b>假资料不会上传。</b></div></div>`:''}
@@ -7109,11 +7133,13 @@ function s9Notify(){
 /* 失败讯息必须「老师做得到」。叫老师去按 Export 是假的出口 ——
    那颗按钮在管理页，老师根本看不到。 */
 function saveFailMsg(){
-  return isAdmin()
-    ? '资料没有存进这台电脑（浏览器空间可能满了）。\n\n请先到「管理」按「↓ Export」下载备份，再重试。'
-    : '这一笔没有存进这台电脑（浏览器空间可能满了）。\n\n'
+  /* v59：只有「存不进这台、又没连上系统」才会走到这里 */
+  let p=0; try{ p=pendingCount(); }catch(e){}
+  return '这台装置的储存空间满了，而且现在没有连上系统。\n\n'
+    + (p?('还有 '+p+' 笔资料只在这个页面里。'):'')
     + '请先不要关掉这个页面，也不要重复输入。\n'
-    + '截图这个讯息，直接找管理层处理。';
+    + '连上网路后，资料会自动上传（顶栏会变「全部已上传」）。\n'
+    + (isAdmin()?'要保险的话，先到「管理」按「↓ Export」下载备份。':'截图这个讯息，找管理层处理。');
 }
 function paintCloud(){
   const el=document.getElementById('cloud-state'); if(!el) return;
