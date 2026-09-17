@@ -464,7 +464,7 @@ button.chip.sel-w{background:var(--warn);color:#fff}
    权限码：RPT-EvalGo-ATC
    ══════════════════════════════════════════════════════════════════ */
 
-const APP_VERSION = 47;
+const APP_VERSION = 48;
 
 /* ══ v46 · 旧版本守门 ══════════════════════════════════
    MiscGo 那边抓到实例：网址对、程式旧（手机快取把旧 HTML 钉住）。
@@ -811,7 +811,8 @@ function roleNow(){ return String(CLOUD.role||'').toUpperCase(); }
 function canSeeManage(){ return MANAGE_ROLES.indexOf(roleNow())>=0; }
 function canSeeReport(){ return BUSINESS_ROLES.indexOf(roleNow())>=0; }
 /* isAdmin 保留原语意「业务层管理者」（选卷不受 paper_teacher 限制、看得到别班…），
-   全档 60+ 处在用。拆开後它等於 BUSINESS_ROLES —— 与 v26 行为逐字相同，不制造回归。
+   拆开後它等於 BUSINESS_ROLES —— 与 v26 行为逐字相同，不制造回归。
+   （呼叫点的实际数目以 grep 为准，不在注解里写数字 —— 这里曾写错过，G3 ERRATA-3。）
    要收紧的只有管理页，走 canSeeManage()。 */
 function isAdmin(){ return BUSINESS_ROLES.indexOf(roleNow())>=0; }
 function paintNav(){
@@ -1440,6 +1441,13 @@ async function cloudDelById(table,idv){
     return {ok:true,n:(r.data||[]).length}; }
   catch(e){ return {ok:false,n:0,error:(e&&e.message)||String(e)}; }
 }
+/* v48：删之前先数云端有几笔，删之后核对删掉的笔数 —— 见 delSection 的 Step C。 */
+async function cloudCountBy(table,col,val){
+  try{ const r=await _sb.from(table).select('id',{count:'exact',head:true}).eq('exam_id',CLOUD.exam.id).eq(col,val);
+    if(r.error) return {ok:false,n:0,error:r.error.message};
+    return {ok:true,n:(typeof r.count==='number')?r.count:0}; }
+  catch(e){ return {ok:false,n:0,error:(e&&e.message)||String(e)}; }
+}
 async function cloudDelBy(table,col,val){
   try{ const r=await _sb.from(table).delete().eq('exam_id',CLOUD.exam.id).eq(col,val).select('id');
     if(r.error) return {ok:false,n:0,error:r.error.message};
@@ -1481,17 +1489,35 @@ async function delSection(id){
   catch(e){ alert('备份下载没有启动 —— 为安全起见取消删除。'); return; }
   if(!confirm('备份档已开始下载。确认你已收到备份档，再继续永久删除。\n[确定]=继续　[取消]=中止')) return;
 
-  /* Step C：子资料逐张验删（子先父后、不 CASCADE、affected rows 不符即停） */
+  /* Step C：子资料逐张验删（子先父后、不 CASCADE、affected rows 不符即停）
+     🔴 v48 · 2026-09-17 事故：考前观察原本用「exam_id + bahagian = 项目代号」删，
+        没有限定科目／年级／卷 —— 删 ATC1 数学的 A、B 两个项目，
+        把全 ATC 所有挂在 A、B 底下的考前观察（ATC2 科学、ATC2 华文，共 21 笔）一起删掉。
+        而旧的核对只挡「删了 0 笔」，不挡「删太多」，所以没停下来。
+     改法：
+        ① 三张表一律用 section_id = 这个项目的云端 id 删（live_obs.section_id 是 NOT NULL 外键，精准指到这一个项目）
+        ② 删之前先数云端笔数：比本机列出、已备份的还多 → 表示有别台装置的资料没进备份 → 整个中止，一笔都不删
+        ③ 删之后核对：删掉的笔数必须等於删之前数到的笔数，不符即停 */
   if(s.cloud_id && _sb && CLOUD.exam){
     const steps=[
-      {t:'evalgo_live_obs',   col:'bahagian',   val:s.code,     expect:imp.f1.length},
-      {t:'evalgo_wrong_item', col:'section_id', val:s.cloud_id, expect:imp.wi.length},
-      {t:'evalgo_essay_result',col:'section_id',val:s.cloud_id, expect:imp.es.length}
+      {t:'evalgo_live_obs',   lab:'考前观察', col:'section_id', val:s.cloud_id, expect:imp.f1.length},
+      {t:'evalgo_wrong_item', lab:'逐题',     col:'section_id', val:s.cloud_id, expect:imp.wi.length},
+      {t:'evalgo_essay_result',lab:'写作',    col:'section_id', val:s.cloud_id, expect:imp.es.length}
     ];
     for(const st of steps){
+      const c=await cloudCountBy(st.t,st.col,st.val);
+      if(!c.ok){ alert('删除中止：数不到云端的'+st.lab+'（'+(c.error||'')+'）。一笔都没删。'); return; }
+      if(c.n>st.expect){
+        alert('删除中止：云端这个项目底下有 '+c.n+' 笔'+st.lab+'，这台装置只知道 '+st.expect+' 笔。\n'
+          +'多出来的是别台装置填的，没有进刚才的备份档。一笔都没删。\n\n请先到「管理」按「拉回云端资料」，再删一次。');
+        return; }
+      st.cloudN=c.n;
+    }
+    for(const st of steps){
+      if(!st.cloudN) continue;
       const r=await cloudDelBy(st.t,st.col,st.val);
-      if(!r.ok){ alert('删除中止：'+st.t+' 删除失败（'+(r.error||'')+'）。section 未删，请找管理层。'); return; }
-      if(st.expect>0 && r.n<1){ alert('删除中止：'+st.t+' 预期删 '+st.expect+' 笔、云端删了 0 笔（权限或范围不符）。section 不删。'); return; }
+      if(!r.ok){ alert('删除中止：'+st.lab+' 删除失败（'+(r.error||'')+'）。项目未删，请找管理层。'); return; }
+      if(r.n!==st.cloudN){ alert('删除中止：'+st.lab+' 预期删 '+st.cloudN+' 笔、云端实际删了 '+r.n+' 笔。项目未删，请截图找管理层。'); return; }
     }
     const rp=await cloudDelById('evalgo_paper_section',s.cloud_id);
     if(!rp.ok || rp.n<1){ alert('子资料已删，但 section 本身删除返回 0 列。请找管理层核对，勿重复操作。'); return; }
