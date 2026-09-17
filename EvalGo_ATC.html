@@ -483,7 +483,7 @@ button.chip.sel-w{background:var(--warn);color:#fff}
    权限码：RPT-EvalGo-ATC
    ══════════════════════════════════════════════════════════════════ */
 
-const APP_VERSION = 54;
+const APP_VERSION = 55;
 
 /* ══ v46 · 旧版本守门 ══════════════════════════════════
    MiscGo 那边抓到实例：网址对、程式旧（手机快取把旧 HTML 钉住）。
@@ -599,7 +599,8 @@ const MARKS=[
 const CL_SUB=[
   {v:'CALC',      zh:'算错'},
   {v:'COPY',      zh:'抄错'},
-  {v:'INCOMPLETE',zh:'没写完'}
+  {v:'INCOMPLETE',zh:'没写完'},
+  {v:'TYPO',      zh:'错字（形近字 / 错别字）'}   /* v55 · Owner 2026-09-17 */
 ];
 /* ══ 评量状态 ══ Owner 2026-09-06
    「没有资料」以前同时代表三件事：老师还没做 / 学生缺席 / 证据不足。
@@ -1271,7 +1272,8 @@ function setEven(id,v){
   const nEv=bpEvidCount();
   if(nEv && !confirm('这份考卷已经有学生资料。\n\n改「每题同分 / 不同分」，这些学生的得分会立刻跟着变。确定要改吗？')) return;
   qmLogPush(sec);                          /* v53 · DL-20：改分数要留痕 */
-  sec.even = (sec.even===v) ? '' : v;      /* 再点一次 = 取消声明 */
+  if(sec.even===v) return;                 /* v55：只有同分 / 不同分两个选择，再按一次不取消 */
+  sec.even = v;
   markSecDirty(sec);
   if(saveThen(sec.even==='Y'?'✓ 记为每题同分':(sec.even==='N'?'✓ 记为每题不同分':'已取消声明'))){
     /* 老师人在「考卷项目」页，renderF1() 重画的是「考前观察」页 →
@@ -1528,9 +1530,9 @@ function evenCell(sec){
                    : note(per>0?('其余每题 '+r2(per)+' 分'):'每一题分数都填了');
   else if(v==='Y') n=note('每题 '+r2(per)+' 分');
   else if(v==='N') n=note('请按「改分数」填哪几题不同',1);
-  else n=note('还没选 · 算不出',1);
+  else n=note('请选同分或不同分',1);
   return `<div style="display:flex;gap:4px">${b('Y','同分','这个项目每一题分数一样')}${
-    b('N','不同','每题分数不一样 —— 再按「改分数」填哪几题不同')}</div>${n}`;
+    b('N','不同分','每题分数不一样 —— 再按「改分数」填哪几题不同')}</div>${n}`;
 }
 
 /* ══ v26 F7 Controlled Delete ══
@@ -2405,12 +2407,11 @@ function bpScoreOpen(id){
       ${isE?'':`
       <div class="form-row" style="margin-top:8px"><label class="form-label">每题同分？</label>
         <div class="chips-row">
-          <button class="chip ${sec.even==='Y'?'sel':'chip-layer'}" onclick="bpSEven('Y',this)">Y 每题同分</button>
-          <button class="chip ${sec.even==='N'?'sel':'chip-layer'}" onclick="bpSEven('N',this)">N 每题不同分</button>
+          <button class="chip ${sec.even==='Y'?'sel':'chip-layer'}" onclick="bpSEven('Y',this)">同分</button>
+          <button class="chip ${sec.even==='N'?'sel':'chip-layer'}" onclick="bpSEven('N',this)">不同分</button>
         </div>
         <input type="hidden" id="mEven" value="${esc(sec.even||'')}">
-        <div class="tip" style="margin-top:4px">选 <b>N</b>：在下面列出分数不一样的题，没列出来的题会平分剩下的分数。<br>
-          两个都没选 = 这个项目<b>算不出分数</b>，报告会标「算不出」。</div></div>
+        <div class="tip" style="margin-top:4px">选<b>不同分</b>：在下面列出分数不一样的题，没列出来的题会平分剩下的分数。</div></div>
       <div class="form-row" style="margin-top:10px">
         <label class="form-label">哪几题分数不一样 / 有小题</label>
         <div id="mQmRows"></div>
@@ -2433,7 +2434,7 @@ function bpScoreOpen(id){
 }
 function bpSEven(v,btn){
   const h=document.getElementById('mEven'); if(!h) return;
-  h.value = (h.value===v)?'':v;
+  h.value = v;                              /* v55：只有两个选择，再按一次不会变成「没选」 */
   const row=btn.parentElement;
   [].forEach.call(row.querySelectorAll('.chip'),c=>c.className='chip chip-layer');
   if(h.value) btn.className='chip sel';
@@ -2448,6 +2449,7 @@ function bpScoreSave(id){
   let even='', qm=null;
   if(!isE){
     even=String(((document.getElementById('mEven')||{}).value)||'').trim();
+    if(even!=='Y' && even!=='N'){ toast('✕ 请选每题分数：「同分」或「不同分」',3500); return; }
     bpQmSync();
     const ck=qmCheck(BPQM,pfOf(sec),secPaperTo(sec),mx);
     if(ck.err){ toast('✕ '+ck.err,5000); return; }
@@ -2667,12 +2669,13 @@ function bpModal(lock, editId){
       </div>
       <div class="form-grid-2" style="gap:8px;margin-top:8px">
         <div class="form-row" style="margin:0" id="mEvenRow">
-          <label class="form-label">每题同分？</label>
-          <select id="mEven">
-            <option value=""${ed&&!ed.even?' selected':''}>还没选 —— 这个项目算不出分数</option>
-            <option value="Y"${ed&&ed.even==='Y'?' selected':''}>每题同分</option>
-            <option value="N"${ed&&ed.even==='N'?' selected':''}>每题不同分 —— 在下面列出不一样的题</option>
-          </select></div>
+          <label class="form-label">每题分数 *</label>
+          <div class="chips-row" style="margin:0">
+            <button type="button" class="chip ${ed&&ed.even==='Y'?'sel':'chip-layer'}" style="min-height:40px" onclick="bpSEven('Y',this)">同分</button>
+            <button type="button" class="chip ${ed&&ed.even==='N'?'sel':'chip-layer'}" style="min-height:40px" onclick="bpSEven('N',this)">不同分</button>
+          </div>
+          <input type="hidden" id="mEven" value="${ed?v(ed.even||''):''}">
+          <div class="tip" style="margin:4px 0 0">选「不同分」：在下面列出分数不一样的题。</div></div>
         <div class="form-row" style="margin:0"><label class="form-label">文法 / 主题</label>
           <input type="text" id="mTopic" placeholder="例：动词（可留空）" value="${ed?v(ed.topic):''}"></div>
       </div>
@@ -2714,6 +2717,7 @@ function bpAdd(editId){
   const g=id=>String(((document.getElementById(id)||{}).value)||'').trim();
   const code=g('mCode'), type=g('mType')||'MCQ', topic=g('mTopic'), fmt=g('mFmt');
   const even=g('mEven');
+  if(type!=='ESSAY' && even!=='Y' && even!=='N'){ toast('✕ 请选每题分数：「同分」或「不同分」',3500); return; }
   /* v54：这两格是卷上的题号 —— 系统内部的号码在下面自动编 */
   const pf=parseInt(g('mQf'),10), pt=parseInt(g('mQt'),10), mx=parseFloat(g('mMax'));
   if(!code){ toast('✕ 项目名称不能空'); return; }
@@ -3734,7 +3738,7 @@ function paintTail(sid){
     <h4>${title}${hint?`<span>${hint}</span>`:''}</h4>${body}</div>`;
 
   let inner='';
-  if(clQ.length) inner+=sub('粗心是哪一种','算错 / 抄错 / 没写完，教法完全不同',
+  if(clQ.length) inner+=sub('粗心是哪一种','算错 / 抄错 / 没写完 / 错字，教法完全不同',
     clQ.map(w=>`<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:5px">
       <span class="chip chip-warn">${esc(qLabelOf(w))}</span>
       ${CL_SUB.map(c=>`<button class="chip ${w.cl_subtype===c.v?'sel':'chip-muted'}"
@@ -4593,7 +4597,110 @@ async function newPaper(){
    云端删除要管理层（can_approve）—— 资料库本来就这样规定，所以按钮只给管理层。
    流程：列出笔数 → 下载备份 → 再确认 → 云端逐笔按 id 删、每笔核对删到 1 笔 → 云端确认后才删本机。
    任何一笔失败就停，没删成的留着，照实报。 */
+/* ══ v55 · Owner 2026-09-17：「我的记录」每一格都要有删除键 ══
+   v51 只在「有学生资料」时才显示，只登记过考卷项目的那一格就没有键 —— 删不掉。
+   现在每一格都有：先删自己填的学生资料，再删自己登记、底下没有任何学生资料的考卷项目。
+   有学生资料（包括别位老师的）的项目不在这里删 —— 要到第 ① 步逐个删（会列出资料、先下载备份）。
+   资料库规定删除只有管理层做得到：老师这边已上传的讲清楚找管理层，只在这台装置上的可以直接删。 */
+function myDataPicks(cls,subj){
+  const ex=EXK(), me=S.me, picks=[];
+  [['evalgo_live_obs',S.f1,'考前观察'],['evalgo_paper_analysis',S.f2,'考卷分析'],
+   ['evalgo_wrong_item',S.wi,'逐题'],['evalgo_essay_result',S.es,'写作']].forEach(([t,store,lab])=>{
+    Object.keys(store||{}).forEach(k=>{ const r=store[k];
+      if(!r||r.exam!==ex||r.by!==me||r.subject!==subj) return;
+      const st=stuOf(r.sid); if(!st||st.cls!==cls) return;
+      picks.push({t,store,k,r,lab}); }); });
+  return picks;
+}
+function myItemsFor(cls,subj){
+  const pre=EXK()+'|'+subj+'|'+yearOf(cls), out=[];
+  Object.keys(S.sections||{}).forEach(k=>{
+    if(!(k===pre||k.indexOf(pre+'|')===0)) return;
+    (S.sections[k]||[]).forEach(s=>{ if(s && s.by===S.me) out.push({key:k,s}); });
+  });
+  return out;
+}
+/* 这个项目底下，这台装置上有没有任何学生资料（不管是谁填的） */
+function itemLocalData(key,s){
+  const p=key.split('|'), subj=p[1], yr=+p[2], pi=piOfKey(key)||null, ex=EXK();
+  const yrOf=r=>{ const st=stuOf(r.sid); return st?yearOf(st.cls):(+r.year||0); };
+  const ok=(k,r)=>r&&r.exam===ex&&r.subject===subj&&keyInPaper(k,pi)&&yrOf(r)===yr;
+  if(Object.keys(S.f1||{}).some(k=>{const r=S.f1[k]; return ok(k,r)&&r.savedAt&&r.bahagian===s.code;})) return true;
+  if(hasRange(s) && Object.keys(S.wi||{}).some(k=>{const r=S.wi[k]; return ok(k,r)&&+r.q>=+s.qf&&+r.q<=+s.qt;})) return true;
+  if(Object.keys(S.es||{}).some(k=>{const r=S.es[k]; return ok(k,r)&&r.sec_code===s.code;})) return true;
+  return false;
+}
+function itemName(key,s){
+  const pi=piOfKey(key), pap=(S.papers||[]).find(x=>x.id===pi);
+  return (pap?paperLabelOf(pap)+' · ':'')+'项目「'+s.code+'」'+(hasRange(s)?'（'+rangeLabel(s)+'）':'');
+}
 async function clearMyCell(cls,subj){
+  const mgr=!!(CLOUD.perm&&CLOUD.perm.can_approve);
+  const picks=myDataPicks(cls,subj), items=myItemsFor(cls,subj);
+  if(!picks.length && !items.length){ toast('这一格没有你填的东西'); return; }
+  const upData=picks.filter(p=>p.r.cloud_id||p.r.synced), upItems=items.filter(x=>x.s.cloud_id||x.s.synced);
+  if(!mgr){
+    if(upData.length||upItems.length){
+      alert('删除已经上传的资料或考卷项目，要请管理层处理（系统规定）。\n\n请把这一行告诉管理层：\n'
+        +cls+' · '+subj+'（'
+        +[picks.length?('你填的 '+new Set(picks.map(p=>p.r.sid)).size+' 位学生资料'):'',
+          items.length?('你登记的 '+items.length+' 个考卷项目'):''].filter(Boolean).join('、')+'）'
+        +'\n\n只在这台装置上、还没上传的，可以直接删；这次没有动任何资料。');
+      return;
+    }
+    if(!confirm('删除你在 '+cls+' · '+subj+' 填的、还没上传的东西？\n\n'
+      +(picks.length?'· 学生资料 '+picks.length+' 笔\n':'')+(items.length?'· 考卷项目 '+items.length+' 个\n':'')
+      +'\n这些只在这台装置上，删了就找不回来。确定吗？')) return;
+    picks.forEach(p=>delete p.store[p.k]);
+    const gone=new Set(items.map(x=>x.s));
+    items.forEach(x=>{ S.sections[x.key]=(S.sections[x.key]||[]).filter(s=>!gone.has(s)); });
+    delAudit('删除我的记录（本机）',picks.length+items.length,cls+'|'+subj);
+    saveData(true); refreshAll(); renderRecords(); toast('✓ 已删除',2500);
+    return;
+  }
+  if(picks.length) await clearMyData(cls,subj);
+  if(items.length) await clearMyItems(cls,subj);
+}
+async function clearMyItems(cls,subj){
+  if(!_sb||!CLOUD.exam){ alert('要连上系统才能删除考卷项目。'); return; }
+  const items=myItemsFor(cls,subj), can=[], keep=[];
+  for(const x of items){
+    let busy=itemLocalData(x.key,x.s);
+    if(!busy && x.s.cloud_id){
+      for(const tb of ['evalgo_live_obs','evalgo_wrong_item','evalgo_essay_result']){
+        const c=await cloudCountBy(tb,'section_id',x.s.cloud_id);
+        if(!c.ok){ alert('删除中止：查不到系统里的笔数（'+plainErr(c.error)+'）。一个都没删。'); return; }
+        if(c.n>0){ busy=true; break; }
+      }
+    }
+    (busy?keep:can).push(x);
+  }
+  if(!can.length){
+    alert('你在 '+cls+' · '+subj+' 登记的考卷项目，底下都已经有学生资料（可能是其他老师填的）。\n\n'
+      +'这种项目要到「填写 → '+cls+' · '+subj+' → 第 ① 步」逐个按 × 删除，删之前会列出资料、先下载备份。\n\n'
+      +keep.map(x=>'· '+itemName(x.key,x.s)).join('\n'));
+    return;
+  }
+  if(!confirm('删除你在 '+cls+' · '+subj+' 登记的考卷项目？\n\n'
+    +can.map(x=>'· '+itemName(x.key,x.s)).join('\n')
+    +'\n\n这些项目底下都没有学生资料。删了之后，同年级同科的其他老师也看不到这些项目。'
+    +(keep.length?'\n\n另外 '+keep.length+' 个项目底下已经有学生资料，这次不删（要到第 ① 步逐个删）：\n'
+      +keep.map(x=>'· '+itemName(x.key,x.s)).join('\n'):'')
+    +'\n\n确定删除吗？')) return;
+  let okN=0; const fails=[];
+  for(const x of can){
+    if(x.s.cloud_id){
+      const r=await cloudDelById('evalgo_paper_section',x.s.cloud_id);
+      if(!r.ok||r.n!==1){ fails.push(itemName(x.key,x.s)+'：'+(r.error?plainErr(r.error):'没删成')); continue; }
+    }
+    S.sections[x.key]=(S.sections[x.key]||[]).filter(s=>s!==x.s); okN++;
+  }
+  delAudit('删除我登记的考卷项目',okN,cls+'|'+subj);
+  saveData(true); refreshAll(); renderRecords();
+  if(fails.length) alert('已删除 '+okN+' 个项目；'+fails.length+' 个没删成（留着没动）：\n'+fails.join('\n'));
+  else toast('✓ 已删除 '+okN+' 个考卷项目',3000);
+}
+async function clearMyData(cls,subj){
   if(!(CLOUD.perm&&CLOUD.perm.can_approve)){ alert('清除资料需要管理层权限。'); return; }
   if(!_sb||!CLOUD.exam){ alert('要连上系统才能清除。'); return; }
   const ex=EXK(), me=S.me, picks=[];
@@ -4673,8 +4780,8 @@ function renderRecords(){
         <button class="btn btn-pri" style="min-height:44px;padding:0 18px;
           font-weight:700;white-space:nowrap"
           onclick="enterCell('${m.cls}','${esc(m.su)}')">继续填</button>
-        ${(CLOUD.perm&&CLOUD.perm.can_approve&&(m.f1||m.f2||m.wi||m.es))?`<button class="btn" style="min-height:44px;padding:0 14px;white-space:nowrap;color:var(--danger)"
-          onclick="clearMyCell('${m.cls}','${esc(m.su)}')">🗑 清除</button>`:''}
+        <button class="btn" style="min-height:44px;padding:0 14px;white-space:nowrap;color:var(--danger)"
+          onclick="clearMyCell('${m.cls}','${esc(m.su)}')">🗑 删除</button>
       </div>
       <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:8px">
         ${(()=>{ const q=myCellStat(m.cls,m.su);
@@ -6427,7 +6534,7 @@ async function cloudPush(silent){
   };
   const TLAB={evalgo_live_obs:'考前观察',evalgo_paper_analysis:'考卷分析',evalgo_wrong_item:'逐题资料',
     evalgo_essay_result:'写作结果',evalgo_teacher_assign:'任课安排'};
-  const heldObs={};
+  const heldObs={}; let heldTypo=0;
   const jobNoPaper=jobs.filter(j=>j.t!=='evalgo_teacher_assign' && noPaper(j.k)).length;
   if(jobNoPaper) held.push(jobNoPaper+' 笔旧资料对不上是哪一份考卷，暂不上传。');
   for(const j of jobs){
@@ -6486,13 +6593,16 @@ async function cloudPush(silent){
       /* v53：evalgo_wrong_item_pi_key 已经含小题（09-17 实查）。还会撞到的只会是同一格真的已经有人填过 ——
          以前这里把它标成「已上传」，下一次读取就把老师点的记码盖掉。现在照一般失败处理，
          下一次读取时由撞车流程（同人认领 / 不同人标撞车）接手。 */
+      if(j.t==='evalgo_wrong_item' && /cl_subtype/i.test(msg)){ heldTypo++; continue; }   /* v55 */
       fail++; errs.push(plainErr(msg));
     }
   }
   Object.keys(heldObs).forEach(c=>held.push('考前观察 '+heldObs[c]+' 笔先放着：项目「'+c+'」还没上传（通常是还缺题号或满分）—— 到第 ① 步补上就会自动送出。'));
   CLOUD.busy=false; CLOUD.lastSync=new Date().toLocaleString('en-GB');
   CLOUD.held=held.filter((x,i)=>held.indexOf(x)===i);
-  CLOUD.heldObsN=Object.keys(heldObs).reduce((a,c)=>a+heldObs[c],0)+jobNoPaper;
+  if(heldTypo) held.push('粗心「错字」有 '+heldTypo+' 题先放着：系统还没开放这个选项，开放后会自动送出。');
+  CLOUD.held=held.filter((x,i)=>held.indexOf(x)===i);
+  CLOUD.heldObsN=Object.keys(heldObs).reduce((a,c)=>a+heldObs[c],0)+jobNoPaper+heldTypo;
   setTimeout(autoPushAfter,0);
   /* v22 · WritePath Iron Rule 3：先确定云端结果，再画状态。
      旧版先 paintCloud()、后写 pushErr；成功时还可能保留上一次错误。
