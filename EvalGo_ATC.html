@@ -401,7 +401,7 @@ button.chip.sel-w{background:var(--warn);color:#fff}
   font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei',sans-serif">
   你这台装置跑的是旧版本。<span id="eg-stale-ver"></span>
   <button onclick="egApplyUpdate()" style="margin-left:10px;background:#fff;color:#1d4ed8;border:0;
-    border-radius:6px;padding:4px 12px;font-weight:700;font-size:12px;cursor:pointer;">做完这一位再按</button>
+    border-radius:6px;padding:4px 12px;font-weight:700;font-size:12px;cursor:pointer;">现在更新（先做完这一位）</button>
 </div>
 
 <!-- ══════ NAV ══════ -->
@@ -483,7 +483,7 @@ button.chip.sel-w{background:var(--warn);color:#fff}
    权限码：RPT-EvalGo-ATC
    ══════════════════════════════════════════════════════════════════ */
 
-const APP_VERSION = 52;
+const APP_VERSION = 53;
 
 /* ══ v46 · 旧版本守门 ══════════════════════════════════
    MiscGo 那边抓到实例：网址对、程式旧（手机快取把旧 HTML 钉住）。
@@ -617,8 +617,21 @@ function aStat(r){ return (r&&r.assess_status)||'ASSESSED'; }
 function isHandled(r){ return !!r && (aStat(r)!=='ASSESSED' || f2State(r)==='done'); }
 function setAStat(sid, v){
   const r=f2Draft(sid);
+  /* v53：标缺席时上传的是空白 —— 先把原本填的收起来（放在读取资料碰不到的地方），改回来时还原 */
+  const kk=f2Key(sid); S.absentKeep=S.absentKeep||{};
+  const KEEP=['tp','paper_checked','paper_checked_at','done_options','done_note','next_options','next_note',
+    'fix_outcome','fix_target','parent_support','reflect_was_wrong','reflect_now_know','weak_manual','weak_note'];
+  if(v!=='ASSESSED' && aStat(r)==='ASSESSED'){
+    const o={}; KEEP.forEach(f=>{ if(r[f]!=null) o[f]=JSON.parse(JSON.stringify(r[f])); });
+    S.absentKeep[kk]=o;
+  }else if(v==='ASSESSED' && S.absentKeep[kk]){
+    const o=S.absentKeep[kk];
+    KEEP.forEach(f=>{ const empty=(r[f]==null||r[f]===''||r[f]===false||(Array.isArray(r[f])&&!r[f].length));
+      if(empty && o[f]!=null) r[f]=o[f]; });
+    delete S.absentKeep[kk];
+  }
   r.assess_status=v; r.synced=false;
-  if(v!=='ASSESSED'){ r.savedAt=new Date().toLocaleString('en-GB'); stampF2(r,sid); }
+  r.savedAt=new Date().toLocaleString('en-GB'); stampF2(r,sid);
   saveData(true); closeModal(); renderF2(); renderHome();   /* v25 R-H4：缺席／本轮未评不走 debounce */
   toast(v==='ASSESSED'?'✓ 改回已评量':('✓ 记为「'+ASTAT[v].lab+'」'));
   autoPush();
@@ -638,7 +651,7 @@ function setAStat(sid, v){
 function stResolved(sid){ return aStat(S.f2[f2Key(sid)])!=='ASSESSED'; }   /* ① 缺席 / 本轮未评 */
 function opResolved(sid,kind){                                            /* ① 已处理 */
   if(stResolved(sid)) return true;
-  return kind==='f1' ? f1Complete(sid).length>0
+  return kind==='f1' ? f1Complete(sid,undefined,undefined,curPi()).length>0
                      : f2State(S.f2[f2Key(sid)])==='done';
 }
 function assessComplete(sid){                                             /* ② 证据齐 */
@@ -876,7 +889,11 @@ function syncTap(){
   if(canSeeManage()){ goPage('manage'); return; }   /* v28：系统页走 canSeeManage，MGMT 不进 */
   const p=pendingCount();
   if(p>0||CLOUD.pushErr){
-    alert('还有 '+p+' 笔还没上传。\n\n资料还在这台电脑，没有掉。\n请截图这个讯息，找管理层处理。');
+    const why=(CLOUD.held||[]).slice(0,6);
+    alert('还有 '+p+' 笔还没上传。资料还在这台电脑，没有掉。'
+      +(why.length?'\n\n原因：\n· '+why.join('\n· '):'')
+      +(CLOUD.pushErr?'\n\n上一次上传的问题：'+plainErr(CLOUD.pushErr):'')
+      +'\n\n上面写了怎么做的，照着做就会自动送出；其他情况请截图这个讯息，找管理层处理。');
   }else if(CLOUD.exam&&CLOUD.session){
     alert('✓ 你填的资料都已经上传了。');
   }else{
@@ -1123,14 +1140,9 @@ async function loadPapers(){
            · 没被分配 → **给这一格全部的卷**，不再挡
          实证理由：排课表里有 8 格的老师从来没在 EvalGo 勾过任教，
          旧规则下她们看到零份卷、进不去，而且画面不会说为什么。 */
-      if(papers.length && !isAdmin() && S.me){
-        const tr=await _sb.from('evalgo_paper_teacher')
-          .select('paper_instance_id').eq('class_id',cid).eq('teacher_id',S.me);
-        if(tr.error) throw tr.error;                  /* v27：查失败不可默默变成零份 */
-        const mine=new Set((tr.data||[]).map(x=>x.paper_instance_id));
-        const own=papers.filter(p=>mine.has(p.id));
-        if(own.length) papers=own;                    /* 有分配 → 用自己的；没有 → 保留全部 */
-      }
+      /* v53：不再只给老师「自己负责的卷」—— 老师一建新卷就被分配到新卷，
+         原本在填的考卷 1 就从清单上消失，她填过的资料跟着「不见」。
+         v28 的规矩是选了班科就能进，所以这一格的卷全部列出来；自己负责的在卡片上有标记。 */
       S.papers=papers.sort((a,b)=>(a.sort_order||0)-(b.sort_order||0)
                                  ||String(a.created_at||'').localeCompare(String(b.created_at||'')));
       /* 卡片上要盖老师代号。新卷看 created_by；旧卷（LEGACY_SEED）没有建立者，
@@ -1165,17 +1177,21 @@ function pickPaper(id){
   S.paperInstance=id; saveData(true);
   goPage('bp');
 }
-function paperLabelOf(p){
-  /* v52：旧卷的名字是程式预设的 Legacy —— 画面上一律叫「考卷 N」 */
-  const base=p.display_no?('考卷 '+p.display_no):'考卷';
-  const lab=String(p.label||'').trim();
+function paperLabelOf(p,i){
+  /* v52：旧卷的名字是程式预设的 Legacy —— 画面上一律叫「考卷 N」
+     v53：名字本身就是「考卷 N」时不重复；没有编号就用它在清单上的顺序 */
+  const lab=String((p&&p.label)||'').trim();
+  if(/^考卷\s*\d+$/.test(lab)) return lab.replace(/^考卷\s*/,'考卷 ');
+  let no=p&&p.display_no;
+  if(!no){ const j=(i!=null)?i:(S.papers||[]).indexOf(p); if(j>=0) no=j+1; }
+  const base='考卷'+(no?' '+no:'');
   return (!lab||/^legacy$/i.test(lab)) ? base : base+' · '+lab;
 }
 function paperSelectorHTML(){
   const ps=S.papers||[];
   if(!ps.length) return `<div class="card"><div class="empty" style="padding:26px">
-    <b style="color:var(--warn)">这个班级 / 科目还没有建立考卷。</b><br>
-    <span class="tip" style="margin-top:6px">请管理层先建立考卷，才能开始输入。</span></div></div>`;
+    <b style="color:var(--warn)">这个班级 / 科目还没有考卷。</b><br>
+    <span class="tip" style="margin-top:6px">按「开始」，在选卷页建立第一份。</span></div></div>`;
   return `<div class="card"><div class="card-hdr"><span class="card-title">选择考卷</span>
     <span class="tip" style="margin:0">${esc(S.cls)} · ${esc(S.subject)} 有 ${ps.length} 份卷 — 请明确选一份再输入</span></div>
     <div class="dept-row" style="flex-wrap:wrap;gap:8px">
@@ -1252,6 +1268,9 @@ function addSection(){
 function setEven(id,v){
   if(!bpCanEditPaper()){ toast('✕ 你的帐号没有填写权限 —— 请找管理层开通',3200); return; }
   const arr=S.sections[bpKey()]||[]; const sec=arr.find(x=>x.id===id); if(!sec) return;
+  const nEv=bpEvidCount();
+  if(nEv && !confirm('这份考卷已经有学生资料。\n\n改「每题同分 / 不同分」，这些学生的得分会立刻跟着变。确定要改吗？')) return;
+  qmLogPush(sec);                          /* v53 · DL-20：改分数要留痕 */
   sec.even = (sec.even===v) ? '' : v;      /* 再点一次 = 取消声明 */
   markSecDirty(sec);
   if(saveThen(sec.even==='Y'?'✓ 记为每题同分':(sec.even==='N'?'✓ 记为每题不同分':'已取消声明'))){
@@ -1352,7 +1371,7 @@ function bpQmSync(){
   });
 }
 function bpQmAddQ(){ bpQmSync();
-  BPQM.push({q:'',mode:'S',m:'',subs:['','','']}); bpQmRender(); }
+  BPQM.push({q:'',mode:'S',m:'',subs:['','']}); bpQmRender(); }   /* v53：预设两个小题，要 c 再按「+ 加小题」 */
 function bpQmDel(i){ bpQmSync(); BPQM.splice(i,1); bpQmRender(); }
 function bpQmMode(i,mode){ bpQmSync(); if(BPQM[i]) BPQM[i].mode=mode; bpQmRender(); }
 function bpQmAddSub(i){ bpQmSync();
@@ -1363,17 +1382,78 @@ function bpQmDelSub(i){ bpQmSync();
   const r=BPQM[i]; if(!r) return;
   if(r.subs.length<=2){ toast('✕ 有小题的题目至少要两个小题'); return; }
   r.subs.pop(); bpQmRender(); }
+/* v53 · 储存前的检查（加项目 / 改项目 / 改分数共用）
+   err    = 挡下来，讲清楚哪里不对
+   blanks = 可以存，但要先讲「这几格没分数 → 这个项目算不出分数」 */
+function qmCheck(rows,qf,qt,mx){
+  const seen={}, blanks=[];
+  for(const r of (rows||[])){
+    const hasVal = r.mode==='S' ? (r.subs||[]).some(v=>String(v==null?'':v).trim()!=='')
+                                : String(r.m==null?'':r.m).trim()!=='';
+    const n=parseInt(r.q,10);
+    if(!(n>=1)){ if(hasVal) return {err:'有一行填了分数，但没填是第几题 —— 请补上题号，或按那一行的「× 移除」'}; continue; }
+    if(seen[n]) return {err:'第 '+n+' 题填了两行 —— 同一题只能留一行'};
+    seen[n]=1;
+    if(r.mode==='S') (r.subs||[]).forEach((v,j)=>{ if(String(v==null?'':v).trim()==='') blanks.push('第 '+n+' 题 '+SUBQ[j]); });
+    else if(!hasVal) blanks.push('第 '+n+' 题');
+  }
+  const qm=qmFromRows(rows);
+  if(qm){
+    const exQ=qmExcQs(qm);
+    for(const q of exQ) if(!(+q>=+qf && +q<=+qt))
+      return {err:'第 '+q+' 题不在这个项目的题号范围（'+qf+'–'+qt+'）里'};
+    for(const q of Object.keys(qm.subs||{})) if(Object.keys(qm.subs[q]).length<2)
+      return {err:'第 '+q+' 题只有一个小题 —— 有小题的题目至少要两个（a、b）'};
+    const sum=qmExcSum(qm), totQ=(+qt)-(+qf)+1, rest=totQ-exQ.length;
+    if(sum!=null){
+      if(sum>mx) return {err:'这几题加起来 '+sum+' 分，超过这个项目的 '+mx+' 分'};
+      if(rest>0 && sum===mx) return {err:'这几题就用掉全部 '+mx+' 分，其余 '+rest+' 题会变成 0 分'};
+      if(rest===0 && sum!==mx) return {err:'每一题都列出来了，但加起来 '+sum+' 分，不等于 '+mx+' 分'};
+    }
+  }
+  return {err:'',blanks,qm};
+}
+function qmBlankConfirm(blanks){
+  if(!blanks.length) return true;
+  return confirm('还有分数没填：'+blanks.join('、')+'\n\n'
+    +'没填的话，这个项目会「算不出分数」，报告上不会有这个项目的分数。\n'
+    +'（如果这一题其实没有这个小题，请按「− 减小题」把它拿掉。）\n\n确定先这样储存吗？');
+}
+/* 这些格子还没填分数（给画面讲原因用） */
+function qmBlankList(qm){
+  const out=[];
+  if(qmEmpty(qm)) return out;
+  Object.keys(qm.subs||{}).sort((a,b)=>(+a)-(+b)).forEach(q=>{ const o=qm.subs[q]||{};
+    Object.keys(o).sort().forEach(l=>{ if(o[l]==null) out.push('第 '+q+' 题 '+l); }); });
+  Object.keys(qm.per_q||{}).sort((a,b)=>(+a)-(+b)).forEach(q=>{ if(qm.per_q[q]==null) out.push('第 '+q+' 题'); });
+  return out;
+}
+/* 这个项目为什么算不出分数 —— 讲老师看得懂、做得到的原因 */
+function secWhyNoScore(sec){
+  if(!hasRange(sec)) return '还没填题号';
+  if(!(+sec.max>0)) return '还没填满分';
+  if(!qmEmpty(sec.qm)){
+    const b=qmBlankList(sec.qm);
+    return b.length ? b.join('、')+' 还没填分数' : '列出来的题分数加起来不对';
+  }
+  if(sec.even==='N') return '选了「每题不同分」，还没填哪几题分数不一样';
+  return '还没选「每题同分」或「不同分」';
+}
 /* 其余题平均分 —— 即时算给老师看。算不出就说算不出，不要猜。 */
 function bpQmHint(){
   const g=id=>{const e=document.getElementById(id); return e?String(e.value||'').trim():'';};
   const qf=parseInt(g('mQf'),10), qt=parseInt(g('mQt'),10), mx=parseFloat(g('mMax'));
+  const ck=qmCheck(BPQM,qf,qt,mx);
+  if(ck.err && qf>=1 && qt>=qf && mx>0) return '<span style="color:var(--dng,#b91c1c)">'+esc(ck.err)+'</span>';
   const qm=qmFromRows(BPQM), exQ=qmExcQs(qm), exN=exQ.length, sum=qmExcSum(qm);
   if(!exN) return '';
   if(!(qf>=1)||!(qt>=qf)||!(mx>0))
     return '<span style="color:var(--warn,#b45309)">先填题号与满分</span>';
   const totQ=qt-qf+1, rest=totQ-exN;
   if(rest<0) return '<span style="color:var(--dng,#b91c1c)">例外题比整个项目的题数还多，检查一下题号。</span>';
-  if(sum==null) return '其余 '+rest+' 题：分数填完才算得出来';
+  if(sum==null) return '<span style="color:var(--warn,#b45309)">'+esc((ck.blanks||[]).join('、'))
+    +' 还没填分数 —— 填好之后，其余 '+rest+' 题会自动平分剩下的分数。'
+    +'（这一题没有这个小题的话，按「− 减小题」）</span>';
   if(sum>mx) return '<span style="color:var(--dng,#b91c1c)">加起来 '+sum+' 分 > 满分 '+mx+' 分</span>';
   if(!rest) return sum===mx?'刚好 '+mx+' 分 ✓'
     :'<span style="color:var(--dng,#b91c1c)">加起来 '+sum+' 分 ≠ '+mx+' 分</span>';
@@ -1435,14 +1515,20 @@ function evenCell(sec){
   const b=(val,lab,t)=>`<button class="btn btn-sm${v===val?' btn-pri':''}"
      style="padding:3px 8px;font-size:11px" title="${t}"
      onclick="setEven('${sec.id}','${val}')">${lab}</button>`;
-  const pq=secPerQ(sec);
+  /* v53：下面那行小字跟算分用同一支（qmRest），不再各说各的 */
+  const r2=x=>Math.round(x*100)/100;
+  const per=qmRest(sec), hasQm=!qmEmpty(sec.qm);
+  const note=(txt,warn)=>`<div style="font-size:10.5px;color:var(--${warn?'warn':'mut'});margin-top:2px">${txt}</div>`;
+  let n;
+  if(!hasRange(sec)) n=note('还没填题号 · 算不出',1);
+  else if(!(+sec.max>0)) n=note('还没填满分 · 算不出',1);
+  else if(hasQm) n = per==null ? note(esc(secWhyNoScore(sec))+' · 算不出',1)
+                   : note(per>0?('其余每题 '+r2(per)+' 分'):'每一题分数都填了');
+  else if(v==='Y') n=note('每题 '+r2(per)+' 分');
+  else if(v==='N') n=note('请按「改分数」填哪几题不同',1);
+  else n=note('还没选 · 算不出',1);
   return `<div style="display:flex;gap:4px">${b('Y','同分','这个项目每一题分数一样')}${
-    b('N','不同','每题分数不一样，这个项目不算分')}</div>${
-    (v==='Y'&&pq!=null)
-      ? `<div style="font-size:10.5px;color:var(--mut);margin-top:2px">每题 ${
-          Math.round(pq*100)/100} 分</div>`
-      : (v===''?'<div style="font-size:10.5px;color:var(--warn);margin-top:2px">未声明 · 不算分</div>'
-              :'<div style="font-size:10.5px;color:var(--mut);margin-top:2px">不参与算分</div>')}`;
+    b('N','不同','每题分数不一样 —— 再按「改分数」填哪几题不同')}</div>${n}`;
 }
 
 /* ══ v26 F7 Controlled Delete ══
@@ -1450,7 +1536,7 @@ function evenCell(sec){
    有 evidence（含【只有 live_obs】的情形）→ 影响评估 → 警告 → 完整 JSON 备份 → 下载闸 →
    子资料逐张验删（子先父后、不靠 CASCADE）→ 最后删 section → 最终不存在检查。 */
 function delAudit(what,n,extra){ if(!Array.isArray(S.audit))S.audit=[]; S.audit.unshift({at:new Date().toISOString(),by:S.me||'',what,n,extra:extra||''}); S.audit=S.audit.slice(0,80); }
-function secScopeMatch(k){ return k.endsWith(piSuffix()); }
+function secScopeMatch(k){ return k.indexOf(EXK()+'|')===0 && keyInPaper(k,curPi()); }   /* v53：旧格式不再全年级都算进来 */
 function secImpact(s){
   const su=S.subject, code=s.code;
   const qin=(w)=> (s.qf!=null&&s.qt!=null&&+w.q>=+s.qf&&+w.q<=+s.qt);
@@ -1485,11 +1571,36 @@ async function delSection(id){
   if(!bpCanEditPaper()){ toast('✕ 你的帐号没有填写权限 —— 请找管理层开通',3200); return; }
   const arr=S.sections[bpKey()]||[];
   const s=arr.find(x=>x.id===id); if(!s) return;
-  const imp=secImpact(s);
+  let imp=secImpact(s);
+  const pap=(S.papers||[]).find(x=>x.id===S.paperInstance);
+  const where=S.cls+' · '+S.subject+(pap?' · '+paperLabelOf(pap):'')+' · 项目「'+s.code+'」';
+  const isMgr=!!(CLOUD.perm&&CLOUD.perm.can_approve);
+  /* v53：系统规定已上传的项目只有管理层删得掉 —— 老师先讲清楚，不要按了确定才说不行 */
+  if(s.cloud_id && !isMgr){
+    alert('删除已经上传的考卷项目，要请管理层处理。\n\n请把这一行告诉管理层：\n'+where
+      +'\n\n管理层删除时，只会删这个项目和它底下的学生资料，其他项目、其他考卷都不受影响。');
+    return;
+  }
+  if(!s.cloud_id && imp.total && !isMgr){
+    alert('这个项目底下已经有学生资料，删除要请管理层处理。\n\n请把这一行告诉管理层：\n'+where);
+    return;
+  }
+  /* v53：这台装置上看起来没有学生资料，不代表系统里没有（管理层的装置常常没有老师的资料）——
+     先数系统里的；有的话停下来，请她先重新读取，不要直接删项目 */
+  if(imp.total===0 && s.cloud_id && _sb && CLOUD.exam){
+    let tot=0;
+    for(const tb of ['evalgo_live_obs','evalgo_wrong_item','evalgo_essay_result']){
+      const c=await cloudCountBy(tb,'section_id',s.cloud_id);
+      if(!c.ok){ alert('删除中止：查不到系统里的笔数（'+plainErr(c.error)+'）。一笔都没删。'); return; }
+      tot+=c.n; }
+    if(tot>0){
+      alert('系统里这个项目底下有 '+tot+' 笔学生资料，这台装置还没读到。一笔都没删。\n\n请先到「管理」按「重新读取资料」，再删一次 —— 那时会列出这些资料并先下载备份。');
+      return; }
+  }
 
   /* ---- 无 student evidence ---- */
   if(imp.total===0){
-    if(!confirm(`删除项目「${s.code}」？目前还没有任何学生资料。`)) return;
+    if(!confirm(`删除项目「${s.code}」？\n\n这个项目底下还没有任何学生资料。`)) return;
     if(s.cloud_id && _sb && CLOUD.exam){
       if(!(CLOUD.perm&&CLOUD.perm.can_approve)){ alert('删除需要管理层权限。什么都没删。'); return; }
       const r=await cloudDelById('evalgo_paper_section',s.cloud_id);
@@ -1503,8 +1614,15 @@ async function delSection(id){
 
   /* ---- 有 evidence：受控永久删除 ---- */
   if(!(CLOUD.perm&&CLOUD.perm.can_approve)){
-    alert('这个项目底下已经有 '+imp.total+' 笔学生资料，删除需要管理层权限。'); return; }
-  if(!confirm(`项目「${s.code}」已关联：\n考前观察 ${imp.f1.length} · 逐题 ${imp.wi.length} · 作文 ${imp.es.length}（共 ${imp.total} 笔）\n\n删除会永久删除这些资料，无法复原。确定继续？`)) return;
+    alert('这个项目底下已经有学生资料，删除要请管理层处理。'); return; }
+  const stuN=a=>new Set(a.map(x=>x[1].sid)).size;
+  const who=[...new Set([].concat(imp.f1,imp.wi,imp.es).map(x=>x[1].by).filter(Boolean))].map(teacherLabel);
+  if(!confirm(where+'\n\n底下的学生资料：'
+    +(imp.f1.length?`\n· 考前观察 ${imp.f1.length} 笔（${stuN(imp.f1)} 位学生）`:'')
+    +(imp.wi.length?`\n· 逐题 ${imp.wi.length} 笔（${stuN(imp.wi)} 位学生）`:'')
+    +(imp.es.length?`\n· 写作 ${imp.es.length} 笔（${stuN(imp.es)} 位学生）`:'')
+    +(who.length?'\n填写的老师：'+who.join('、'):'')
+    +'\n\n删除会连这些资料一起永久删除，无法复原。\n其他项目、其他考卷都不受影响。确定继续？')) return;
 
   /* Step A + B：完整备份 + 下载闸（未成功启动 → BLOCK） */
   const backup={when:new Date().toISOString(),exam:CLOUD.exam.code,paper:S.paperInstance||'(legacy)',
@@ -1637,34 +1755,83 @@ function plainErr(e){
   console.warn('[原始错误]',m);
   if(/failed to fetch|network|timeout|程式库|load failed/i.test(m)) return '网路连不上，请检查网路后再试';
   if(/permission|row-level|42501|\b401\b|\b403\b|jwt|not authorized/i.test(m)) return '这个帐号没有做这件事的权限，请找管理层';
-  if(/duplicate|23505|\b409\b|conflict/i.test(m)) return '同一格已经有人填过了';
+  if(/duplicate|23505|\b409\b|conflict/i.test(m)) return '同一格在系统里已经有资料了（可能是你在另一台装置填的，或其他老师）——重新整理页面后再看一次';
+  if(/foreign key|23503|violates.*constraint|23502|null value/i.test(m)) return '有资料对不上它的考卷项目（通常是项目还没上传）—— 到第 ① 步把项目补齐';
   if(/[\u4e00-\u9fff]/.test(m) && !/[A-Za-z_]{4,}/.test(m)) return m;
   return '系统暂时出错，请稍后再试；还是不行请截图找管理层';
 }
 const ROLE_LAB={OWNER:'负责人',ADMIN:'管理员',MGMT:'管理层',MANAGEMENT:'管理层',TEACHER:'老师'};
 function roleLab(r){ return r?(ROLE_LAB[String(r).toUpperCase()]||r):'—'; }
-/* v52 · 填写三步引导的数字 —— 只算【这一份卷】 */
-function stepStat(){
-  const list=inCls(S.cls), tot=list.length;
-  const pap=(S.papers||[]).find(x=>x.id===S.paperInstance);
-  const nSec=sections().length, nLg=legacySections().length;
-  let obs=0, full=0, obsLeft=0, papLeft=0;
-  if(pap){
-    const ex=EXK(), suf='|'+pap.id, has={};
-    Object.keys(S.f1||{}).forEach(k=>{ if(k.slice(-suf.length)!==suf) return; const r=S.f1[k];
-      if(r&&r.exam===ex&&r.savedAt&&r.subject===S.subject&&r.sid) has[r.sid]=1; });
-    list.forEach(x=>{
-      const st=f2State(S.f2[ex+'|'+x.sid+'|'+S.subject+'|'+pap.id]);
-      if(has[x.sid]) obs++;
-      if(st==='absent'||st==='notassessed') return;
-      if(!has[x.sid]) obsLeft++;
-      if(st==='done') full++; else papLeft++;
-    });
-  }else{
-    const cs=cardStat(S.cls,S.subject);
-    obs=cs.obsDone; full=cs.papFull; obsLeft=cs.obsLeft.length; papLeft=cs.papLeft.length;
+/* ══ v53 · 同一把尺 ══════════════════════════════════════════════
+   Owner 09-15 DL-18：① 分母 = 全班 ② 分子 = 有资料的人数 ③ 完成另起一行。
+   v52 以前「有没有考卷分析资料」只看考卷分析那一笔 —— 学生只有逐题 / 写作资料时，
+   每个数人数的画面都当他「什么都没有」（09-17 ATC2 马来文 20 笔就是这样看不见）。
+   现在全系统只问这几支，不准各写各的。 */
+function curPi(){ return (CLOUD.hasPI && S.paperInstance) ? S.paperInstance : null; }
+function keyInPaper(k,pi){ k=String(k||''); return pi ? k.slice(-(String(pi).length+1))==='|'+pi : !keyHasPaper(k); }
+const _recPi=new WeakMap();
+/* 一笔纪录属于哪一份卷 —— 从它在本机的 key 读出来（不是当下开着哪一份） */
+function recPiOf(p){
+  if(!p||typeof p!=='object') return curPi();
+  if(_recPi.has(p)) return _recPi.get(p);
+  for(const st of [S.f2,S.wi,S.es,S.f1]){
+    for(const k in (st||{})){ if(st[k]===p){ const v=piOfKey(k)||null; _recPi.set(p,v); return v; } }
   }
-  return {tot,nSec,nLg,obs,full,obsLeft,papLeft};
+  return curPi();
+}
+function f2KeyOf(sid,subj,pi){ return EXK()+'|'+sid+'|'+subj+(pi?'|'+pi:''); }
+/* 这位学生、这一科、这一份卷的逐题 / 写作纪录 */
+function marksOnPaper(sid,subj,pi){
+  const pre=EXK()+'|'+sid+'|'+subj+'|';
+  const pick=st=>Object.keys(st||{}).filter(k=>k.indexOf(pre)===0 && keyInPaper(k,pi) && st[k] && st[k].savedAt).map(k=>st[k]);
+  return {wi:pick(S.wi), es:pick(S.es).filter(e=>e.score!=null||(e.weak||[]).length||e.star)};
+}
+/* 考卷分析这一步的状态（一份卷）：done / progress / absent / notassessed / none */
+function paperStateOf(sid,subj,pi){
+  const st=f2State(S.f2[f2KeyOf(sid,subj,pi)]);
+  if(st!=='none') return st;
+  const m=marksOnPaper(sid,subj,pi);
+  return (m.wi.length||m.es.length) ? 'progress' : 'none';
+}
+/* 这位学生这一科碰过哪几份卷 */
+function papersTouched(sid,subj){
+  const pre=EXK()+'|'+sid+'|'+subj, set={};
+  [S.f2,S.wi,S.es].forEach(st=>Object.keys(st||{}).forEach(k=>{
+    if(k===pre||k.indexOf(pre+'|')===0) set[piOfKey(k)||'']=1; }));
+  return Object.keys(set).map(x=>x||null);
+}
+/* 跨所有卷（首页卡片 / 进度页 / 覆盖追踪 / 报告达标表用） */
+function stateAcross(sid,subj){
+  const sts=papersTouched(sid,subj).map(pi=>paperStateOf(sid,subj,pi));
+  for(const s of ['done','progress','absent','notassessed']) if(sts.indexOf(s)>=0) return s;
+  return 'none';
+}
+/* 这一笔是不是别位老师填的 */
+function notMine(r){ return !!(r && r.by && S.me && r.by!==S.me); }
+/* 这位学生这份卷，是不是已经有别位老师在做考卷分析 */
+function paperOtherBy(sid,subj,pi){
+  const r=S.f2[f2KeyOf(sid,subj,pi)];
+  if(notMine(r) && f2State(r)!=='none') return r.by;
+  const m=marksOnPaper(sid,subj,pi);
+  const o=m.wi.concat(m.es).find(notMine);
+  return o?o.by:'';
+}
+/* 填写三步引导的数字 —— 只算【这一份卷】 */
+function stepStat(){
+  const list=inCls(S.cls), tot=list.length, pi=curPi();
+  const nSec=sections().length, nLg=legacySections().length;
+  let obs=0, started=0, full=0, obsLeft=0, papLeft=0, resolved=0;
+  const names={obs:[],pap:[]};
+  list.forEach(x=>{
+    const st=paperStateOf(x.sid,S.subject,pi);
+    const hasObs=f1Complete(x.sid,S.subject,undefined,pi).length>0;
+    if(hasObs) obs++;
+    if(st==='absent'||st==='notassessed'){ resolved++; return; }   /* 已处理，不再催 */
+    if(!hasObs){ obsLeft++; names.obs.push(x); }
+    if(st==='done'){ started++; full++; }
+    else { if(st==='progress') started++; papLeft++; names.pap.push(x); }
+  });
+  return {tot,nSec,nLg,obs,started,full,obsLeft,papLeft,resolved,names};
 }
 function hero(eyebrow,title,sub){
   return `<div class="hero"><div class="eyebrow">${esc(eyebrow)}</div><h1>${esc(title)}</h1>${
@@ -1691,8 +1858,8 @@ function cellChrome(active){
   const NO=['①','②','③'];
   const stat={
     bp: ss.nSec ? (ss.nLg ? ss.nLg+' 个项目缺题号' : '✓ '+ss.nSec+' 个项目') : '还没登记',
-    f1: ss.nSec ? ss.obs+' / '+ss.tot+' 位' : '先做第 ① 步',
-    f2: ss.nSec ? ss.full+' / '+ss.tot+' 位完成' : '先做第 ① 步'
+    f1: ss.nSec ? ss.obs+' / '+ss.tot+' 位'+(ss.resolved?' · '+ss.resolved+' 位缺席':'') : '先做第 ① 步',
+    f2: ss.nSec ? ss.started+' / '+ss.tot+' 位'+(ss.started?' · 完成 '+ss.full:'') : '先做第 ① 步'
   };
   const done={ bp: ss.nSec>0&&!ss.nLg, f1: ss.nSec>0&&ss.tot>0&&!ss.obsLeft, f2: ss.nSec>0&&ss.tot>0&&!ss.papLeft };
   h+=`<div class="steps">
@@ -1705,7 +1872,7 @@ function cellChrome(active){
   if(!ss.nSec){ nx='第 ① 步：先把这份考卷有哪些项目列出来（Bahagian、题型、题号范围）。'; go='bp'; }
   else if(ss.nLg){ nx='第 ① 步还没做完：'+ss.nLg+' 个项目没填题号范围。'; go='bp'; }
   else if(ss.obsLeft){ nx='第 ② 步：还有 '+ss.obsLeft+' 位学生没做考前观察。'; go='f1'; }
-  else if(ss.papLeft){ nx='第 ③ 步：还有 '+ss.papLeft+' 位学生的考卷没分析完。'; go='f2'; }
+  else if(ss.papLeft){ nx='第 ③ 步：还有 '+ss.papLeft+' 位学生的考卷分析没完成（要按「✓ 已核对整份」并选掌握程度）。'; go='f2'; }
   else nx='三步都做完了 —— 按右上的「完成填写 ✓」。';
   h+=`<div class="step-next"><span><b>现在要做</b>　${nx}</span>${go&&go!==active
     ?`<button class="btn btn-pri btn-sm" style="min-height:44px;padding:0 16px" onclick="goPage('${go}')">去第 ${NO[go==='bp'?0:(go==='f1'?1:2)]} 步 →</button>`:''}</div>`;
@@ -1717,21 +1884,25 @@ function teacherLabel(tid){
   return (t&&(t.name||t.display_name||t.code))||tid||'';
 }
 function cellDone(){
-  const st=cardStat(S.cls,S.subject);
-  const left=[];
-  if(!st.secs) left.push('考卷项目还没登记');
-  if(st.obsLeft.length) left.push('考前观察还剩 '+st.obsLeft.length+' 位');
-  if(st.papLeft.length) left.push('考卷分析还剩 '+st.papLeft.length+' 位');
+  /* v53：以前这里跨所有卷算，步骤条只算这一份卷 —— 两边讲的话相反。 */
+  const ss=stepStat(), left=[];
+  const pap=(S.papers||[]).find(x=>x.id===S.paperInstance);
+  if(!ss.nSec) left.push('第 ① 步：考卷项目还没登记');
+  else{
+    if(ss.nLg) left.push('第 ① 步：'+ss.nLg+' 个项目还没填题号');
+    if(ss.obsLeft) left.push('第 ② 步：考前观察还剩 '+ss.obsLeft+' 位');
+    if(ss.papLeft) left.push('第 ③ 步：考卷分析还剩 '+ss.papLeft+' 位');
+  }
   if(left.length){
     const seen={}, names=[];
-    st.obsLeft.concat(st.papLeft).forEach(r=>{ if(!seen[r.sid]){ seen[r.sid]=1; names.push(nameOf(r)); } });
-    alert('还不能算完成 —— '+S.cls+' · '+S.subject+'\n\n· '+left.join('\n· ')
+    if(ss.nSec) ss.names.obs.concat(ss.names.pap).forEach(r=>{ if(!seen[r.sid]){ seen[r.sid]=1; names.push(nameOf(r)); } });
+    alert('还不能算完成 —— '+S.cls+' · '+S.subject+(pap?' · '+paperLabelOf(pap):'')+'\n\n· '+left.join('\n· ')
       +(names.length?'\n\n还没处理的学生：\n'+names.slice(0,20).join('、')
         +(names.length>20?'\n…等共 '+names.length+' 位':''):'')
-      +'\n\n提醒：缺席 / 本轮未评 也算「处理过了」—— 在考卷分析页标记就可以。');
+      +'\n\n提醒：缺席 / 本轮未评 也算「处理过了」—— 在考卷分析页按学生旁边的「⋯」标记就可以。');
     return;
   }
-  toast('✓ '+S.cls+' · '+S.subject+' 全部处理完了',3000);
+  toast('✓ '+S.cls+' · '+S.subject+(pap?' · '+paperLabelOf(pap):'')+' 全部处理完了',3000);
   try{ autoPush(); }catch(e){}
   goPage('home');
 }
@@ -1840,11 +2011,7 @@ function cardStat(cls,subj){
        **没有卷号後缀**。多卷上线後这支永远查不到资料，於是
        「完成填写 ✓」不管老师做了多少，一律回「还剩 N 位」。
        改走 f2AllOf(sid, subj)，跟 pgStat 同一支真相，任一份卷都算。 */
-    const sts=f2AllOf(r.sid,subj).map(f2State);
-    const st = sts.indexOf('done')>=0        ? 'done'
-             : sts.indexOf('progress')>=0    ? 'progress'
-             : sts.indexOf('absent')>=0      ? 'absent'
-             : sts.indexOf('notassessed')>=0 ? 'notassessed' : 'none';
+    const st = stateAcross(r.sid,subj);      /* v53：逐题 / 写作也算有资料 */
     /* 考前观察先数 —— 缺席与否都算（洞 3） */
     const hasObs=f1Complete(r.sid,subj).length>0;
     if(hasObs) obsDone++;
@@ -1943,12 +2110,12 @@ function renderHome(){
           ? esc(S.cls)+' · '+esc(S.subject)
           : '请选择班级与科目'}</div>
         <div class="tip" style="margin:2px 0 0">${
-          noPaper ? '<span style="color:var(--warn)">这个班级 / 科目还没有建立考卷 —— 请找管理层</span>'
+          noPaper ? '<span style="color:var(--warn)">这个班级 / 科目还没有考卷 —— 按「开始」建立第一份</span>'
           : papersPending ? '载入考卷中…'
           : ready ? '系统会自动记录填写者与时间'
           : '两个都选好才能开始'}</div>
       </div>
-      <button class="btn btn-pri" ${ready&&!noPaper?'':'disabled'}
+      <button class="btn btn-pri" ${ready?'':'disabled'}
         style="padding:12px 26px;font-size:15px;font-weight:700;min-height:44px"
         onclick="startCell()">开始 →</button>
     </div>`;
@@ -1993,9 +2160,10 @@ function f1Key(sid,bah){ return EXK()+'|'+sid+'|'+S.subject+'|'+bah+piSuffix(); 
 /* 🔴 v10：老师点一个评分就建立了 S.f1[k]，关掉不按「完成」也算已观察。
    FORM 02 已经分了 progress / done，FORM 01 却还留着同样的问题。
    统一：存在 = DRAFT；有 savedAt = COMPLETE。所有统计只认 COMPLETE。 */
-function f1Complete(sid,subject,exam){
+function f1Complete(sid,subject,exam,pi){
   const pre=(exam||EXK())+'|'+sid+'|'+(subject||S.subject)+'|';
-  return Object.keys(S.f1).filter(k=>k.indexOf(pre)===0&&S.f1[k]&&S.f1[k].savedAt).map(k=>S.f1[k]);
+  return Object.keys(S.f1).filter(k=>k.indexOf(pre)===0&&S.f1[k]&&S.f1[k].savedAt
+    &&(pi===undefined||keyInPaper(k,pi))).map(k=>S.f1[k]);
 }
 function f1Done(sid){ return f1Complete(sid).length; }
 /* ══ v28 · 分页 ① 考卷项目 ══
@@ -2162,6 +2330,8 @@ function bpEvidLocal(){
     if(e&&inPaper(k)&&e.exam===ex&&e.subject===su&&(+e.year||0)===yr) n++;});
   Object.keys(S.f2).forEach(k=>{const r=S.f2[k];
     if(r&&inPaper(k)&&r.exam===ex&&r.subject===su&&(+r.year||0)===yr&&f2Started(r)) n++;});
+  Object.keys(S.f1).forEach(k=>{const r=S.f1[k];      /* v53：考前观察也是学生资料 */
+    if(r&&inPaper(k)&&r.exam===ex&&r.subject===su&&(+r.year||0)===yr&&r.savedAt) n++;});
   return n;
 }
 function bpEvidCount(){ const c=CLOUD.bpEvid[bpKey()]; return bpEvidLocal()+(c>0?c:0); }
@@ -2176,9 +2346,11 @@ async function bpProbe(){
       .eq('exam_id',CLOUD.exam.id).eq('subject',su).eq('year_level',yr);
     let qb=_sb.from('evalgo_paper_analysis').select('id',{count:'exact',head:true})
       .eq('exam_id',CLOUD.exam.id).eq('subject',su).eq('year_level',yr);
-    if(pi){ qa=qa.eq('paper_instance_id',pi); qb=qb.eq('paper_instance_id',pi); }
-    const a=await qa, b=await qb;
-    const n=(a.count||0)+(b.count||0);
+    let qc=_sb.from('evalgo_live_obs').select('id',{count:'exact',head:true})
+      .eq('exam_id',CLOUD.exam.id).eq('subject',su).eq('year_level',yr);
+    if(pi){ qa=qa.eq('paper_instance_id',pi); qb=qb.eq('paper_instance_id',pi); qc=qc.eq('paper_instance_id',pi); }
+    const a=await qa, b=await qb, cc=await qc;
+    const n=(a.count||0)+(b.count||0)+((cc&&cc.count)||0);
     /* 同一个坑：老师人在「考卷项目」页，renderF1() 重画的是别页 →
        云端查回来了，锁的状态却还是旧的。 */
     if(CLOUD.bpEvid[k]!==n){ CLOUD.bpEvid[k]=n; bpRefresh(); }
@@ -2223,7 +2395,7 @@ function bpScoreOpen(id){
   const body=`
     <div class="tip" style="margin-top:0">${esc(sec.code)} · ${esc(typeLab(sec.type||'MCQ'))}${
       isE?'':` · 第 ${sec.qf}–${sec.qt} 题`}</div>
-    ${n?`<div class="alert alert-warn"><div><b>这个项目底下已经有 ${n} 笔学生资料。</b>
+    ${n?`<div class="alert alert-warn"><div><b>这份考卷已经有学生资料。</b>
       改了分数，这些学生的得分会立刻跟著变。项目名称、题型、题号范围不能改。</div></div>`:''}
     <div class="secbox" style="padding:12px">
       <div class="form-row"><label class="form-label">这个项目共几分 *</label>
@@ -2235,11 +2407,12 @@ function bpScoreOpen(id){
           <button class="chip ${sec.even==='N'?'sel':'chip-layer'}" onclick="bpSEven('N',this)">N 每题不同分</button>
         </div>
         <input type="hidden" id="mEven" value="${esc(sec.even||'')}">
-        <div class="tip" style="margin-top:4px">没有声明 = 这个项目<b>不算分</b>，报告会标「算不出」。</div></div>
+        <div class="tip" style="margin-top:4px">选 <b>N</b>：在下面列出分数不一样的题，没列出来的题会平分剩下的分数。<br>
+          两个都没选 = 这个项目<b>算不出分数</b>，报告会标「算不出」。</div></div>
       <div class="form-row" style="margin-top:10px">
         <label class="form-label">哪几题分数不一样 / 有小题</label>
         <div id="mQmRows"></div>
-        <button class="btn btn-sm" style="margin-top:6px" onclick="bpQmAdd()">＋ 加一题</button>
+        <button class="btn btn-sm" style="margin-top:6px" onclick="bpQmAddQ()">＋ 加一题</button>
         <div class="tip" style="margin-top:6px" id="mQmHint"></div>
       </div>
       <input type="hidden" id="mQf" value="${esc(sec.qf==null?'':sec.qf)}">
@@ -2273,23 +2446,14 @@ function bpScoreSave(id){
   let even='', qm=null;
   if(!isE){
     even=String(((document.getElementById('mEven')||{}).value)||'').trim();
-    bpQmSync(); qm=qmFromRows(BPQM);
-    if(qm){
-      const exQ=qmExcQs(qm);
-      for(const q of exQ) if(!(+q>=+sec.qf && +q<=+sec.qt)){
-        toast(`✕ 第 ${q} 题不在 ${sec.qf}–${sec.qt} 范围内`); return; }
-      for(const q of Object.keys(qm.subs||{})) if(Object.keys(qm.subs[q]).length<2){
-        toast(`✕ 第 ${q} 题只有一个小题 —— 至少要两个（a、b）`); return; }
-      const sum=qmExcSum(qm), totQ=(+sec.qt)-(+sec.qf)+1, rest=totQ-exQ.length;
-      if(sum!=null){
-        if(sum>mx){ toast(`✕ 例外题加起来 ${sum} 分，超过 ${mx} 分`); return; }
-        if(rest>0 && sum===mx){ toast(`✕ 其余 ${rest} 题会变成 0 分`); return; }
-        if(rest===0 && sum!==mx){ toast(`✕ 加起来 ${sum} 分 ≠ ${mx} 分`); return; }
-      }
-    }
+    bpQmSync();
+    const ck=qmCheck(BPQM,sec.qf,sec.qt,mx);
+    if(ck.err){ toast('✕ '+ck.err,5000); return; }
+    if(!qmBlankConfirm(ck.blanks)) return;
+    qm=ck.qm;
   }
   const n=bpEvidCount();
-  if(n && !confirm('这个项目底下有 '+n+' 笔学生资料。\n\n'
+  if(n && !confirm('这份考卷已经有学生资料。\n\n'
       +'改了分数，这些学生的得分会立刻跟著变。\n题号一个都不会动，旧资料不会跑位。\n\n确定要改吗？')) return;
   /* 留痕：谁改、何时、改之前长什麽样。写进 q_marks 的 _log —— 零 DDL。 */
   const log=(sec.qm&&sec.qm._log)?sec.qm._log.slice():[];
@@ -2300,15 +2464,23 @@ function bpScoreSave(id){
   next._log = log.slice(-20);
   sec.max=mx; sec.even=isE?'':even; sec.qm=next;
   markSecDirty(sec);
-  if(saveThen('✓ 分数已更新'+(n?('，'+n+' 笔学生资料的得分跟著重算'):''))){
+  if(saveThen('✓ 分数已更新'+(n?'，学生的得分已跟着重算':''))){
     closeModal(true); bpRefresh(); autoPush();
   }
+}
+/* v53：改分数的纪录（谁、何时、改之前长怎样），写进 q_marks 的 _log */
+function qmLogPush(sec){
+  const log=(sec.qm&&sec.qm._log)?sec.qm._log.slice():[];
+  log.push({by:S.me||'', at:new Date().toLocaleString('en-GB'),
+            max:(sec.max==null?null:+sec.max), even:sec.even||'',
+            qm:(sec.qm?{per_q:sec.qm.per_q||null,subs:sec.qm.subs||null}:null)});
+  const next=Object.assign({},sec.qm||{}); next._log=log.slice(-20); sec.qm=next;
 }
 /* v28：这支只管「改」。删除不走这里 —— Owner 裁定有学生资料时仍可删。 */
 function bpGuard(what){
   if(!bpCanEditPaper()){ toast('✕ 你的帐号没有填写权限 —— 请找管理层开通',3200); return false; }
   if(bpLocked()){
-    alert('这个项目底下已经有 '+bpEvidCount()+' 笔学生资料，不能再'+what+'了。\n\n'
+    alert('这份考卷已经有学生资料，不能再'+what+'了。\n\n'
       +'改了会让旧资料对应到错的项目 —— 画面看起来正常，数字却全错。\n\n'
       +'如果这个项目真的建错了，请直接按「×」删除它。\n'
       +'删除会先让你下载一份备份，再问你一次，然后连同底下的资料一起永久删除。');
@@ -2346,7 +2518,7 @@ function bpEvenAll(){
   if(!confirm('把这 '+g.length+' 个项目全部声明成「每题同分」：\n\n'+lines
      +'\n\n声明的是**你看过那份卷**，不是系统推算。\n'
      +'有哪一个其实不是每题同分，按完再逐个用「改分数」改回来。\n\n确定吗？')) return;
-  g.forEach(x=>{ x.even='Y'; markSecDirty(x); });
+  g.forEach(x=>{ qmLogPush(x); x.even='Y'; markSecDirty(x); });
   if(saveThen('✓ '+g.length+' 个项目已声明每题同分')){ bpRefresh(); autoPush(); }
 }
 /* ══ v45 · 撞车清单（管理层）══════════════════════════════════════
@@ -2555,26 +2727,16 @@ function bpAdd(editId){
   }
   /* v29 · 小题结构。分数可留空 —— 只挡「明显不可能」的填法，不挡「还没填完」。 */
   bpQmSync();
-  const qm = (type==='ESSAY') ? null : qmFromRows(BPQM);
-  if(qm){
-    const exQ=qmExcQs(qm);
-    for(const q of exQ){
-      if(!(+q>=qf && +q<=qt)){
-        toast(`✕ 第 ${q} 题不在这个项目的题号范围（${qf}–${qt}）内`); return; }
-    }
-    for(const q of Object.keys(qm.subs||{})){
-      if(Object.keys(qm.subs[q]).length<2){
-        toast(`✕ 第 ${q} 题只有一个小题 —— 至少要两个（a、b）`); return; }
-    }
-    const sum=qmExcSum(qm), totQ=qt-qf+1, rest=totQ-exQ.length;
-    if(sum!=null){
-      if(sum>mx){ toast(`✕ 例外题加起来 ${sum} 分，超过这个项目的 ${mx} 分`); return; }
-      if(rest>0 && sum===mx){
-        toast(`✕ 例外题就用掉全部 ${mx} 分，其余 ${rest} 题会变成 0 分`); return; }
-      if(rest===0 && sum!==mx){
-        toast(`✕ 全部题目都列出来了，但加起来 ${sum} 分 ≠ ${mx} 分`); return; }
-    }
+  let qm=null;
+  if(type!=='ESSAY'){
+    const ck=qmCheck(BPQM,qf,qt,mx);
+    if(ck.err){ toast('✕ '+ck.err,5000); return; }
+    if(!qmBlankConfirm(ck.blanks)) return;
+    qm=ck.qm;
   }
+  /* v53：改项目时，改分数的纪录要跟着留下来 */
+  const oldLog=(me&&me.qm&&me.qm._log)?me.qm._log:null;
+  if(oldLog) qm=Object.assign(qm||{},{_log:oldLog});
   const patch={code,topic,fmt,type,
     qm:qm,
     qf:type==='ESSAY'?null:qf, qt:type==='ESSAY'?null:qt, max:mx,
@@ -2603,9 +2765,9 @@ function bpRest(secs){
       <th style="width:36px">#</th><th>学生</th><th>已观察的项目</th><th style="width:90px"></th>
     </tr></thead><tbody>`;
     list.forEach((r,i)=>{
-      const mine=f1Complete(r.sid).map(x=>x.bahagian).filter(Boolean);
+      const mine=f1Complete(r.sid,undefined,undefined,curPi()).map(x=>x.bahagian).filter(Boolean);
       const draft=Object.keys(S.f1).filter(k=>k.indexOf(EXK()+'|'+r.sid+'|'+S.subject+'|')===0
-        &&S.f1[k]&&!S.f1[k].savedAt).length;
+        &&keyInPaper(k,curPi())&&S.f1[k]&&!S.f1[k].savedAt).length;
       h+=`<tr><td style="color:var(--hint)">${i+1}</td>
         <td><strong>${esc(r.en)}</strong>${r.cn?` <span style="color:var(--hint);font-size:11px">${esc(r.cn)}</span>`:''}</td>
         <td>${(()=>{const st=f2State(S.f2[f2Key(r.sid)]);
@@ -2632,8 +2794,10 @@ function f1Draft(k){ if(!S.f1[k]) S.f1[k]={client_uid:uid(),ses:SESSION_ID}; ret
 function f1Open(sid,preset){
   const r=stuOf(sid); if(!r) return;
   const secs=sections();
-  if(!secs.length){ toast('✕ 先在上面加考卷项目'); return; }
-  const done=Object.keys(S.f1).filter(k=>k.startsWith(EXK()+'|'+sid+'|'+S.subject+'|')).map(k=>S.f1[k].bahagian);
+  if(!secs.length){ toast('✕ 先到第 ① 步登记考卷项目'); return; }
+  /* v53：只看这一份卷；预设落在「还没观察」的项目 */
+  const done=Object.keys(S.f1).filter(k=>k.startsWith(EXK()+'|'+sid+'|'+S.subject+'|')&&keyInPaper(k,curPi())
+    &&S.f1[k]&&!notMine(S.f1[k])).map(k=>S.f1[k].bahagian);
   const cur = preset || done[0] || secs[0].code;
   const sec = secOf(cur) || secs[0];
   const k=f1Key(sid,sec.code), rec=S.f1[k]||{};
@@ -2647,7 +2811,7 @@ function f1Open(sid,preset){
   let b=navBar(sid,'f1')+`<div class="form-row">
       <label class="form-label">观察哪一个项目 *</label>
       <div class="dept-row">${secs.map(s=>{
-        const filled=!!S.f1[f1Key(sid,s.code)];
+        const fr=S.f1[f1Key(sid,s.code)], filled=!!(fr&&fr.savedAt&&!notMine(fr));
         return `<span class="dept-tag${s.code===sec.code?' on':''}" style="padding:6px 14px"
           onclick="f1Open('${sid}','${s.code.replace(/'/g,"\\'")}')">${esc(s.code)}${filled?' ✓':''}</span>`;
       }).join('')}</div>
@@ -2656,7 +2820,16 @@ function f1Open(sid,preset){
         作答方式 <b>${sec.fmt?esc(sec.fmt):'—'}</b>
         <span class="chip chip-info">自动带出</span></div>
     </div>
-    <div class="tw"><table class="data"><thead><tr>
+    `;
+  if(notMine(rec)){
+    /* v53 · DL-17：这一项别位老师已经观察过 —— 老师看不到内容，也不能改（一位学生一个项目只能有一笔） */
+    openModal(`${esc(nameOf(r))} · ${esc(sec.code)}`, b+`<div class="alert alert-warn"><div>
+      <b>这个项目，其他老师已经观察过这位学生了。</b><br>
+      一位学生一个项目只能有一笔观察，所以你这边不能再填，也看不到内容。请在上面选别的项目。</div></div>`,
+      `<button class="btn" onclick="closeModal()">关闭</button>`);
+    return;
+  }
+  b+=`<div class="tw"><table class="data"><thead><tr>
       <th>观察项目</th><th style="width:150px">评定</th><th>说明</th></tr></thead><tbody>`;
   ysn.forEach(d=>{ b+=`<tr><td><strong>${d.zh}</strong>
       <span style="color:var(--hint)">${d.en}</span></td>
@@ -2688,10 +2861,12 @@ function f1Set(k,dim,v,sid){
   /* 🔴 v10 BUG：k.split('|')[0] 是 exam、[2] 是 subject。
      老师正在填 Bahagian C，点一下评分会跳回 Bahagian A —— 错位证据。 */
   const kp=k.split('|');
+  if(notMine(S.f1[k])){ toast('✕ 这一项是其他老师填的，不能改',3000); return; }
   const r=f1Draft(k); r[dim]=(r[dim]===v)?'':v; r.synced=false;
   saveData(); f1Open(sid||kp[1], kp[3]);
 }
 function f1Save(k,sid,goNext){
+  if(notMine(S.f1[k])){ toast('✕ 这一项是其他老师填的，不能改',3000); return; }
   const r=f1Draft(k);
   if(!DIMS.filter(d=>r[d.id]).length){ toast('✕ 至少评一项'); return; }
   /* 🔴 v10 BUG：加了 exam 前缀後索引没跟着改，
@@ -2721,18 +2896,33 @@ function f1Save(k,sid,goNext){
   }
   closeModal(); renderF1(); toast('✓ 已完成 · '+kBah); autoPush();
 }
-function f1Del(k){
+async function f1Del(k){
+  const cur=S.f1[k]; if(!cur) return;
+  if(notMine(cur)){ toast('✕ 这一项是其他老师填的，不能删',3000); return; }
+  /* v53：已经上传的，只删这台装置没有用 —— 下一次读取资料又会回来。
+     系统规定删除要管理层帐号，所以老师这边讲清楚，管理层就真的从系统里删。 */
+  if(cur.cloud_id){
+    if(!(CLOUD.perm&&CLOUD.perm.can_approve)){
+      alert('这一项已经上传了，老师这边删不掉。\n\n要改的话：直接改评定，再按「完成」就可以。\n真的要删：请找管理层。');
+      return;
+    }
+    if(!confirm('删除这笔观察纪录？\n\n系统里和这台装置上都会删掉，无法复原。')) return;
+    const r=await cloudDelById('evalgo_live_obs',cur.cloud_id);
+    if(!r.ok||r.n!==1){ alert('删除没有成功，资料都还在。\n'+(r.error?plainErr(r.error):'')); return; }
+    delete S.f1[k]; delAudit('删除考前观察',1,k);
+    saveData(true); closeModal(); renderF1(); toast('✓ 已删除',3000);
+    return;
+  }
   if(!confirm('删除这笔观察纪录？')) return;
   const bak=S.f1[k]; delete S.f1[k]; saveData(true); closeModal(); renderF1();
-  toast('✓ Deleted · 30 秒内可复原', 6000);
-  const t=setTimeout(()=>{},1); clearTimeout(t);
   window._undo={fn:()=>{S.f1[k]=bak; if(saveThen('✓ 已复原')) renderF1();}};
   setTimeout(()=>{ window._undo=null; },30000);
   const el=document.getElementById('toast');
-  el.innerHTML=`✓ Deleted <button class="btn btn-sm" style="margin-left:8px"
-    onclick="if(window._undo)window._undo.fn();document.getElementById('toast').classList.remove('show')">Undo</button>`;
+  el.innerHTML=`✓ 已删除 <button class="btn btn-sm" style="margin-left:8px"
+    onclick="if(window._undo)window._undo.fn();document.getElementById('toast').classList.remove('show')">复原</button>`;
+  el.classList.add('show');
   el.style.pointerEvents='auto';
-  setTimeout(()=>{el.style.pointerEvents='none';el.textContent='';},6000);
+  setTimeout(()=>{el.style.pointerEvents='none';el.textContent='';el.classList.remove('show');},6000);
 }
 
 /* ══ FORM 02 ══ */
@@ -2810,7 +3000,7 @@ function setSecRange(id){
   if(clash){ toast(`✕ 与「${clash.code}」(${clash.qf}-${clash.qt}) 重叠`); return; }
   sec.qf=f; sec.qt=t; if(!sec.type) sec.type='MCQ';
   markSecDirty(sec);
-  if(saveThen('✓ 已补上题号')){ bpRefresh(); }
+  if(saveThen('✓ 已补上题号')){ bpRefresh(); autoPush(); }
 }
 function essaySections(){ return sections().filter(x=>x.type==='ESSAY'); }
 
@@ -2829,7 +3019,8 @@ function secPerQ(sec){
 }
 function paperScore(sid){
   const rec=S.f2[f2Key(sid)];
-  if(!rec || aStat(rec)!=='ASSESSED' || !rec.paper_checked) return null;
+  if(!rec || aStat(rec)!=='ASSESSED') return null;
+  if(f2NeedsCheck(rec) && !rec.paper_checked) return null;   /* v53：纯作文卷没有这颗钮 */
   const wi=wiOf(sid);
   let got=0, max=0, covered=0; const secs=sections(), missing=[];
   secs.forEach(sec=>{
@@ -2844,7 +3035,7 @@ function paperScore(sid){
        6b 值 2 分也只扣平均分。现在每一格照它自己的分数扣。 */
     const r2=secScoreOf(sec, wi.filter(w=>+w.q>=+sec.qf && +w.q<=+sec.qt));
     if(!r2){
-      missing.push(esc(sec.code)+(sec.even==='N'?'（每题不同分，还没填 q_marks）':'（还没声明每题几分）'));
+      missing.push(esc(sec.code)+'（'+esc(secWhyNoScore(sec))+'）');
       return;
     }
     got += r2.got; max += r2.max; covered++;
@@ -2963,6 +3154,7 @@ function qMarkOf(sec,q,sub){
    前提：呼叫端已确认老师按过「整份都看过了」—— 没点的格才算答对。 */
 function secScoreOf(sec, wiList){
   if(!sec || (sec.type||'MCQ')==='ESSAY') return null;
+  if(!hasRange(sec)) return null;              /* v53：没有题号 → 一格都没有 → 以前会静静给满分 */
   const mx=+sec.max; if(!(mx>0)) return null;
   let lost=0;
   for(const u of qUnits(sec)){
@@ -2982,11 +3174,18 @@ function totalUnits(){ return allUnits().length; }
 function wiKey(sid,q,sub){ return EXK()+'|'+sid+'|'+S.subject+'|'+uKey(q,sub)+piSuffix(); }
 function wiGet(sid,q,sub){ return S.wi[wiKey(sid,q,sub)]||null; }
 function wiOf(sid){
-  const pre=EXK()+'|'+sid+'|'+S.subject+'|';
-  return Object.keys(S.wi).filter(k=>k.indexOf(pre)===0).map(k=>S.wi[k]);
+  const pre=EXK()+'|'+sid+'|'+S.subject+'|', pi=curPi();
+  return Object.keys(S.wi).filter(k=>k.indexOf(pre)===0&&keyInPaper(k,pi)).map(k=>S.wi[k]);
 }
 function wiSet(sid,q,code,diag,sub){
   const k=wiKey(sid,q,sub), cur=S.wi[k];
+  if(notMine(cur)){ toast('✕ 这一题是其他老师记的，不能改',3000); return; }
+  if(code===null && cur && cur.cloud_id){
+    /* v53：已经上传的这一格，只删这台装置没有用（下一次读取又会回来） */
+    if(!(CLOUD.perm&&CLOUD.perm.can_approve)){
+      toast('这一题已经上传了，不能取消。要改就直接点别的记码（例如 ★ 答对）。',5000); return; }
+    wiCancelCloud(sid,k); return;
+  }
   if(code===null){ if(cur) delete S.wi[k]; }
   else{
     const sec=secOfQ(q)||{}, st=stuOf(sid)||{};
@@ -3001,12 +3200,22 @@ function wiSet(sid,q,code,diag,sub){
       savedAt:new Date().toLocaleString('en-GB'), synced:false,
       cloud_id:(cur&&cur.cloud_id)||null };
   }
-  const r=f2Draft(sid); r.synced=false; stampF2(r,sid); saveData();
+  const r=f2Draft(sid); r.synced=false; stampF2(r,sid); saveData(); autoPush();
 }
-function wiDiag(sid,q,v){
-  const w=wiGet(sid,q); if(!w) return;
+async function wiCancelCloud(sid,k){
+  const cur=S.wi[k]; if(!cur) return;
+  const r=await cloudDelById('evalgo_wrong_item',cur.cloud_id);
+  if(!r.ok||r.n!==1){ toast('✕ 没取消成功：'+(r.error?plainErr(r.error):'请再试一次'),5000); return; }
+  delete S.wi[k]; delAudit('取消逐题',1,k);
+  const f=f2Draft(sid); f.synced=false; stampF2(f,sid); saveData(true); autoPush();
+  try{ paintPick(sid); paintLive(sid); paintTail(sid); paintFoot(sid); renderF2(); }catch(e){}
+  const bt=document.getElementById('q_'+k.split('|')[3]); if(bt) bt.innerHTML=qBtnHTML(sid,uParse(k.split('|')[3]).q,uParse(k.split('|')[3]).sub);
+  toast('✓ 已取消这一格',2500);
+}
+function wiDiag(sid,q,v,sub){
+  const w=wiGet(sid,q,sub); if(!w) return;
   w.diag=v; w.synced=false; w.savedAt=new Date().toLocaleString('en-GB');
-  const r=f2Draft(sid); r.synced=false; saveData();
+  const r=f2Draft(sid); r.synced=false; stampF2(r,sid); saveData(); autoPush();
 }
 function markCounts(sid){
   const o={star:0,dk:0,cl:0,nr:0,sos:0,blank:0};
@@ -3063,8 +3272,8 @@ function esDraft(sid,code){
   return S.es[k];
 }
 function esOf(sid){
-  const pre=EXK()+'|'+sid+'|'+S.subject+'|';
-  return Object.keys(S.es).filter(k=>k.indexOf(pre)===0).map(k=>S.es[k]);
+  const pre=EXK()+'|'+sid+'|'+S.subject+'|', pi=curPi();
+  return Object.keys(S.es).filter(k=>k.indexOf(pre)===0&&keyInPaper(k,pi)).map(k=>S.es[k]);
 }
 function esStamp(sid,code,sec){
   const r=esDraft(sid,code), st=stuOf(sid)||{};
@@ -3118,16 +3327,19 @@ function renderF2(){
       <th style="min-width:130px">最弱技能</th><th style="width:80px"></th>
     </tr></thead><tbody>`;
   list.forEach(r=>{
-    const m=markCounts(r.sid), mi=mainIssue(m), td=autoWeak(r.sid);
+    /* v53 · DL-17：别位老师在做的学生，老师端不显示内容 */
+    const other=paperOtherBy(r.sid,S.subject,curPi()), hide=!!other && !canSeeManage();
+    const m=hide?{}:markCounts(r.sid), mi=hide?null:mainIssue(m), td=hide?[]:autoWeak(r.sid);
     h+=`<tr>
       <td><strong>${esc(r.en)}</strong>${r.cn?` <span style="color:var(--hint);font-size:11px">${esc(r.cn)}</span>`:''}</td>
-      <td>${(()=>{const st=f2State(S.f2[f2Key(r.sid)]);
+      <td>${(()=>{const st=paperStateOf(r.sid,S.subject,curPi());
+        if(other && !canSeeManage()) return '<span class="badge b-inactive">其他老师在做</span>';
         if(st==='none') return '<span style="color:var(--hint)">未开始</span>';
         const pre = st==='done'?'✓ ' : (st==='progress'?'⚠ ' : '');
         return `<span class="badge ${F2STATE[st].cls}">${pre}${F2STATE[st].lab}</span>`;})()}</td>
       ${MARKS.map(mk=>`<td style="text-align:center">${m[mk.id]?`<strong>${m[mk.id]}</strong>`:'<span style="color:var(--hint)">·</span>'}</td>`).join('')}
       <td>${(()=>{
-        const q=paperScore(r.sid);
+        const q=hide?null:paperScore(r.sid);
         if(!q) return '<span style="color:var(--hint)">—</span>';
         if(q.got==null) return `<span class="chip chip-warn" title="${esc(q.missing.join('、'))}">算不出</span>`;
         const full=q.covered===q.total;
@@ -3135,11 +3347,11 @@ function renderF2(){
           + (full?'' : `<span class="chip chip-warn" style="margin-left:4px;padding:0 5px"
                title="没算进去：${esc(q.missing.join('、'))}">${q.covered}/${q.total} 项</span>`);
       })()}</td>
-      <td>${m.rate==null?'<span style="color:var(--hint)" title="未核对整份卷，没点的题还不能算答对">—</span>':
+      <td>${m.rate==null||hide?'<span style="color:var(--hint)" title="未核对整份卷，没点的题还不能算答对">—</span>':
           `<span class="badge ${m.rate>=75?'b-active':(m.rate>=50?'b-warn':'b-inactive')}">${m.rate}%</span>`}</td>
       <td>${mi?`<span class="chip chip-muted">${esc(mi.lab)}${mi.tie?' ?':''} · ${mi.n}</span>`:'<span style="color:var(--hint)">—</span>'}</td>
       <td>${td.length?`<span class="chip chip-warn">${esc(td[0].topic)} ${td[0].wrong}/${td[0].total||'?'}</span>`:'<span style="color:var(--hint)">—</span>'}</td>
-      <td style="white-space:nowrap">${(()=>{const st=f2State(S.f2[f2Key(r.sid)]);
+      <td style="white-space:nowrap">${(()=>{const st=paperStateOf(r.sid,S.subject,curPi());
         const resolved = (st==='absent'||st==='notassessed');
         return `<button class="btn btn-sm ${st==='done'||resolved?'':'btn-pri'}"
           ${resolved?'disabled style="opacity:.45"':''}
@@ -3149,10 +3361,11 @@ function renderF2(){
       </td></tr>`;
   });
   h+=`</tbody></table></div></div>`;
-  const nDone=list.filter(r=>f2State(S.f2[f2Key(r.sid)])==='done').length;
-  const nProg=list.filter(r=>f2State(S.f2[f2Key(r.sid)])==='progress').length;
-  const nAbs =list.filter(r=>f2State(S.f2[f2Key(r.sid)])==='absent').length;
-  const nNA  =list.filter(r=>f2State(S.f2[f2Key(r.sid)])==='notassessed').length;
+  const stOf=r=>paperStateOf(r.sid,S.subject,curPi());
+  const nDone=list.filter(r=>stOf(r)==='done').length;
+  const nProg=list.filter(r=>stOf(r)==='progress').length;
+  const nAbs =list.filter(r=>stOf(r)==='absent').length;
+  const nNA  =list.filter(r=>stOf(r)==='notassessed').length;
   const nHandled=nDone+nAbs+nNA;              /* 老师端看「已处理」 */
   const pct=list.length?Math.round(nHandled/list.length*100):0;
   h+=`<div class="card"><div class="card-hdr">
@@ -3164,7 +3377,7 @@ function renderF2(){
         nAbs?` + 缺席 ${nAbs}`:''}${nNA?` + 本轮未评 ${nNA}`:''}。
       ${(nAbs||nNA)?`<b>缺席与本轮未评不会进报告，也不算弱或 0 分</b> —— 报告只看有证据的 ${nDone} 位。`:''}</div>
     ${nProg?`<div class="alert alert-warn" style="margin-top:10px"><div><b>${nProg} 位学生只填了一半</b>
-       —— 追踪只认「已完成」。填一半的不会进报告，请回去按完成。</div></div>`
+       —— 要按「✓ 已核对整份」并选掌握程度才算完成；没完成的不会进报告。</div></div>`
       :(pct>=100?`<div class="alert alert-ok" style="margin-top:10px"><div><b>这个班全部处理完了 🎉</b>
        要换下一班就按右上角「换班级 / 科目」。</div></div>`:'')}
     <div class="tip">表格里的数字<b>不能手改</b> —— 全部由「填写」里的逐题记码算出来。</div></div>`;
@@ -3255,11 +3468,11 @@ function qPick(sid,k,code){
   PICKQ=null; paintPick(sid); paintQ(sid,k); paintLive(sid); paintTail(sid); paintFoot(sid);
 }
 /* CL 第二层 —— 点了 CL 才出现，选填。不进主流程。 */
-function clSub(sid,q,v){
-  const w=wiGet(sid,q); if(!w) return;
+function clSub(sid,q,v,sub){
+  const w=wiGet(sid,q,sub); if(!w) return;      /* v53：小题（6a）也找得到 */
   w.cl_subtype = w.cl_subtype===v?null:v;
   w.synced=false; w.savedAt=new Date().toLocaleString('en-GB');
-  const r=f2Draft(sid); r.synced=false; saveData(); paintTail(sid);
+  const r=f2Draft(sid); r.synced=false; stampF2(r,sid); saveData(); paintTail(sid); autoPush();
 }
 
 /* ══ 完成状态：三态。追踪只认「已完成」 ══ */
@@ -3285,10 +3498,11 @@ const F2STATE={ none:{lab:'未开始',cls:''}, progress:{lab:'进行中',cls:'b-
    → 有逐题才要求；纯作文卷只要求 TP。 */
 /* 这一格（科目 + 年段）登记了哪几种项目。
    ⚠️ 跟 secsCountFor 一样扫整格（跨卷）—— 只回答「有没有」，绝不可当分母。 */
-function secKindsFor(subject,year){
+function secKindsFor(subject,year,pi){
   const pre=EXK()+'|'+subject+'|'+year; let q=false, e=false;
   Object.keys(S.sections||{}).forEach(k=>{
     if(!(k===pre||k.indexOf(pre+'|')===0)) return;
+    if(pi!==undefined && !keyInPaper(k,pi)) return;     /* v53：只看这一份卷 */
     (S.sections[k]||[]).forEach(x=>{
       if(!x) return;
       if(x.type==='ESSAY') e=true;
@@ -3311,7 +3525,7 @@ function f2NeedsCheck(p){
   let yr=(p&&p.year)||(st?yearOf(st.cls):null);
   if(!yr && subj===S.subject && S.cls) yr=yearOf(S.cls);
   if(!yr) return true;
-  const k=secKindsFor(subj,yr);
+  const k=secKindsFor(subj,yr,p?recPiOf(p):curPi());
   if(k.q) return true;
   if(k.e) return false;
   return true;
@@ -3329,6 +3543,16 @@ function f2Missing(sid){
 
 function f2Open(sid){
   const r=stuOf(sid); if(!r) return;
+  const other=paperOtherBy(sid,S.subject,curPi());
+  if(other){
+    /* v53 · DL-17：一位学生一份考卷只能有一份分析 —— 别位老师在做，这边只能看到这句话 */
+    openModal(esc(nameOf(r))+' · 考卷分析', navBar(sid,'f2')+`<div class="alert alert-warn"><div>
+      <b>这位学生这份考卷，其他老师已经在做考卷分析了。</b><br>
+      一位学生一份考卷只能有一份分析，所以你这边不能再填，也看不到内容。<br>
+      如果是分错了人，请找管理层。</div></div>`,
+      `<button class="btn" onclick="closeModal()">关闭</button>`);
+    return;
+  }
   if(window._f2cur!==sid) PICKQ=null;
   window._f2cur=sid;
   const rec=f2Draft(sid), y=r.year||yearOf(r.cls);
@@ -3467,15 +3691,15 @@ function paintTail(sid){
   let inner='';
   if(clQ.length) inner+=sub('粗心是哪一种','算错 / 抄错 / 没写完，教法完全不同',
     clQ.map(w=>`<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:5px">
-      <span class="chip chip-warn">第 ${w.q} 题</span>
+      <span class="chip chip-warn">第 ${esc(qLabelOf(w))} 题</span>
       ${CL_SUB.map(c=>`<button class="chip ${w.cl_subtype===c.v?'sel':'chip-muted'}"
-        onclick="clSub('${sid}',${w.q},'${c.v}')">${c.zh}</button>`).join('')}</div>`).join(''));
+        onclick="clSub('${sid}',${w.q},'${c.v}',${w.qsub?`'${esc(w.qsub)}'`:'null'})">${c.zh}</button>`).join('')}</div>`).join(''));
 
   if(subjQ.length) inner+=sub('理解文 · 老师诊断','写一句就好，这是报告里最有用的一段',
     subjQ.map(w=>`<div class="form-row" style="margin-bottom:6px">
-      <label class="form-label">第 ${w.q} 题 · ${esc(markLab(w.code))}${w.topic?' · '+esc(w.topic):''}</label>
+      <label class="form-label">第 ${esc(qLabelOf(w))} 题 · ${esc(markLab(w.code))}${w.topic?' · '+esc(w.topic):''}</label>
       <input type="text" value="${esc(w.diag||'')}" placeholder="例：抄了不相干的句子 / 只答了一半"
-        oninput="wiDiag('${sid}',${w.q},this.value)"></div>`).join(''));
+        oninput="wiDiag('${sid}',${w.q},this.value,${w.qsub?`'${esc(w.qsub)}'`:'null'})"></div>`).join(''));
 
   inner+=sub('这份卷他弱在哪','这份考卷登记的考点',
     (kw.length?`<div class="chips-row">${kw.map(t=>`<button class="chip ${selW.indexOf(t)>=0?'sel':'chip-warn'}"
@@ -3526,6 +3750,13 @@ function paintTail(sid){
     <div class="fold-bd">${inner}</div></div>`;
   paintFoot(sid);
 }
+/* v53：老师看到的题号 = 卷面号 + 小题字母（6a），不是系统内部的流水号 */
+function qLabelOf(w){
+  const sec=secOfQ(w.q);
+  let n=w.q;
+  try{ if(sec && typeof toPaper==='function'){ const v=toPaper(sec,w.q); if(v!=null&&v!=='') n=v; } }catch(e){}
+  return String(n)+(w.qsub||'');
+}
 function tglOpt(){
   S.ui.optOpen=!S.ui.optOpen; saveData(true);
   const f=document.getElementById('f2fold'), c=document.getElementById('optCaret');
@@ -3554,7 +3785,8 @@ function f2Finish(sid,goNext){
   if(miss.length){
     if(saveData(true)===false){ alert(saveFailMsg()); return; }
     paintLive(sid); paintFoot(sid);
-    toast('还差：'+miss.join(' · '),4000);
+    autoPush();
+    toast('还不能算完成 —— 还差：'+miss.join('、')+'（资料已经存了）',4500);
     const mb=document.querySelector('#f2must .must')||document.getElementById('chipsTP');
     if(mb) mb.scrollIntoView({behavior:'smooth',block:'center'});
     return;
@@ -3571,10 +3803,11 @@ function f2Finish(sid,goNext){
 /* 整班都完成 → 主动问要不要换下一班（老师教多班多年段） */
 function classDoneCheck(){
   const list=inCls(S.cls); if(!list.length) return;
-  const done=list.filter(r=>f2State(S.f2[f2Key(r.sid)])==='done').length;
+  const done=list.filter(r=>{ const s=paperStateOf(r.sid,S.subject,curPi());
+    return s==='done'||s==='absent'||s==='notassessed'; }).length;   /* v53：跟页面「已处理」同一把尺 */
   if(done!==list.length) return;
   openModal('这个班完成了 🎉',
-    `<div class="alert alert-ok"><div><b>${esc(S.cls)} · ${esc(S.subject)}</b> —— ${done} / ${list.length} 位学生全部完成。</div></div>
+    `<div class="alert alert-ok"><div><b>${esc(S.cls)} · ${esc(S.subject)}</b> —— ${done} / ${list.length} 位学生全部处理完了。</div></div>
      <div class="tip">资料已经自己送上去了，你不用做任何上传动作。接下来要输入哪一班？</div>
      <div class="form-grid-2" style="margin-top:10px">
        <div class="form-row"><label class="form-label">班级</label>
@@ -3594,12 +3827,12 @@ function f2TogL(btn,sid,field){
   const a=r[field]||(r[field]=[]);
   const i=a.indexOf(v); if(i>=0)a.splice(i,1); else a.push(v);
   btn.classList.toggle('sel'); btn.classList.toggle('chip-layer');
-  r.synced=false; stampF2(r,sid); saveData();
+  r.synced=false; stampF2(r,sid); saveData(); autoPush();
 }
 function f2FixL(btn,sid,v){
   const r=f2Draft(sid);
   r.fix_outcome = (v===null||r.fix_outcome===v)?null:v;
-  r.synced=false; stampF2(r,sid); saveData(); paintTail(sid);
+  r.synced=false; stampF2(r,sid); saveData(); paintTail(sid); autoPush();
 }
 /* NEXT 预设折叠。只有「还需要练习 / 需要更多帮助」才自动展开 ——
    已经改善的学生不需要再问计划，多一个问题就是多一次犹豫。 */
@@ -3612,13 +3845,14 @@ function tglExtra(){}
 function f2TPL(btn,sid,v){
   const r=f2Draft(sid);
   r.tp = (v===null||r.tp===v)?null:v;
-  r.synced=false; stampF2(r,sid); saveData(); paintLive(sid);
+  r.synced=false; stampF2(r,sid); saveData(); paintLive(sid); autoPush();
 }
 function f2Field(sid,field,v){
-  const r=f2Draft(sid); r[field]=v; r.synced=false; stampF2(r,sid); saveData();
+  const r=f2Draft(sid); r[field]=v; r.synced=false; stampF2(r,sid); saveData(); autoPush();
 }
 function f2Checked(sid){
   const r=f2Draft(sid);
+  if(r.paper_checked && !confirm('取消「已核对整份」？\n\n取消后，没点的题会回到「还没看」，这位学生就不算完成。')) return;
   r.paper_checked = !r.paper_checked;
   r.paper_checked_at = r.paper_checked ? new Date().toISOString() : null;
   r.synced=false; stampF2(r,sid);
@@ -3632,20 +3866,22 @@ function esTog(sid,code,secId,asp){
   const i=a.indexOf(asp); if(i>=0)a.splice(i,1); else a.push(asp);
   const btn=document.querySelector(`#esw_${secId} [data-asp="${asp}"]`);
   if(btn){ btn.classList.toggle('sel-w'); btn.classList.toggle('chip-warn'); }
-  saveData();
+  esTouchF2(sid); saveData(); autoPush();
 }
+/* v53：只填写作的学生，考卷分析那一笔也要算「开始了」、也要上传 */
+function esTouchF2(sid){ const r=f2Draft(sid); r.synced=false; stampF2(r,sid); }
 function esStar(sid,code,secId){
   const sec=sections().find(x=>x.id===secId);
   const r=esStamp(sid,code,sec); r.star=!r.star;
   const btn=document.getElementById('ess_'+secId);
   if(btn) btn.className='chip '+(r.star?'sel':'chip-ok');
-  saveData();
+  esTouchF2(sid); saveData(); autoPush();
 }
 function esScore(sid,code,secId,v,mx){
   const sec=sections().find(x=>x.id===secId);
   const r=esStamp(sid,code,sec);
   r.score = v===''? null : Math.min(+mx,Math.max(0,parseFloat(v)||0));
-  r.max=+mx; saveData();
+  r.max=+mx; esTouchF2(sid); saveData(); autoPush();
 }
 
 /* ══ 覆蓋追踪 ══ */
@@ -3691,11 +3927,7 @@ function pgStat(cls,subj){
   const list=inCls(cls);
   let obs=0, started=0, done=0, prog=0, resolved=0;
   list.forEach(r=>{
-    const sts=f2AllOf(r.sid,subj).map(f2State);
-    const st = sts.indexOf('done')>=0        ? 'done'
-             : sts.indexOf('progress')>=0    ? 'progress'
-             : sts.indexOf('absent')>=0      ? 'absent'
-             : sts.indexOf('notassessed')>=0 ? 'notassessed' : 'none';
+    const st = stateAcross(r.sid,subj);      /* v53：逐题 / 写作也算有资料 */
     /* 🔴 v41 洞 3：考前观察是**考前**做的，跟考试当天缺席是两件事。
        旧版在这里就 return，缺席的学生就算有考前观察也被画面吃掉。
        现在先数考前观察，再看考卷分析的状态。 */
@@ -4143,6 +4375,21 @@ function myCells(){
   return Object.keys(out).map(k=>out[k])
     .sort((a,b)=> a.cls===b.cls ? (a.su<b.su?-1:1) : (a.cls<b.cls?-1:1));
 }
+/* v53：我的记录每一格的数字（只算自己的，单位一律是「位」） */
+function myCellStat(cls,subj){
+  const ex=EXK(), me=S.me, obs={}, pap={}, done={};
+  if(me){
+    Object.keys(S.f1||{}).forEach(k=>{ const r=S.f1[k];
+      if(r&&r.exam===ex&&r.by===me&&r.subject===subj&&r.savedAt&&r.sid) obs[r.sid]=1; });
+    [S.f2,S.wi,S.es].forEach((st,i)=>Object.keys(st||{}).forEach(k=>{ const r=st[k];
+      if(!r||r.exam!==ex||r.by!==me||r.subject!==subj||!r.sid) return;
+      if(i===0){ const s=f2State(r); if(s==='none'||s==='absent'||s==='notassessed') return;
+        if(s==='done') done[r.sid]=1; }
+      pap[r.sid]=1; }));
+  }
+  const list=inCls(cls), c=o=>list.filter(x=>o[x.sid]).length;
+  return {n:list.length, obs:c(obs), pap:c(pap), done:c(done)};
+}
 /* 这一格里，【自己】填过的学生有几位（四种证据任一笔都算） */
 function myDone(cls,subj){
   const ex=EXK(), me=S.me; if(!me) return 0;
@@ -4210,7 +4457,7 @@ function paperObsDone(p){
 function paperF2Done(p){
   const ex=EXK(); let n=0;
   inCls(S.cls).forEach(x=>{
-    const st=f2State(S.f2[ex+'|'+x.sid+'|'+S.subject+'|'+p.id]);
+    const st=paperStateOf(x.sid,S.subject,p.id);
     if(st==='done'||st==='progress') n++; });
   return n;
 }
@@ -4230,7 +4477,9 @@ function renderPapers(){
     <div class="card-hdr"><span class="card-title">考卷</span>
       <span class="tip" style="margin:0">${ps.length} 份</span></div>`;
   if(!ps.length){
-    h+=`<div class="empty" style="padding:20px">还没有考卷</div>`;
+    h+=`<div class="empty" style="padding:20px">${bpCanEdit()
+      ? '这个班级 / 科目还没有考卷。<br>按下面「＋ 建立新考卷」建第一份，就可以开始填。'
+      : '这个班级 / 科目还没有考卷，请找管理层建立。'}</div>`;
   }else{
     ps.forEach((p,i)=>{
       const mine=paperMine(p)&&!!paperOwner(p);
@@ -4246,7 +4495,7 @@ function renderPapers(){
           <div style="display:flex;gap:4px;flex-wrap:wrap">
             ${paperStamps(p).map(t=>`<span class="chip ${t===S.me?'chip-me':'chip-muted'}"
                title="${esc(teacherLabel(t))}">${esc(t)}</span>`).join('')}</div>
-          <div style="font-size:17px;font-weight:700;margin-top:5px">考卷 ${i+1}</div>
+          <div style="font-size:17px;font-weight:700;margin-top:5px">${esc(paperLabelOf(p,i))}</div>
           ${row('考前观察',nObs)}
           ${row('考卷分析',nF2)}
           ${nF2?`<div style="display:flex;gap:10px;align-items:baseline;margin-top:4px">
@@ -4260,7 +4509,7 @@ function renderPapers(){
       </div>`;
     });
   }
-  h+=`<button class="btn newpaper" onclick="newPaper()">＋ 建立新考卷</button></div>`;
+  h+=(bpCanEdit()?`<button class="btn newpaper" onclick="newPaper()">＋ 建立新考卷</button>`:'')+`</div>`;
   c.innerHTML=h;
 }
 /* 建立新考卷 —— 写三张表：卷本身、适用班级、负责老师。没有改结构。 */
@@ -4268,8 +4517,10 @@ async function newPaper(){
   if(!bpCanEdit()){ toast('✕ 这个帐号没有填写权限'); return; }
   if(!_sb||!CLOUD.exam||!CLOUD.session){ toast('✕ 要连上系统才能建立考卷',2600); return; }
   if(!(S.cls&&S.subject)){ toast('✕ 先选班级和科目'); return; }
-  const n=(S.papers||[]).length+1;
-  if(!confirm(`要在 ${S.cls} · ${S.subject} 建立「考卷 ${n}」吗？\n\n建立後你可以自己登记这份卷的考卷项目。`)) return;
+  /* v53：编号 = 这一格现有最大编号 + 1（以前是「我看得到几份 + 1」，会重复） */
+  const n=(S.papers||[]).reduce((a,p,i)=>Math.max(a,+p.display_no||(i+1)),0)+1;
+  if(!confirm(`要在 ${S.cls} · ${S.subject} 建立「考卷 ${n}」吗？\n\n建立后，就可以在第 ① 步登记这份卷的项目。`)) return;
+  let pid=null;
   try{
     const cid=await classIdOf(S.cls);
     if(!cid){ toast('✕ 找不到这个班级'); return; }
@@ -4279,7 +4530,7 @@ async function newPaper(){
       label:'考卷 '+n, display_no:n, sort_order:n, status:'active',
       created_by:S.me||null, client_uid:cu }).select('id').single();
     if(ins.error) throw ins.error;
-    const pid=ins.data.id;
+    pid=ins.data.id;
     const sc=await _sb.from('evalgo_paper_scope').insert({paper_instance_id:pid, class_id:cid});
     if(sc.error) throw sc.error;
     const pt=await _sb.from('evalgo_paper_teacher').insert({
@@ -4292,7 +4543,9 @@ async function newPaper(){
   }catch(e){
     const m=(e&&e.message)?e.message:String(e);
     console.warn('newPaper',m);
-    alert('建立不成功。\n\n'+m);
+    /* v53：建到一半失败 → 把那份卷收起来，免得留下一份谁都看不到的空卷，重试又多一份 */
+    if(pid){ try{ await _sb.from('evalgo_paper_instance').update({status:'inactive'}).eq('id',pid); }catch(e2){} }
+    alert('考卷没有建立成功。\n\n'+plainErr(e)+'\n\n可以再按一次「＋ 建立新考卷」。');
   }
 }
 /* ══ v51 · Owner 2026-09-17：「我的记录」里不要的那一格，要能删 ══
@@ -4313,9 +4566,17 @@ async function clearMyCell(cls,subj){
   if(!picks.length){ toast('这一格没有你填的资料'); return; }
   const bad=picks.filter(p=>p.r.synced && !p.r.cloud_id);
   if(bad.length){ alert('有 '+bad.length+' 笔已上传的资料，这台装置对不上它在系统里的位置。请先到「管理」按「重新读取资料」，再清除一次。'); return; }
-  const cnt={}; picks.forEach(p=>{ cnt[p.lab]=(cnt[p.lab]||0)+1; });
-  const nStu=new Set(picks.map(p=>p.r.sid)).size;
-  if(!confirm(`清除你在 ${cls} · ${subj} 填的资料？\n\n${nStu} 位学生 · `+Object.keys(cnt).map(x=>x+' '+cnt[x]+' 笔').join(' · ')
+  const ORD={'逐题':0,'写作':1,'考前观察':2,'考卷分析':3};
+  picks.sort((a,b)=>ORD[a.lab]-ORD[b.lab]);
+  const byPaper={};
+  picks.forEach(p=>{ const pi=piOfKey(p.k)||''; const g=byPaper[pi]||(byPaper[pi]={stu:new Set(),cnt:{}});
+    g.stu.add(p.r.sid); g.cnt[p.lab]=(g.cnt[p.lab]||0)+1; });
+  const pname=pi=>{ const p=(S.papers||[]).find(x=>x.id===pi); return p?paperLabelOf(p):(pi?'另一份考卷':'旧资料（没有对应考卷）'); };
+  const lines=Object.keys(byPaper).map(pi=>{ const g=byPaper[pi];
+    return '· '+pname(pi)+'：'+g.stu.size+' 位学生（'+Object.keys(g.cnt).map(x=>x+' '+g.cnt[x]+' 笔').join('、')+'）'; });
+  const nLocal=picks.filter(p=>!p.r.cloud_id).length;
+  if(!confirm(`清除你在 ${cls} · ${subj} 填的资料？\n\n`+lines.join('\n')
+    +(nLocal?`\n\n其中 ${nLocal} 笔还没上传，只在这台装置上，删了就找不回来。`:'')
     +'\n\n考卷项目不会被删。系统里和这台装置上都会删掉，无法复原。确定继续？')) return;
   try{ dl(`EvalGo_clear_backup_${cls}_${subj}_${stamp()}.json`, JSON.stringify(
     {when:new Date().toISOString(),exam:CLOUD.exam.code,by:me,cls,subj,rows:picks.map(p=>({table:p.t,key:p.k,row:p.r}))},null,2)); }
@@ -4376,7 +4637,11 @@ function renderRecords(){
           onclick="clearMyCell('${m.cls}','${esc(m.su)}')">🗑 清除</button>`:''}
       </div>
       <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:8px">
-        ${bit('考卷项目',m.secs)}${bit('考前观察',m.f1)}${bit('考卷分析',m.f2)}${bit('逐题',m.wi)}${bit('写作',m.es)}
+        ${(()=>{ const q=myCellStat(m.cls,m.su);
+          return `<span class="chip ${q.obs?'chip-layer':'chip-muted'}" style="font-size:11px">考前观察 ${q.obs} / ${q.n} 位</span>`
+            +`<span class="chip ${q.pap?'chip-layer':'chip-muted'}" style="font-size:11px">考卷分析 ${q.pap} / ${q.n} 位</span>`
+            +(q.pap?`<span class="chip ${q.done===q.pap?'chip-ok':'chip-warn'}" style="font-size:11px">其中完成 ${q.done} 位</span>`:'')
+            +(m.secs?`<span class="chip chip-muted" style="font-size:11px">登记过考卷项目</span>`:''); })()}
       </div></div>`;
   });
   h+=`</div>`;
@@ -4440,15 +4705,12 @@ function renderCoverage(){
          ⚠️ 不可以用 opResolved / stResolved / f2Key —— 那三支吃的是
             「当下选中的格」(S.subject + piSuffix())。这一页要跨班跨科，
             所以照 pgStat 的做法走 f2AllOf(sid, subj)，任何一份卷都算。 */
-      const res =list.filter(r=>{
-        const sts=f2AllOf(r.sid,su).map(f2State);
-        return sts.indexOf('absent')>=0||sts.indexOf('notassessed')>=0; });
-      const none=list.filter(r=>{
-        const sts=f2AllOf(r.sid,su).map(f2State);
-        if(sts.indexOf('absent')>=0||sts.indexOf('notassessed')>=0) return false;
-        return f1Complete(r.sid,su).length===0; });
-      const done=list.length-none.length-res.length;
-      const pct=Math.round((list.length-none.length)/list.length*100);
+      /* v53 · DL-18：分子 = 有考前观察的人数；缺席的学生有观察也照算，缺席另外讲 */
+      const isRes=r=>{ const s=stateAcross(r.sid,su); return s==='absent'||s==='notassessed'; };
+      const res =list.filter(isRes);
+      const done=list.filter(r=>f1Complete(r.sid,su).length>0).length;
+      const none=list.filter(r=>!isRes(r) && f1Complete(r.sid,su).length===0);
+      const pct=Math.round(done/list.length*100);
       h+=`<div class="card"><div class="card-hdr" style="align-items:center;gap:0">
           <span style="display:inline-flex;gap:7px;align-items:center;flex-shrink:0">
             ${asgStamps(cl,su,stu)}
@@ -4462,10 +4724,10 @@ function renderCoverage(){
         <div class="progress ${pct>=100?'progress-ok':'progress-layer'}"><div class="progress-fill" style="width:${pct}%"></div></div>
         <div class="chips-row" style="margin-top:10px">`;
       list.forEach(r=>{
-        const sts=f2AllOf(r.sid,su).map(f2State);
-        if(sts.indexOf('absent')>=0||sts.indexOf('notassessed')>=0){
+        const s0=stateAcross(r.sid,su), n0=f1Complete(r.sid,su).length;
+        if(s0==='absent'||s0==='notassessed'){
           h+=`<span class="chip chip-muted" style="opacity:.6">${esc(r.en)} · ${
-            sts.indexOf('absent')>=0?'缺席':'本轮未评'}</span>`; return;
+            s0==='absent'?'缺席':'本轮未评'}${n0?' · '+n0:''}</span>`; return;
         }
         /* 数字 = 这位做了几个考前观察项目。v40 起尾巴不再挂考卷分析的 ✓/⚠。 */
         const n=f1Complete(r.sid,su).length;
@@ -4610,7 +4872,7 @@ function rpScore(sid,su,yr){
     }
     /* v43：跟老师端走同一支核心（含 q_marks：6b 错扣 2 分） */
     const r2=secScoreOf(sec, wi.filter(w=>+w.q>=+sec.qf && +w.q<=+sec.qt));
-    if(!r2){ missing.push(sec.code+(sec.even==='N'?'（每题不同分，未填 q_marks）':'（未声明每题几分）')); return; }
+    if(!r2){ missing.push(sec.code+'（'+secWhyNoScore(sec)+'）'); return; }
     got+=r2.got; max+=r2.max; covered++;
   });
   if(!covered) return {got:null,max:0,covered:0,total:secs.length,missing};
@@ -4663,16 +4925,17 @@ function rptReadyHTML(cl){
   if(!list.length) return `<div class="card"><div class="empty">
     ${esc(cl)} 名单是空的 —— 先按「重新读取资料」。</div></div>`;
   const rows=SUBJECTS.map(su=>{
-    let ok=0,ab=0,na=0,half=0,none=0;
+    let ok=0,ab=0,na=0,half=0,obsOnly=0,none=0;
     list.forEach(r=>{
       if(rpReady(r.sid,su)){ ok++; return; }
-      const st=f2State(rpF2(r.sid,su));
+      const st=stateAcross(r.sid,su);
       if(st==='absent') ab++;
       else if(st==='notassessed') na++;
-      else if(st==='progress'||st==='done'||rpObs(r.sid,su).length) half++;
+      else if(st==='progress'||st==='done') half++;
+      else if(rpObs(r.sid,su).length) obsOnly++;
       else none++;
     });
-    return {su,ok,ab,na,half,none};
+    return {su,ok,ab,na,half,obsOnly,none};
   });
   const tot=rows.reduce((a,x)=>a+x.ok,0);
   return `<div class="card">
@@ -4682,13 +4945,13 @@ function rptReadyHTML(cl){
       多半是老师还没登入 —— 没登入时填的东西只留在她自己的装置，不会上云。</div></div>`:''}
     <div class="tw"><table class="data"><thead><tr>
       <th>科目</th><th style="width:74px">可进报告</th><th style="width:60px">缺席</th>
-      <th style="width:74px">本轮未评</th><th style="width:74px">资料未齐</th>
-      <th style="width:74px">还没开始</th></tr></thead><tbody>
+      <th style="width:74px">本轮未评</th><th style="width:74px">考卷分析没完成</th>
+      <th style="width:74px">只有考前观察</th><th style="width:74px">还没开始</th></tr></thead><tbody>
       ${rows.map(x=>`<tr><td><strong>${esc(x.su)}</strong></td>
         <td>${x.ok?`<span class="chip chip-ok">${x.ok}</span>`:'<span class="chip chip-warn">0</span>'}</td>
         <td>${x.ab||'—'}</td><td>${x.na||'—'}</td>
         <td>${x.half?`<span class="chip chip-warn">${x.half}</span>`:'—'}</td>
-        <td>${x.none||'—'}</td></tr>`).join('')}
+        <td>${x.obsOnly||'—'}</td><td>${x.none||'—'}</td></tr>`).join('')}
     </tbody></table></div>
     <div class="tip">缺席与本轮未评 <b>不是弱项</b>，不进报告也不算 0 分。</div>
   </div>`;
@@ -4698,10 +4961,10 @@ function reportHeld(){
   const out={absent:[],na:[],half:[],none:[]};
   inCls(cl).forEach(r=>{
     if(reportReady(r.sid)) return;
-    const st=f2State(S.f2[f2Key(r.sid)]);
+    const st=paperStateOf(r.sid,S.subject,curPi());
     if(st==='absent') out.absent.push(r);
     else if(st==='notassessed') out.na.push(r);
-    else if(st==='progress'||st==='done'||f1Complete(r.sid).length) out.half.push(r);
+    else if(st==='progress'||st==='done'||f1Complete(r.sid,undefined,undefined,curPi()).length) out.half.push(r);
     else out.none.push(r);
   });
   return out;
@@ -5308,11 +5571,10 @@ function importData(e){
       exportData();  /* 汇入前自动备份 */
       const backup=JSON.parse(JSON.stringify(S));
       try{
-        Object.keys(p.f1||{}).forEach(k=>{ if(!S.f1[k]||!S.f1[k].synced) S.f1[k]=p.f1[k]; });
-        Object.keys(p.f2||{}).forEach(k=>{ if(!S.f2[k]||!S.f2[k].synced) S.f2[k]=p.f2[k]; });
-        Object.keys(p.wi||{}).forEach(k=>{ if(!S.wi[k]||!S.wi[k].synced) S.wi[k]=p.wi[k]; });
-        Object.keys(p.es||{}).forEach(k=>{ if(!S.es[k]||!S.es[k].synced) S.es[k]=p.es[k]; });
-        if(saveThen('✓ Imported')){ refreshAll(); renderManage(); }
+        const take=(src,dst)=>Object.keys(src||{}).forEach(k=>{
+          if(!dst[k]||!dst[k].synced){ const r=src[k]; if(r&&r.savedAt) r.synced=false; dst[k]=r; } });
+        take(p.f1,S.f1); take(p.f2,S.f2); take(p.wi,S.wi); take(p.es,S.es);
+        if(saveThen('✓ 已从备份档还原')){ refreshAll(); renderManage(); autoPush(); }
       }catch(err){ S=backup; saveData(true); toast('✕ 汇入失败，已回滚'); }
     }catch(err){ toast('✕ 无法解析，资料未变动'); }
   };
@@ -5322,7 +5584,7 @@ function importData(e){
 /* ══ CLOUD ══ */
 function cloudLibReady(){ return typeof window.supabase!=='undefined' && !!window.supabase.createClient; }
 async function cloudInit(silent){
-  CLOUD.err=''; CLOUD.checked=false;
+  CLOUD.err=''; CLOUD.checked=false; CLOUD.permUnknown=true;
   if(!cloudLibReady()){ CLOUD.err='网路连不上，请检查网路后重新整理'; paintCloud(); return false; }
   try{
     if(!_sb) _sb=window.supabase.createClient(SB_URL,SB_KEY);
@@ -5334,7 +5596,7 @@ async function cloudInit(silent){
     const pr=await _sb.rpc('can_access',{p_system:SYS_CODE});
     if(pr.error) throw pr.error;
     const row=Array.isArray(pr.data)?pr.data[0]:pr.data;
-    CLOUD.perm=row||null;
+    CLOUD.perm=row||null; CLOUD.permUnknown=false;
     if(!CLOUD.perm||CLOUD.perm.can_see!==true){ CLOUD.err='这个帐号还没有开通 EvalGo_ATC —— 请找院长开通'; paintCloud(); return false; }
     const ex=await _sb.from('evalgo_exam').select('*').eq('department','ATC').eq('is_active',true)
                       .order('report_due',{ascending:true}).limit(1);
@@ -5592,9 +5854,8 @@ function authGate(){
   if(!CLOUD.checked){ el.style.display='none'; return; }
   let show=true;
   if(!cloudLibReady()){
-    I.textContent='📡'; T.textContent='连不到学校系统';
-    M.textContent='可能是网路问题。连上网路后按下面重试。';
-    B.textContent='重新连线'; B.onclick=()=>{ CLOUD.checked=false; authGate(); cloudInit(false).then(authGate); };
+    /* v53：网路不通不挡人 —— 首页会写「目前离线，你还是可以填」，资料先存在这台装置 */
+    show=false;
   }else if(!CLOUD.session){
     if(shouldAutoLogin()){ redirectToPlatformLogin(); return; }   /* v28：照 ObsGo R1，直接跳 */
     I.textContent='🔒'; T.textContent='请先登入平台';
@@ -5602,6 +5863,9 @@ function authGate(){
       ? '目前离线，暂时确认不了你的身分。你可以先不要关掉这一页 —— 已经填过的东西还在这台装置上，连上网路再登入就会送出。'
       : 'EvalGo_ATC 不另外设帐号，用你平常登入学校平台的那一个。按下面会跳去登入，登好会自动回来。';
     B.textContent='去平台登入'; B.onclick=cloudLogin;
+  }else if(!CLOUD.perm && CLOUD.permUnknown){
+    /* v53：查帐号时网路断了 ≠ 没开通。不挡人，照离线处理 */
+    show=false;
   }else if(!CLOUD.perm||CLOUD.perm.can_see!==true){
     I.textContent='🚫'; T.textContent='这个帐号还没有开通';
     M.textContent='你已经登入了，但这个帐号还没有开通 EvalGo_ATC。请找院长开通 —— 不是你的问题。';
@@ -5734,8 +5998,10 @@ function pendingCount(){
 /* payload 专用：不依赖当前选到的科目（上传时可能已切走） */
 /* 🔴 v10 BUG：少了 exam 筛选，9 月的错题会被算进 10 月那一轮。
    这正是加 exam scoping 要解决的问题，却漏在这一行。 */
-function wiForRec(r){
-  return Object.values(S.wi).filter(w=>w.sid===r.sid&&w.subject===r.subject&&w.exam===r.exam);
+function wiForRec(r,pi){
+  if(pi===undefined) pi=recPiOf(r);
+  return Object.keys(S.wi).filter(k=>{const w=S.wi[k];
+    return w&&w.sid===r.sid&&w.subject===r.subject&&w.exam===r.exam&&keyInPaper(k,pi);}).map(k=>S.wi[k]);
 }
 
 /* ══════════════════════════════════════════════════════════════════
@@ -5820,21 +6086,23 @@ function secComplete(x){
    一笔失败不该拖垮整批 —— 在前端就先挡掉，并在 UI 明说。 */
 function pendingSections(){ return allSections().filter(x=>!x.synced && secComplete(x)); }
 function incompleteSections(){ return allSections().filter(x=>!secComplete(x)); }
-function totalQFor(subject,year){
+function totalQFor(subject,year,pi){
   /* 🔴 v10 BUG：bpKey 已经是 exam|subject|year，这里还在拼 subject|year
      → 永远取不到，totalQ=0 → 答对率、total_q、报告分母全错。
      统一走 bpKeyOf()，不再手拼。 */
-  const arr=S.sections[bpKeyOf(subject,year)]||[];
+  const key=(pi===undefined)?bpKeyOf(subject,year):(EXK()+'|'+subject+'|'+year+(pi?'|'+pi:''));
+  const arr=S.sections[key]||[];
   return arr.filter(x=>QTYPES.indexOf(x.type||'MCQ')>=0 && +x.qf>=1 && +x.qt>=+x.qf)
             .reduce((a,x)=>a+((+x.qt||0)-(+x.qf||0)+1),0);
 }
 /* 任一 FORM 02 纪录的派生统计 —— 不依赖当前选到的科目 */
 function recStats(p){
   const c={star:0,dk:0,cl:0,nr:0,sos:0,blank:0};
+  const pi=p?recPiOf(p):null;
   if(p&&p.sid) Object.keys(S.wi).forEach(k=>{const w=S.wi[k];
-    if(w.sid===p.sid&&w.subject===p.subject&&w.exam===p.exam&&c[w.code]!=null) c[w.code]++; });
+    if(w.sid===p.sid&&w.subject===p.subject&&w.exam===p.exam&&c[w.code]!=null&&keyInPaper(k,pi)) c[w.code]++; });
   const wrong=c.dk+c.cl+c.nr+c.sos+c.blank;
-  const total=(p?totalQFor(p.subject,p.year):0)||0;
+  const total=(p?totalQFor(p.subject,p.year,pi):0)||0;
   const checked=!!(p&&p.paper_checked);
   /* ⚠️ 未核对整份 → 没点的题是 UNKNOWN，答对数与答对率不存在 */
   const right=checked?Math.max(0,total-wrong):null;
@@ -5847,13 +6115,16 @@ function f2Started(p){
   if(!p) return false;
   if(p.paper_checked) return true;
   if(recStats(p).marked>0) return true;
+  if(esForRec(p).some(e=>e.score!=null||(e.weak||[]).length||e.star)) return true;   /* v53：只填写作也算 */
   return !!(p.fix_outcome||p.tp||p.fix_target||p.parent_support
-         ||p.reflect_was_wrong||p.reflect_now_know
+         ||p.reflect_was_wrong||p.reflect_now_know||p.weak_note||p.done_note||p.next_note
+         ||(p.weak_manual||[]).length
          ||(p.next_options||[]).length||(p.done_options||[]).length);
 }
-function esForRec(p){
-  return Object.keys(S.es).map(k=>S.es[k])
-    .filter(e=>e.sid===p.sid&&e.subject===p.subject&&e.exam===p.exam);
+function esForRec(p,pi){
+  if(pi===undefined) pi=recPiOf(p);
+  return Object.keys(S.es).filter(k=>{const e=S.es[k];
+    return e&&e.sid===p.sid&&e.subject===p.subject&&e.exam===p.exam&&keyInPaper(k,pi);}).map(k=>S.es[k]);
 }
 function wiPayload(w,k){ const st=stuOf(w.sid)||{}; const pi=piOfKey(k);
   return {exam_id:CLOUD.exam.id,student_id:w.sid,class_id:st.class_id||w.class_id,
@@ -5891,11 +6162,11 @@ function f2Payload(r,k){ const st=stuOf(r.sid)||{}; const pi=piOfKey(k);
   /* 评量状态一起上云 —— 没有它，DB 端就分不出「老师没做」与「学生缺席」 */
   /* ⚠️ n_star … n_sos 与 total_q 由系统自逐题资料算出，老师不再手填。 */
   const c={star:0,dk:0,cl:0,nr:0,sos:0,blank:0};
-  wiForRec(r).forEach(w=>{ if(c[w.code]!=null) c[w.code]++; });
+  wiForRec(r,pi).forEach(w=>{ if(c[w.code]!=null) c[w.code]++; });
   const yr=st.year||r.year;
   const p={exam_id:CLOUD.exam.id,student_id:r.sid,class_id:st.class_id||r.class_id,
     subject:r.subject,year_level:yr,paper_date:r.paper_date||today(),
-    total_q:totalQFor(r.subject,yr)||null,
+    total_q:totalQFor(r.subject,yr,pi)||null,
     /* ⚠️ paper_analysis.n_* 没有 BLANK 栏（v5 起 BLANK 只存在 wrong_item）。
        所以这几个数字【不是权威来源】—— 权威是 evalgo_wrong_item 与
        v_evalgo_mark_summary（那里有 n_blank）。此处仅为相容保留。
@@ -5957,14 +6228,21 @@ function f2Payload(r,k){ const st=stuOf(r.sid)||{}; const pi=piOfKey(k);
 /* 老师完成一个学生就自动上传。
    v9 要老师自己记得去 Manage 按「上传 N 笔」，还在首页红字提醒 ——
    那是把我的工程问题变成她的日常负担。同步是系统的事。 */
-let _autoT=null;
+let _autoT=null, _autoAgain=false;
 function autoPush(){
   if(!_sb||!CLOUD.exam||!CLOUD.session) return;
   if(!CLOUD.perm||CLOUD.perm.can_edit!==true) return;
   if(S.rosterSource!=='cloud') return;     /* 示范名单绝不上传 */
   clearTimeout(_autoT);
-  _autoT=setTimeout(()=>{ if(!CLOUD.busy && pendingCount()) cloudPush(true); }, 1500);
+  _autoT=setTimeout(()=>{
+    /* v53：正在上传 / 正在读取时不是放弃，是等它做完再送一次 */
+    if(CLOUD.busy||CLOUD.pulling){ _autoAgain=true; return; }
+    if(pendingCount()) cloudPush(true);
+  }, 1500);
 }
+function autoPushAfter(){ if(_autoAgain){ _autoAgain=false; autoPush(); } }
+/* 比对「送出去的」跟「现在的」是不是同一份 —— 每次都会变的栏位不算 */
+function paySnap(pl){ const o=Object.assign({},pl||{}); delete o.weak_provenance_nonce; return JSON.stringify(o); }
 /* ══════════════════════════════════════════════════════════════════
    登入之后，把离线时填的自动送出去（v21）
    ------------------------------------------------------------------
@@ -5994,7 +6272,8 @@ async function flushPendingAfterLogin(){
   return {n, sent:n-left, left, why:''};
 }
 async function cloudPush(silent){
-  if(CLOUD.busy){ if(!silent) toast('上传进行中'); return; }
+  if(CLOUD.busy){ if(!silent) toast('上传进行中'); else _autoAgain=true; return; }
+  if(CLOUD.pulling){ if(!silent) toast('正在读取资料，等一下再上传'); else _autoAgain=true; return; }
   if(!CLOUD.exam){ if(!silent) toast('✕ 还没连上'); return; }
   if(S.rosterSource!=='cloud'){ if(!silent) alert('还在用示范名单，不会上传。'); return; }
   if(!CLOUD.perm||CLOUD.perm.can_edit!==true){ if(!silent) alert('这个帐号没有填写权限。'); return; }
@@ -6013,6 +6292,7 @@ async function cloudPush(silent){
       if(noPaper(sec._key)) continue;
       try{
         if(!sec.client_uid) sec.client_uid=uid();
+        const secSnap=paySnap(psPayload(sec));
         let res=await _sb.from('evalgo_paper_section')
           .upsert(psPayload(sec),{onConflict:'client_uid'}).select('id').single();
         if(res.error && /section_type|check constraint/i.test(res.error.message||'')){
@@ -6025,7 +6305,9 @@ async function cloudPush(silent){
         if(res.error) throw res.error;
         /* v27：用项目自己的 key（allSections 带出来的 _key），不再用当下选中卷重拼 */
         const live=(S.sections[sec._key||bpKeyOf(sec._subject,sec._year)]||[]).find(x=>x.id===sec.id);
-        if(live){ live.cloud_id=res.data.id; live.synced=true;
+        if(live){ live.cloud_id=res.data.id;
+          /* v53：上传途中老师又改了 → 这一次送的是旧的，不能标成已上传 */
+          if(paySnap(psPayload(Object.assign({},sec,live)))===secSnap) live.synced=true; else _autoAgain=true;
           /* 有小题结构但栏位还没上线 → 记一笔，等 delta v13 跑完自动重送 */
           live.needV13 = (!CLOUD.hasV13 && !qmEmpty(live.qm)); }
         secOk++;
@@ -6103,20 +6385,25 @@ async function cloudPush(silent){
   };
   const TLAB={evalgo_live_obs:'考前观察',evalgo_paper_analysis:'考卷分析',evalgo_wrong_item:'逐题资料',
     evalgo_essay_result:'写作结果',evalgo_teacher_assign:'任课安排'};
+  const heldObs={};
   const jobNoPaper=jobs.filter(j=>j.t!=='evalgo_teacher_assign' && noPaper(j.k)).length;
   if(jobNoPaper) held.push(jobNoPaper+' 笔旧资料对不上是哪一份考卷，暂不上传。');
   for(const j of jobs){
     try{
       if(j.t!=='evalgo_teacher_assign' && noPaper(j.k)) continue;
-      const pl=j.p();
+      const pl=j.p(), snap=paySnap(pl);
       const spec=JOB_SPEC[j.t];
       if(!spec) throw new Error('没有 write spec：'+j.t);
       const miss=spec.required.filter(f=>pl[f]==null||pl[f]==='');
+      /* v53：考前观察挂的项目还没上传（通常是项目缺题号 / 满分）→ 先放着，讲清楚原因，不算失败 */
+      if(j.t==='evalgo_live_obs' && CLOUD.hasPI && pl.paper_instance_id && !pl.section_id){
+        heldObs[j.r.bahagian]=(heldObs[j.r.bahagian]||0)+1; continue; }
       if(miss.length){ fail++; console.warn('缺栏位',j.t,miss,j.k);
         errs.push((TLAB[j.t]||'资料')+'有一笔缺少必要内容（例如学生或班级），没有上传'); continue; }
       const res=await _sb.from(j.t).upsert(pl,{onConflict:'client_uid'}).select('id').single();
       if(res.error) throw res.error;
-      j.r.synced=true; j.r.cloud_id=res.data.id; ok++;
+      j.r.cloud_id=res.data.id; ok++;
+      if(paySnap(j.p())===snap) j.r.synced=true; else _autoAgain=true;   /* v53：途中改过 → 再送一次 */
       /* v9 未跑 → 老师手填的弱项这次没有栏位可放。不冒充系统推导，也不丢：
          标记起来，v9 一上线就自动重送（见 cloudConnect）。 */
       if(j.t==='evalgo_paper_analysis' && !CLOUD.hasV9 && (j.r.weak_manual||[]).length)
@@ -6154,18 +6441,22 @@ async function cloudPush(silent){
         errs.push('考卷项目「'+(j.r&&j.r.code||'')+'」已经有人登记过同名的，没能自动合并。请截图找管理层。');
         continue;
       }
-      if(j.t==='evalgo_wrong_item' && /evalgo_wrong_item_pi_key/.test(msg)){
-        j.r.needV14=true; j.r.synced=true;
-        held.push('有小题纪录暂时存在这台装置，系统更新后会自动送出。');
-      }else{ fail++; errs.push(plainErr(msg)); }
+      /* v53：evalgo_wrong_item_pi_key 已经含小题（09-17 实查）。还会撞到的只会是同一格真的已经有人填过 ——
+         以前这里把它标成「已上传」，下一次读取就把老师点的记码盖掉。现在照一般失败处理，
+         下一次读取时由撞车流程（同人认领 / 不同人标撞车）接手。 */
+      fail++; errs.push(plainErr(msg));
     }
   }
+  Object.keys(heldObs).forEach(c=>held.push('考前观察 '+heldObs[c]+' 笔先放着：项目「'+c+'」还没上传（通常是还缺题号或满分）—— 到第 ① 步补上就会自动送出。'));
   CLOUD.busy=false; CLOUD.lastSync=new Date().toLocaleString('en-GB');
+  CLOUD.held=held.filter((x,i)=>held.indexOf(x)===i);
+  CLOUD.heldObsN=Object.keys(heldObs).reduce((a,c)=>a+heldObs[c],0)+jobNoPaper;
+  setTimeout(autoPushAfter,0);
   /* v22 · WritePath Iron Rule 3：先确定云端结果，再画状态。
      旧版先 paintCloud()、后写 pushErr；成功时还可能保留上一次错误。
      现在 pendingCount() 是最终真相：只要还有未同步资料，就绝不显示绿勾。 */
   const leftAfterPush=pendingCount();
-  CLOUD.pushErr = (fail||secFail||leftAfterPush)
+  CLOUD.pushErr = (fail||secFail||leftAfterPush>(CLOUD.heldObsN||0))   /* v53：只是先放着的不算失败 */
     ? (errs[0] || (secFail?('考卷项目 '+secFail+' 个没上传成功') : ('还有 '+leftAfterPush+' 笔没上传')))
     : '';
   saveData(true); paintCloud();
@@ -6180,6 +6471,13 @@ async function cloudPush(silent){
 }
 async function cloudPull(silent){
   if(!CLOUD.exam){ if(!silent) toast('✕ 还没连上'); return; }
+  /* v53：上传做到一半时读取，会把刚送出的资料当成「系统里没有」清掉 → 先等上传做完 */
+  for(let i=0;i<80&&CLOUD.busy;i++) await new Promise(r=>setTimeout(r,250));
+  CLOUD.pulling=true;
+  try{ return await cloudPullInner(silent); }
+  finally{ CLOUD.pulling=false; setTimeout(autoPushAfter,0); }
+}
+async function cloudPullInner(silent){
   try{
     const a=await fetchAllRows('evalgo_live_obs');
     if(a.error) throw a.error;
@@ -6306,11 +6604,14 @@ function paintCloud(){
   if(!online){
     el.textContent='⚠ 离线 · 资料先存在这台电脑';
     el.style.color='var(--warn)';
-  }else if(CLOUD.busy || (p>0 && !CLOUD.pushErr)){
+  }else if(CLOUD.busy || (p>0 && !CLOUD.pushErr && !((CLOUD.heldObsN||0)>=p))){
     el.textContent='↑ 正在上传 '+p+' 笔…';
     el.style.color='#F9CB42';
+  }else if(!CLOUD.pushErr && p>0 && (CLOUD.heldObsN||0)>=p){
+    el.textContent='⏸ '+p+' 笔先放着 — 点这里看原因';
+    el.style.color='#F9CB42';
   }else if(CLOUD.pushErr || p>0){
-    el.textContent='⚠ '+p+' 笔没送出 — 请截图找管理层';
+    el.textContent='⚠ '+p+' 笔没送出 — 点这里看原因';
     el.style.color='#FFD0D0';
   }else if(s9Count()){
     /* v45：撞车不是「送不出去」，是**刻意不送**。混进上面那一条，
