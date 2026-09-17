@@ -483,7 +483,7 @@ button.chip.sel-w{background:var(--warn);color:#fff}
    权限码：RPT-EvalGo-ATC
    ══════════════════════════════════════════════════════════════════ */
 
-const APP_VERSION = 55;
+const APP_VERSION = 56;
 
 /* ══ v46 · 旧版本守门 ══════════════════════════════════
    MiscGo 那边抓到实例：网址对、程式旧（手机快取把旧 HTML 钉住）。
@@ -1318,7 +1318,7 @@ function qmChips(sec){
   Object.keys(qm.subs||{}).sort((a,b)=>(+a)-(+b)).forEach(q=>{
     const o=qm.subs[q]||{};
     out.push('<span class="chip chip-layer" title="这一题有小题">第'+esc(q)+'题 '
-      +Object.keys(o).map(l=>l+(o[l]==null?'':'·'+o[l])).join(' ')+'</span>');
+      +subOrder(qm,q).map(l=>esc(subLabOf(qm,q,l))+(o[l]==null?'':'·'+o[l])).join(' ')+'</span>');
   });
   Object.keys(qm.per_q||{}).sort((a,b)=>(+a)-(+b)).forEach(q=>{
     const m=qm.per_q[q];
@@ -1334,9 +1334,17 @@ function qmToRows(qm,sec){
   if(qmEmpty(qm)) return rows;
   if(sec && hasRange(sec)) qm=qmShift(qm, pfOf(sec)-(+sec.qf));   /* v54：视窗里是卷面号 */
   Object.keys(qm.subs||{}).sort((a,b)=>(+a)-(+b)).forEach(q=>{
-    const o=qm.subs[q]||{};
-    rows.push({q:String(q), mode:'S', m:'',
-      subs:SUBQ.filter(l=>o[l]!==undefined).map(l=>(o[l]==null?'':String(o[l])))});
+    const o=qm.subs[q]||{}, L=(qm.labs||{})[q]||{};
+    const parts=[], subs=[], ls=[];
+    let cur=null;
+    subOrder(qm,q).forEach(l=>{
+      const x=subLabParse(L[l]), pk=x?x.p:l;
+      if(x&&x.k&&cur&&cur.key===pk&&cur.kids>0) cur.kids++;
+      else { cur={key:pk, kids:(x&&x.k)?1:0}; parts.push(cur); }
+      subs.push(o[l]==null?'':String(o[l])); ls.push(l);
+    });
+    rows.push({q:String(q), mode:'S', m:'', subs, ls, was:ls.slice(),
+      parts:parts.map(p=>({kids:p.kids}))});
   });
   Object.keys(qm.per_q||{}).sort((a,b)=>(+a)-(+b)).forEach(q=>{
     if(qm.subs&&qm.subs[q]!==undefined) return;   /* 同一题两边都有 → 以小题为准 */
@@ -1345,16 +1353,47 @@ function qmToRows(qm,sec){
   });
   return rows;
 }
+/* 一行里的 (a)(b)… 结构。旧写法只有 subs（每格都是一个小题）→ 自动补上 */
+function leafN(p){ return (p&&p.kids>0)?p.kids:1; }
+function rowParts(r){
+  r.subs=r.subs||[];
+  const tot=(r.parts||[]).reduce((a,p)=>a+leafN(p),0);
+  if(!r.parts||tot!==r.subs.length) r.parts=r.subs.map(()=>({kids:0}));
+  if(!r.ls||r.ls.length!==r.subs.length) r.ls=r.subs.map((_,j)=>(r.ls||[])[j]||null);
+  return r.parts;
+}
+/* 每一格的名字（照位置）：['(a)(i)','(a)(ii)','(b)'] */
+function rowLeafLabs(r){
+  const out=[];
+  rowParts(r).forEach((p,pi)=>{
+    const pl=PARTL[pi]||'?';
+    if(p.kids>0) for(let k=0;k<p.kids;k++) out.push('('+pl+')('+(ROMAN[k]||'?')+')');
+    else out.push('('+pl+')');
+  });
+  return out;
+}
 function qmFromRows(rows){
-  const per_q={}, subs={};
+  const per_q={}, subs={}, labs={};
   (rows||[]).forEach(r=>{
     const n=parseInt(r.q,10); if(!(n>=1)) return;   /* 没填题号的那一行直接丢掉 */
     const q=String(n);
     if(r.mode==='S'){
-      const o={};
-      (r.subs||[]).forEach((m,j)=>{ const lab=SUBQ[j]; if(!lab) return;
-        o[lab]=(m===''||m==null)?null:(+m); });
-      if(Object.keys(o).length) subs[q]=o;
+      const parts=rowParts(r), names=rowLeafLabs(r);
+      /* 已有的格子保留原来的字母；新格子用没用过的字母（连刚拿掉的也不重用） */
+      const used={};
+      r.ls.forEach(l=>{ if(l) used[l]=1; });
+      (r.was||[]).forEach(l=>{ if(l) used[l]=1; });
+      const o={}, lab={};
+      let odd=parts.some(p=>p.kids>0);
+      names.forEach((nm,j)=>{
+        let l=r.ls[j];
+        if(!l){ l=SUBQ.find(x=>!used[x]); if(!l) return; used[l]=1; }
+        const m=r.subs[j];
+        o[l]=(m===''||m==null)?null:(+m);
+        lab[l]=nm;
+        if(nm!=='('+l+')') odd=true;
+      });
+      if(Object.keys(o).length){ subs[q]=o; if(odd) labs[q]=lab; }
     }else{
       per_q[q]=(r.m===''||r.m==null)?null:(+r.m);
     }
@@ -1362,6 +1401,7 @@ function qmFromRows(rows){
   const out={};
   if(Object.keys(per_q).length) out.per_q=per_q;
   if(Object.keys(subs ).length) out.subs =subs;
+  if(Object.keys(labs ).length) out.labs =labs;
   return Object.keys(out).length?out:null;
 }
 /* DOM → BPQM。每次重画前先收回来，否则老师打到一半的字会被洗掉。 */
@@ -1374,17 +1414,54 @@ function bpQmSync(){
   });
 }
 function bpQmAddQ(){ bpQmSync();
-  BPQM.push({q:'',mode:'S',m:'',subs:['','']}); bpQmRender(); }   /* v53：预设两个小题，要 c 再按「+ 加小题」 */
+  BPQM.push({q:'',mode:'S',m:'',subs:['',''],parts:[{kids:0},{kids:0}],ls:[null,null]}); bpQmRender(); }   /* v53：预设两个小题，要 c 再按「+ 加小题」 */
 function bpQmDel(i){ bpQmSync(); BPQM.splice(i,1); bpQmRender(); }
 function bpQmMode(i,mode){ bpQmSync(); if(BPQM[i]) BPQM[i].mode=mode; bpQmRender(); }
 function bpQmAddSub(i){ bpQmSync();
   const r=BPQM[i]; if(!r) return;
-  if(r.subs.length>=SUBQ.length){ toast('✕ 小题最多到 '+SUBQ[SUBQ.length-1]); return; }
-  r.subs.push(''); bpQmRender(); }
+  rowParts(r);
+  if(r.subs.length>=SUBQ.length){ toast('✕ 一题最多 '+SUBQ.length+' 格'); return; }
+  r.parts.push({kids:0}); r.subs.push(''); r.ls.push(null); bpQmRender(); }
 function bpQmDelSub(i){ bpQmSync();
   const r=BPQM[i]; if(!r) return;
-  if(r.subs.length<=2){ toast('✕ 有小题的题目至少要两个小题'); return; }
-  r.subs.pop(); bpQmRender(); }
+  rowParts(r);
+  if(r.parts.length<=2){ toast('✕ 有小题的题目至少要两个小题'); return; }
+  const n=leafN(r.parts.pop());
+  r.subs.splice(-n,n); r.ls.splice(-n,n); bpQmRender(); }
+/* v56 · 某个小题底下的更小题 (i)(ii)…：d=+1 加一个，d=-1 减一个（减到剩一个 → 变回没有更小题） */
+function bpQmKid(i,p,d){ bpQmSync();
+  const r=BPQM[i]; if(!r) return;
+  const parts=rowParts(r), pt=parts[p]; if(!pt) return;
+  let s=0; for(let x=0;x<p;x++) s+=leafN(parts[x]);
+  if(d>0){
+    if(r.subs.length>=SUBQ.length){ toast('✕ 一题最多 '+SUBQ.length+' 格'); return; }
+    if(!(pt.kids>0)){
+      pt.orig=r.ls[s]; pt.origM=r.subs[s];
+      r.subs.splice(s,1,'',''); r.ls.splice(s,1,null,null); pt.kids=2;
+    }else{
+      if(pt.kids>=ROMAN.length){ toast('✕ 更小题最多到 ('+ROMAN[ROMAN.length-1]+')'); return; }
+      r.subs.splice(s+pt.kids,0,''); r.ls.splice(s+pt.kids,0,null); pt.kids++;
+    }
+  }else{
+    if(!(pt.kids>0)) return;
+    if(pt.kids>2){ r.subs.splice(s+pt.kids-1,1); r.ls.splice(s+pt.kids-1,1); pt.kids--; }
+    else{
+      /* 变回一个小题：原来那一格的字母还回去，学生记录不会跑位 */
+      r.subs.splice(s,pt.kids,pt.origM==null?'':pt.origM); r.ls.splice(s,pt.kids,pt.orig||null);
+      pt.kids=0; delete pt.orig; delete pt.origM;
+    }
+  }
+  bpQmRender(); }
+/* 更小题一次填同一个分数 */
+function bpQmFill(i,p,v){
+  const r=BPQM[i]; if(!r) return;
+  const parts=rowParts(r), pt=parts[p]; if(!pt||!(pt.kids>0)) return;
+  let s=0; for(let x=0;x<p;x++) s+=leafN(parts[x]);
+  for(let k=0;k<pt.kids;k++){
+    const e=document.getElementById('qm_s_'+i+'_'+(s+k)); if(e) e.value=v;
+    r.subs[s+k]=v;
+  }
+  bpQmTick(); }
 /* v53 · 储存前的检查（加项目 / 改项目 / 改分数共用）
    err    = 挡下来，讲清楚哪里不对
    blanks = 可以存，但要先讲「这几格没分数 → 这个项目算不出分数」 */
@@ -1397,7 +1474,13 @@ function qmCheck(rows,qf,qt,mx){
     if(!(n>=1)){ if(hasVal) return {err:'有一行填了分数，但没填是第几题 —— 请补上题号，或按那一行的「× 移除」'}; continue; }
     if(seen[n]) return {err:'第 '+n+' 题填了两行 —— 同一题只能留一行'};
     seen[n]=1;
-    if(r.mode==='S') (r.subs||[]).forEach((v,j)=>{ if(String(v==null?'':v).trim()==='') blanks.push('第 '+n+' 题 '+SUBQ[j]); });
+    if(r.mode==='S'){
+      const parts=rowParts(r), names=rowLeafLabs(r);
+      for(let p=0;p<parts.length;p++) if(parts[p].kids===1)
+        return {err:'第 '+n+' 题 ('+PARTL[p]+') 只有一个更小题 —— 至少要两个（i、ii），不然就按「−」变回一格'};
+      if(r.subs.length>SUBQ.length) return {err:'第 '+n+' 题格子太多（最多 '+SUBQ.length+' 格）'};
+      r.subs.forEach((v,j)=>{ if(String(v==null?'':v).trim()==='') blanks.push('第 '+n+' 题 '+names[j]); });
+    }
     else if(!hasVal) blanks.push('第 '+n+' 题');
   }
   const qm=qmFromRows(rows);
@@ -1406,7 +1489,12 @@ function qmCheck(rows,qf,qt,mx){
     for(const q of exQ) if(!(+q>=+qf && +q<=+qt))
       return {err:'第 '+q+' 题不在这个项目的题号范围（'+qf+'–'+qt+'）里'};
     for(const q of Object.keys(qm.subs||{})) if(Object.keys(qm.subs[q]).length<2)
-      return {err:'第 '+q+' 题只有一个小题 —— 有小题的题目至少要两个（a、b）'};
+      return {err:'第 '+q+' 题只有一个小题 —— 有小题的题目至少要两个（(a)、(b)）'};
+    for(const r of (rows||[])){
+      const n=parseInt(r.q,10);
+      if(r.mode==='S' && n>=1 && qm.subs && qm.subs[String(n)] && Object.keys(qm.subs[String(n)]).length!==r.subs.length)
+        return {err:'第 '+n+' 题格子太多，系统排不下 —— 请减少几格'};
+    }
     const sum=qmExcSum(qm), totQ=(+qt)-(+qf)+1, rest=totQ-exQ.length;
     if(sum!=null){
       if(sum>mx) return {err:'这几题加起来 '+sum+' 分，超过这个项目的 '+mx+' 分'};
@@ -1428,7 +1516,7 @@ function qmBlankList(qm,sec){
   if(qmEmpty(qm)) return out;
   if(sec && hasRange(sec)) qm=qmShift(qm, pfOf(sec)-(+sec.qf));
   Object.keys(qm.subs||{}).sort((a,b)=>(+a)-(+b)).forEach(q=>{ const o=qm.subs[q]||{};
-    Object.keys(o).sort().forEach(l=>{ if(o[l]==null) out.push('第 '+q+' 题 '+l); }); });
+    subOrder(qm,q).forEach(l=>{ if(o[l]==null) out.push('第 '+q+' 题 '+subLabOf(qm,q,l)); }); });
   Object.keys(qm.per_q||{}).sort((a,b)=>(+a)-(+b)).forEach(q=>{ if(qm.per_q[q]==null) out.push('第 '+q+' 题'); });
   return out;
 }
@@ -1476,19 +1564,42 @@ function bpQmRender(){
       +'" style="width:64px;min-width:0" oninput="bpQmTick()">'
       +'<span style="font-size:12px;color:var(--mut)">题</span>'
       +'<button type="button" class="btn btn-sm'+(isS?' btn-pri':'')
-      +'" style="min-height:32px" onclick="bpQmMode('+i+',\'S\')">有小题 a/b/c</button>'
+      +'" style="min-height:32px" onclick="bpQmMode('+i+',\'S\')">有小题 (a)(b)</button>'
       +'<button type="button" class="btn btn-sm'+(isS?'':' btn-pri')
       +'" style="min-height:32px" onclick="bpQmMode('+i+',\'Q\')">整题，分数不同</button>'
       +'<button type="button" class="btn btn-sm btn-dng" style="margin-left:auto;min-height:32px"'
       +' onclick="bpQmDel('+i+')">× 移除</button></div>';
     if(isS){
-      h+='<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:6px">';
-      r.subs.forEach((m,j)=>{
-        h+='<span style="display:inline-flex;gap:3px;align-items:center">'
-          +'<b style="font-size:13px">'+SUBQ[j]+'</b>'
+      const parts=rowParts(r);
+      const inp=(j,lab)=>'<span style="display:inline-flex;gap:3px;align-items:center">'
+          +'<b style="font-size:13px">'+lab+'</b>'
           +'<input type="number" id="qm_s_'+i+'_'+j+'" min="0" step="0.5" placeholder="分"'
-          +' value="'+esc(m||'')+'" style="width:54px;min-width:0;padding:4px" oninput="bpQmTick()">'
+          +' value="'+esc(r.subs[j]||'')+'" style="width:54px;min-width:0;padding:4px" oninput="bpQmTick()">'
           +'<span style="font-size:12px;color:var(--hint)">分</span></span>';
+      const sb='class="btn btn-sm" style="min-height:30px;padding:2px 8px;font-size:12px"';
+      h+='<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:6px">';
+      let j=0;
+      parts.forEach((pt,p)=>{
+        const pl='('+PARTL[p]+')';
+        if(pt.kids>0){
+          h+='<div style="flex-basis:100%;border-left:3px solid var(--line,#ddd);padding:4px 0 4px 8px">'
+            +'<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">'
+            +'<b style="font-size:13px">'+pl+'</b>'
+            +'<span style="font-size:12px;color:var(--mut)">有 '+pt.kids+' 个更小题 · 每个都是</span>'
+            +'<input type="number" id="qm_pf_'+i+'_'+p+'" min="0" step="0.5" placeholder="分"'
+            +' style="width:54px;min-width:0;padding:4px" oninput="bpQmFill('+i+','+p+',this.value)">'
+            +'<span style="font-size:12px;color:var(--hint)">分（不一样就在下面各自填）</span></div>'
+            +'<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:4px">';
+          for(let k=0;k<pt.kids;k++){ h+=inp(j,pl+'('+ROMAN[k]+')'); j++; }
+          h+='<button type="button" '+sb+' onclick="bpQmKid('+i+','+p+',1)">+ ('+(ROMAN[pt.kids]||'…')+')</button>'
+            +'<button type="button" '+sb+' onclick="bpQmKid('+i+','+p+',-1)">−</button>'
+            +'</div></div>';
+        }else{
+          h+='<span style="display:inline-flex;gap:3px;align-items:center">'+inp(j,pl)
+            +'<button type="button" '+sb+' title="这一小题底下还有 (i)(ii)…"'
+            +' onclick="bpQmKid('+i+','+p+',1)">分 (i)(ii)</button></span>';
+          j++;
+        }
       });
       h+='<button type="button" class="btn btn-sm" style="min-height:32px" onclick="bpQmAddSub('+i+')">+ 加小题</button>'
         +'<button type="button" class="btn btn-sm" style="min-height:32px" onclick="bpQmDelSub('+i+')">− 减小题</button>'
@@ -2455,6 +2566,8 @@ function bpScoreSave(id){
     if(ck.err){ toast('✕ '+ck.err,5000); return; }
     if(!qmBlankConfirm(ck.blanks)) return;
     qm=qmShift(ck.qm,(+sec.qf)-pfOf(sec));     /* v54：卷面号 → 内部号 */
+    const de=qmDropCheck(sec,qm);                /* v56 */
+    if(de){ toast('✕ '+de,6000); return; }
   }
   const n=bpEvidCount();
   if(n && !confirm('这份考卷已经有学生资料。\n\n'
@@ -2463,7 +2576,7 @@ function bpScoreSave(id){
   const log=(sec.qm&&sec.qm._log)?sec.qm._log.slice():[];
   log.push({by:S.me||'', at:new Date().toLocaleString('en-GB'),
             max:(sec.max==null?null:+sec.max), even:sec.even||'',
-            qm:(sec.qm?{per_q:sec.qm.per_q||null,subs:sec.qm.subs||null}:null)});
+            qm:(sec.qm?{per_q:sec.qm.per_q||null,subs:sec.qm.subs||null,labs:sec.qm.labs||null}:null)});
   const next = qm ? Object.assign({},qm) : {};
   next._log = log.slice(-20);
   sec.max=mx; sec.even=isE?'':even; sec.qm=next;
@@ -2477,7 +2590,7 @@ function qmLogPush(sec){
   const log=(sec.qm&&sec.qm._log)?sec.qm._log.slice():[];
   log.push({by:S.me||'', at:new Date().toLocaleString('en-GB'),
             max:(sec.max==null?null:+sec.max), even:sec.even||'',
-            qm:(sec.qm?{per_q:sec.qm.per_q||null,subs:sec.qm.subs||null}:null)});
+            qm:(sec.qm?{per_q:sec.qm.per_q||null,subs:sec.qm.subs||null,labs:sec.qm.labs||null}:null)});
   const next=Object.assign({},sec.qm||{}); next._log=log.slice(-20); sec.qm=next;
 }
 /* v28：这支只管「改」。删除不走这里 —— Owner 裁定有学生资料时仍可删。 */
@@ -2685,7 +2798,7 @@ function bpModal(lock, editId){
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
           <b style="font-size:13px">有小题的题目</b>
           <span class="chip chip-muted">分数可留空</span></div>
-        <div class="tip" style="margin:4px 0 0">只填不一样的那几题。</div>
+        <div class="tip" style="margin:4px 0 0">只填不一样的那几题。小题底下还有 (i)(ii)，就按那一格旁边的「分 (i)(ii)」。</div>
         <div id="mQmRows"></div>
         <button type="button" class="btn" style="margin-top:6px;width:100%;min-height:40px"
           onclick="bpQmAddQ()">+ 加一题（有小题 / 分数不一样）</button>
@@ -2742,6 +2855,10 @@ function bpAdd(editId){
   }
   const rg = (type==='ESSAY') ? {qf:null,qt:null} : allocRange(arr,me,pf,pt);
   if(qm) qm=qmShift(qm, rg.qf-pf);            /* 卷面号 → 内部号 */
+  if(me && type!=='ESSAY'){                    /* v56：拿掉 / 拆掉有记录的格子 → 挡下 */
+    const de=qmDropCheck(me,qm);
+    if(de){ toast('✕ '+de,6000); return; }
+  }
   /* v53：改项目时，改分数的纪录要跟着留下来 */
   const oldLog=(me&&me.qm&&me.qm._log)?me.qm._log:null;
   if(oldLog) qm=Object.assign(qm||{},{_log:oldLog});
@@ -2953,7 +3070,62 @@ function hasRange(x){ return +x.qf>=1 && +x.qt>=+x.qf; }
    v20 把两者分开：资料库里是流水号，老师与报告看到的一律是卷面号。
    未声明就退回流水号（= 整份卷连续编号），**绝不推断**。
    ══════════════════════════════════════════════════════════════════ */
-const SUBQ=['a','b','c','d','e','f'];
+const SUBQ='abcdefghijklmnopqrstuvwxyz'.split('');
+/* ══ v56 · Owner 2026-09-17：三层小题（题 → (a) → (i)）══════════════════
+   卷上有「第 2 题 (a)(i)(ii)(iii)(iv)、(b)(i)(ii)」这种。
+   做法：每一个最小的格子，系统内部还是一个字母（a、b、c…，资料库只收一个字母，不改资料库）；
+   老师看到的名字「(a)(i)」另外记在 q_marks.labs。没有更小题的题，照旧不写 labs（跟 v55 一模一样）。
+   ⚠️ 资料库的 jsonb 不保留顺序 → 顺序一律从名字算，不靠字母。
+   ⚠️ 改分数时，已经存在的格子字母不换 → 学生记录不会跑到别格。 */
+const ROMAN=['i','ii','iii','iv','v','vi','vii','viii','ix','x'];
+const PARTL='abcdefghijklmnopqrstuvwxyz';
+const SUBQ_OLD=SUBQ.slice(0,6);          /* 旧式「错在哪个小题」那一排，维持 a–f */
+function subLabParse(s){
+  const m=/^\(([a-z])\)(?:\(([ivx]+)\))?$/.exec(String(s||''));
+  return m?{p:m[1],k:m[2]||null}:null;
+}
+/* 这一格叫什么：(a) / (a)(i)。旧式多选「a,b」→ (a,b) */
+function subLabOf(qm,q,l){
+  if(!l) return '';
+  if(String(l).indexOf(',')>=0) return '('+l+')';
+  const L=qm&&qm.labs&&qm.labs[String(q)];
+  return (L&&L[l])||('('+l+')');
+}
+function subRank(qm,q,l){
+  const L=qm&&qm.labs&&qm.labs[String(q)];
+  const x=subLabParse(L&&L[l]);
+  if(!x) return PARTL.indexOf(String(l).charAt(0))*100;
+  return PARTL.indexOf(x.p)*100+(x.k?ROMAN.indexOf(x.k)+1:0);
+}
+function subOrder(qm,q){
+  const o=qm&&qm.subs&&qm.subs[String(q)];
+  if(!o) return [];
+  return Object.keys(o).sort((a,b)=>(subRank(qm,q,a)-subRank(qm,q,b))||(a<b?-1:a>b?1:0));
+}
+/* 逐题纪录的排序：题号，再照小格的顺序 */
+function wiCmp(a,b){
+  const d=(+a.q||0)-(+b.q||0); if(d) return d;
+  const s=wiSecOf(a), qm=s&&s.qm;
+  return subRank(qm,a.q,a.qsub||'')-subRank(qm,b.q,b.qsub||'');
+}
+/* 改分数会拿掉 / 拆掉的格子，如果已经有学生记录 → 不给存（不然记录会看不到） */
+function qmDropCheck(sec,nq){
+  if(!sec||!sec.qm||!sec.qm.subs) return '';
+  const hit=[];
+  Object.keys(S.wi).forEach(k=>{
+    const w=S.wi[k];
+    if(!w||!w.qsub||String(w.qsub).indexOf(',')>=0) return;
+    if(wiSecOf(w)!==sec) return;
+    const q=String(w.q), o=sec.qm.subs[q];
+    if(!o||o[w.qsub]===undefined) return;
+    const n=nq&&nq.subs&&nq.subs[q];
+    if(!n||n[w.qsub]===undefined){
+      const lab=secQLabel(sec,+q,w.qsub);
+      if(hit.indexOf(lab)<0) hit.push(lab);
+    }
+  });
+  return hit.length ? hit.join('、')+' 已经有学生记录 —— 这一格不能拿掉，也不能再分更小题。要改的话，先把这几笔记录取消。' : '';
+}
 function pfOf(s){ const v=+s.pf; return v>=1?v:(+s.qf||1); }
 /* ══ v54 · Owner 2026-09-17：每个项目各自从第 1 题编号 ══════════════════
    A 第 1–5 题、B 也是第 1–5 题 —— 老师照卷面填，系统在背后接着编流水号（B 在系统里是 6–10）。
@@ -2983,12 +3155,13 @@ function qmShift(qm,d){
   const o=Object.assign({},qm);
   if(qm.per_q){ o.per_q={}; Object.keys(qm.per_q).forEach(q=>{ o.per_q[String(+q+d)]=qm.per_q[q]; }); }
   if(qm.subs){ o.subs={}; Object.keys(qm.subs).forEach(q=>{ o.subs[String(+q+d)]=qm.subs[q]; }); }
+  if(qm.labs){ o.labs={}; Object.keys(qm.labs).forEach(q=>{ o.labs[String(+q+d)]=qm.labs[q]; }); }
   return o;
 }
 function secPaperTo(s){ return hasRange(s) ? pfOf(s)+((+s.qt)-(+s.qf)) : null; }
-/* 老师看到的题名：「B 第 2a 题」 */
+/* 老师看到的题名：「B 第 2(a)(i) 题」 */
 function secQLabel(sec,q,sub){
-  return (sec&&sec.code?sec.code+' ':'')+'第 '+(sec&&hasRange(sec)?toPaper(sec,q):q)+(sub||'')+' 题';
+  return (sec&&sec.code?sec.code+' ':'')+'第 '+(sec&&hasRange(sec)?toPaper(sec,q):q)+subLabOf(sec&&sec.qm,q,sub)+' 题';
 }
 /* 一笔逐题纪录属于哪个项目（看它自己的卷，不看当下开着哪一份） */
 function wiSecOf(w){
@@ -3122,7 +3295,7 @@ function qmSubsOfQ(q){
   const o=(sec.qm.subs||{})[String(q)];
   return (o&&Object.keys(o).length)?o:null;
 }
-function qmSubLabs(q){ const o=qmSubsOfQ(q); return o?Object.keys(o).sort():null; }
+function qmSubLabs(q){ const o=qmSubsOfQ(q); return o?subOrder(secOfQ(q).qm,q):null; }
 function qHasSubs(q){ return !!qmSubsOfQ(q); }
 
 /* ══ v33 · 记录单位 = 一题，或一个小题 ══════════════════════════════
@@ -3151,7 +3324,7 @@ function qUnits(sec){
   const out=[], subs=(sec&&sec.qm&&sec.qm.subs)||{};
   for(let q=+sec.qf;q<=+sec.qt;q++){
     const o=subs[String(q)];
-    const labs=(o&&Object.keys(o).length)?Object.keys(o).sort():null;
+    const labs=(o&&Object.keys(o).length)?subOrder(sec.qm,q):null;   /* v56：照 (a)(i)(ii)(b) 的顺序 */
     if(labs) labs.forEach(l=>out.push({q:q,sub:l}));
     else out.push({q:q,sub:null});
   }
@@ -3459,7 +3632,7 @@ function qBtnHTML(sid,q,sub){
   const sec=secOfQ(q), lab=sec?toPaper(sec,q):q;
   /* v33：小题是独立的一颗按钮，题号後面直接接小题字母 —— 6a / 6b / 6c */
   const o=sub?qmSubsOfQ(q):null;
-  return `<span class="qn">${lab}${sub?esc(sub):''}</span>`
+  return `<span class="qn">${lab}${sub?esc(subLabOf(sec&&sec.qm,q,sub)):''}</span>`
        +(sub&&o&&o[sub]!=null?`<span class="qs">${o[sub]}分</span>`:'')
        +(mk?`<span class="qm">${esc(mk.lab)}</span>`:'')
        /* 没声明小题的题，沿用 v12 起的「错在哪个小题」附注（a,b 多选） */
@@ -3496,7 +3669,7 @@ function paintPick(sid){
   /* v33：小题就是这一格本身 —— 标题直接写「第 6 题 (a) · 4 分」，
      底下不再有「错在哪个小题」那一排，因为已经没有那个模糊情况了。 */
   const title = u.sub
-    ? `${esc(sec.code||'')} · 第 ${plab} 题 <b>(${esc(u.sub)})</b>${
+    ? `${esc(sec.code||'')} · 第 <b>${plab}${esc(subLabOf(sec.qm,u.q,u.sub))}</b> 题${
         (o&&o[u.sub]!=null)?` · ${o[u.sub]} 分`:''} — 这一小题怎么了？`
     : `${esc(sec.code||'')} · 第 ${plab} 题${sec.topic?' · '+esc(sec.topic):''} — 这题怎么了？`;
   d.innerHTML=`<div class="qpick-t">${title}</div>
@@ -3507,7 +3680,7 @@ function paintPick(sid){
 
     ${(!u.sub&&cur)?`<div class="qpick-t" style="margin-top:10px;font-weight:400;opacity:.85">
       错在哪个小题？(a)(b)(c)… 可多选 · <b>没有小题就不用点</b></div>
-    <div class="chips-row">${SUBQ.map(x=>`<button class="chip ${qsubHas(cur,x)?'sel':'chip-muted'}"
+    <div class="chips-row">${SUBQ_OLD.map(x=>`<button class="chip ${qsubHas(cur,x)?'sel':'chip-muted'}"
       onclick="qSub('${sid}',${u.q},'${x}')">(${x})</button>`).join('')}</div>`:''}`;
   grid.insertAdjacentElement('afterend', d);
 }
@@ -3729,8 +3902,8 @@ function paintTail(sid){
   const el=document.getElementById('f2opt'); if(!el) return;
   const rec=f2Draft(sid);
   const selD=rec.done_options||[], selN=rec.next_options||[];
-  const clQ=wiOf(sid).filter(w=>w.code==='cl').sort((a,b)=>a.q-b.q);
-  const subjQ=wiOf(sid).filter(w=>w.sec_type==='SUBJ').sort((a,b)=>a.q-b.q);
+  const clQ=wiOf(sid).filter(w=>w.code==='cl').sort(wiCmp);
+  const subjQ=wiOf(sid).filter(w=>w.sec_type==='SUBJ').sort(wiCmp);
   const open=!!S.ui.optOpen;
   const kw=paperWeakOpts(), selW=rec.weak_manual||[];
   let n=0;
@@ -4224,12 +4397,12 @@ function viewCell(cls,subj,onlyMe){
     const wiTxt = wis.length
       ? `<div style="font-size:12px;color:var(--mut);margin-bottom:3px">答对 <b style="color:var(--ok)">${
           ws.ok}</b> · 做错 <b style="color:var(--warn)">${ws.bad}</b> · 漏答 <b style="color:var(--danger)">${
-          ws.blank}</b></div>` + wis.slice().sort((a,b)=>(+a.q||0)-(+b.q||0)).map(w=>{
+          ws.blank}</b></div>` + wis.slice().sort(wiCmp).map(w=>{
           const mk=MARKS.find(x=>x.id===w.code)||{lab:w.code};
           const sec=wiSecOf(w);
           const lab=sec?(sec.code+toPaper(sec,+w.q)):w.q;      /* v54：带项目，B1 与 A1 分得开 */
           return `<span class="chip ${mk.chip||'chip-muted'}" style="font-size:11px">${lab}${
-            w.qsub?'('+esc(w.qsub)+')':''} ${esc(mk.lab||'')}</span>`;
+            w.qsub?esc(subLabOf(sec&&sec.qm,w.q,w.qsub)):''} ${esc(mk.lab||'')}</span>`;
         }).join('')
       : '<span style="color:var(--hint)">—</span>';
     const f2Txt = f2s.length ? f2s.map(r=>{
@@ -5692,7 +5865,7 @@ function exportCSV(){
   Object.keys(S.wi).sort().forEach(k=>{const w=S.wi[k];const st=stuOf(w.sid)||{};
     const wsec=wiSecOf(w);
     L3.push(['逐题',w.exam,w.by,w.subject,w.cls,w.year,w.sid,st.en,
-      (wsec?wsec.code:''), (wsec?toPaper(wsec,+w.q):w.q)+(w.qsub||''),
+      (wsec?wsec.code:''), (wsec?toPaper(wsec,+w.q):w.q)+(w.qsub?subLabOf(wsec&&wsec.qm,w.q,w.qsub):''),
       String(w.code||'').toUpperCase(),w.cl_subtype||'',w.topic||'',w.fmt||'',w.diag||'',
       YN(w.synced)].map(csvCell).join(','));});
   const L4=[H0.concat(['项目','得分','满分','弱在哪','佳作','已上传']).map(csvCell).join(',')];
@@ -6114,7 +6287,7 @@ function s9Where(it){
   const st=stuOf(it.r.sid);
   const cls=st?st.cls:'?', who=st?nameOf(st):(it.r.sid||'?');
   const extra = it.store==='f1' ? ('项目 '+(it.r.bahagian||'?'))
-              : it.store==='wi' ? ('第 '+it.r.q+(it.r.qsub?('('+it.r.qsub+')'):'')+' 题')
+              : it.store==='wi' ? qLabelOf(it.r)
               : it.store==='es' ? ('写作 '+(it.r.sec_code||''))
               : '';
   return {cls, who, subj:it.r.subject||'?', extra};
