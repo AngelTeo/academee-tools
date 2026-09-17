@@ -464,7 +464,7 @@ button.chip.sel-w{background:var(--warn);color:#fff}
    权限码：RPT-EvalGo-ATC
    ══════════════════════════════════════════════════════════════════ */
 
-const APP_VERSION = 48;
+const APP_VERSION = 49;
 
 /* ══ v46 · 旧版本守门 ══════════════════════════════════
    MiscGo 那边抓到实例：网址对、程式旧（手机快取把旧 HTML 钉住）。
@@ -5361,6 +5361,29 @@ async function pullAssign(){
   }catch(e){ const m=e&&e.message?e.message:String(e);
     console.warn('pullAssign:',m); return {ok:false,n:0,error:'任教登记读不回来：'+m}; }
 }
+/* ══ v49 · 分页读取 ══
+   PostgREST 一次最多回一定笔数（Supabase 预设 1000，可能被调低）。
+   不分页的话，逐题一超过上限，拉回来就静静少一截 —— 报告少资料，
+   而且下面的「清本机残留」会把没读到的那截当成「云端已删」。
+   做法：按 id 排序、一页一页拿，直到拿到空页为止（不假设上限是多少）。 */
+async function fetchAllRows(table){
+  const PAGE=1000; let out=[], from=0;
+  for(let guard=0; guard<500; guard++){
+    let q=_sb.from(table).select('*').eq('exam_id',CLOUD.exam.id);
+    if(typeof q.order==='function') q=q.order('id');
+    if(typeof q.range!=='function'){            /* 测试替身没有 range：退回单次读取 */
+      const r=await q; return r.error?{data:null,error:r.error}:{data:r.data||[],error:null}; }
+    const r=await q.range(from, from+PAGE-1);
+    if(r.error) return {data:null,error:r.error};
+    const rows=r.data||[];
+    if(!rows.length) return {data:out,error:null};
+    out=out.concat(rows); from+=rows.length;
+  }
+  return {data:null,error:{message:table+' 读取页数超过上限，已停止（资料没有读完，不做任何清理）'}};
+}
+/* 本机 key 是否带「卷」後缀（uuid）。只有带卷後缀的本机资料才会被拿去跟云端对账；
+   不带後缀的是 v25 以前的旧草稿，一律不碰。 */
+function keyHasPaper(k){ return /\|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(k); }
 async function pullSections(){
   if(!CLOUD.hasPS||!CLOUD.exam||!_sb) return {ok:true,n:0,skipped:true};
   try{
@@ -5403,12 +5426,22 @@ async function pullSections(){
         synced:true, cloud_id:x.id};
       if(mine) Object.assign(mine,row); else { arr.push(row); n++; }
     });
-    if(CLOUD.hasPI && S.paperInstance){
-      const arr=S.sections[bpKey()]||[];
-      S.sections[bpKey()]=arr.filter(s=> !s.synced || seenSec[s.client_uid] || seenSec[s.cloud_id]);
+    /* v49 · 2026-09-17：原本只清「当下打开的那份卷」。
+       Owner 在手机删了 ATC1 数学的项目，电脑没打开那份卷 → 电脑一直留着已删的项目，
+       两台「我的记录」对不上。改成：本场考试、所有带卷後缀的项目都对账。
+       只清「已上过云、但云端已经没有」的；本机还没上传的一律不动。 */
+    let nSecGone=0;
+    if(CLOUD.hasPI){
+      Object.keys(S.sections).forEach(key=>{
+        if(key.indexOf(EXK()+'|')!==0 || !keyHasPaper(key)) return;
+        const arr=S.sections[key]||[];
+        const keep=arr.filter(s=> !s.synced || seenSec[s.client_uid] || seenSec[s.cloud_id]);
+        nSecGone+=arr.length-keep.length; S.sections[key]=keep;
+      });
     }
+    if(nSecGone) saveData(true);
     if(r.data&&r.data.length) saveData(true);
-    return {ok:true,n:n};
+    return {ok:true,n:n,gone:nSecGone};
   }catch(e){ const m=e&&e.message?e.message:String(e);
     console.warn('pullSections:',m); return {ok:false,n:0,error:'考卷结构读不回来：'+m}; }
 }
@@ -5998,19 +6031,21 @@ async function cloudPush(silent){
 async function cloudPull(silent){
   if(!CLOUD.exam){ if(!silent) toast('✕ 还没连上'); return; }
   try{
-    const a=await _sb.from('evalgo_live_obs').select('*').eq('exam_id',CLOUD.exam.id);
+    const a=await fetchAllRows('evalgo_live_obs');
     if(a.error) throw a.error;
-    const b=await _sb.from('evalgo_paper_analysis').select('*').eq('exam_id',CLOUD.exam.id);
+    const b=await fetchAllRows('evalgo_paper_analysis');
     if(b.error) throw b.error;
-    const nPS=(await pullSections()).n;
+    const ps=await pullSections();
+    if(!ps.ok) throw {message:ps.error};
+    const nPS=ps.n;
     let e2={data:[]};
     if(CLOUD.hasES){
-      e2=await _sb.from('evalgo_essay_result').select('*').eq('exam_id',CLOUD.exam.id);
+      e2=await fetchAllRows('evalgo_essay_result');
       if(e2.error) throw e2.error;
     }
     let d={data:[]};
     if(CLOUD.hasWI){
-      d=await _sb.from('evalgo_wrong_item').select('*').eq('exam_id',CLOUD.exam.id);
+      d=await fetchAllRows('evalgo_wrong_item');
       if(d.error) throw d.error;
     }
     let n1=0,n2=0,n3=0; const seenF1={},seenF2={},seenWI={},seenES={};
@@ -6069,17 +6104,24 @@ async function cloudPull(silent){
     /* F5 对账：只在【本次 pull 成功 + 多卷在线 + 已选卷】时执行；
        只删【synced + 当前 exam + 当前卷 namespace + 云端明确没有】的 local row。
        unsynced / pending / failed / 别的卷 / 别的 exam 一律不删。Legacy 完全不进此块。 */
-    if(CLOUD.hasPI && S.paperInstance){
-      const suf=piSuffix();
+    /* v49：不再限定「当下打开的那份卷」—— 本场考试所有带卷後缀的本机资料都对账。
+       前提全部成立才会走到这里：四张表都完整读回（分页读完、没有错误）。
+       逐题 / 写作表不在线时，那一类不对账（读回的是空的，不代表云端没有）。 */
+    let nGone=0;
+    if(CLOUD.hasPI){
       const rec=(store,seen)=>{ Object.keys(store).forEach(k=>{ const rr=store[k];
-        if(rr && rr.synced===true && rr.exam===CLOUD.exam.code && k.endsWith(suf) && !seen[k]) delete store[k]; }); };
-      rec(S.f1,seenF1); rec(S.f2,seenF2); rec(S.wi,seenWI); rec(S.es,seenES);
+        if(rr && rr.synced===true && rr.exam===CLOUD.exam.code && keyHasPaper(k) && !seen[k]){ delete store[k]; nGone++; } }); };
+      rec(S.f1,seenF1); rec(S.f2,seenF2);
+      if(CLOUD.hasWI) rec(S.wi,seenWI);
+      if(CLOUD.hasES) rec(S.es,seenES);
     }
+    nGone+=(ps.gone||0);
     CLOUD.readErr=''; paintReadWarn();
     saveData(true); refreshAll(); renderManage();
     if(silent) return;
     alert(`已拉回 考卷项目 ${nPS} 个 · FORM 01 ${n1} 笔 · FORM 02 ${n2} 笔 · 逐题 ${n3} 笔 · 写作 ${n4} 笔`
       +(CLOUD.hasWI?'':'\n（逐题表尚未建立，跳过）')
+      +(nGone?'\n已清掉本机过期资料 '+nGone+' 笔（云端已经删掉的）':'')
       +'\n（本机还没上传的资料不会被盖掉）');
     if(s9dirty){ saveData(true); s9Notify(); }
   }catch(e){ const m=e&&e.message?e.message:String(e);
