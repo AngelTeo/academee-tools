@@ -483,7 +483,7 @@ button.chip.sel-w{background:var(--warn);color:#fff}
    权限码：RPT-EvalGo-ATC
    ══════════════════════════════════════════════════════════════════ */
 
-const APP_VERSION = 53;
+const APP_VERSION = 54;
 
 /* ══ v46 · 旧版本守门 ══════════════════════════════════
    MiscGo 那边抓到实例：网址对、程式旧（手机快取把旧 HTML 钉住）。
@@ -1310,7 +1310,7 @@ function qmExcSum(qm){
 }
 /* 考卷项目表格里那一行小字 */
 function qmChips(sec){
-  const qm=sec&&sec.qm;
+  const qm=qmShift(sec&&sec.qm, sec&&hasRange(sec)?pfOf(sec)-(+sec.qf):0);   /* v54：印卷面号 */
   if(qmEmpty(qm)) return '';
   const out=[];
   Object.keys(qm.subs||{}).sort((a,b)=>(+a)-(+b)).forEach(q=>{
@@ -1327,9 +1327,10 @@ function qmChips(sec){
 }
 /* ── 弹窗暂存。关掉弹窗就没了，真相永远在 sec.qm ── */
 let BPQM=[];
-function qmToRows(qm){
+function qmToRows(qm,sec){
   const rows=[];
   if(qmEmpty(qm)) return rows;
+  if(sec && hasRange(sec)) qm=qmShift(qm, pfOf(sec)-(+sec.qf));   /* v54：视窗里是卷面号 */
   Object.keys(qm.subs||{}).sort((a,b)=>(+a)-(+b)).forEach(q=>{
     const o=qm.subs[q]||{};
     rows.push({q:String(q), mode:'S', m:'',
@@ -1420,9 +1421,10 @@ function qmBlankConfirm(blanks){
     +'（如果这一题其实没有这个小题，请按「− 减小题」把它拿掉。）\n\n确定先这样储存吗？');
 }
 /* 这些格子还没填分数（给画面讲原因用） */
-function qmBlankList(qm){
+function qmBlankList(qm,sec){
   const out=[];
   if(qmEmpty(qm)) return out;
+  if(sec && hasRange(sec)) qm=qmShift(qm, pfOf(sec)-(+sec.qf));
   Object.keys(qm.subs||{}).sort((a,b)=>(+a)-(+b)).forEach(q=>{ const o=qm.subs[q]||{};
     Object.keys(o).sort().forEach(l=>{ if(o[l]==null) out.push('第 '+q+' 题 '+l); }); });
   Object.keys(qm.per_q||{}).sort((a,b)=>(+a)-(+b)).forEach(q=>{ if(qm.per_q[q]==null) out.push('第 '+q+' 题'); });
@@ -1433,7 +1435,7 @@ function secWhyNoScore(sec){
   if(!hasRange(sec)) return '还没填题号';
   if(!(+sec.max>0)) return '还没填满分';
   if(!qmEmpty(sec.qm)){
-    const b=qmBlankList(sec.qm);
+    const b=qmBlankList(sec.qm,sec);
     return b.length ? b.join('、')+' 还没填分数' : '列出来的题分数加起来不对';
   }
   if(sec.even==='N') return '选了「每题不同分」，还没填哪几题分数不一样';
@@ -2389,12 +2391,12 @@ function bpScoreOpen(id){
   const sec=sections().find(x=>x.id===id);
   if(!sec){ toast('✕ 找不到这个项目'); return; }
   if(!bpCanEditPaper()){ toast('✕ 你的帐号没有填写权限 —— 请找管理层开通',3000); return; }
-  BPQM=qmToRows(sec.qm);
+  BPQM=qmToRows(sec.qm,sec);
   const isE=(sec.type||'MCQ')==='ESSAY';
   const n=bpEvidCount();
   const body=`
     <div class="tip" style="margin-top:0">${esc(sec.code)} · ${esc(typeLab(sec.type||'MCQ'))}${
-      isE?'':` · 第 ${sec.qf}–${sec.qt} 题`}</div>
+      isE?'':` · ${rangeLabel(sec)}`}</div>
     ${n?`<div class="alert alert-warn"><div><b>这份考卷已经有学生资料。</b>
       改了分数，这些学生的得分会立刻跟著变。项目名称、题型、题号范围不能改。</div></div>`:''}
     <div class="secbox" style="padding:12px">
@@ -2415,8 +2417,8 @@ function bpScoreOpen(id){
         <button class="btn btn-sm" style="margin-top:6px" onclick="bpQmAddQ()">＋ 加一题</button>
         <div class="tip" style="margin-top:6px" id="mQmHint"></div>
       </div>
-      <input type="hidden" id="mQf" value="${esc(sec.qf==null?'':sec.qf)}">
-      <input type="hidden" id="mQt" value="${esc(sec.qt==null?'':sec.qt)}">`}
+      <input type="hidden" id="mQf" value="${hasRange(sec)?pfOf(sec):''}">
+      <input type="hidden" id="mQt" value="${hasRange(sec)?secPaperTo(sec):''}">`}
     </div>
     ${(sec.qm&&(sec.qm._log||[]).length)?`<div class="secbox" style="padding:10px 12px">
       <div class="form-label">改过的纪录</div>
@@ -2447,10 +2449,10 @@ function bpScoreSave(id){
   if(!isE){
     even=String(((document.getElementById('mEven')||{}).value)||'').trim();
     bpQmSync();
-    const ck=qmCheck(BPQM,sec.qf,sec.qt,mx);
+    const ck=qmCheck(BPQM,pfOf(sec),secPaperTo(sec),mx);
     if(ck.err){ toast('✕ '+ck.err,5000); return; }
     if(!qmBlankConfirm(ck.blanks)) return;
-    qm=ck.qm;
+    qm=qmShift(ck.qm,(+sec.qf)-pfOf(sec));     /* v54：卷面号 → 内部号 */
   }
   const n=bpEvidCount();
   if(n && !confirm('这份考卷已经有学生资料。\n\n'
@@ -2513,7 +2515,7 @@ function bpEvenAll(){
   if(!bpCanEditPaper()){ toast('✕ 你的帐号没有填写权限 —— 请找管理层开通',3000); return; }
   const g=bpEvenGap();
   if(!g.length){ toast('这一格已经都声明过了'); return; }
-  const lines=g.map(x=>'· '+x.code+'（第 '+x.qf+'–'+x.qt+' 题，共 '+x.max+' 分 → 每题 '
+  const lines=g.map(x=>'· '+x.code+'（'+rangeLabel(x)+'，共 '+x.max+' 分 → 每题 '
     +(Math.round((+x.max)/((+x.qt)-(+x.qf)+1)*100)/100)+' 分）').join('\n');
   if(!confirm('把这 '+g.length+' 个项目全部声明成「每题同分」：\n\n'+lines
      +'\n\n声明的是**你看过那份卷**，不是系统推算。\n'
@@ -2654,11 +2656,12 @@ function bpModal(lock, editId){
             ${SECTYPES.map(t=>`<option value="${t.v}"${ed&&(ed.type||'MCQ')===t.v?' selected':''}>${t.lab}</option>`).join('')}</select></div>
       </div>
       <div class="form-grid-2" style="gap:8px;margin-top:8px">
-        <div class="form-row" style="margin:0" id="mRangeRow"><label class="form-label">题号 第 __ 到 __ 题 *</label>
+        <div class="form-row" style="margin:0" id="mRangeRow"><label class="form-label">卷上的题号 第 __ 到 __ 题 *</label>
           <div style="display:flex;gap:6px;align-items:center">
-            <input type="number" id="mQf" min="1" placeholder="第" style="width:80px" value="${ed?v(ed.qf):''}">
+            <input type="number" id="mQf" min="1" placeholder="第" style="width:80px" value="${ed?(hasRange(ed)?pfOf(ed):''):'1'}">
             <span style="color:var(--mut)">–</span>
-            <input type="number" id="mQt" min="1" placeholder="到" style="width:80px" value="${ed?v(ed.qt):''}"></div></div>
+            <input type="number" id="mQt" min="1" placeholder="到" style="width:80px" value="${ed&&hasRange(ed)?secPaperTo(ed):''}"></div>
+          <div class="tip" style="margin:4px 0 0">照考卷上印的填。每个项目各自从第 1 题开始；整份卷连续编号的，就填卷上的号码。</div></div>
         <div class="form-row" style="margin:0"><label class="form-label">这个项目共几分 *</label>
           <input type="number" id="mMax" min="1" step="0.5" placeholder="例：20" value="${ed?v(ed.max):''}"></div>
       </div>
@@ -2666,9 +2669,9 @@ function bpModal(lock, editId){
         <div class="form-row" style="margin:0" id="mEvenRow">
           <label class="form-label">每题同分？</label>
           <select id="mEven">
-            <option value=""${ed&&!ed.even?' selected':''}>未定 —— 这个项目不参与算分</option>
+            <option value=""${ed&&!ed.even?' selected':''}>还没选 —— 这个项目算不出分数</option>
             <option value="Y"${ed&&ed.even==='Y'?' selected':''}>每题同分</option>
-            <option value="N"${ed&&ed.even==='N'?' selected':''}>每题不同分 —— 不参与算分</option>
+            <option value="N"${ed&&ed.even==='N'?' selected':''}>每题不同分 —— 在下面列出不一样的题</option>
           </select></div>
         <div class="form-row" style="margin:0"><label class="form-label">文法 / 主题</label>
           <input type="text" id="mTopic" placeholder="例：动词（可留空）" value="${ed?v(ed.topic):''}"></div>
@@ -2691,7 +2694,7 @@ function bpModal(lock, editId){
   openModal(ed?`修改项目 · ${esc(ed.code)}`:`加入项目 · ${esc(S.cls)} ${esc(S.subject)}`, body,
     `<span class="tip" style="margin:0;flex:1">这一格目前有 ${secs.length} 个项目</span>
      <button class="btn" style="min-height:44px" onclick="closeModal(true)">关闭</button>`, false);
-  BPQM = ed ? qmToRows(ed.qm) : [];
+  BPQM = ed ? qmToRows(ed.qm,ed) : [];
   bpMType();
   bpQmRender();
 }
@@ -2711,7 +2714,8 @@ function bpAdd(editId){
   const g=id=>String(((document.getElementById(id)||{}).value)||'').trim();
   const code=g('mCode'), type=g('mType')||'MCQ', topic=g('mTopic'), fmt=g('mFmt');
   const even=g('mEven');
-  const qf=parseInt(g('mQf'),10), qt=parseInt(g('mQt'),10), mx=parseFloat(g('mMax'));
+  /* v54：这两格是卷上的题号 —— 系统内部的号码在下面自动编 */
+  const pf=parseInt(g('mQf'),10), pt=parseInt(g('mQt'),10), mx=parseFloat(g('mMax'));
   if(!code){ toast('✕ 项目名称不能空'); return; }
   const arr=S.sections[bpKey()]||(S.sections[bpKey()]=[]);
   const me=editId?arr.find(x=>x.id===editId):null;
@@ -2720,26 +2724,26 @@ function bpAdd(editId){
   if(arr.some(x=>x.code===code && x!==me)){ toast('✕ 这个项目已经有了'); return; }
   if(!(mx>0)){ toast('✕ 请填这个项目共几分'); return; }
   if(type!=='ESSAY'){
-    if(!(qf>=1)||!(qt>=qf)){ toast('✕ 题号范围不对（例：1 到 10）'); return; }
-    const clash=arr.filter(x=>x!==me&&QTYPES.indexOf(x.type||'MCQ')>=0&&+x.qf>=1)
-                   .find(x=>!(qt<(+x.qf)||qf>(+x.qt)));
-    if(clash){ toast(`✕ 题号 ${qf}-${qt} 与「${clash.code}」重叠`); return; }
+    if(!(pf>=1)||!(pt>=pf)){ toast('✕ 题号范围不对（例：第 1 到 5 题）'); return; }
+    /* v54：不同项目可以有一样的题号，不再检查「重叠」 */
   }
   /* v29 · 小题结构。分数可留空 —— 只挡「明显不可能」的填法，不挡「还没填完」。 */
   bpQmSync();
   let qm=null;
   if(type!=='ESSAY'){
-    const ck=qmCheck(BPQM,qf,qt,mx);
+    const ck=qmCheck(BPQM,pf,pt,mx);
     if(ck.err){ toast('✕ '+ck.err,5000); return; }
     if(!qmBlankConfirm(ck.blanks)) return;
     qm=ck.qm;
   }
+  const rg = (type==='ESSAY') ? {qf:null,qt:null} : allocRange(arr,me,pf,pt);
+  if(qm) qm=qmShift(qm, rg.qf-pf);            /* 卷面号 → 内部号 */
   /* v53：改项目时，改分数的纪录要跟着留下来 */
   const oldLog=(me&&me.qm&&me.qm._log)?me.qm._log:null;
   if(oldLog) qm=Object.assign(qm||{},{_log:oldLog});
   const patch={code,topic,fmt,type,
     qm:qm,
-    qf:type==='ESSAY'?null:qf, qt:type==='ESSAY'?null:qt, max:mx,
+    qf:rg.qf, qt:rg.qt, pf:(type==='ESSAY'?null:pf), max:mx,
     even:(type==='ESSAY'?'':even),   /* 未声明就不算分（fail-closed），与 addSection 同规矩 */
     by:S.me, synced:false};
   if(me) Object.assign(me,patch);    /* 修改：client_uid / cloud_id 保留，上传时 upsert 覆盖同一列 */
@@ -2947,6 +2951,48 @@ function hasRange(x){ return +x.qf>=1 && +x.qt>=+x.qf; }
    ══════════════════════════════════════════════════════════════════ */
 const SUBQ=['a','b','c','d','e','f'];
 function pfOf(s){ const v=+s.pf; return v>=1?v:(+s.qf||1); }
+/* ══ v54 · Owner 2026-09-17：每个项目各自从第 1 题编号 ══════════════════
+   A 第 1–5 题、B 也是第 1–5 题 —— 老师照卷面填，系统在背后接着编流水号（B 在系统里是 6–10）。
+   为什么不直接让系统也用卷面号：逐题资料靠「学生 + 流水号 + 卷」认身分（资料库唯一索引也是），
+   两个项目都有「第 1 题」就会互相盖掉；而且题号规则是锁定项（L-1）、已有 800 多笔资料。
+   所以流水号照旧、老师看不到；老师看到和输入的一律是「项目 + 卷面号」。
+   已经有的项目（没设卷面号的 57 个）照原样显示 —— Owner 裁定「不动」。 */
+function nextInternalQ(arr,except){
+  let m=0;
+  (arr||[]).forEach(x=>{ if(x!==except && QTYPES.indexOf(x.type||'MCQ')>=0 && hasRange(x)) m=Math.max(m,+x.qt); });
+  return m+1;
+}
+/* 卷面范围 → 内部范围。改项目时题数没变、或原位置放得下，就不搬；否则接到最后面（没有学生资料才改得到这里） */
+function allocRange(arr,me,pf,pt){
+  const n=pt-pf+1;
+  if(me && hasRange(me)){
+    const qf=+me.qf, qt=qf+n-1;
+    const clash=(arr||[]).some(x=>x!==me && QTYPES.indexOf(x.type||'MCQ')>=0 && hasRange(x) && !(qt<+x.qf||qf>+x.qt));
+    if(!clash) return {qf,qt};
+  }
+  const qf=nextInternalQ(arr,me);
+  return {qf, qt:qf+n-1};
+}
+/* 小题 / 例外题的题号键整批平移（卷面号 ↔ 流水号） */
+function qmShift(qm,d){
+  if(qmEmpty(qm)||!d) return qm;
+  const o=Object.assign({},qm);
+  if(qm.per_q){ o.per_q={}; Object.keys(qm.per_q).forEach(q=>{ o.per_q[String(+q+d)]=qm.per_q[q]; }); }
+  if(qm.subs){ o.subs={}; Object.keys(qm.subs).forEach(q=>{ o.subs[String(+q+d)]=qm.subs[q]; }); }
+  return o;
+}
+function secPaperTo(s){ return hasRange(s) ? pfOf(s)+((+s.qt)-(+s.qf)) : null; }
+/* 老师看到的题名：「B 第 2a 题」 */
+function secQLabel(sec,q,sub){
+  return (sec&&sec.code?sec.code+' ':'')+'第 '+(sec&&hasRange(sec)?toPaper(sec,q):q)+(sub||'')+' 题';
+}
+/* 一笔逐题纪录属于哪个项目（看它自己的卷，不看当下开着哪一份） */
+function wiSecOf(w){
+  if(!w) return null;
+  const pi=recPiOf(w), yr=+w.year||yearOf(w.cls||S.cls);
+  const arr=S.sections[EXK()+'|'+w.subject+'|'+yr+(pi?'|'+pi:'')]||[];
+  return arr.find(x=>QTYPES.indexOf(x.type||'MCQ')>=0 && hasRange(x) && +w.q>=+x.qf && +w.q<=+x.qt)||null;
+}
 function toPaper(s,q){ return pfOf(s)+(+q-(+s.qf||1)); }
 function rangeLabel(s){
   const a=pfOf(s), b=a+((+s.qt||0)-(+s.qf||0));
@@ -2995,10 +3041,9 @@ function setSecRange(id){
   const f=parseInt((document.getElementById('rf_'+id)||{}).value,10);
   const t=parseInt((document.getElementById('rt_'+id)||{}).value,10);
   if(!(f>=1)||!(t>=f)){ toast('✕ 题号范围不对'); return; }
-  const clash=arr.filter(x=>x.id!==id&&QTYPES.indexOf(x.type||'MCQ')>=0&&hasRange(x))
-                 .find(x=>!(t<+x.qf||f>+x.qt));
-  if(clash){ toast(`✕ 与「${clash.code}」(${clash.qf}-${clash.qt}) 重叠`); return; }
-  sec.qf=f; sec.qt=t; if(!sec.type) sec.type='MCQ';
+  /* v54：填的是卷上的题号，系统内部号码自动接在后面 */
+  const rg=allocRange(arr,sec,f,t);
+  sec.qf=rg.qf; sec.qt=rg.qt; sec.pf=f; if(!sec.type) sec.type='MCQ';
   markSecDirty(sec);
   if(saveThen('✓ 已补上题号')){ bpRefresh(); autoPush(); }
 }
@@ -3691,13 +3736,13 @@ function paintTail(sid){
   let inner='';
   if(clQ.length) inner+=sub('粗心是哪一种','算错 / 抄错 / 没写完，教法完全不同',
     clQ.map(w=>`<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:5px">
-      <span class="chip chip-warn">第 ${esc(qLabelOf(w))} 题</span>
+      <span class="chip chip-warn">${esc(qLabelOf(w))}</span>
       ${CL_SUB.map(c=>`<button class="chip ${w.cl_subtype===c.v?'sel':'chip-muted'}"
         onclick="clSub('${sid}',${w.q},'${c.v}',${w.qsub?`'${esc(w.qsub)}'`:'null'})">${c.zh}</button>`).join('')}</div>`).join(''));
 
   if(subjQ.length) inner+=sub('理解文 · 老师诊断','写一句就好，这是报告里最有用的一段',
     subjQ.map(w=>`<div class="form-row" style="margin-bottom:6px">
-      <label class="form-label">第 ${esc(qLabelOf(w))} 题 · ${esc(markLab(w.code))}${w.topic?' · '+esc(w.topic):''}</label>
+      <label class="form-label">${esc(qLabelOf(w))} · ${esc(markLab(w.code))}${w.topic?' · '+esc(w.topic):''}</label>
       <input type="text" value="${esc(w.diag||'')}" placeholder="例：抄了不相干的句子 / 只答了一半"
         oninput="wiDiag('${sid}',${w.q},this.value,${w.qsub?`'${esc(w.qsub)}'`:'null'})"></div>`).join(''));
 
@@ -3750,13 +3795,8 @@ function paintTail(sid){
     <div class="fold-bd">${inner}</div></div>`;
   paintFoot(sid);
 }
-/* v53：老师看到的题号 = 卷面号 + 小题字母（6a），不是系统内部的流水号 */
-function qLabelOf(w){
-  const sec=secOfQ(w.q);
-  let n=w.q;
-  try{ if(sec && typeof toPaper==='function'){ const v=toPaper(sec,w.q); if(v!=null&&v!=='') n=v; } }catch(e){}
-  return String(n)+(w.qsub||'');
-}
+/* v53/v54：老师看到的题名 = 项目 + 卷面号 + 小题字母（B 第 6a 题），不是系统内部的流水号 */
+function qLabelOf(w){ return secQLabel(wiSecOf(w)||secOfQ(w.q), w.q, w.qsub||''); }
 function tglOpt(){
   S.ui.optOpen=!S.ui.optOpen; saveData(true);
   const f=document.getElementById('f2fold'), c=document.getElementById('optCaret');
@@ -4182,8 +4222,8 @@ function viewCell(cls,subj,onlyMe){
           ws.ok}</b> · 做错 <b style="color:var(--warn)">${ws.bad}</b> · 漏答 <b style="color:var(--danger)">${
           ws.blank}</b></div>` + wis.slice().sort((a,b)=>(+a.q||0)-(+b.q||0)).map(w=>{
           const mk=MARKS.find(x=>x.id===w.code)||{lab:w.code};
-          const sec=(S.sections[bpKeyOf(subj,yearOf(cls))]||[]).find(x=>x.code===w.sec_code);
-          const lab=(sec&&sec.qf)?toPaper(sec,+w.q):w.q;
+          const sec=wiSecOf(w);
+          const lab=sec?(sec.code+toPaper(sec,+w.q)):w.q;      /* v54：带项目，B1 与 A1 分得开 */
           return `<span class="chip ${mk.chip||'chip-muted'}" style="font-size:11px">${lab}${
             w.qsub?'('+esc(w.qsub)+')':''} ${esc(mk.lab||'')}</span>`;
         }).join('')
@@ -5541,9 +5581,11 @@ function exportCSV(){
         r.fix_target||'',r.fix_outcome||'',
         r.reflect_was_wrong||'',r.reflect_now_know||'',
         r.parent_support||'',YN(r.synced)]).map(csvCell).join(','));});
-  const L3=[H0.concat(['题号','标记','粗心类型','主题','作答方式','诊断','已上传']).map(csvCell).join(',')];
+  const L3=[H0.concat(['项目','卷上题号','标记','粗心类型','主题','作答方式','诊断','已上传']).map(csvCell).join(',')];
   Object.keys(S.wi).sort().forEach(k=>{const w=S.wi[k];const st=stuOf(w.sid)||{};
-    L3.push(['逐题',w.exam,w.by,w.subject,w.cls,w.year,w.sid,st.en,w.q,
+    const wsec=wiSecOf(w);
+    L3.push(['逐题',w.exam,w.by,w.subject,w.cls,w.year,w.sid,st.en,
+      (wsec?wsec.code:''), (wsec?toPaper(wsec,+w.q):w.q)+(w.qsub||''),
       String(w.code||'').toUpperCase(),w.cl_subtype||'',w.topic||'',w.fmt||'',w.diag||'',
       YN(w.synced)].map(csvCell).join(','));});
   const L4=[H0.concat(['项目','得分','满分','弱在哪','佳作','已上传']).map(csvCell).join(',')];
