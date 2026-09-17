@@ -464,7 +464,7 @@ button.chip.sel-w{background:var(--warn);color:#fff}
    权限码：RPT-EvalGo-ATC
    ══════════════════════════════════════════════════════════════════ */
 
-const APP_VERSION = 50;
+const APP_VERSION = 51;
 
 /* ══ v46 · 旧版本守门 ══════════════════════════════════
    MiscGo 那边抓到实例：网址对、程式旧（手机快取把旧 HTML 钉住）。
@@ -2069,14 +2069,18 @@ function bpCanEditPaper(){ return bpCanEdit(); }
    本轮只做最小 freeze：锁「删除」与「改题号」；新增项目不锁（不会动到旧证据）。
    真的要修，走 bpUnlock() 的 controlled correction，必须写明理由。 */
 const BP_UNLOCK={};
+/* v51：「已经有学生资料」只算**这一份卷**的 —— 原本整个年级同科一起算，
+   一份空卷也会被别份卷（或挂错卷）的资料锁住，画面说有资料、点进去却一笔都没有。 */
 function bpEvidLocal(){
-  const ex=EXK(), su=S.subject, yr=yearOf(S.cls); let n=0;
+  const ex=EXK(), su=S.subject, yr=yearOf(S.cls), suf=piSuffix(); let n=0;
+  /* 没有卷编号的旧格式资料放不进任何一份卷 → 保守起见照旧算进来（宁可多锁，不可少锁） */
+  const inPaper=k=>!suf || k.slice(-suf.length)===suf || !keyHasPaper(k);
   Object.keys(S.wi).forEach(k=>{const w=S.wi[k];
-    if(w&&w.exam===ex&&w.subject===su&&(+w.year||0)===yr) n++;});
+    if(w&&inPaper(k)&&w.exam===ex&&w.subject===su&&(+w.year||0)===yr) n++;});
   Object.keys(S.es).forEach(k=>{const e=S.es[k];
-    if(e&&e.exam===ex&&e.subject===su&&(+e.year||0)===yr) n++;});
+    if(e&&inPaper(k)&&e.exam===ex&&e.subject===su&&(+e.year||0)===yr) n++;});
   Object.keys(S.f2).forEach(k=>{const r=S.f2[k];
-    if(r&&r.exam===ex&&r.subject===su&&(+r.year||0)===yr&&f2Started(r)) n++;});
+    if(r&&inPaper(k)&&r.exam===ex&&r.subject===su&&(+r.year||0)===yr&&f2Started(r)) n++;});
   return n;
 }
 function bpEvidCount(){ const c=CLOUD.bpEvid[bpKey()]; return bpEvidLocal()+(c>0?c:0); }
@@ -2086,10 +2090,13 @@ async function bpProbe(){
   if(!_sb||!CLOUD.exam||!CLOUD.session) return;
   const k=bpKey(), su=S.subject, yr=yearOf(S.cls);
   try{
-    const a=await _sb.from('evalgo_wrong_item').select('id',{count:'exact',head:true})
+    const pi=(CLOUD.hasPI && S.paperInstance) ? S.paperInstance : null;
+    let qa=_sb.from('evalgo_wrong_item').select('id',{count:'exact',head:true})
       .eq('exam_id',CLOUD.exam.id).eq('subject',su).eq('year_level',yr);
-    const b=await _sb.from('evalgo_paper_analysis').select('id',{count:'exact',head:true})
+    let qb=_sb.from('evalgo_paper_analysis').select('id',{count:'exact',head:true})
       .eq('exam_id',CLOUD.exam.id).eq('subject',su).eq('year_level',yr);
+    if(pi){ qa=qa.eq('paper_instance_id',pi); qb=qb.eq('paper_instance_id',pi); }
+    const a=await qa, b=await qb;
     const n=(a.count||0)+(b.count||0);
     /* 同一个坑：老师人在「考卷项目」页，renderF1() 重画的是别页 →
        云端查回来了，锁的状态却还是旧的。 */
@@ -4204,6 +4211,45 @@ async function newPaper(){
     alert('建立不成功。\n\n'+m);
   }
 }
+/* ══ v51 · Owner 2026-09-17：「我的记录」里不要的那一格，要能删 ══
+   只删**自己填的**学生资料（考前观察 / 考卷分析 / 逐题 / 写作），不碰考卷项目（那是全年级共用的）。
+   云端删除要管理层（can_approve）—— 资料库本来就这样规定，所以按钮只给管理层。
+   流程：列出笔数 → 下载备份 → 再确认 → 云端逐笔按 id 删、每笔核对删到 1 笔 → 云端确认后才删本机。
+   任何一笔失败就停，没删成的留着，照实报。 */
+async function clearMyCell(cls,subj){
+  if(!(CLOUD.perm&&CLOUD.perm.can_approve)){ alert('清除云端资料需要管理层权限。'); return; }
+  if(!_sb||!CLOUD.exam){ alert('要连上系统才能清除。'); return; }
+  const ex=EXK(), me=S.me, picks=[];
+  [['evalgo_live_obs',S.f1,'考前观察'],['evalgo_paper_analysis',S.f2,'考卷分析'],
+   ['evalgo_wrong_item',S.wi,'逐题'],['evalgo_essay_result',S.es,'写作']].forEach(([t,store,lab])=>{
+    Object.keys(store||{}).forEach(k=>{ const r=store[k];
+      if(!r||r.exam!==ex||r.by!==me||r.subject!==subj) return;
+      const st=stuOf(r.sid); if(!st||st.cls!==cls) return;
+      picks.push({t,store,k,r,lab}); }); });
+  if(!picks.length){ toast('这一格没有你填的资料'); return; }
+  const bad=picks.filter(p=>p.r.synced && !p.r.cloud_id);
+  if(bad.length){ alert('有 '+bad.length+' 笔已上传、但本机不知道云端编号。请先到「管理」按「拉回云端资料」，再清除一次。'); return; }
+  const cnt={}; picks.forEach(p=>{ cnt[p.lab]=(cnt[p.lab]||0)+1; });
+  const nStu=new Set(picks.map(p=>p.r.sid)).size;
+  if(!confirm(`清除你在 ${cls} · ${subj} 填的资料？\n\n${nStu} 位学生 · `+Object.keys(cnt).map(x=>x+' '+cnt[x]+' 笔').join(' · ')
+    +'\n\n考卷项目不会被删。云端与本机都会删掉，无法复原。确定继续？')) return;
+  try{ dl(`EvalGo_clear_backup_${cls}_${subj}_${stamp()}.json`, JSON.stringify(
+    {when:new Date().toISOString(),exam:CLOUD.exam.code,by:me,cls,subj,rows:picks.map(p=>({table:p.t,key:p.k,row:p.r}))},null,2)); }
+  catch(e){ alert('备份下载没有启动 —— 为安全起见取消清除。'); return; }
+  if(!confirm('备份档已开始下载。确认你已收到备份档，再继续清除。')) return;
+  let okN=0; const fails=[];
+  for(const p of picks){
+    if(p.r.cloud_id){
+      const r=await cloudDelById(p.t,p.r.cloud_id);
+      if(!r.ok || r.n!==1){ fails.push(p.lab+'：'+(r.error||('云端删了 '+r.n+' 笔'))); continue; }
+    }
+    delete p.store[p.k]; okN++;
+  }
+  delAudit('清除我的资料',okN,cls+'|'+subj);
+  saveData(true); refreshAll(); renderRecords();
+  if(fails.length) alert('已清除 '+okN+' 笔；'+fails.length+' 笔没删成（留着没动）：\n'+fails.slice(0,5).join('\n'));
+  else toast('✓ 已清除 '+okN+' 笔', 3000);
+}
 function renderRecords(){
   const c=document.getElementById('c-records');
   const mine=myCells();
@@ -4242,6 +4288,8 @@ function renderRecords(){
         <button class="btn btn-pri" style="min-height:44px;padding:0 18px;
           font-weight:700;white-space:nowrap"
           onclick="enterCell('${m.cls}','${esc(m.su)}')">继续填</button>
+        ${(CLOUD.perm&&CLOUD.perm.can_approve&&(m.f1||m.f2||m.wi||m.es))?`<button class="btn" style="min-height:44px;padding:0 14px;white-space:nowrap;color:var(--danger)"
+          onclick="clearMyCell('${m.cls}','${esc(m.su)}')">🗑 清除</button>`:''}
       </div>
       <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:8px">
         ${bit('考卷项目',m.secs)}${bit('考前观察',m.f1)}${bit('考卷分析',m.f2)}${bit('逐题',m.wi)}${bit('写作',m.es)}
@@ -5659,17 +5707,26 @@ function psPayload(sec){
     ...(CLOUD.hasV12 && !isEssay && +sec.pf>=1
         ? {paper_from:+sec.pf, paper_to:+sec.pf+((+sec.qt||0)-(+sec.qf||0))} : {}),
     ...(CLOUD.hasV10 ? {even_marks: sec.even==='Y'?'YES':(sec.even==='N'?'NO':'UNKNOWN')} : {}),
-    ...((CLOUD.hasPI && S.paperInstance) ? {paper_instance_id:S.paperInstance} : {})};
+    ...((CLOUD.hasPI && piOfKey(sec._key)) ? {paper_instance_id:piOfKey(sec._key)} : {})};
 }
 /* 逐题纪录挂回它所属的 section（需要 section 先上云拿到 id） */
-function secCloudIdFor(w){
-  const arr=S.sections[bpKeyOf(w.subject,w.year)]||[];
+/* ══ v51 · 2026-09-17 ══
+   上传时每一笔资料的「卷」原本一律盖成**当下打开的那份卷**（S.paperInstance）。
+   实证：Owner 在 ATC1 数学填了 1 位学生（考卷分析 + 逐题 6(a)），
+   上传那一刻开着的是 ATC3 华文的卷 → 两笔被记到「华文 · 三年级」的卷底下。
+   结果「我的记录」看得到这位学生，进 ATC1 数学的卷却一笔都没有。
+   改法：卷一律从这笔资料**自己的本机 key**（结尾的卷编号）读出来，跟当下开着哪份卷无关。
+   key 没有卷编号的（v25 以前的旧草稿）→ 不上传，留在本机并说明。 */
+function piOfKey(k){ const m=/\|([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i.exec(String(k||'')); return m?m[1]:null; }
+function secsOfPaper(subject,year,pi){ return S.sections[EXK()+'|'+subject+'|'+year+(pi?'|'+pi:'')]||[]; }
+function secCloudIdFor(w,pi){
+  const arr=secsOfPaper(w.subject,w.year,pi);
   const hit=arr.find(x=>QTYPES.indexOf(x.type||'MCQ')>=0 && +w.q>=+x.qf && +w.q<=+x.qt);
   return hit&&hit.cloud_id?hit.cloud_id:null;
 }
 /* P0-3：live_obs 用 bahagian(=section code) 找当前卷内对应 section 的 cloud_id */
-function secCloudIdForCode(code){
-  const arr=S.sections[bpKey()]||[];
+function secCloudIdForCode(code,subject,year,pi){
+  const arr=secsOfPaper(subject,year,pi);
   const hit=arr.find(x=>x.code===code);
   return hit&&hit.cloud_id?hit.cloud_id:null;
 }
@@ -5717,39 +5774,39 @@ function esForRec(p){
   return Object.keys(S.es).map(k=>S.es[k])
     .filter(e=>e.sid===p.sid&&e.subject===p.subject&&e.exam===p.exam);
 }
-function wiPayload(w){ const st=stuOf(w.sid)||{};
+function wiPayload(w,k){ const st=stuOf(w.sid)||{}; const pi=piOfKey(k);
   return {exam_id:CLOUD.exam.id,student_id:w.sid,class_id:st.class_id||w.class_id,
     subject:w.subject,year_level:st.year||w.year,q_no:w.q,
-    section_id:secCloudIdFor(w),
+    section_id:secCloudIdFor(w,pi),
     mark_code:String(w.code||'').toUpperCase(),
     cl_subtype:(w.code==='cl'?(w.cl_subtype||null):null),
     diagnosis:w.diag||null,topic:w.topic||null,answer_format:w.fmt||null,
     ...(CLOUD.hasV12 ? {q_sub:w.qsub||null} : {}),
-    ...((CLOUD.hasPI && S.paperInstance) ? {paper_instance_id:S.paperInstance} : {}),
+    ...((CLOUD.hasPI && pi) ? {paper_instance_id:pi} : {}),
     entered_by:w.by||S.me,client_uid:w.client_uid}; }
 function asgPayload(a){
   return {exam_id:CLOUD.exam.id, teacher_id:a.teacher_id, class_name:a.cls,
     subject:a.subject, created_by:S.me||a.teacher_id, client_uid:a.client_uid}; }
-function esPayload(e){ const st=stuOf(e.sid)||{};
+function esPayload(e,k){ const st=stuOf(e.sid)||{}; const pi=piOfKey(k);
   return {exam_id:CLOUD.exam.id,student_id:e.sid,class_id:st.class_id||e.class_id,
     subject:e.subject,year_level:st.year||e.year,
     section_id:e.sec_cloud_id||null,section_code:e.sec_code,
     score:(e.score!=null?e.score:null),max_score:(e.max!=null?e.max:null),
     weak:e.weak||[],is_star:!!e.star,
-    ...((CLOUD.hasPI && S.paperInstance) ? {paper_instance_id:S.paperInstance} : {}),
+    ...((CLOUD.hasPI && pi) ? {paper_instance_id:pi} : {}),
     entered_by:e.by||S.me,client_uid:e.client_uid}; }
-function f1Payload(r){ const st=stuOf(r.sid)||{};
+function f1Payload(r,k){ const st=stuOf(r.sid)||{}; const pi=piOfKey(k);
   const p={exam_id:CLOUD.exam.id,student_id:r.sid,class_id:st.class_id||r.class_id,
     subject:r.subject,year_level:st.year||r.year,bahagian:r.bahagian,obs_date:r.obs_date||today(),
     read_v:r.read||null,think_v:r.think||null,answer_v:r.answer||null,check_v:r.check||null,
     ind_v:r.ind||null,speed_v:r.speed||null,handwriting_v:r.handwriting||null,
     issue:r.issue||null,entered_by:r.by||S.me,client_uid:r.client_uid};
-  if(CLOUD.hasPI && S.paperInstance){ p.paper_instance_id=S.paperInstance; p.section_id=secCloudIdForCode(r.bahagian); }
+  if(CLOUD.hasPI && pi){ p.paper_instance_id=pi; p.section_id=secCloudIdForCode(r.bahagian, r.subject, p.year_level, pi); }
   /* focus_dim：Owner 於 2026-09-06 决定移除「今天重点必填」，
      理由是会逼老师填她没观察到的维度 = 制造假证据。
      DB 栏位保留（v5 已建），前端不再产生值，故不送。 */
   return p; }
-function f2Payload(r){ const st=stuOf(r.sid)||{};
+function f2Payload(r,k){ const st=stuOf(r.sid)||{}; const pi=piOfKey(k);
   /* 评量状态一起上云 —— 没有它，DB 端就分不出「老师没做」与「学生缺席」 */
   /* ⚠️ n_star … n_sos 与 total_q 由系统自逐题资料算出，老师不再手填。 */
   const c={star:0,dk:0,cl:0,nr:0,sos:0,blank:0};
@@ -5778,7 +5835,7 @@ function f2Payload(r){ const st=stuOf(r.sid)||{};
     fix_outcome:r.fix_outcome||null,reflect_was_wrong:r.reflect_was_wrong||null,
     reflect_now_know:r.reflect_now_know||null,
     entered_by:r.by||S.me,client_uid:r.client_uid};
-  if(CLOUD.hasPI && S.paperInstance) p.paper_instance_id=S.paperInstance;
+  if(CLOUD.hasPI && pi) p.paper_instance_id=pi;
   if(CLOUD.hasV8) p.assess_status = aStat(r);
   if(CLOUD.hasV9){
     p.weak_manual            = (r.weak_manual||[]).map(optText).filter(Boolean);
@@ -5866,10 +5923,13 @@ async function cloudPush(silent){
   /* ① 考卷结构先上 —— 逐题纪录要靠它拿 section_id，顺序不可颠倒 */
   let secOk=0, secFail=0;
   /* v26 防呆：多卷在线但未选卷 → 所有 paper-scoped evidence 暂不上传（teacher_assign 例外） */
-  const piBlock=(CLOUD.hasPI && !S.paperInstance);
-  if(piBlock && pendingSections().length) held.push('未选卷 —— 考卷结构暂不上传，请先选择考卷。');
-  if(CLOUD.hasPS && !piBlock){
+  /* v51：不再因为「当下没选卷」整批停送 —— 每一笔自己带卷。只挡「本机 key 没有卷编号」的旧草稿。 */
+  const noPaper=x=>CLOUD.hasPI && !piOfKey(x);
+  const secNoPaper=pendingSections().filter(s=>noPaper(s._key)).length;
+  if(secNoPaper) held.push('考卷结构 '+secNoPaper+' 笔是旧格式（没有卷编号）—— 暂不上传。');
+  if(CLOUD.hasPS){
     for(const sec of pendingSections()){
+      if(noPaper(sec._key)) continue;
       try{
         if(!sec.client_uid) sec.client_uid=uid();
         let res=await _sb.from('evalgo_paper_section')
@@ -5901,10 +5961,10 @@ async function cloudPush(silent){
   const jobs=[]
     /* v45：撞车那几笔**刻意不送** —— 送了就是盖掉别的老师填的。
        它们留在本机、进撞车清单，由管理层决定。 */
-    .concat(Object.entries(S.f1).filter(([k,r])=>r.savedAt&&!r.synced&&notConflict(r)).map(([k,r])=>({t:'evalgo_live_obs',k,r,p:()=>f1Payload(r)})))
-    .concat(Object.entries(S.f2).filter(([k,r])=>r.savedAt&&!r.synced&&notConflict(r)).map(([k,r])=>({t:'evalgo_paper_analysis',k,r,p:()=>f2Payload(r)})));
+    .concat(Object.entries(S.f1).filter(([k,r])=>r.savedAt&&!r.synced&&notConflict(r)).map(([k,r])=>({t:'evalgo_live_obs',k,r,p:()=>f1Payload(r,k)})))
+    .concat(Object.entries(S.f2).filter(([k,r])=>r.savedAt&&!r.synced&&notConflict(r)).map(([k,r])=>({t:'evalgo_paper_analysis',k,r,p:()=>f2Payload(r,k)})));
   const wiJobs=Object.entries(S.wi).filter(([k,w])=>w.savedAt&&!w.synced&&notConflict(w));
-  if(CLOUD.hasWI) wiJobs.forEach(([k,w])=>jobs.push({t:'evalgo_wrong_item',k,r:w,p:()=>wiPayload(w)}));
+  if(CLOUD.hasWI) wiJobs.forEach(([k,w])=>jobs.push({t:'evalgo_wrong_item',k,r:w,p:()=>wiPayload(w,k)}));
   /* ══ v32 · 任教登记不再上传 ══════════════════════════════════════
      Owner 2026-09-15（图1/图2）：顶栏「⚠ 1 笔没送出」永远清不掉，
      按「上传」就跳 duplicate key evalgo_teacher_assign_exam_id_teacher_id_class_name_subject_key。
@@ -5928,7 +5988,7 @@ async function cloudPush(silent){
     Object.entries(S.assign||{}).filter(([k,a])=>a&&a.savedAt&&!a.synced)
       .forEach(([k,a])=>jobs.push({t:'evalgo_teacher_assign',k,r:a,p:()=>asgPayload(a)}));
   const esJobs=Object.entries(S.es).filter(([k,e])=>e.savedAt&&!e.synced&&notConflict(e));
-  if(CLOUD.hasES) esJobs.forEach(([k,e])=>jobs.push({t:'evalgo_essay_result',k,r:e,p:()=>esPayload(e)}));
+  if(CLOUD.hasES) esJobs.forEach(([k,e])=>jobs.push({t:'evalgo_essay_result',k,r:e,p:()=>esPayload(e,k)}));
   else if(esJobs.length) held.push(`写作结果 ${esJobs.length} 笔 —— 资料库还没有 evalgo_essay_result（delta v5 未跑）。`);
   /* 🔴 v10 BUG：把「v5 有没有跑」和「wrong_item 在不在」串成 if/else，
      结果 hasV5=true 且有逐题资料时，会谎报「资料库还没有 evalgo_wrong_item」。
@@ -5962,10 +6022,11 @@ async function cloudPush(silent){
     evalgo_essay_result:   {required:['exam_id','student_id','class_id','subject']},
     evalgo_teacher_assign: {required:['exam_id','teacher_id','class_name','subject']}
   };
-  if(piBlock) held.push('未选卷 —— 考前观察 / 考卷分析 / 逐题 / 作文暂不上传，请先选择考卷。');
+  const jobNoPaper=jobs.filter(j=>j.t!=='evalgo_teacher_assign' && noPaper(j.k)).length;
+  if(jobNoPaper) held.push(jobNoPaper+' 笔资料是旧格式（没有卷编号）—— 暂不上传。');
   for(const j of jobs){
     try{
-      if(piBlock && j.t!=='evalgo_teacher_assign') continue;
+      if(j.t!=='evalgo_teacher_assign' && noPaper(j.k)) continue;
       const pl=j.p();
       const spec=JOB_SPEC[j.t];
       if(!spec) throw new Error('没有 write spec：'+j.t);
