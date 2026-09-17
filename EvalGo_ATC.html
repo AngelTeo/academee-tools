@@ -464,7 +464,7 @@ button.chip.sel-w{background:var(--warn);color:#fff}
    权限码：RPT-EvalGo-ATC
    ══════════════════════════════════════════════════════════════════ */
 
-const APP_VERSION = 49;
+const APP_VERSION = 50;
 
 /* ══ v46 · 旧版本守门 ══════════════════════════════════
    MiscGo 那边抓到实例：网址对、程式旧（手机快取把旧 HTML 钉住）。
@@ -1226,7 +1226,7 @@ function addSection(){
 /* 声明「每题同分」—— 不锁：改这个不会让旧证据漂移，
    它只影响分数怎么算，不影响任何一题挂在哪个项目。 */
 function setEven(id,v){
-  if(!bpCanEditPaper()){ toast('✕ 这份考卷不是你开的 —— 只能填学生资料，不能改它的考卷项目',3200); return; }
+  if(!bpCanEditPaper()){ toast('✕ 你的帐号没有填写权限 —— 请找管理层开通',3200); return; }
   const arr=S.sections[bpKey()]||[]; const sec=arr.find(x=>x.id===id); if(!sec) return;
   sec.even = (sec.even===v) ? '' : v;      /* 再点一次 = 取消声明 */
   markSecDirty(sec);
@@ -1458,7 +1458,7 @@ async function delSection(id){
   /* v28 · Owner 2026-09-15 裁定：**没有学生资料就可以改可以删；有学生资料只能删，不能改。**
      所以删除不再走 bpGuard（那支是挡「改」的）。把关交给下面本来就有的两段流程：
      无证据 → 确认一次即删；有证据 → 管理层权限 + 列出影响 + 强制备份 + 二次确认。 */
-  if(!bpCanEditPaper()){ toast('✕ 这份考卷不是你开的 —— 只能填学生资料，不能改它的考卷项目',3200); return; }
+  if(!bpCanEditPaper()){ toast('✕ 你的帐号没有填写权限 —— 请找管理层开通',3200); return; }
   const arr=S.sections[bpKey()]||[];
   const s=arr.find(x=>x.id===id); if(!s) return;
   const imp=secImpact(s);
@@ -1933,7 +1933,7 @@ function renderBP(){
      同一个人电脑看得到、手机看不到，更难解释。 */
   let h=cellChrome('bp');
   if(bpCanEdit() && CLOUD.bpEvid[bpKey()]===undefined){ CLOUD.bpEvid[bpKey()]=-1; bpProbe(); }
-  if(!bpCanEditPaper()){                  /* 别人开的卷 / 没权限：只看，没有编辑入口 */
+  if(!bpCanEditPaper()){                  /* 帐号没有填写权限：只看，没有编辑入口 */
     h+=bpStatusLine();
     c.innerHTML=h;
     return;
@@ -2054,7 +2054,13 @@ function bpCanEdit(){ return isAdmin() || !!(CLOUD.perm && CLOUD.perm.can_edit);
 /* 考卷项目能不能动 —— 卷是谁开的谁说了算。
    别人开的卷，你可以填学生资料，但不能动她的考卷项目。
    旧卷没有建立者 → 维持旧行为，谁都能动。 */
-function bpCanEditPaper(){ return bpCanEdit() && paperMine(paperCur()); }
+/* v50 · Owner 2026-09-17：考卷项目**谁都能改**（有填写权限就行），取代 09-15「卷是谁开的，项目就谁管」。
+   起因：09-15 整批建立的 5 份旧卷开卷人被记成 AT，负责老师（TAY / MAI / SA）全被挡在门外，
+   不能加项目、不能声明每题分数 → 报告算不出分数。
+   资料库本来就只看「有没有填写权限」，这个限制一直只在画面上。
+   仍然保留的保护：有学生资料的项目改题号会被 bpGuard 挡；有学生资料的项目要删，仍需管理层（can_approve）。
+   paperMine() 保留，只用在卡片上显示「我开的」。 */
+function bpCanEditPaper(){ return bpCanEdit(); }
 
 /* ══ Blueprint Freeze ══ Owner Work Order P0-5
    一旦这个 exam + subject + year 的考卷结构底下已经长出证据
@@ -2121,7 +2127,7 @@ function bpUnlock(){
 function bpScoreOpen(id){
   const sec=sections().find(x=>x.id===id);
   if(!sec){ toast('✕ 找不到这个项目'); return; }
-  if(!bpCanEditPaper()){ toast('✕ 这份考卷不是你开的',3000); return; }
+  if(!bpCanEditPaper()){ toast('✕ 你的帐号没有填写权限 —— 请找管理层开通',3000); return; }
   BPQM=qmToRows(sec.qm);
   const isE=(sec.type||'MCQ')==='ESSAY';
   const n=bpEvidCount();
@@ -2211,7 +2217,7 @@ function bpScoreSave(id){
 }
 /* v28：这支只管「改」。删除不走这里 —— Owner 裁定有学生资料时仍可删。 */
 function bpGuard(what){
-  if(!bpCanEditPaper()){ toast('✕ 这份考卷不是你开的 —— 只能填学生资料，不能改它的考卷项目',3200); return false; }
+  if(!bpCanEditPaper()){ toast('✕ 你的帐号没有填写权限 —— 请找管理层开通',3200); return false; }
   if(bpLocked()){
     alert('这个项目底下已经有 '+bpEvidCount()+' 笔学生资料，不能再'+what+'了。\n\n'
       +'改了会让旧资料对应到错的项目 —— 画面看起来正常，数字却全错。\n\n'
@@ -2243,7 +2249,7 @@ function bpEvenGapHTML(){
     <span class="tip" style="margin:0">没有声明每题几分，报告就印不出分数</span>`;
 }
 function bpEvenAll(){
-  if(!bpCanEditPaper()){ toast('✕ 这份考卷不是你开的 —— 只能填学生资料',3000); return; }
+  if(!bpCanEditPaper()){ toast('✕ 你的帐号没有填写权限 —— 请找管理层开通',3000); return; }
   const g=bpEvenGap();
   if(!g.length){ toast('这一格已经都声明过了'); return; }
   const lines=g.map(x=>'· '+x.code+'（第 '+x.qf+'–'+x.qt+' 题，共 '+x.max+' 分 → 每题 '
@@ -2676,7 +2682,7 @@ function rangeCell(s){
 /* 改「卷面起始号」**不锁**：它不动 q，没有任何一笔证据会挂到别题去。
    （对照 setSecRange 改 qf/qt \u2014 那个会漂移，所以要 bpGuard。） */
 function setPaperFrom(id){
-  if(!bpCanEditPaper()){ toast('✕ 这份考卷不是你开的 —— 只能填学生资料，不能改它的考卷项目',3200); return; }
+  if(!bpCanEditPaper()){ toast('✕ 你的帐号没有填写权限 —— 请找管理层开通',3200); return; }
   const arr=S.sections[bpKey()]||[], sec=arr.find(x=>x.id===id); if(!sec) return;
   const v=prompt('考卷上，「'+sec.code+'」的第一题印的是第几题？\n\n'
     +'\u2022 每个部分从 1 重新编号的卷（大部分马来西亚卷）\u2192 填 1\n'
