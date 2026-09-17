@@ -483,7 +483,7 @@ button.chip.sel-w{background:var(--warn);color:#fff}
    权限码：RPT-EvalGo-ATC
    ══════════════════════════════════════════════════════════════════ */
 
-const APP_VERSION = 56;
+const APP_VERSION = 58;
 
 /* ══ v46 · 旧版本守门 ══════════════════════════════════
    MiscGo 那边抓到实例：网址对、程式旧（手机快取把旧 HTML 钉住）。
@@ -930,16 +930,59 @@ let _saveT=null;
    而两句用【同一个 #toast 元素】—— 红的会被绿的盖掉，老师永远看不到失败。
    这是假绿的根，本版修掉。延后写入（debounce）回传 null = 结果未知，
    任何要显示「已保存」的地方一律用 saveData(true)。 */
+/* ══ v58 · Owner 2026-09-17 截图：「储存失败，请立刻 Export 备份」══
+   这个系统跟平台上其他系统放在同一个网址底下，浏览器给这个网址的储存空间是**大家共用**的（约 5 MB）。
+   资料越填越多，管理层这台会把全部老师的资料都读回来 → 空间先满。
+   做法：整份存不进去时，改存「精简版」—— 别位老师**已经上传**的资料不留在这台电脑（云端有，
+   下次打开会自动读回来）；自己的、还没上传的，一笔都不省。精简版也存不进去才报错。 */
+function isQuotaErr(e){
+  return !!e && (e.name==='QuotaExceededError' || e.name==='NS_ERROR_DOM_QUOTA_REACHED' || e.code===22 || e.code===1014);
+}
+function slimCopy(){
+  const me=S.me, T=Object.assign({},S);
+  ['f1','f2','wi','es'].forEach(n=>{
+    const src=S[n]||{}, o={};
+    Object.keys(src).forEach(k=>{ const r=src[k];
+      if(r && r.synced===true && r.by && r.by!==me) return;   /* 别人的、已上传的 → 只留在云端 */
+      o[k]=r; });
+    T[n]=o;
+  });
+  return T;
+}
+function writeLocal(){
+  try{ localStorage.setItem(STORAGE_KEY,JSON.stringify(S)); return {ok:true,slim:false}; }
+  catch(e){
+    try{ localStorage.setItem(STORAGE_KEY,JSON.stringify(slimCopy())); return {ok:true,slim:true,err:e}; }
+    catch(e2){ return {ok:false,slim:false,err:e2}; }
+  }
+}
+/* 这个网址底下的储存空间用了多少（给管理页看） */
+function storageUse(){
+  let mine=0, other=0, keys=0;
+  try{ for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i), v=localStorage.getItem(k)||'';
+    const n=(k.length+v.length)*2; if(k===STORAGE_KEY) mine+=n; else { other+=n; keys++; } } }catch(e){}
+  return {mine, other, keys};
+}
+function mbOf(n){ return (Math.round(n/1048576*10)/10)+' MB'; }
 function saveData(now){
   const go=()=>{
     S.meta.last_updated=new Date().toISOString();
-    try{ localStorage.setItem(STORAGE_KEY,JSON.stringify(S)); }
-    catch(e){
+    const w=writeLocal();
+    if(!w.ok){
       S.meta.save_failed=true;
-      toast(isAdmin()?'✕ 储存失败，请立刻 Export 备份':'✕ 这一笔没存进去 —— 先别关页面，截图找管理层',7000);
-      console.error(e);
+      const p=pendingCount(), full=isQuotaErr(w.err);
+      const why=full?'这台电脑的浏览器储存空间满了':'这台电脑没存进去';
+      toast(p
+        ? ('✕ '+why+'，还有 '+p+' 笔没上传 —— 先别关页面，'+(isAdmin()?'到「管理」按「↓ Export」下载备份':'截图找管理层'))
+        : ('✕ '+why+'。你的资料都已经上传，没有丢；'+(isAdmin()?'到「管理」看空间用量':'截图给管理层')),9000);
+      console.error(w.err);
       paintCloud(); return false;
     }
+    if(w.slim && !CLOUD.slimNoted){
+      CLOUD.slimNoted=true;
+      console.warn('储存空间不够，改存精简版：', w.err);
+    }
+    S.meta.slim=!!w.slim;
     S.meta.save_failed=false;
     const el=document.getElementById('last-saved');
     if(el) el.textContent='已存 '+new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
@@ -1016,8 +1059,7 @@ function loadData(){
     return true;
   }catch(e){ console.error(e); S.roster=DEMO_ROSTER.slice(); return false; }
 }
-window.addEventListener('beforeunload',()=>{ clearTimeout(_saveT);
-  try{ localStorage.setItem(STORAGE_KEY,JSON.stringify(S)); }catch(e){} });
+window.addEventListener('beforeunload',()=>{ clearTimeout(_saveT); writeLocal(); });
 document.addEventListener('keydown',e=>{
   if(e.key==='Escape') closeModal();
   if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='s'){ e.preventDefault(); saveThen('✓ Saved'); }
@@ -1060,6 +1102,7 @@ function goPage(p){
     p='home';
   }
   S._enterPage=null;                 /* 已经到站，清掉目的地，避免之後被误用 */
+  if(p==='papers') setTimeout(()=>papersRefresh(false),0);   /* v58 */
   document.querySelectorAll('.page').forEach(el=>el.classList.remove('on'));
   document.querySelectorAll('.ntab').forEach(el=>el.classList.remove('on'));
   const pg=document.getElementById('page-'+p); if(pg) pg.classList.add('on');
@@ -1180,13 +1223,27 @@ function pickPaper(id){
 }
 function paperLabelOf(p,i){
   /* v52：旧卷的名字是程式预设的 Legacy —— 画面上一律叫「考卷 N」
-     v53：名字本身就是「考卷 N」时不重复；没有编号就用它在清单上的顺序 */
+     v53：名字本身就是「考卷 N」时不重复；没有编号就用它在清单上的顺序
+     v58：同一格里有两份以上同一个编号（09-17 ATC5 数学：三份都叫「考卷 1」）→ 一律照清单顺序编号 */
+  const ps=S.papers||[];
+  const j0=(i!=null)?i:ps.indexOf(p);
+  if(j0>=0 && paperNoClash()) return '考卷 '+(j0+1);
   const lab=String((p&&p.label)||'').trim();
   if(/^考卷\s*\d+$/.test(lab)) return lab.replace(/^考卷\s*/,'考卷 ');
   let no=p&&p.display_no;
   if(!no){ const j=(i!=null)?i:(S.papers||[]).indexOf(p); if(j>=0) no=j+1; }
   const base='考卷'+(no?' '+no:'');
   return (!lab||/^legacy$/i.test(lab)) ? base : base+' · '+lab;
+}
+function paperNoClash(){
+  const seen={}, ps=S.papers||[];
+  for(let i=0;i<ps.length;i++){
+    const p=ps[i], lab=String((p&&p.label)||'').trim();
+    const m=/^考卷\s*(\d+)$/.exec(lab);
+    const no=m?+m[1]:(+(p&&p.display_no)||(i+1));
+    if(seen[no]) return true; seen[no]=1;
+  }
+  return false;
 }
 function paperSelectorHTML(){
   const ps=S.papers||[];
@@ -1497,9 +1554,15 @@ function qmCheck(rows,qf,qt,mx){
     }
     const sum=qmExcSum(qm), totQ=(+qt)-(+qf)+1, rest=totQ-exQ.length;
     if(sum!=null){
-      if(sum>mx) return {err:'这几题加起来 '+sum+' 分，超过这个项目的 '+mx+' 分'};
-      if(rest>0 && sum===mx) return {err:'这几题就用掉全部 '+mx+' 分，其余 '+rest+' 题会变成 0 分'};
-      if(rest===0 && sum!==mx) return {err:'每一题都列出来了，但加起来 '+sum+' 分，不等于 '+mx+' 分'};
+      /* v57：点名是哪几题、讲清楚怎么改 */
+      const nq=a=>a.length>8 ? a.slice(0,8).join('、')+' 等 '+a.length+' 题' : a.join('、');
+      const listed=nq(exQ), miss=[];
+      for(let q=+qf;q<=+qt;q++) if(exQ.indexOf(String(q))<0) miss.push(String(q));
+      if(sum>mx) return {err:'第 '+listed+' 题加起来 '+sum+' 分，比「这个项目共几分」的 '+mx+' 分还多。请检查这几题的分数，或把总分改成正确的数字。'};
+      if(rest>0 && sum===mx) return {err:'第 '+listed+' 题加起来已经是 '+mx+' 分（整个项目的总分），第 '+nq(miss)+' 题就没有分数了。'
+        +'请二选一：① 第 '+nq(miss)+' 题有分数 → 按「+ 加一题」把它填上，再把「这个项目共几分」改成正确的总分；'
+        +'② 第 '+nq(miss)+' 题真的是 0 分 → 按「+ 加一题」，选「整题，分数不同」，填 0。'};
+      if(rest===0 && sum!==mx) return {err:'第 '+qf+'–'+qt+' 题都列出来了，加起来 '+sum+' 分，可是「这个项目共几分」填的是 '+mx+' 分。两个要一样 —— 请改其中一个。'};
     }
   }
   return {err:'',blanks,qm};
@@ -2563,7 +2626,7 @@ function bpScoreSave(id){
     if(even!=='Y' && even!=='N'){ toast('✕ 请选每题分数：「同分」或「不同分」',3500); return; }
     bpQmSync();
     const ck=qmCheck(BPQM,pfOf(sec),secPaperTo(sec),mx);
-    if(ck.err){ toast('✕ '+ck.err,5000); return; }
+    if(ck.err){ toast('✕ '+ck.err,10000); return; }
     if(!qmBlankConfirm(ck.blanks)) return;
     qm=qmShift(ck.qm,(+sec.qf)-pfOf(sec));     /* v54：卷面号 → 内部号 */
     const de=qmDropCheck(sec,qm);                /* v56 */
@@ -2849,7 +2912,7 @@ function bpAdd(editId){
   let qm=null;
   if(type!=='ESSAY'){
     const ck=qmCheck(BPQM,pf,pt,mx);
-    if(ck.err){ toast('✕ '+ck.err,5000); return; }
+    if(ck.err){ toast('✕ '+ck.err,10000); return; }
     if(!qmBlankConfirm(ck.blanks)) return;
     qm=ck.qm;
   }
@@ -4692,7 +4755,9 @@ function renderPapers(){
     'Year '+yearOf(S.cls)+' · '+inCls(S.cls).length+' 人');
   h+=`<div class="card">
     <div class="card-hdr"><span class="card-title">考卷</span>
-      <span class="tip" style="margin:0">${ps.length} 份</span></div>`;
+      <span style="display:flex;gap:8px;align-items:center">
+        <span class="tip" style="margin:0">${ps.length} 份</span>
+        ${CLOUD.exam?`<button class="btn btn-sm" onclick="papersRefresh(true)">↻ 重新读取</button>`:''}</span></div>`;
   if(!ps.length){
     h+=`<div class="empty" style="padding:20px">${bpCanEdit()
       ? '这个班级 / 科目还没有考卷。<br>按下面「＋ 建立新考卷」建第一份，就可以开始填。'
@@ -4720,27 +4785,153 @@ function renderPapers(){
             <b style="font-size:15px;color:${nFull===nF2?'var(--ok)':'var(--warn)'}">${nFull} 位</b></div>`:''}
           ${dl?`<div style="font-size:11px;color:var(--hint);margin-top:7px">${dl}</div>`:''}
         </div>
-        <button class="btn ${nMe?'btn-pri':''}" style="min-height:44px;padding:0 18px;
-          font-weight:700;white-space:nowrap"
-          onclick="pickPaper('${p.id}')">${nMe?'继续填':'填写'} →</button>
+        <div style="display:flex;flex-direction:column;gap:8px;align-items:stretch">
+          <button class="btn ${nMe?'btn-pri':''}" style="min-height:44px;padding:0 18px;
+            font-weight:700;white-space:nowrap"
+            onclick="pickPaper('${p.id}')">${nMe?'继续填':'填写'} →</button>
+          ${bpCanEdit()?`<button class="btn btn-sm btn-dng" style="min-height:36px"
+            onclick="delPaper('${p.id}')">🗑 删除这份卷</button>`:''}
+        </div>
       </div>`;
     });
   }
   h+=(bpCanEdit()?`<button class="btn newpaper" onclick="newPaper()">＋ 建立新考卷</button>`:'')+`</div>`;
   c.innerHTML=h;
 }
+/* ══ v58 · 选卷页一进来就把资料读新（1 分钟最多一次）══
+   Owner 2026-09-17 截图：ATC5 数学考卷 1 系统里已有 10 位学生的考卷分析，这台却印 0 / 10 ——
+   这一页以前只在连线那一刻读一次，别位老师之后填的看不到。 */
+let _papersPullAt=0;
+async function papersRefresh(force){
+  if(!CLOUD.exam||!CLOUD.session||!_sb||CLOUD.pulling) return;
+  /* 自动读：只在「以前读过、但已经超过 1 分钟」时才读（刚连线那一次已经读过） */
+  if(!force && (!CLOUD.lastPullAt || Date.now()-CLOUD.lastPullAt<60000 || Date.now()-_papersPullAt<60000)) return;
+  _papersPullAt=Date.now();
+  if(force){ toast('读取中…',1200); S._papersScope=null; S._enterPage='papers'; await loadPapers(); }
+  await cloudPull(true);
+  if(document.getElementById('page-papers')&&document.getElementById('page-papers').classList.contains('on')) renderPapers();
+  if(force) toast(CLOUD.readErr?('⚠ 没有全部读回来 —— '+plainErr(CLOUD.readErr)):'✓ 已重新读取',CLOUD.readErr?6000:2000);
+}
+/* ══ v58 · Owner 2026-09-17：「到底删除键在哪里？」—— 卷卡片上的删除键 ══
+   · 这份卷底下有学生资料（任何一位老师的）→ 不删，讲清楚有几笔、去哪里删
+   · 没有学生资料 → 列出底下的考卷项目，确认后把整份卷收起来（不是真的抹掉：
+     系统里标成「不用了」，管理层要救回来找得到；底下的考卷项目跟着一起不见）
+   · 建卷的人或管理层才删得了别人看得到的卷；旧卷（没有建卷人）只有管理层能删 */
+async function paperCloudCounts(pid){
+  const tbl=[['evalgo_paper_section','考卷项目'],['evalgo_live_obs','考前观察'],['evalgo_paper_analysis','考卷分析'],
+             ['evalgo_wrong_item','逐题'],['evalgo_essay_result','写作']];
+  const out={};
+  for(const [t,lab] of tbl){
+    if(t==='evalgo_wrong_item'&&!CLOUD.hasWI){ out[lab]=0; continue; }
+    if(t==='evalgo_essay_result'&&!CLOUD.hasES){ out[lab]=0; continue; }
+    const r=await _sb.from(t).select('id',{count:'exact',head:true}).eq('paper_instance_id',pid);
+    if(r.error) throw r.error;
+    out[lab]=r.count||0;
+  }
+  return out;
+}
+let _delPaperBusy=false;
+async function delPaper(pid){
+  if(_delPaperBusy) return;
+  const ps=S.papers||[], i=ps.findIndex(p=>p.id===pid), p=ps[i];
+  if(!p){ toast('✕ 这份卷不在清单上，请按「↻ 重新读取」'); return; }
+  const name=paperLabelOf(p,i);
+  if(!bpCanEdit()){ toast('✕ 这个帐号没有填写权限'); return; }
+  if(!_sb||!CLOUD.exam||!CLOUD.session){ toast('✕ 要连上系统才能删除考卷',2600); return; }
+  const owner=paperOwner(p), admin=isAdmin();
+  if(!admin && owner!==S.me){
+    alert(`「${name}」是${owner?(' '+owner+' '):'以前系统'}建的，你不能删。\n\n`
+      +(owner?`请 ${owner} 自己删，或截图找管理层。`:'请截图找管理层。'));
+    return;
+  }
+  _delPaperBusy=true;
+  try{
+    const suf='|'+pid, ex=EXK();
+    /* 这台装置上还没上传的 → 先等上传完 */
+    let localPend=0;
+    [S.f1,S.f2,S.wi,S.es].forEach(st=>Object.keys(st||{}).forEach(k=>{
+      if(k.slice(-suf.length)===suf && st[k] && st[k].exam===ex && !st[k].synced) localPend++; }));
+    const secKey=Object.keys(S.sections||{}).filter(k=>k.slice(-suf.length)===suf);
+    let secPend=0; secKey.forEach(k=>(S.sections[k]||[]).forEach(x=>{ if(x&&!x.synced) secPend++; }));
+    if(localPend){
+      alert(`「${name}」在这台装置上还有 ${localPend} 笔学生资料，不能整份删。\n\n`
+        +'要删的话，先到「我的记录」把这些资料删掉，再回来删这份卷。');
+      return;
+    }
+    if(secPend){
+      alert(`「${name}」还有 ${secPend} 个考卷项目正在上传。\n\n等顶栏变成「全部已上传」，再按一次删除。`);
+      return;
+    }
+    toast('检查这份卷底下的资料…',1500);
+    const c=await paperCloudCounts(pid);
+    const stu=c['考前观察']+c['考卷分析']+c['逐题']+c['写作'];
+    if(stu){
+      const parts=['考前观察','考卷分析','逐题','写作'].filter(l=>c[l]).map(l=>l+' '+c[l]+' 笔');
+      alert(`「${name}」底下已经有学生资料：${parts.join('、')}。\n\n`
+        +'有学生资料的卷不能在这里整份删 —— 会连别位老师填的资料一起不见，而且救不回来。\n\n'
+        +'如果只是不想用这份卷，留着不填就好，不影响其他卷。\n'
+        +'真的要删，请截图这个讯息，交给负责系统的人处理。');
+      return;
+    }
+    const secs=[]; secKey.forEach(k=>(S.sections[k]||[]).forEach(x=>{ if(x&&x.code) secs.push(x.code); }));
+    const nSec=Math.max(c['考卷项目'], secs.length);
+    if(!confirm(`要删除 ${S.cls} · ${S.subject} 的「${name}」吗？\n\n`
+      +(nSec?(`底下的考卷项目 ${nSec} 个会一起拿掉${secs.length?'：'+secs.join('、'):''}。\n`):'这份卷底下没有任何资料。\n')
+      +'\n删除后，老师在选卷页就看不到这份卷。')) return;
+    const r=await _sb.from('evalgo_paper_instance').update({status:'inactive'}).eq('id',pid).select('id');
+    if(r.error) throw r.error;
+    if(!r.data || r.data.length!==1) throw {message:'系统没有接受这次删除（可能没有权限），这份卷还在。'};
+    secKey.forEach(k=>{ delete S.sections[k]; });
+    S.papers=ps.filter(x=>x.id!==pid);
+    if(S.paperInstance===pid) S.paperInstance=null;
+    if(S.papers.length===1) S.paperInstance=S.papers[0].id;
+    delAudit('删除考卷',1,S.cls+' · '+S.subject+' · '+name+' · '+pid);
+    saveData(true);
+    toast('✓ 已删除「'+name+'」',2600);
+    renderPapers();
+  }catch(e){
+    console.warn('delPaper',e);
+    alert('没有删成，这份卷还在。\n\n'+plainErr(e&&e.message?e.message:String(e))+'\n\n可以按「↻ 重新读取」后再试一次。');
+  }finally{ _delPaperBusy=false; }
+}
 /* 建立新考卷 —— 写三张表：卷本身、适用班级、负责老师。没有改结构。 */
+let _newPaperBusy=false;
 async function newPaper(){
   if(!bpCanEdit()){ toast('✕ 这个帐号没有填写权限'); return; }
   if(!_sb||!CLOUD.exam||!CLOUD.session){ toast('✕ 要连上系统才能建立考卷',2600); return; }
   if(!(S.cls&&S.subject)){ toast('✕ 先选班级和科目'); return; }
-  /* v53：编号 = 这一格现有最大编号 + 1（以前是「我看得到几份 + 1」，会重复） */
-  const n=(S.papers||[]).reduce((a,p,i)=>Math.max(a,+p.display_no||(i+1)),0)+1;
+  /* v58：09-17 SQ 在 ATC5 数学 45 毫秒内建了两份，而且都叫「考卷 1」（那一格早就有考卷 1）。
+     ① 按一次只建一份（建的时候再按不理）
+     ② 编号跟「这一格已经有几份」直接问系统，不信这台装置上的清单 */
+  if(_newPaperBusy) return;
+  _newPaperBusy=true;
+  try{ await newPaperInner(); } finally{ _newPaperBusy=false; }
+}
+async function newPaperInner(){
+  const cid=await classIdOf(S.cls);
+  if(!cid){ toast('✕ 找不到这个班级'); return; }
+  let cloudPs=null;
+  try{
+    const q=await _sb.from('evalgo_paper_scope')
+      .select('evalgo_paper_instance!inner(id,label,display_no,status,exam_id,subject)')
+      .eq('class_id',cid)
+      .eq('evalgo_paper_instance.exam_id',CLOUD.exam.id)
+      .eq('evalgo_paper_instance.subject',S.subject)
+      .eq('evalgo_paper_instance.status','active');
+    if(q.error) throw q.error;
+    cloudPs=(q.data||[]).map(x=>x.evalgo_paper_instance).filter(Boolean);
+  }catch(e){ toast('✕ 连不上系统，暂时不能建立考卷 —— 连上网路后再试',3500); return; }
+  const mine=S.papers||[];
+  if(cloudPs.some(x=>!mine.some(y=>y.id===x.id))){
+    toast('这一格其实已经有 '+cloudPs.length+' 份卷，已重新读取 —— 请再看一次',4000);
+    S._papersScope=null; S._enterPage='papers'; await loadPapers(); return;
+  }
+  const n=cloudPs.reduce((a,p,i)=>{
+    const m=/^考卷\s*(\d+)$/.exec(String(p.label||'').trim());
+    return Math.max(a, m?+m[1]:0, +p.display_no||0, i+1); },0)+1;
   if(!confirm(`要在 ${S.cls} · ${S.subject} 建立「考卷 ${n}」吗？\n\n建立后，就可以在第 ① 步登记这份卷的项目。`)) return;
   let pid=null;
   try{
-    const cid=await classIdOf(S.cls);
-    if(!cid){ toast('✕ 找不到这个班级'); return; }
     const cu=uid();
     const ins=await _sb.from('evalgo_paper_instance').insert({
       exam_id:CLOUD.exam.id, subject:S.subject, year_level:yearOf(S.cls),
@@ -5731,6 +5922,9 @@ function renderManage(){
     <div class="mg-line">读取状态：${CLOUD.readErr
       ? ('<b style="color:var(--danger)">不完整 —— '+esc(plainErr(CLOUD.readErr))+'</b>')
       : '<strong>完整</strong>'}</div>
+    ${(()=>{ const u=storageUse(); return `<div class="mg-line">这台电脑的储存空间：本系统 <strong>${mbOf(u.mine)}</strong> · 同网址其他系统 <strong>${mbOf(u.other)}</strong>（共用约 5 MB）${
+      S.meta&&S.meta.slim?' · <b style="color:var(--warn)">空间不够，别位老师已上传的资料只留在云端（重新打开会自动读回来）</b>':''}${
+      S.meta&&S.meta.save_failed?' · <b style="color:var(--danger)">最近一次没存进这台电脑</b>':''}</div>`; })()}
     <div class="mg-line">待上传：<strong>${pend}</strong> 笔　最近的问题：${CLOUD.pushErr?('<b style="color:var(--danger)">'+esc(plainErr(CLOUD.pushErr))+'</b>'):(CLOUD.err?esc(plainErr(CLOUD.err)):'（无）')}</div>
     ${S.rosterSource==='demo'?`<div class="alert alert-warn" style="margin-top:8px"><div>目前是练习用的假名单（连线后会自动换成真实名单）。<b>假资料不会上传。</b></div></div>`:''}
   </div>
@@ -6890,6 +7084,7 @@ async function cloudPullInner(silent){
     }
     nGone+=(ps.gone||0);
     CLOUD.readErr=''; paintReadWarn();
+    CLOUD.lastPullAt=Date.now();                 /* v58：选卷页用来判断要不要再读一次 */
     saveData(true); refreshAll(); renderManage();
     if(silent) return;
     alert(`已重新读取：考卷项目 ${nPS} 个 · 考前观察 ${n1} 笔 · 考卷分析 ${n2} 笔 · 逐题 ${n3} 笔 · 写作 ${n4} 笔`
