@@ -222,7 +222,7 @@ window.esc=esc;
 <section class="screen" id="s-manage"><div class="hero"><div class="eyebrow">Settings</div><h1>LoveGo 设定</h1></div><div class="manage-card"><h3>① 我的身份</h3><div class="lines" id="m1"></div></div><div class="manage-card"><h3>② 系统资讯</h3><div class="lines">系统名：LoveGo<br>版本：<span id="verText">v61</span><br>资料笔数：<span id="mcount">0</span></div></div><div class="manage-card"><h3>⑤ 资料备份</h3><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="ghost" onclick="exportData()">Export JSON</button><button class="ghost" onclick="exportCSV()">Export CSV</button><label class="ghost" style="display:inline-flex;align-items:center;cursor:pointer">Import<input type="file" hidden accept=".json" onchange="importData(event)"></label><button class="ghost" onclick="window.print()">列印</button></div></div></section>
 </main><div class="toast" id="toast"></div>
 <script>
-const APP_VERSION=68,KEY='lovego';
+const APP_VERSION=69,KEY='lovego';
 const SUPABASE_URL='https://qnpvqsvvsgsantekgfbz.supabase.co';
 const SUPABASE_KEY='sb_publishable_v3Y3BD3XiPz33t-hfdX58g_BaFIkjPF';
 const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true}});
@@ -275,14 +275,25 @@ function lovegoModuleError(p){window.__LOVEGO_MODULE_ERRORS.push(p);console.erro
   scrub(); window.lgScrubNow=scrub;
   try{ new MutationObserver(schedule).observe(document.getElementById('app')||document.body,{subtree:true,childList:true,characterData:true}); }catch(_){}
 })();
-(function lgManagementCanFill(){
-  // Management/owner also teach and need to input. Fill uses the normal editable
-  // teacher view (not the read-only owner preview). isAdmin stays true everywhere else.
-  if(typeof window.openReview!=='function'||typeof window.isAdmin!=='function')return;
+(function lgManagementAutoAssign(){
+  // 管理层(OWNER/TOP_MGMT/MGMT/ADMIN)免「分配老师」：打开学生即自动挂一个 slot(占名额、进%)，然后直接填。
+  var MGMT=['OWNER','TOP_MGMT','MGMT','ADMIN'];
+  function isMgmt(){ try{return MGMT.indexOf((S.who&&S.who.role)||'')>=0;}catch(_){return false;} }
+  if(typeof window.openReview!=='function')return;
   var _open=window.openReview;
-  window.openReview=function(id){
-    var _ia=window.isAdmin;
-    window.isAdmin=function(){return false;};
+  window.openReview=async function(id){
+    if(!isMgmt()) return _open(id);
+    try{
+      var res=await sb.rpc('lovego_ensure_self_assignment',{p_cycle_id:S.ui.cycle,p_class_id:S.ui.classId,p_student_id:id});
+      if(res&&res.data){
+        S.assignments=S.assignments||[];
+        if(!S.assignments.some(function(x){return x&&x.id===res.data.id;})) S.assignments.push(res.data);
+      } else if(res&&res.error){
+        if(String(res.error.message||'').indexOf('STUDENT_SLOTS_FULL')>=0){ (window.toast||function(m){})('这名学生已有 4 位老师，无法再加'); return; }
+        console.warn('[LoveGo] ensure_self_assignment', res.error.message);
+      }
+    }catch(e){ console.warn('[LoveGo] mgmt auto-assign', e); }
+    var _ia=window.isAdmin; window.isAdmin=function(){return false;};   // 走老师可编辑画面
     try{ return _open(id); } finally { window.isAdmin=_ia; }
   };
 })();
