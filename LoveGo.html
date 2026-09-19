@@ -222,7 +222,7 @@ window.esc=esc;
 <section class="screen" id="s-manage"><div class="hero"><div class="eyebrow">Settings</div><h1>LoveGo 设定</h1></div><div class="manage-card"><h3>① 我的身份</h3><div class="lines" id="m1"></div></div><div class="manage-card"><h3>② 系统资讯</h3><div class="lines">系统名：LoveGo<br>版本：<span id="verText">v61</span><br>资料笔数：<span id="mcount">0</span></div></div><div class="manage-card"><h3>⑤ 资料备份</h3><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="ghost" onclick="exportData()">Export JSON</button><button class="ghost" onclick="exportCSV()">Export CSV</button><label class="ghost" style="display:inline-flex;align-items:center;cursor:pointer">Import<input type="file" hidden accept=".json" onchange="importData(event)"></label><button class="ghost" onclick="window.print()">列印</button></div></div></section>
 </main><div class="toast" id="toast"></div>
 <script>
-const APP_VERSION=70,KEY='lovego';
+const APP_VERSION=71,KEY='lovego';
 const SUPABASE_URL='https://qnpvqsvvsgsantekgfbz.supabase.co';
 const SUPABASE_KEY='sb_publishable_v3Y3BD3XiPz33t-hfdX58g_BaFIkjPF';
 const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true}});
@@ -274,52 +274,6 @@ function lovegoModuleError(p){window.__LOVEGO_MODULE_ERRORS.push(p);console.erro
   var pending=false; function schedule(){ if(pending)return; pending=true; requestAnimationFrame(function(){pending=false;scrub();}); }
   scrub(); window.lgScrubNow=scrub;
   try{ new MutationObserver(schedule).observe(document.getElementById('app')||document.body,{subtree:true,childList:true,characterData:true}); }catch(_){}
-})();
-(function lgManagementFill(){
-  // 管理层(OWNER/TOP_MGMT/MGMT/ADMIN)免「分配老师」：打开学生即自动挂一个 slot(占名额、进%)，直接填。
-  // isAdmin 用 flag 包一层：只在渲染填写画面那一刻强制回 false，让 product-hardening 走「老师可编辑」画面；
-  // 其余时间(导航/设定/分配老师)isAdmin 照旧为 true，管理层功能不受影响。
-  function patchIsAdmin(){
-    if(window.__lgIAPatched) return true;
-    var real=window.isAdmin; if(typeof real!=='function') return false;
-    window.__lgIAPatched=true; window.__lgRealIsAdmin=real;
-    window.isAdmin=function(){ return window.__LG_FORCE_TEACHER__ ? false : real(); };
-    return true;
-  }
-  function realMgmt(){ var f=window.__lgRealIsAdmin||window.isAdmin; try{return typeof f==='function'&&f();}catch(_){return false;} }
-
-  // 先挂 assignment（异步）；由 lgOpenRosterStudent 在 openReview 之前 await
-  window.lgEnsureMgmtAssignment=async function(id){
-    if(!realMgmt()) return true;
-    try{
-      var res=await sb.rpc('lovego_ensure_self_assignment',{p_cycle_id:S.ui.cycle,p_class_id:S.ui.classId,p_student_id:id});
-      var row = res && (Array.isArray(res.data) ? res.data[0] : res.data);
-      if(row && row.id){
-        S.assignments=S.assignments||[];
-        if(!S.assignments.some(function(x){return x&&x.id===row.id;})) S.assignments.push(row);
-      } else if(res&&res.error){
-        if(String(res.error.message||'').indexOf('STUDENT_SLOTS_FULL')>=0){ (window.toast||function(m){})('这名学生已有 4 位老师，无法再加'); return false; }
-        console.warn('[LoveGo] ensure_self_assignment', res.error.message);
-      }
-    }catch(e){ console.warn('[LoveGo] mgmt auto-assign', e); }
-    return true;
-  };
-
-  // openReview 保持同步：管理层渲染当下打开 force-teacher flag。
-  // 关键：product-hardening 是延迟安装的，必须等它装好后再包，才能包在它外层。
-  function installWrap(){
-    if(typeof window.openReview!=='function' || !window.__LOVEGO_V45_PRODUCT_HARDENING__){ setTimeout(installWrap,80); return; }
-    if(window.__lgMgmtWrapped) return; window.__lgMgmtWrapped=true;
-    var _open=window.openReview;
-    window.openReview=function(id){
-      if(!realMgmt()) return _open(id);
-      patchIsAdmin();
-      window.__LG_FORCE_TEACHER__=true;
-      try{ return _open(id); }
-      finally{ setTimeout(function(){ window.__LG_FORCE_TEACHER__=false; },0); }
-    };
-  }
-  installWrap();
 })();
 (async function loveGoDirectTestBootstrap(){
   const MANAGEMENT_SRC="https://cdn.jsdelivr.net/gh/AngelTeo/angelteo.github.io@8bd17ad97765a4f98a88d419439585df16eed790/OPR/lovego-management.js";
@@ -593,9 +547,8 @@ function lovegoModuleError(p){window.__LOVEGO_MODULE_ERRORS.push(p);console.erro
       if(prev) prev.disabled=(i<=0);
       if(next) next.disabled=(i<0||i>=list.length-1);
     }
-    window.lgOpenRosterStudent=async function(id){
+    window.lgOpenRosterStudent=function(id){
       S.ui.studentId=id;
-      if(typeof window.lgEnsureMgmtAssignment==='function'){ try{ await window.lgEnsureMgmtAssignment(id); }catch(_){} }
       if(typeof openReview==='function') openReview(id);
       const e=lgFillEls();
       if(e.board) e.board.style.display='none';
