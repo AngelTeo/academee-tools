@@ -163,7 +163,7 @@ window.esc=esc;
 @media(max-width:700px){.lg-roster-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.lg-roster-board{padding:14px}}
 
 </style></head><body>
-<div class="gate" id="gate" style="display:none"><div class="gatebox"><div style="font-size:42px">💗</div><h2 id="gateTitle">正在确认你的登入…</h2><p id="gateMsg">LoveGo 会读取你的 Academee 身份与权限。</p><div id="gateAct"></div></div></div><div id="app"><header class="topbar"><button class="home" onclick="location.href='../index.html'">←</button><div class="brand">💗 LoveGo <span class="ver" id="verBadge">v80</span></div><button class="ntab on" data-p="collect" onclick="go('collect')">收集</button><button class="ntab" data-p="progress" onclick="go('progress')">进度</button><button class="ntab" id="manageTab" data-p="manage" onclick="go('manage')" style="display:none">设定</button><div class="navr"><span class="saved" id="saved"></span><button class="sync" id="sync">● 已保存</button><button class="navbtn" onclick="exportData()">↓ Export</button><label class="navbtn">↑ Import<input type="file" hidden accept=".json" onchange="importData(event)"></label><button class="logout" onclick="logout()">登出</button></div></header>
+<div class="gate" id="gate" style="display:none"><div class="gatebox"><div style="font-size:42px">💗</div><h2 id="gateTitle">正在确认你的登入…</h2><p id="gateMsg">LoveGo 会读取你的 Academee 身份与权限。</p><div id="gateAct"></div></div></div><div id="app"><header class="topbar"><button class="home" onclick="location.href='../index.html'">←</button><div class="brand">💗 LoveGo <span class="ver" id="verBadge">v81</span></div><button class="ntab on" data-p="collect" onclick="go('collect')">收集</button><button class="ntab" data-p="progress" onclick="go('progress')">进度</button><button class="ntab" id="manageTab" data-p="manage" onclick="go('manage')" style="display:none">设定</button><div class="navr"><span class="saved" id="saved"></span><button class="sync" id="sync">● 已保存</button><button class="navbtn" onclick="exportData()">↓ Export</button><label class="navbtn">↑ Import<input type="file" hidden accept=".json" onchange="importData(event)"></label><button class="logout" onclick="logout()">登出</button></div></header>
 <main class="shell">
 <section class="screen on" id="s-collect">
   <div class="hero">
@@ -222,7 +222,7 @@ window.esc=esc;
 <section class="screen" id="s-manage"><div class="hero"><div class="eyebrow">Settings</div><h1>LoveGo 设定</h1></div><div class="manage-card"><h3>① 我的身份</h3><div class="lines" id="m1"></div></div><div class="manage-card"><h3>② 系统资讯</h3><div class="lines">系统名：LoveGo<br>版本：<span id="verText">v61</span><br>资料笔数：<span id="mcount">0</span></div></div><div class="manage-card"><h3>⑤ 资料备份</h3><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="ghost" onclick="exportData()">Export JSON</button><button class="ghost" onclick="exportCSV()">Export CSV</button><label class="ghost" style="display:inline-flex;align-items:center;cursor:pointer">Import<input type="file" hidden accept=".json" onchange="importData(event)"></label><button class="ghost" onclick="window.print()">列印</button></div></div></section>
 </main><div class="toast" id="toast"></div>
 <script>
-const APP_VERSION=80,KEY='lovego';
+const APP_VERSION=81,KEY='lovego';
 const SUPABASE_URL='https://qnpvqsvvsgsantekgfbz.supabase.co';
 const SUPABASE_KEY='sb_publishable_v3Y3BD3XiPz33t-hfdX58g_BaFIkjPF';
 const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true}});
@@ -508,6 +508,7 @@ window.lgAcc=window.lgAcc||{open:new Set(),sid:null};
 function lgDomainCode(dom){var dn=dom&&dom.querySelector(".dn");return dn?dn.textContent.split("\u00b7")[0].trim():"";}
 function lgWireAccordionOnce(){var host=document.getElementById("domains");if(!host||host.dataset.lgAccWired)return;host.dataset.lgAccWired="1";host.addEventListener("click",function(e){var head=e.target.closest&&e.target.closest(".dh");if(!head||!host.contains(head))return;var dom=head.closest(".domain");if(!dom)return;var nowOpen=dom.classList.toggle("open");var code=lgDomainCode(dom);if(code){nowOpen?lgAcc.open.add(code):lgAcc.open.delete(code);}});}
 function lgReapplyOpen(){var host=document.getElementById("domains");if(!host)return;host.querySelectorAll(".domain").forEach(function(dom){if(lgAcc.open.has(lgDomainCode(dom)))dom.classList.add("open");});}
+(function lgAccSetup(){var host=document.getElementById("domains");if(!host){return setTimeout(lgAccSetup,50);}lgWireAccordionOnce();try{new MutationObserver(function(){lgReapplyOpen();}).observe(host,{childList:true});}catch(_){}})();
 try{var _vb=document.getElementById("verBadge");if(_vb&&typeof APP_VERSION!=="undefined")_vb.textContent="v"+APP_VERSION;}catch(_){}
 </script>
 <script src="https://cdn.jsdelivr.net/gh/AngelTeo/angelteo.github.io@8bd17ad97765a4f98a88d419439585df16eed790/OPR/lovego-assignments.js" onerror="lovegoModuleError('lovego-assignments.js')"></script>
