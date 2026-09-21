@@ -163,7 +163,7 @@ window.esc=esc;
 @media(max-width:700px){.lg-roster-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.lg-roster-board{padding:14px}}
 
 </style></head><body>
-<div class="gate" id="gate" style="display:none"><div class="gatebox"><div style="font-size:42px">💗</div><h2 id="gateTitle">正在确认你的登入…</h2><p id="gateMsg">LoveGo 会读取你的 Academee 身份与权限。</p><div id="gateAct"></div></div></div><div id="app"><header class="topbar"><button class="home" onclick="location.href='../index.html'">←</button><div class="brand">💗 LoveGo <span class="ver" id="verBadge">v61</span></div><button class="ntab on" data-p="collect" onclick="go('collect')">收集</button><button class="ntab" data-p="progress" onclick="go('progress')">进度</button><button class="ntab" id="manageTab" data-p="manage" onclick="go('manage')" style="display:none">设定</button><div class="navr"><span class="saved" id="saved"></span><button class="sync" id="sync">● 已保存</button><button class="navbtn" onclick="exportData()">↓ Export</button><label class="navbtn">↑ Import<input type="file" hidden accept=".json" onchange="importData(event)"></label><button class="logout" onclick="logout()">登出</button></div></header>
+<div class="gate" id="gate" style="display:none"><div class="gatebox"><div style="font-size:42px">💗</div><h2 id="gateTitle">正在确认你的登入…</h2><p id="gateMsg">LoveGo 会读取你的 Academee 身份与权限。</p><div id="gateAct"></div></div></div><div id="app"><header class="topbar"><button class="home" onclick="location.href='../index.html'">←</button><div class="brand">💗 LoveGo <span class="ver" id="verBadge">v79</span></div><button class="ntab on" data-p="collect" onclick="go('collect')">收集</button><button class="ntab" data-p="progress" onclick="go('progress')">进度</button><button class="ntab" id="manageTab" data-p="manage" onclick="go('manage')" style="display:none">设定</button><div class="navr"><span class="saved" id="saved"></span><button class="sync" id="sync">● 已保存</button><button class="navbtn" onclick="exportData()">↓ Export</button><label class="navbtn">↑ Import<input type="file" hidden accept=".json" onchange="importData(event)"></label><button class="logout" onclick="logout()">登出</button></div></header>
 <main class="shell">
 <section class="screen on" id="s-collect">
   <div class="hero">
@@ -222,7 +222,7 @@ window.esc=esc;
 <section class="screen" id="s-manage"><div class="hero"><div class="eyebrow">Settings</div><h1>LoveGo 设定</h1></div><div class="manage-card"><h3>① 我的身份</h3><div class="lines" id="m1"></div></div><div class="manage-card"><h3>② 系统资讯</h3><div class="lines">系统名：LoveGo<br>版本：<span id="verText">v61</span><br>资料笔数：<span id="mcount">0</span></div></div><div class="manage-card"><h3>⑤ 资料备份</h3><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="ghost" onclick="exportData()">Export JSON</button><button class="ghost" onclick="exportCSV()">Export CSV</button><label class="ghost" style="display:inline-flex;align-items:center;cursor:pointer">Import<input type="file" hidden accept=".json" onchange="importData(event)"></label><button class="ghost" onclick="window.print()">列印</button></div></div></section>
 </main><div class="toast" id="toast"></div>
 <script>
-const APP_VERSION=78,KEY='lovego';
+const APP_VERSION=79,KEY='lovego';
 const SUPABASE_URL='https://qnpvqsvvsgsantekgfbz.supabase.co';
 const SUPABASE_KEY='sb_publishable_v3Y3BD3XiPz33t-hfdX58g_BaFIkjPF';
 const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true}});
@@ -239,6 +239,8 @@ async function cloudPullOperational(){if(!CLOUD.available)return;const [a,rv,ex,
 const LOVEGO_FROZEN='https://cdn.jsdelivr.net/gh/AngelTeo/angelteo.github.io@8bd17ad97765a4f98a88d419439585df16eed790/OPR/';
 window.__LOVEGO_MODULE_ERRORS=[];
 function lovegoModuleError(p){window.__LOVEGO_MODULE_ERRORS.push(p);console.error('[LoveGo] runtime module failed to load:',p);var id='lovego-module-error';var el=document.getElementById(id);if(!el){el=document.createElement('div');el.id=id;el.style.cssText='position:fixed;top:0;left:0;right:0;z-index:9999;background:#A32D2D;color:#fff;font:13px/1.4 -apple-system,sans-serif;padding:10px 14px;text-align:center';var attach=function(){if(document.body&&!document.getElementById(id).parentNode)document.body.appendChild(el);};if(document.body){document.body.appendChild(el);}else{document.addEventListener('DOMContentLoaded',function(){document.body&&document.body.appendChild(el);});}}el.textContent='⚠ LoveGo 核心模块载入失败（'+window.__LOVEGO_MODULE_ERRORS.length+'）——请检查网络/CDN，勿在此状态填写或提交。失败模块：'+window.__LOVEGO_MODULE_ERRORS.join(', ');}
+/* P0-A: Production is CANONICAL only. srk_registry is non-production legacy; strip the flag so srk-registry-adapter never activates. Source kept, frozen. */
+try{var _u=new URL(location.href);if(_u.searchParams.has('srk_registry')){_u.searchParams.delete('srk_registry');history.replaceState(null,'',_u.toString());}}catch(_){}
 (()=>{const modules=['lovego/runtime/dashboard.js','lovego/runtime/student-override.js','lovego/runtime/reporting-context.js','lovego/runtime/ptmgo-gate.js','lovego/runtime/work-queue.js','lovego/runtime/teacher-scope.js','lovego/runtime/srk-legacy-reconciliation.js','lovego/runtime/srk-evidence-contract.js','lovego/runtime/srk-ux-hardening.js','lovego/runtime/evidence-plug-base.js','lovego/runtime/srk-canonical-routing.js','lovego/runtime/integrity-guard.js','lovego/runtime/srk-stage-context.js','lovego/runtime/srk-evidence-registry.js','lovego/runtime/srk-registry-adapter.js','lovego/runtime/srk-cloud-guard.js','lovego/runtime/srk-od1-guard.js','lovego/runtime/srk-semantic-guard.js','lovego/srk-runtime-qc.js','lovego/runtime/srk-submit-bridge.js','lovego/runtime/srk-end-to-end-guard.js','lovego-ptm-evidence.js'];modules.forEach(p=>{const s=document.createElement('script');s.src=LOVEGO_FROZEN+p;s.async=false;s.dataset.lovegoCanonical='1';s.onerror=()=>lovegoModuleError(p);document.head.appendChild(s);});window.LOVEGO_CANONICAL_RUNTIME=Object.freeze({version:'FINAL-SINGLE-ENTRY-2026.09.13',modules:[...modules]});})();
 </script>
 <script src="https://cdn.jsdelivr.net/gh/AngelTeo/angelteo.github.io@8bd17ad97765a4f98a88d419439585df16eed790/OPR/lovego-model.js" onerror="lovegoModuleError('lovego-model.js')"></script>
@@ -344,7 +346,7 @@ function renderCollect(){
   document.getElementById('collectSummary').textContent=st.length?`${done} / ${st.length} completed`:(S.ui.classId?'目前没有分配给你的学生':'请选择班级');
   document.getElementById('studentList').innerHTML=st.map(x=>{let r=currentReviewForStudent(x.id);const submitted=r?.status==='completed'&&!!r?.submitted_at;return `<button class="stu" onclick="openReview('${x.id}')"><b>${x.name_en||x.name_cn||x.id}</b><div class="meta">${x.name_cn||''}</div><div style="margin-top:7px"><span class="badge ${submitted?'done':r?'draft':''}">${submitted?'Completed':r?'Draft':'Not started'}</span></div></button>`}).join('');
 }
-function openReview(id){if(S.perm&&S.perm.can_edit===false){toast('你只有查看权限');return}const _mgmt=isAdmin();if(!_mgmt&&!currentTeacherAssigned(id)){toast('这名学生没有指定给你');return}S.ui.studentId=id;S.ui.contributor=_mgmt?'MANAGEMENT':'ASSIGNED_TEACHER';save();let st=S.students.find(x=>x.id===id);document.getElementById('reviewName').textContent=st?.name_en||st?.name_cn||id;const age=ageFromStudent(st),cls=currentClassObj();document.getElementById('reviewMeta').textContent=`${S.ui.dept} · ${cls?.display_name||cls?.class_name||''} · ${age==null?'Age —':'Age '+age} · ${S.ui.cycle} · Teacher Lens`;renderDomains();go('review')}
+function openReview(id){if(S.perm&&S.perm.can_edit===false){toast('你只有查看权限');return}const _mgmt=isAdmin();if(!_mgmt&&!currentTeacherAssigned(id)){toast('这名学生没有指定给你');return}S.ui.studentId=id;S.ui.contributor=_mgmt?'MANAGEMENT':'ASSIGNED_TEACHER';if(window.lgAcc){if(lgAcc.sid!==id)lgAcc.open.clear();lgAcc.sid=id;}save();let st=S.students.find(x=>x.id===id);document.getElementById('reviewName').textContent=st?.name_en||st?.name_cn||id;const age=ageFromStudent(st),cls=currentClassObj();document.getElementById('reviewMeta').textContent=`${S.ui.dept} · ${cls?.display_name||cls?.class_name||''} · ${age==null?'Age —':'Age '+age} · ${S.ui.cycle} · Teacher Lens`;renderDomains();go('review')}
 function ensure(){
   normaliseAssignmentStore();
   const rows=currentAssignmentRows(S.ui.studentId);
@@ -394,6 +396,7 @@ function renderDomains(){
   const dl=(r.daily_life&&typeof r.daily_life==='object')?r.daily_life:{routine:'',social:'',emotion:'',change:''};
   ['Routine','Social','Emotion','Change'].forEach(k=>document.getElementById('daily'+k).value=dl[k.toLowerCase()]||'');
   document.getElementById('summary').value=r.summary||'';
+  if(typeof lgWireAccordionOnce==='function'){lgWireAccordionOnce();lgReapplyOpen();}
 }
 function toggleObs(c,i){
   let r=ensure(),x=r.domains[c]||(r.domains[c]={obs:[],insufficient_observation:false,note:''});
@@ -499,6 +502,13 @@ function openMgmtStudent(studentId){
 function exportData(){let p={meta:{system:'LoveGo',version:APP_VERSION,exportTime:new Date().toISOString(),teacher:S.who?.id||null},reviews:S.reviews};let a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(p,null,2)],{type:'application/json'}));a.download='LoveGo_'+new Date().toISOString().slice(0,10)+'.json';a.click();URL.revokeObjectURL(a.href);toast('✓ Exported')}
 function importData(ev){let f=ev.target.files[0];ev.target.value='';if(!f)return;let rd=new FileReader();rd.onload=()=>{try{let p=JSON.parse(rd.result);if(!p.reviews)throw 0;S.reviews={...S.reviews,...p.reviews};save();renderCollect();toast('✓ Imported · Merge')}catch(e){toast('✕ Invalid file')}};rd.readAsText(f)}
 
+</script>
+<script>/* P0-B: domain accordion — minimal, idempotent, event-delegation */
+window.lgAcc=window.lgAcc||{open:new Set(),sid:null};
+function lgDomainCode(dom){var dn=dom&&dom.querySelector(".dn");return dn?dn.textContent.split("\u00b7")[0].trim():"";}
+function lgWireAccordionOnce(){var host=document.getElementById("domains");if(!host||host.dataset.lgAccWired)return;host.dataset.lgAccWired="1";host.addEventListener("click",function(e){var head=e.target.closest&&e.target.closest(".dh");if(!head||!host.contains(head))return;var dom=head.closest(".domain");if(!dom)return;var nowOpen=dom.classList.toggle("open");var code=lgDomainCode(dom);if(code){nowOpen?lgAcc.open.add(code):lgAcc.open.delete(code);}});}
+function lgReapplyOpen(){var host=document.getElementById("domains");if(!host)return;host.querySelectorAll(".domain").forEach(function(dom){if(lgAcc.open.has(lgDomainCode(dom)))dom.classList.add("open");});}
+try{var _vb=document.getElementById("verBadge");if(_vb&&typeof APP_VERSION!=="undefined")_vb.textContent="v"+APP_VERSION;}catch(_){}
 </script>
 <script src="https://cdn.jsdelivr.net/gh/AngelTeo/angelteo.github.io@8bd17ad97765a4f98a88d419439585df16eed790/OPR/lovego-assignments.js" onerror="lovegoModuleError('lovego-assignments.js')"></script>
 <script>/* INLINED corrected product-hardening.js (no mgmt read-only) */
