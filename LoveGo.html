@@ -222,7 +222,7 @@ window.esc=esc;
 <section class="screen" id="s-manage"><div class="hero"><div class="eyebrow">Settings</div><h1>LoveGo 设定</h1></div><div class="manage-card"><h3>① 我的身份</h3><div class="lines" id="m1"></div></div><div class="manage-card"><h3>② 系统资讯</h3><div class="lines">系统名：LoveGo<br>版本：<span id="verText">v61</span><br>资料笔数：<span id="mcount">0</span></div></div><div class="manage-card"><h3>⑤ 资料备份</h3><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="ghost" onclick="exportData()">Export JSON</button><button class="ghost" onclick="exportCSV()">Export CSV</button><label class="ghost" style="display:inline-flex;align-items:center;cursor:pointer">Import<input type="file" hidden accept=".json" onchange="importData(event)"></label><button class="ghost" onclick="window.print()">列印</button></div></div></section>
 </main><div class="toast" id="toast"></div>
 <script>
-const APP_VERSION=72,KEY='lovego';
+const APP_VERSION=73,KEY='lovego';
 const SUPABASE_URL='https://qnpvqsvvsgsantekgfbz.supabase.co';
 const SUPABASE_KEY='sb_publishable_v3Y3BD3XiPz33t-hfdX58g_BaFIkjPF';
 const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true}});
@@ -691,8 +691,24 @@ function lovegoModuleError(p){window.__LOVEGO_MODULE_ERRORS.push(p);console.erro
       if(prev) prev.disabled=(i<=0);
       if(next) next.disabled=(i<0||i>=list.length-1);
     }
-    window.lgOpenRosterStudent=function(id){
+    window.lgOpenRosterStudent=async function(id){
       S.ui.studentId=id;
+      // 管理层(OWNER/TOP_MGMT/MGMT/ADMIN)无痛输入：开任何学生即自动挂一个 slot，
+      // 现有 RLS 随即放行、v72 的 product-hardening patch 让其走可编辑画面。老师不受影响。
+      try{
+        if(sb && typeof window.isAdmin==='function' && window.isAdmin()){
+          var res=await sb.rpc('lovego_ensure_self_assignment',{p_cycle_id:S.ui.cycle,p_class_id:S.ui.classId,p_student_id:id});
+          var row = res && (Array.isArray(res.data)?res.data[0]:res.data);
+          if(row && row.id){
+            S.assignments = S.assignments || {};
+            var _k = S.ui.cycle + '|' + id;                 // assignmentKey(cycle, studentId)
+            if(!Array.isArray(S.assignments[_k])) S.assignments[_k]=[];
+            if(!S.assignments[_k].some(function(x){return x&&x.id===row.id;})) S.assignments[_k].push(row);
+          } else if(res&&res.error&&String(res.error.message||'').indexOf('STUDENT_SLOTS_FULL')>=0){
+            (window.toast||function(m){})('这名学生已有 4 位老师，无法再加');
+          }
+        }
+      }catch(e){ console.warn('[LoveGo] mgmt ensure-assignment', e); }
       if(typeof openReview==='function') openReview(id);
       const e=lgFillEls();
       if(e.board) e.board.style.display='none';
