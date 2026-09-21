@@ -222,11 +222,13 @@ window.esc=esc;
 <section class="screen" id="s-manage"><div class="hero"><div class="eyebrow">Settings</div><h1>LoveGo 设定</h1></div><div class="manage-card"><h3>① 我的身份</h3><div class="lines" id="m1"></div></div><div class="manage-card"><h3>② 系统资讯</h3><div class="lines">系统名：LoveGo<br>版本：<span id="verText">v61</span><br>资料笔数：<span id="mcount">0</span></div></div><div class="manage-card"><h3>⑤ 资料备份</h3><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="ghost" onclick="exportData()">Export JSON</button><button class="ghost" onclick="exportCSV()">Export CSV</button><label class="ghost" style="display:inline-flex;align-items:center;cursor:pointer">Import<input type="file" hidden accept=".json" onchange="importData(event)"></label><button class="ghost" onclick="window.print()">列印</button></div></div></section>
 </main><div class="toast" id="toast"></div>
 <script>
-const APP_VERSION=73,KEY='lovego';
+const APP_VERSION=74,KEY='lovego';
 const SUPABASE_URL='https://qnpvqsvvsgsantekgfbz.supabase.co';
 const SUPABASE_KEY='sb_publishable_v3Y3BD3XiPz33t-hfdX58g_BaFIkjPF';
 const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true}});
+window.sb=sb;  /* expose for later script blocks (mgmt auto-assign) */
 let CLOUD={available:false,reason:'not_checked',cycleMap:{}};
+window.__lgCycleUuid=function(){try{return (CLOUD.cycleMap[S.ui.cycle]||{}).id||null;}catch(_){return null;}};
 async function cloudProbe(){const q=await sb.from('lovego_cycle').select('id,cycle_code,name,status,taxonomy_version').limit(20);if(q.error){CLOUD={available:false,reason:q.error.message||'LoveGo cloud unavailable',cycleMap:{}};return CLOUD;}CLOUD.available=true;CLOUD.reason='ok';CLOUD.cycleMap=Object.fromEntries((q.data||[]).map(x=>[x.cycle_code,x]));CYCLES=(q.data||[]).map(x=>({id:x.cycle_code,name:x.name||x.cycle_code,active:x.status==='active'}));if(!S.ui.cycle||!CLOUD.cycleMap[S.ui.cycle]){const preferred=CYCLES.find(x=>x.active)||CYCLES[0]||null;S.ui.cycle=preferred?.id||null;}return CLOUD;}
 function cloudReviewPayload(r,submitted=false){return {assignment_id:r.assignment_id,cycle_id:r.cloud_cycle_id,student_id:r.student_id,class_id:r.class_id,department:r.department,teacher_id:r.teacher_id,taxonomy_version:r.taxonomy_version,status:submitted?'completed':'draft',domains:r.domains||{},daily_life:r.daily_life||{},strength_refs:r.strength_refs||[],growth_refs:r.growth_refs||[],strength_note:r.strength_note||null,growth_note:r.growth_note||null,strength_growth_overlap_note:r.strength_growth_overlap_note||null,summary:r.summary||null,...(submitted?{submitted_at:new Date().toISOString(),locked_at:new Date().toISOString()}:{})};}
 async function cloudUpsertReview(r,submitted=false){if(!CLOUD.available)throw new Error('LoveGo Cloud 尚未启用');if(!r.assignment_id)throw new Error('没有有效 Teacher Assignment');const cyc=CLOUD.cycleMap[S.ui.cycle];if(!cyc)throw new Error('当前周期尚未建立在 LoveGo Cloud');r.cloud_cycle_id=cyc.id;const payload=cloudReviewPayload(r,submitted);const q=await sb.from('lovego_review').upsert(payload,{onConflict:'assignment_id'}).select('id,status,submitted_at,locked_at').single();if(q.error)throw q.error;Object.assign(r,q.data||{});return q.data;}
@@ -696,17 +698,21 @@ function lovegoModuleError(p){window.__LOVEGO_MODULE_ERRORS.push(p);console.erro
       // 管理层(OWNER/TOP_MGMT/MGMT/ADMIN)无痛输入：开任何学生即自动挂一个 slot，
       // 现有 RLS 随即放行、v72 的 product-hardening patch 让其走可编辑画面。老师不受影响。
       try{
-        if(sb && typeof window.isAdmin==='function' && window.isAdmin()){
-          var res=await sb.rpc('lovego_ensure_self_assignment',{p_cycle_id:S.ui.cycle,p_class_id:S.ui.classId,p_student_id:id});
-          var row = res && (Array.isArray(res.data)?res.data[0]:res.data);
-          if(row && row.id){
-            S.assignments = S.assignments || {};
-            var _k = S.ui.cycle + '|' + id;                 // assignmentKey(cycle, studentId)
-            if(!Array.isArray(S.assignments[_k])) S.assignments[_k]=[];
-            if(!S.assignments[_k].some(function(x){return x&&x.id===row.id;})) S.assignments[_k].push(row);
-          } else if(res&&res.error&&String(res.error.message||'').indexOf('STUDENT_SLOTS_FULL')>=0){
-            (window.toast||function(m){})('这名学生已有 4 位老师，无法再加');
-          }
+        if(window.sb && typeof window.isAdmin==='function' && window.isAdmin()){
+          var _cyc = (typeof window.__lgCycleUuid==='function') ? window.__lgCycleUuid() : null;
+          if(_cyc){
+            var res=await window.sb.rpc('lovego_ensure_self_assignment',{p_cycle_id:_cyc,p_class_id:S.ui.classId,p_student_id:id});
+            var row = res && (Array.isArray(res.data)?res.data[0]:res.data);
+            if(row && row.id){
+              S.assignments = S.assignments || {};
+              var _k = S.ui.cycle + '|' + id;                 // client store keyed by cycle CODE
+              if(!Array.isArray(S.assignments[_k])) S.assignments[_k]=[];
+              if(!S.assignments[_k].some(function(x){return x&&x.id===row.id;})) S.assignments[_k].push(row);
+            } else if(res&&res.error){
+              if(String(res.error.message||'').indexOf('STUDENT_SLOTS_FULL')>=0){ (window.toast||function(m){})('这名学生已有 4 位老师，无法再加'); }
+              else console.warn('[LoveGo] ensure_self_assignment', res.error.message);
+            }
+          } else { console.warn('[LoveGo] no cycle uuid; skip mgmt auto-assign'); }
         }
       }catch(e){ console.warn('[LoveGo] mgmt ensure-assignment', e); }
       if(typeof openReview==='function') openReview(id);
