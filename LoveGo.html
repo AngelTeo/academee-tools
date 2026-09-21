@@ -222,7 +222,7 @@ window.esc=esc;
 <section class="screen" id="s-manage"><div class="hero"><div class="eyebrow">Settings</div><h1>LoveGo 设定</h1></div><div class="manage-card"><h3>① 我的身份</h3><div class="lines" id="m1"></div></div><div class="manage-card"><h3>② 系统资讯</h3><div class="lines">系统名：LoveGo<br>版本：<span id="verText">v61</span><br>资料笔数：<span id="mcount">0</span></div></div><div class="manage-card"><h3>⑤ 资料备份</h3><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="ghost" onclick="exportData()">Export JSON</button><button class="ghost" onclick="exportCSV()">Export CSV</button><label class="ghost" style="display:inline-flex;align-items:center;cursor:pointer">Import<input type="file" hidden accept=".json" onchange="importData(event)"></label><button class="ghost" onclick="window.print()">列印</button></div></div></section>
 </main><div class="toast" id="toast"></div>
 <script>
-const APP_VERSION=76,KEY='lovego';
+const APP_VERSION=77,KEY='lovego';
 const SUPABASE_URL='https://qnpvqsvvsgsantekgfbz.supabase.co';
 const SUPABASE_KEY='sb_publishable_v3Y3BD3XiPz33t-hfdX58g_BaFIkjPF';
 const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true}});
@@ -1286,6 +1286,7 @@ function lovegoModuleError(p){window.__LOVEGO_MODULE_ERRORS.push(p);console.erro
     window.lgToggleReviewFold=lgToggleReviewFold;
 
     function lgWireDomainAccordions(){
+      return; /* v77: disabled — native renderDomains layout handles domain open/close */
       document.querySelectorAll('#domains .domain').forEach(card=>{
         card.classList.remove('open');
         const head=card.querySelector('.dh');
@@ -1362,6 +1363,11 @@ function lovegoModuleError(p){window.__LOVEGO_MODULE_ERRORS.push(p);console.erro
     window.lgToggleGroup=lgToggleGroup;
 
     function groupLoveGoDomainCards(force=false){
+      /* v77: custom grouping disabled — it fought the native teacher render. Use native renderDomains layout. */
+      if(force && typeof renderDomains==='function'){ const _r=document.getElementById('domains'); if(_r)_r.dataset.grouped=''; renderDomains(); }
+      return;
+    }
+    function groupLoveGoDomainCards_DISABLED(force=false){
       const root=document.getElementById('domains');
       if(!root) return;
       if(force){root.dataset.grouped=''; if(typeof renderDomains==='function'){renderDomains(); return;}}
