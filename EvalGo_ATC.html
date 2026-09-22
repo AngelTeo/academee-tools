@@ -483,7 +483,7 @@ button.chip.sel-w{background:var(--warn);color:#fff}
    权限码：RPT-EvalGo-ATC
    ══════════════════════════════════════════════════════════════════ */
 
-const APP_VERSION = 63;
+const APP_VERSION = 64;
 
 /* ══ v46 · 旧版本守门 ══════════════════════════════════
    MiscGo 那边抓到实例：网址对、程式旧（手机快取把旧 HTML 钉住）。
@@ -6197,8 +6197,27 @@ async function cloudInit(silent){
     const row=Array.isArray(pr.data)?pr.data[0]:pr.data;
     CLOUD.perm=row||null; CLOUD.permUnknown=false;
     if(!CLOUD.perm||CLOUD.perm.can_see!==true){ CLOUD.err='这个帐号还没有开通 EvalGo_ATC —— 请找院长开通'; paintCloud(); return false; }
-    const ex=await _sb.from('evalgo_exam').select('*').eq('department','ATC').eq('is_active',true)
-                      .order('report_due',{ascending:true}).limit(1);
+    /* ══ v64 · Owner 2026-09-22：「为什么每次打开都要等一段时间？」══
+       线上日志（09-22 07:42:53–07:43:00 UTC）：开页一共 30 多次来回，**全部排队一个等一个**；
+       光是 11 项「这个栏位在不在」的检查就排了 2 秒。这些问题互不相干 → 一起送、一起等。
+       结果一个字不变，只是不再排队。 */
+    const _ok=q=>q.then(r=>!r.error,()=>false);
+    const [ex,th,cWI,cPS,cV12,cV4,cV5,cES,cTA,cV8,cV9,cV10,cV13,cPI]=await Promise.all([
+      _sb.from('evalgo_exam').select('*').eq('department','ATC').eq('is_active',true)
+         .order('report_due',{ascending:true}).limit(1),
+      _sb.from('teachers').select('id,name').eq('status','active').order('id'),
+      _ok(_sb.from('evalgo_wrong_item').select('id').limit(1)),
+      _ok(_sb.from('evalgo_paper_section').select('id').limit(1)),
+      _ok(_sb.from('evalgo_paper_section').select('paper_from').limit(1)),
+      _ok(_sb.from('evalgo_paper_analysis').select('tp').limit(1)),
+      _ok(_sb.from('evalgo_paper_analysis').select('paper_checked').limit(1)),
+      _ok(_sb.from('evalgo_essay_result').select('id').limit(1)),
+      _ok(_sb.from('evalgo_teacher_assign').select('id').limit(1)),
+      _ok(_sb.from('evalgo_paper_analysis').select('assess_status').limit(1)),
+      _ok(_sb.from('evalgo_paper_analysis').select('weak_manual').limit(1)),
+      _ok(_sb.from('evalgo_paper_section').select('even_marks').limit(1)),
+      _ok(_sb.from('evalgo_paper_section').select('q_marks').limit(1)),
+      _ok(_sb.from('evalgo_paper_instance').select('id').limit(1))]);
     if(ex.error) throw ex.error;
     if(!ex.data||!ex.data.length){ CLOUD.err='目前没有进行中的考试'; paintCloud(); return false; }
     CLOUD.exam=ex.data[0];
@@ -6213,27 +6232,26 @@ async function cloudInit(silent){
     if(mig.unresolved) console.warn('UNRESOLVED（无法证明属於哪一轮考试，未迁移）:',mig.unresolved);
     if(prevEx && prevEx!==S.examCode)
       console.warn('exam changed', prevEx, '→', S.examCode);
-    const th=await _sb.from('teachers').select('id,name').eq('status','active').order('id');
     if(!th.error&&th.data) CLOUD.teachers=th.data;
     /* 能力探测 —— 前端对 delta 版本向前相容：
        delta v3 未跑 → 逐题资料留本机；delta v4 未跑 → TP / 家长配合留本机。
        两者都不会让上传整批失败。 */
-    CLOUD.hasWI = !(await _sb.from('evalgo_wrong_item').select('id').limit(1)).error;
-    CLOUD.hasPS = !(await _sb.from('evalgo_paper_section').select('id').limit(1)).error;
+    CLOUD.hasWI = cWI;
+    CLOUD.hasPS = cPS;
     /* delta v12 —— 卷面题号 paper_from/paper_to 与小题 q_sub */
-    CLOUD.hasV12 = !(await _sb.from('evalgo_paper_section').select('paper_from').limit(1)).error;
-    CLOUD.hasV4 = !(await _sb.from('evalgo_paper_analysis').select('tp').limit(1)).error;
-    CLOUD.hasV5 = !(await _sb.from('evalgo_paper_analysis').select('paper_checked').limit(1)).error;
-    CLOUD.hasES = !(await _sb.from('evalgo_essay_result').select('id').limit(1)).error;
-    CLOUD.hasTA = !(await _sb.from('evalgo_teacher_assign').select('id').limit(1)).error;
-    CLOUD.hasV8 = !(await _sb.from('evalgo_paper_analysis').select('assess_status').limit(1)).error;
-    CLOUD.hasV9 = !(await _sb.from('evalgo_paper_analysis').select('weak_manual').limit(1)).error;
-    CLOUD.hasV10 = !(await _sb.from('evalgo_paper_section').select('even_marks').limit(1)).error;
+    CLOUD.hasV12 = cV12;
+    CLOUD.hasV4 = cV4;
+    CLOUD.hasV5 = cV5;
+    CLOUD.hasES = cES;
+    CLOUD.hasTA = cTA;
+    CLOUD.hasV8 = cV8;
+    CLOUD.hasV9 = cV9;
+    CLOUD.hasV10 = cV10;
     /* delta v13 —— 小题结构 q_marks。没跑 DDL 之前老师照样填得下去，
        东西留在这台装置；栏位一加上去就自动补送（见下面的 needV13 重排）。 */
-    CLOUD.hasV13 = !(await _sb.from('evalgo_paper_section').select('q_marks').limit(1)).error;
+    CLOUD.hasV13 = cV13;
     /* v26 Multi-Paper 能力侦测：Stage A 未跑时表不存在 → hasPI=false → 全程 Legacy 兼容 */
-    CLOUD.hasPI = !(await _sb.from('evalgo_paper_instance').select('id').limit(1)).error;
+    CLOUD.hasPI = cPI;
     /* v14 上线後（唯一索引含 q_sub），把扣住的小题纪录重新排队。
        侦测方式：拿一笔明知会撞的资料去试太危险，所以改成「送得出去就是好了」——
        needV14 的纪录每次连线重排一次，成功就不再回来，失败会再被扣住。 */
@@ -6256,15 +6274,21 @@ async function cloudInit(silent){
       if(n){ saveData(true); console.info('v9 上线，重送 '+n+' 笔老师手填弱项'); }
     }
     await resolveTeacher();
+    paintNav();                       /* v64：认出是谁就先画分页，不必等资料全部读完 */
     /* 🔴 v25 R-H2：连线成功 ≠ 这一轮资料读完整。
        任何一个 pull 失败都要留下痕迹，不准让流程默默走完还宣告「已连上」。 */
     CLOUD.readErr='';
-    const _rA=await pullAssign();     /* 谁负责哪一格 —— 首页要显示 */
-    const _rS=await pullSections();   /* 换装置 / 别的老师已登记过 → 直接带出来 */
+    /* v64：三样互不相干 → 一起读（错误照旧按「任教 → 项目」的顺序记） */
+    const [_rA,_rS]=await Promise.all([
+      pullAssign(),                   /* 谁负责哪一格 —— 首页要显示 */
+      pullSections(),                 /* 换装置 / 别的老师已登记过 → 直接带出来 */
+      cloudRoster(true)]);            /* 名单自动载入，不用老师按 */
     if(!_rA.ok) CLOUD.readErr=_rA.error;
     else if(!_rS.ok) CLOUD.readErr=_rS.error;
-    await cloudRoster(true);          /* 名单自动载入，不用老师按 */
+    /* v64：上次停在的班级 / 科目 → 卷清单跟资料一起读，开页就看得到卷（v63 以前要再点一次班级才出来） */
+    const _pP=(CLOUD.hasPI && S.cls && S.subject && S._papersScope!==paperScopeKey()) ? loadPapers() : null;
     await cloudPull(true);            /* 已经填过的自动带回来（失败会自己写 readErr）*/
+    if(_pP) await _pP;
     /* ⚠️ 顺序不可颠倒：一定要在 pullSections / cloudPull **之後**才送 ——
        逐题纪录要靠 section 的 cloud_id 才挂得回它所属的项目。 */
     await flushPendingAfterLogin();
@@ -6365,7 +6389,9 @@ async function pullAssign(){
 async function fetchAllRows(table){
   const PAGE=1000; let out=[], from=0;
   for(let guard=0; guard<500; guard++){
-    let q=_sb.from(table).select('*').eq('exam_id',CLOUD.exam.id);
+    /* v64：顺便问总数。拿够总数就停 —— 以前每张表最后都多问一次，拿到空页才停。
+       问不到总数（旧版或测试替身）就照旧读到空页为止，不假设上限。 */
+    let q=_sb.from(table).select('*',{count:'exact'}).eq('exam_id',CLOUD.exam.id);
     if(typeof q.order==='function') q=q.order('id');
     if(typeof q.range!=='function'){            /* 测试替身没有 range：退回单次读取 */
       const r=await q; return r.error?{data:null,error:r.error}:{data:r.data||[],error:null}; }
@@ -6374,6 +6400,7 @@ async function fetchAllRows(table){
     const rows=r.data||[];
     if(!rows.length) return {data:out,error:null};
     out=out.concat(rows); from+=rows.length;
+    if(typeof r.count==='number' && out.length>=r.count) return {data:out,error:null};
   }
   return {data:null,error:{message:table+' 读取页数超过上限，已停止（资料没有读完，不做任何清理）'}};
 }
@@ -7131,23 +7158,19 @@ async function cloudPull(silent){
 }
 async function cloudPullInner(silent){
   try{
-    const a=await fetchAllRows('evalgo_live_obs');
+    /* v64：四张表一起读（以前一张读完才读下一张）。检查错误的顺序照旧。 */
+    const [a,b,e2,d]=await Promise.all([
+      fetchAllRows('evalgo_live_obs'),
+      fetchAllRows('evalgo_paper_analysis'),
+      CLOUD.hasES ? fetchAllRows('evalgo_essay_result') : Promise.resolve({data:[]}),
+      CLOUD.hasWI ? fetchAllRows('evalgo_wrong_item')   : Promise.resolve({data:[]})]);
     if(a.error) throw a.error;
-    const b=await fetchAllRows('evalgo_paper_analysis');
     if(b.error) throw b.error;
     const ps=await pullSections();
     if(!ps.ok) throw {message:ps.error};
     const nPS=ps.n;
-    let e2={data:[]};
-    if(CLOUD.hasES){
-      e2=await fetchAllRows('evalgo_essay_result');
-      if(e2.error) throw e2.error;
-    }
-    let d={data:[]};
-    if(CLOUD.hasWI){
-      d=await fetchAllRows('evalgo_wrong_item');
-      if(d.error) throw d.error;
-    }
+    if(e2.error) throw e2.error;
+    if(d.error) throw d.error;
     let n1=0,n2=0,n3=0; const seenF1={},seenF2={},seenWI={},seenES={};
     let s9dirty=false;
     (a.data||[]).forEach(x=>{ const k=CLOUD.exam.code+'|'+x.student_id+'|'+x.subject+'|'+x.bahagian+piSuf(x.paper_instance_id); seenF1[k]=1;
