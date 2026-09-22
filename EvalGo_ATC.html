@@ -483,7 +483,7 @@ button.chip.sel-w{background:var(--warn);color:#fff}
    权限码：RPT-EvalGo-ATC
    ══════════════════════════════════════════════════════════════════ */
 
-const APP_VERSION = 62;
+const APP_VERSION = 63;
 
 /* ══ v46 · 旧版本守门 ══════════════════════════════════
    MiscGo 那边抓到实例：网址对、程式旧（手机快取把旧 HTML 钉住）。
@@ -1243,6 +1243,11 @@ async function loadPapers(){
   if(dest==='papers') goPage('papers');
   else if(dest && cellReady()) goPage(dest); else renderHome();
 }
+/* v63：卷的建立日期「9月19日」；没有日期回空字串 */
+function paperDateOf(p){
+  const d=(p&&p.created_at)?new Date(p.created_at):null;
+  return (d&&!isNaN(d))?((d.getMonth()+1)+'月'+d.getDate()+'日'):'';
+}
 function pickPaper(id){
   if(!(S.papers||[]).some(p=>p.id===id)){ toast('✕ 这份卷不在当前班级/科目'); return; }
   S.paperInstance=id; saveData(true);
@@ -1278,7 +1283,7 @@ function paperSelectorHTML(){
     <b style="color:var(--warn)">这个班级 / 科目还没有考卷。</b><br>
     <span class="tip" style="margin-top:6px">按「开始」，在选卷页建立第一份。</span></div></div>`;
   return `<div class="card"><div class="card-hdr"><span class="card-title">选择考卷</span>
-    <span class="tip" style="margin:0">${esc(S.cls)} · ${esc(S.subject)} 有 ${ps.length} 份卷 — 请明确选一份再输入</span></div>
+    <span class="tip" style="margin:0">${esc(S.cls)} · ${esc(S.subject)} 有 ${ps.length} 份卷 — ${ps.length===1?'系统已自动选好':'请明确选一份再输入'}</span></div>
     <div class="dept-row" style="flex-wrap:wrap;gap:8px">
     ${ps.map(p=>`<span class="dept-tag${p.id===S.paperInstance?' on':''}"
        style="padding:10px 20px;font-size:13px" onclick="pickPaper('${p.id}')">${esc(paperLabelOf(p))}</span>`).join('')}
@@ -2316,6 +2321,8 @@ function renderHome(){
           : '请选择班级与科目'}</div>
         <div class="tip" style="margin:2px 0 0">${
           noPaper ? '<span style="color:var(--warn)">这个班级 / 科目还没有考卷 —— 按「开始」建立第一份</span>'
+          : (papersPending && S._papersScope===paperScopeKey() && (S.papers||[]).length>1)
+            ? '<span style="color:var(--warn)">请在下面选一份考卷</span>'
           : papersPending ? '载入考卷中…'
           : ready ? '系统会自动记录填写者与时间'
           : '两个都选好才能开始'}</div>
@@ -2324,13 +2331,24 @@ function renderHome(){
         style="padding:12px 26px;font-size:15px;font-weight:700;min-height:44px"
         onclick="startCell()">开始 →</button>
     </div>`;
-  /* 这一格有两份以上的卷 → 就地选，不另外跳一个画面（首页是唯一入口）。 */
-  if(ready && CLOUD.hasPI && (S.papers||[]).length>1){
+  /* ══ v63 · Owner 2026-09-22：「只有一份的时候，我也需要显示 —— 大家会以为考卷不见了。统一做法！」══
+     v62 以前只有两份以上才列出来；只剩一份时整列消失，老师以为卷不见了。
+     现在只要这一格的卷清单拿到了，一律列出来：
+       · 1 份 → 列出那一份，已选好（亮起），写明「系统已自动选好」
+       · 2 份以上 → 照旧，请老师明确选一份
+     每份卷都带建立日期，同名的也分得出来。 */
+  const psH=S.papers||[];
+  if(ready && CLOUD.hasPI && S._papersScope===paperScopeKey() && psH.length){
+    const one=psH.length===1;
     h+=`<div style="border-top:1px solid var(--bdr);margin-top:10px;padding-top:10px">
-      <div class="tip" style="margin:0 0 6px">这个班级 / 科目有 ${S.papers.length} 份卷 —— 请明确选一份</div>
-      <div class="dept-row" style="flex-wrap:wrap;gap:8px">${S.papers.map(pp=>
-        `<span class="dept-tag${pp.id===S.paperInstance?' on':''}" style="padding:10px 20px;font-size:13px;min-height:44px"
-          onclick="pickPaper('${pp.id}')">${esc(paperLabelOf(pp))}</span>`).join('')}</div></div>`;
+      <div class="tip" style="margin:0 0 6px">${one
+        ? '这个班级 / 科目有 1 份卷 —— 系统已自动选好'
+        : '这个班级 / 科目有 '+psH.length+' 份卷 —— 请明确选一份'}</div>
+      <div class="dept-row" style="flex-wrap:wrap;gap:8px">${psH.map(pp=>{
+        const dl=paperDateOf(pp);
+        return `<span class="dept-tag pick-paper${pp.id===S.paperInstance?' on':''}" style="padding:10px 20px;font-size:13px;min-height:44px"
+          onclick="pickPaper('${pp.id}')">${esc(paperLabelOf(pp))}${dl?`<span style="font-weight:400;opacity:.75"> · ${dl}建</span>`:''}</span>`;
+      }).join('')}</div></div>`;
   }
   h+=`</div>`;
 
