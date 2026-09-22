@@ -483,7 +483,7 @@ button.chip.sel-w{background:var(--warn);color:#fff}
    权限码：RPT-EvalGo-ATC
    ══════════════════════════════════════════════════════════════════ */
 
-const APP_VERSION = 60;
+const APP_VERSION = 62;
 
 /* ══ v46 · 旧版本守门 ══════════════════════════════════
    MiscGo 那边抓到实例：网址对、程式旧（手机快取把旧 HTML 钉住）。
@@ -2956,7 +2956,7 @@ function bpAdd(editId){
     qm:qm,
     qf:rg.qf, qt:rg.qt, pf:(type==='ESSAY'?null:pf), max:mx,
     even:(type==='ESSAY'?'':even),   /* 未声明就不算分（fail-closed），与 addSection 同规矩 */
-    by:S.me, synced:false};
+    by:(me?(me.by||''):S.me), synced:false};   /* v61：改项目不换登记人 */
   if(me) Object.assign(me,patch);    /* 修改：client_uid / cloud_id 保留，上传时 upsert 覆盖同一列 */
   else arr.push(Object.assign({id:uid(),client_uid:uid(),ses:SESSION_ID,
     sort:arr.length, cloud_id:null}, patch));
@@ -3312,6 +3312,22 @@ function setSecRange(id){
   if(saveThen('✓ 已补上题号')){ bpRefresh(); autoPush(); }
 }
 function essaySections(){ return sections().filter(x=>x.type==='ESSAY'); }
+/* ══ v62 · 老师回报 2026-09-22：「作文不会写，答对率还是 100%」══
+   答对率 = 逐题那几部分答对几格，**本来就不含作文**（作文没有「题」可点）。
+   含作文的是「得分」（作文用老师填的实得分）。旧画面把答对率印成绿色大徽章、
+   还放在「掌握程度」旁边，看起来像整份卷的成绩 —— 作文 3/10 的学生显示 94%。
+   改法：有作文的卷，第一个数字一律是「得分率（含作文）」；答对率改名「逐题答对率（不含作文）」、
+   不上颜色，旁边写出作文几分。只有逐题、没有作文的卷，画面照旧。 */
+function pctOf(ps){ return (ps && ps.got!=null && +ps.max>0) ? Math.round(ps.got/ps.max*100) : null; }
+function pctBadge(p){ return `<span class="badge ${p>=75?'b-active':(p>=50?'b-warn':'b-inactive')}">${p}%</span>`; }
+/* 这一格（当下的卷）作文几分：「Bahagian C 3/10」；没填的写「未填」 */
+function esLine(sid){
+  return essaySections().map(sec=>{
+    const er=S.es[esKey(sid,sec.code)];
+    const has=er && er.score!=null && er.score!=='';
+    return sec.code+' '+(has?(er.score+'/'+(+sec.max||'?')):'未填');
+  }).join(' · ');
+}
 
 /* ══ 得分 ══ Owner 2026-09-07 拍板（方案 D）
    「自动算分」= 项目满分 ÷ 题数 = 每题分数。这个算法只在
@@ -3631,8 +3647,8 @@ function renderF2(){
   h+=`<div class="card" style="padding:0;overflow:hidden"><div class="tw"><table class="data"><thead><tr>
       <th style="min-width:150px">学生</th><th style="width:78px">状态</th>
       ${MARKS.map(m=>`<th style="width:48px" title="${esc(m.zh)}">${m.lab}</th>`).join('')}
-      <th style="width:96px" title="只涵盖已声明「每题同分」的项目 + 写作实得分">得分</th>
-      <th style="width:80px">答对率</th><th style="min-width:110px">主问题</th>
+      <th style="width:110px" title="只涵盖已声明「每题同分」的项目 + 作文实得分">得分${essaySections().length?'<div style="font-weight:400;font-size:10.5px;opacity:.8">含作文</div>':''}</th>
+      <th style="width:92px">答对率${essaySections().length?'<div style="font-weight:400;font-size:10.5px;opacity:.8">逐题 · 不含作文</div>':''}</th><th style="min-width:110px">主问题</th>
       <th style="min-width:130px">最弱技能</th><th style="width:80px"></th>
     </tr></thead><tbody>`;
   list.forEach(r=>{
@@ -3651,13 +3667,16 @@ function renderF2(){
         const q=hide?null:paperScore(r.sid);
         if(!q) return '<span style="color:var(--hint)">—</span>';
         if(q.got==null) return `<span class="chip chip-warn" title="${esc(q.missing.join('、'))}">算不出</span>`;
-        const full=q.covered===q.total;
+        const full=q.covered===q.total, p=pctOf(q);
         return `<b>${q.got}</b><span style="color:var(--mut)"> / ${q.max}</span>`
+          + (full&&p!=null&&essaySections().length ? ' '+pctBadge(p) : '')
           + (full?'' : `<span class="chip chip-warn" style="margin-left:4px;padding:0 5px"
                title="没算进去：${esc(q.missing.join('、'))}">${q.covered}/${q.total} 项</span>`);
       })()}</td>
       <td>${m.rate==null||hide?'<span style="color:var(--hint)" title="未核对整份卷，没点的题还不能算答对">—</span>':
-          `<span class="badge ${m.rate>=75?'b-active':(m.rate>=50?'b-warn':'b-inactive')}">${m.rate}%</span>`}</td>
+          (essaySections().length
+            ? `<span style="color:var(--mut);font-weight:600">${m.rate}%</span><div style="font-size:10.5px;color:var(--hint);white-space:nowrap">${esc(esLine(r.sid))}</div>`
+            : `<span class="badge ${m.rate>=75?'b-active':(m.rate>=50?'b-warn':'b-inactive')}">${m.rate}%</span>`)}</td>
       <td>${mi?`<span class="chip chip-muted">${esc(mi.lab)}${mi.tie?' ?':''} · ${mi.n}</span>`:'<span style="color:var(--hint)">—</span>'}</td>
       <td>${td.length?`<span class="chip chip-warn">${esc(td[0].topic)} ${td[0].wrong}/${td[0].total||'?'}</span>`:'<span style="color:var(--hint)">—</span>'}</td>
       <td style="white-space:nowrap">${(()=>{const st=paperStateOf(r.sid,S.subject,curPi());
@@ -3968,9 +3987,18 @@ function paintLive(sid){
         data-v="${t.v}" onclick="f2TPL(this,'${sid}','${t.v}')">${t.v} ${t.zh}</button>`).join('')}
       ${rec.tp?`<button class="chip chip-muted" onclick="f2TPL(null,'${sid}',null)">✕ 清除</button>`:''}
     </span>
-    <div class="must-note">${m.rate==null
-      ? (needChk ? '按了上面那一下，这里会出现答对率' : '老师判断 · 系统不代替你判')
-      : `这份卷答对率 <b>${m.rate}%</b>`}</div></div>`;
+    <div class="must-note">${(()=>{
+      if(!essaySections().length) return m.rate==null
+        ? (needChk ? '按了上面那一下，这里会出现答对率' : '老师判断 · 系统不代替你判')
+        : `这份卷答对率 <b>${m.rate}%</b>`;
+      /* v62：有作文 → 先讲含作文的得分率，再讲逐题答对率（标明不含作文） */
+      if(needChk && m.rate==null) return '按了上面那一下，这里会出现得分';
+      const ps=paperScore(sid), p=pctOf(ps), full=ps&&ps.covered===ps.total;
+      const a = (p!=null&&full) ? `这份卷得分 <b>${ps.got} / ${ps.max}（${p}%）</b>，含作文`
+              : `得分算不出来${ps&&ps.missing&&ps.missing.length?'（'+esc(ps.missing.join('、'))+'）':''}`;
+      const b = m.rate!=null ? ` · 逐题答对率 ${m.rate}%（不含作文）` : '';
+      return a+b+`<div style="margin-top:2px">作文：${esc(esLine(sid))}</div>`;
+    })()}</div></div>`;
 
   if(!needChk)
     h+=`<div class="tip" style="margin-top:8px">这是作文卷，不逐题，所以没有「整份都看过了」这一项。</div>`;
@@ -4674,6 +4702,7 @@ function myCells(){
     const p=k.split('|'); if(p.length<3||p[0]!==ex) return;
     const su=p[1], yr=+p[2];
     (S.sections[k]||[]).forEach(x=>{ if(!x||x.by!==me) return;
+      if(itemLocalData(k,x)) return;   /* v61：已经有学生资料 → 是大家的项目，不列进我的记录 */
       CLASSES.forEach(c=>{ if(yearOf(c)===yr) cell(c,su).secs++; }); });
   });
   return Object.keys(out).map(k=>out[k])
@@ -4720,11 +4749,17 @@ function paperOwner(p){ return (p && p.created_by) || ''; }
 function paperMine(p){ const o=paperOwner(p); return !o || o===S.me; }
 function paperCur(){ return (S.papers||[]).find(p=>p.id===S.paperInstance)||null; }
 /* 盖在卡片上的老师代号 */
+/* v61 · Owner 2026-09-22：「为何 ATC1 数学有我的名字 AT？」—— 以前印的是「负责老师」名单
+   （旧的任教登记带过来的），跟谁真的填过无关。改成：建卷的人 + 在这份卷真的填过学生资料的人。 */
 function paperStamps(p){
-  const o=paperOwner(p);
-  if(o) return [o];
-  const m=(CLOUD.paperTeachers||{})[p.id]||[];
-  return m.slice().sort();
+  const set={}, ex=EXK(), suf='|'+p.id, o=paperOwner(p);
+  if(o) set[o]=1;
+  [S.f1,S.f2,S.wi,S.es].forEach(st=>Object.keys(st||{}).forEach(k=>{
+    if(k.slice(-suf.length)!==suf) return;
+    const r=st[k]; if(!r||r.exam!==ex||r.subject!==S.subject||!r.by) return;
+    const s=stuOf(r.sid); if(!s||s.cls!==S.cls) return;
+    set[r.by]=1; }));
+  return Object.keys(set).sort((a,b)=>(a===o?-1:b===o?1:(a<b?-1:1)));
 }
 /* 这份卷底下有几个考卷项目 */
 function paperSecCount(p){
@@ -5004,7 +5039,7 @@ function myItemsFor(cls,subj){
   const pre=EXK()+'|'+subj+'|'+yearOf(cls), out=[];
   Object.keys(S.sections||{}).forEach(k=>{
     if(!(k===pre||k.indexOf(pre+'|')===0)) return;
-    (S.sections[k]||[]).forEach(s=>{ if(s && s.by===S.me) out.push({key:k,s}); });
+    (S.sections[k]||[]).forEach(s=>{ if(s && s.by===S.me && !itemLocalData(k,s)) out.push({key:k,s}); });   /* v61 */
   });
   return out;
 }
@@ -5535,8 +5570,12 @@ function renderReportBody(){
       <div class="card-hdr"><span style="font-size:14px;font-weight:600">${esc(nameOf(r))}</span>
         <span class="badge b-atc">${esc(r.cls)} · ${esc(S.subject)}</span></div>
       <div class="stat-grid" style="margin-bottom:10px">
+        ${(()=>{ const ps=paperScore(r.sid), p=pctOf(ps);
+          return `<div class="stat-card"><div class="stat-n">${p==null?'—':p+'%'}</div>
+          <div class="stat-l">得分率${essaySections().length?'（含作文）':''}</div>
+          <div class="stat-sub">${!ps?'未填':(ps.got==null?'算不出':ps.got+' / '+ps.max+(ps.covered===ps.total?'':' *'))}</div></div>`; })()}
         <div class="stat-card"><div class="stat-n">${rate==null?'—':rate+'%'}</div>
-          <div class="stat-l">答对率</div>
+          <div class="stat-l">${essaySections().length?'逐题答对率（不含作文）':'答对率'}</div>
           <div class="stat-sub">${ms.total?ms.right+' / '+ms.total+' 题':'未填'}</div></div>
         <div class="stat-card"><div class="stat-n" style="font-size:15px">${mi?esc(mi.lab):'—'}</div>
           <div class="stat-l">主问题 · 老师端参考</div><div class="stat-sub">${mi?mi.n+' 题':''}</div></div>
@@ -5696,7 +5735,7 @@ function printInternal(){
          两个都印，老师才看得出「错的是不是重分的题」。
          漏答独立一栏 —— Owner 裁决 3：扣分跟做错一样，但报告分开讲。
          ⚠️ 家长版一个字都没动（2026-09-08 拍板 D 维持）。 */
-      body+='<table><thead><tr><th>#</th><th>学生</th><th>得分</th><th>得分率</th><th>答对率</th>'
+      body+='<table><thead><tr><th>#</th><th>学生</th><th>得分</th><th>得分率</th><th>逐题答对率</th>'
         +'<th>做错</th><th>漏答</th>'
         +'<th>TP</th><th>主问题</th><th>较弱（系统）</th>'
         +'<th>较弱（老师）</th><th>下一步</th></tr></thead><tbody>';
@@ -5728,7 +5767,8 @@ function printInternal(){
     if(hb) body+='<div class="held"><b>未列入本科报告：</b>'+hb+'</div>';
     body+='</section>';
   });
-  body+='<div class="note">得分栏带 <b>*</b> = 只涵盖部分项目'
+  body+='<div class="note"><b>得分、得分率含作文</b>（作文用老师填的实得分）；<b>逐题答对率不含作文</b>，只看逐题那几部分。'
+    +'得分栏带 <b>*</b> = 只涵盖部分项目'
     +'（有项目未声明「每题同分」或写作未填分）。'
     +'<b>此页含分数，不得交给家长。</b></div>'
     +'<div class="ft"><div>科任签名<div class="ln"></div></div>'
@@ -5837,7 +5877,7 @@ function printReport(){
   const cl=(document.getElementById('rptCls')||{}).value||S.cls;
   let body=`<h1>ATC 部 考前报告 · ${esc(S.subject)}</h1>
     <div class="meta">${esc(cl)} · 科任 ${esc(S.me)} · ${esc(S.examLabel||'')} · 列印日期 ${today()}</div>
-    <table><thead><tr><th>学生</th><th>得分</th><th>答对率</th><th>TP</th><th>主问题</th>
+    <table><thead><tr><th>学生</th><th>得分</th><th>得分率</th><th>逐题答对率</th><th>TP</th><th>主问题</th>
       <th>较弱（系统）</th><th>较弱（老师）</th><th>已经做了</th><th>结果</th><th>下一步</th></tr></thead><tbody>`;
   rows.forEach(({r,p})=>{
     const ms=recStats(p), rate=ms.rate==null?'—':(ms.rate+'%');
@@ -5850,13 +5890,14 @@ function printReport(){
     const scoreCell = !ps ? '—'
       : (ps.got==null ? '算不出'
         : `${ps.got} / ${ps.max}${ps.covered===ps.total?'':' *'}`);
-    body+=`<tr><td>${esc(nameOf(r))}</td><td>${scoreCell}</td><td>${rate}</td><td>${esc(p.tp||'—')}</td><td>${mi?esc(mi.lab):'—'}</td>
+    const scp=pctOf(ps);
+    body+=`<tr><td>${esc(nameOf(r))}</td><td>${scoreCell}</td><td>${scp==null?'—':scp+'%'}</td><td>${rate}</td><td>${esc(p.tp||'—')}</td><td>${mi?esc(mi.lab):'—'}</td>
       <td>${esc(wk||'—')}</td><td>${esc(wm||p.weak_note||'—')}</td>
       <td>${esc(dd||p.done_note||'—')}</td><td>${fo?esc(fo.lab):'—'}</td>
       <td>${esc(nx||p.next_note||'—')}</td></tr>`;
   });
   body+=`</tbody></table>
-    <div class="meta" style="margin-top:6px">得分栏带 <b>*</b> = 只涵盖部分项目（有项目未声明「每题同分」或写作未填分）。
+    <div class="meta" style="margin-top:6px"><b>得分、得分率含作文；逐题答对率不含作文。</b>得分栏带 <b>*</b> = 只涵盖部分项目（有项目未声明「每题同分」或写作未填分）。
       此分数供校内参考，<b>不进家长报告</b>。</div>
     <div class="footer"><div>科任签名<div class="sig-line"></div></div>
       <div>主任审阅<div class="sig-line"></div></div><div>日期<div class="sig-line"></div></div></div>
@@ -6058,7 +6099,7 @@ function exportCSV(){
   const L2=[H0.concat(['考卷日期','总题数'])
     .concat(MARKS.map(m=>m.zh||m.lab))
     .concat(['得分','满分','已算分的项目','全部项目',
-             '答对率','掌握程度 TP','状态','已核对整份','核对时间',
+             '逐题答对率（不含作文）','掌握程度 TP','状态','已核对整份','核对时间',
              '较弱（系统）','较弱（老师）','较弱备注','强项',
              '已经做了','已做备注','下一步','下一步备注','针对哪一项','结果',
              '学生：刚才我会错','学生：现在我知道','家长配合','已上传'])
@@ -6590,7 +6631,11 @@ function psPayload(sec){
     /* 🔴 修：v19.7 以前写成 isEssay?max:null —— 客观题的满分老师明明填了，
        却在 payload 这一步被丢掉，云端永远是 NULL。每一种题型都要送。 */
     max_score:(+sec.max||null),
-    sort_order:+sec.sort||0, created_by:sec.by||S.me||null, client_uid:sec.client_uid,
+    sort_order:+sec.sort||0, client_uid:sec.client_uid,
+    /* v61 · Owner 2026-09-22：谁登记的只在「第一次建立」时写。
+       v60 以前改一个早期项目（系统里没写登记人）就会把自己写成登记人 →
+       那一格跑进自己的「我的记录」，按删除又说有别人的资料，删不掉。 */
+    ...(sec.cloud_id ? {} : {created_by:sec.by||S.me||null}),
     /* 卷面题号：只在老师声明过才送。没声明就留 NULL —— 云端的 CHECK 会挡住
        半套（paper_from 有、paper_to 没有）的资料。 */
     /* v29 小题结构：栏位没上线就不送，本机留著，delta v13 一跑就自动补 */
