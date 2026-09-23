@@ -483,7 +483,7 @@ button.chip.sel-w{background:var(--warn);color:#fff}
    权限码：RPT-EvalGo-ATC
    ══════════════════════════════════════════════════════════════════ */
 
-const APP_VERSION = 66;
+const APP_VERSION = 67;
 
 /* ══ v46 · 旧版本守门 ══════════════════════════════════
    MiscGo 那边抓到实例：网址对、程式旧（手机快取把旧 HTML 钉住）。
@@ -737,6 +737,18 @@ const SECTYPES=[
 /* 逐题记码的题型（含 v8 以前的 OBJ，相容用，前端不再产生） */
 const QTYPES=['MCQ','FILL','SUBJ','OBJ'];
 function typeLab(v){ const t=SECTYPES.find(x=>x.v===v); return t?t.lab:(v==='OBJ'?'客观题（旧）':v); }
+/* ══ v67 · Owner 2026-09-23：「数学都不可能有写作文」══
+   实查（09-23，本轮考试全部 202 个项目）：数学 0 笔作文、科学 0 笔作文；
+   有作文的只有华文 15、英文 18、马来文 7。KPM 的 UASA 格式也一样 ——
+   数学是「A 部 13 题短答 + B 部 2 题长答」，科学是「客观 + 多形式客观 + 结构题」，两科都没有写作。
+   所以这两科的题型选单不再列「写作文」，老师选不到就不会选错。
+   ⚠️ 只挡「新增 / 修改」时的选单。万一某一科真的已经有作文项目（例如校本卷），
+      那一笔照样显示、照样算分 —— 不准因为选单少一项就把既有资料藏起来。 */
+const NO_ESSAY_SUBJECTS=['数学','科学'];
+function secTypesFor(subject,cur){
+  const su=subject||S.subject||'';
+  return SECTYPES.filter(t=>t.v!=='ESSAY' || NO_ESSAY_SUBJECTS.indexOf(su)<0 || cur==='ESSAY');
+}
 /* 写作三面向 —— 顺序由 Owner 指定：格式 / Formula 排第一 */
 const ESSAY_ASPECTS=[
   {id:'FORMAT', zh:'格式 / Formula'},
@@ -2926,7 +2938,7 @@ function bpModal(lock, editId){
           <input type="text" id="mCode" placeholder="例：Bahagian A" value="${ed?v(ed.code):''}"></div>
         <div class="form-row" style="margin:0"><label class="form-label">题型 *</label>
           <select id="mType" onchange="bpMType()">
-            ${SECTYPES.map(t=>`<option value="${t.v}"${ed&&(ed.type||'MCQ')===t.v?' selected':''}>${t.lab}</option>`).join('')}</select></div>
+            ${secTypesFor(S.subject, ed&&ed.type).map(t=>`<option value="${t.v}"${ed&&(ed.type||'MCQ')===t.v?' selected':''}>${t.lab}</option>`).join('')}</select></div>
       </div>
       <div class="form-grid-2" style="gap:8px;margin-top:8px">
         <div class="form-row" style="margin:0" id="mRangeRow"><label class="form-label">卷上的题号 第 __ 到 __ 题 *</label>
