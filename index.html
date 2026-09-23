@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<title>Academee — Management Platform</title>
+<style>
+  :root{
+    --bg:#FAF7F2;--sur:#FFFFFF;--bdr:rgba(0,0,0,.08);
+    --txt:#2A1F1A;--mut:#7A6A5E;--hint:#A89889;
+    --acc:#5C1010;--warn:#BA7517;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',sans-serif;
+    background:var(--bg);color:var(--txt);min-height:100vh;display:flex;flex-direction:column;overflow-x:hidden}
+
+  header{padding:24px 36px;background:var(--acc);color:#fff;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(0,0,0,.1)}
+  .brand{display:flex;align-items:baseline;gap:14px}
+  .brand-name{font-size:22px;font-weight:600;letter-spacing:.5px}
+  .brand-tag{font-size:11px;font-weight:400;opacity:.7;text-transform:uppercase;letter-spacing:1.2px}
+  .header-meta{font-size:11px;opacity:.65;font-variant-numeric:tabular-nums}
+
+  main{flex:1;max-width:1200px;margin:0 auto;padding:28px 36px;width:100%}
+
+  .section{margin-bottom:24px}
+  .section-hdr{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+  .section-dot{width:8px;height:8px;border-radius:50%}
+  .section-title{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--mut)}
+  .section-count{font-size:10px;color:var(--hint)}
+
+  .grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+  .app-card{background:var(--sur);border:1px solid var(--bdr);border-radius:10px;padding:14px 16px;text-decoration:none;color:inherit;display:flex;align-items:center;justify-content:space-between;transition:transform .12s,box-shadow .12s;position:relative;overflow:hidden;cursor:pointer}
+  .app-card:hover{transform:translateY(-2px);box-shadow:0 6px 18px rgba(0,0,0,.06);border-color:rgba(0,0,0,.14)}
+  .app-card::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--card-color,var(--acc))}
+  .app-name{font-size:15px;font-weight:600;letter-spacing:-.1px}
+  .app-ver{font-size:11px;font-weight:600;padding:2px 8px;border-radius:10px;background:rgba(249,203,66,.15);color:var(--warn);white-space:nowrap}
+
+  footer{padding:18px 36px;border-top:1px solid var(--bdr);font-size:10px;color:var(--hint);display:flex;justify-content:space-between;align-items:center;background:var(--sur)}
+  footer a{color:var(--mut);text-decoration:none}
+  footer a:hover{color:var(--acc)}
+
+  .empty-msg{text-align:center;padding:40px;color:var(--hint);font-size:12px}
+
+  /* ── 版本核对（管理层专用） ─────────────────────────────── */
+  .header-right{display:flex;align-items:center;gap:14px;flex-wrap:wrap;justify-content:flex-end}
+  .btn-vercheck{min-height:44px;padding:0 16px;border:1px solid rgba(255,255,255,.38);
+    background:transparent;color:#fff;border-radius:8px;font-family:inherit;font-size:12px;
+    font-weight:600;letter-spacing:.3px;cursor:pointer;white-space:nowrap}
+  .btn-vercheck:hover{background:rgba(255,255,255,.14)}
+  .btn-vercheck:disabled{opacity:.45;cursor:default}
+
+  /* ── 平台层登出（2026-09-13）──────────────────────────────
+     Owner 裁定：各系统一律不得有登出，整个平台只留这一颗。
+     在这之前平台首页根本没有出口 —— 共用电脑上，上一个人的 session 会一直留著。
+     这颗一定要在各系统拿掉登出之前先上线，否则会有一段谁也登不出去的空窗期。 */
+  .btn-logout{min-height:44px;padding:0 16px;border:1px solid rgba(255,255,255,.38);
+    background:transparent;color:#fff;border-radius:8px;font-family:inherit;font-size:12px;
+    font-weight:600;letter-spacing:.3px;cursor:pointer;white-space:nowrap}
+  .btn-logout:hover{background:rgba(255,255,255,.14)}
+  .btn-logout:disabled{opacity:.45;cursor:default}
+
+  .ver-report{max-width:1200px;margin:18px auto -8px;padding:0 36px;width:100%}
+  .ver-box{background:var(--sur);border:1px solid var(--bdr);border-radius:10px;padding:14px 16px;font-size:12px;line-height:1.7}
+  .ver-box b{font-size:13px}
+  .ver-sum{display:flex;gap:16px;flex-wrap:wrap;margin-top:6px;font-variant-numeric:tabular-nums}
+  .ver-sum span{white-space:nowrap}
+  .ver-list{margin-top:10px;padding-top:10px;border-top:1px solid var(--bdr);color:var(--mut)}
+  .ver-list div{margin-top:3px}
+  .vc-ok{color:#0F6E56}.vc-bad{color:#A32D2D;font-weight:600}.vc-warn{color:var(--warn)}
+
+  /* 卡片上的版本徽章三态 */
+  .app-ver.v-ok{background:rgba(15,110,86,.12);color:#0F6E56}
+  .app-ver.v-bad{background:rgba(163,45,45,.12);color:#A32D2D}
+  .app-ver.v-warn{background:rgba(186,117,23,.15);color:var(--warn)}
+  .app-ver.v-run{background:rgba(0,0,0,.06);color:var(--hint)}
+
+  @media(max-width:600px){
+    header{padding:18px 20px}
+    main{padding:24px 20px}
+    .brand-name{font-size:18px}
+    .grid{grid-template-columns:1fr 1fr;gap:10px}
+  }
+
+  #auth-screen{display:flex;justify-content:center;align-items:center;min-height:100vh;background:var(--bg)}
+  #auth-box{background:var(--sur);border:1px solid var(--bdr);border-radius:12px;padding:32px 28px;width:340px;max-width:90vw;text-align:center}
+  #auth-box h2{font-size:18px;font-weight:600;margin-bottom:4px;color:var(--acc)}
+  #auth-box p{font-size:12px;color:var(--mut);margin-bottom:20px}
+  #auth-box input{width:100%;padding:10px 12px;border:1px solid var(--bdr);border-radius:8px;font-size:13px;margin-bottom:10px;font-family:inherit}
+  #auth-box button{width:100%;padding:10px;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;margin-bottom:6px}
+  .btn-login{background:var(--acc);color:#fff}
+  .btn-magic{background:var(--bg);color:var(--mut);border:1px solid var(--bdr)!important}
+  #auth-err{color:#A32D2D;font-size:11px;min-height:16px;margin-bottom:8px}
+  #app-wrap{display:none;flex-direction:column;min-height:100vh}
+</style>
+</head>
+<body>
+
+<div id="auth-screen">
+  <div id="auth-box">
+    <h2>Academee</h2>
+    <p>Management Platform · Login</p>
+    <div id="auth-err"></div>
+    <input type="email" id="auth-email" placeholder="Email">
+    <input type="password" id="auth-pass" placeholder="Password">
+    <button class="btn-login" onclick="doLogin()">Sign In</button>
+    <div style="display:flex;align-items:center;gap:12px;margin:4px 0"><div style="flex:1;height:1px;background:var(--bdr)"></div><span style="font-size:12px;color:var(--mut)">or</span><div style="flex:1;height:1px;background:var(--bdr)"></div></div>
+    <button class="btn-magic" onclick="doMagicLink()">Send Magic Link</button>
+  </div>
+</div>
+
+<div id="app-wrap">
+<header>
+  <div class="brand">
+    <span class="brand-name">Academee</span>
+    <span class="brand-tag">Management Platform</span>
+  </div>
+  <div class="header-right">
+    <button class="btn-vercheck" id="btn-vercheck" onclick="runVerCheck()" hidden>版本核对</button>
+    <div class="header-meta" id="header-meta"></div>
+    <button class="btn-logout" id="btn-logout" onclick="doLogout()">登出</button>
+  </div>
+</header>
+<div class="ver-report" id="ver-report" hidden></div>
+<main id="main-content"></main>
+<footer>
+  <div>Academee Education Centre · Muar, Johor</div>
+  <div>Platform Architecture · <a href="https://github.com/" target="_blank">GitHub</a></div>
+</footer>
+</div>
+
+<script>
+const SUPABASE_URL='https://qnpvqsvvsgsantekgfbz.supabase.co';
+const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFucHZxc3Z2c2dzYW50ZWtnZmJ6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYxNzg4MzIsImV4cCI6MjA5MTc1NDgzMn0.8rfv0BQpWNNSD8yrhHNwCOkcG9q5_uMD7B7z_Y324a0';
+const _sb=supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
+
+// ══ Live systems registry ══
+// Only systems with deployed HTML get a card. Others are in role_access but not shown here.
+//
+// ⚠️ ver 是手写的，不会自己跟线上同步 —— 卡片写错版本号不会报错，只会骗人。
+//    改任何系统的版本，这里要一起改。2026-09-13 全 18 张卡实抓线上核对过一次。
+//    2026-09-13 下午：NoticeGo-Holiday 与 MiscGo 都已补上 APP_VERSION，18 张卡全部可被程式核实。
+const LIVE={
+  'CORE-MasterAuth':   {href:'CORE/MasterAuth.html',   name:'MasterAuth',   ver:'v10', group:'CORE — Permissions',      color:'#5C1010', order:0},
+  'CORE-Room':         {href:'CORE/Room.html',     name:'Room',         ver:'v12', group:'MasterHub — Master Data', color:'#E8A04E', order:1},
+  // 2026-09-13：Owner 部署 v26（241,549 B），实抓线上 APP_VERSION = 26。卡片原写 v23 → 已更正。
+  'CORE-Student':      {href:'CORE/Student.html',  name:'Student',      ver:'v27', group:'MasterHub — Master Data', color:'#993556', order:2},
+  'CORE-Subject':      {href:'CORE/Subject.html',  name:'Subject',      ver:'v8',  group:'MasterHub — Master Data', color:'#C45C5C', order:3},
+  'CORE-Teacher':      {href:'CORE/Teacher.html',  name:'Teacher',      ver:'v14',  group:'MasterHub — Master Data', color:'#8B6CAE', order:4},
+  'CORE-Calendar':     {href:'CORE/Calendar.html', name:'Calendar',     ver:'v12',  group:'MasterHub — Master Data', color:'#BA7517', order:5},
+  'CORE-Class':        {href:'CORE/Class.html',    name:'Class',        ver:'v7',  group:'MasterHub — Master Data', color:'#7AB05A', order:6},
+  // 2026-09-13：v10 与本卡同批上线（去重守卫）。若 v10 未 push，这张卡会被「版本核对」标红。
+  'OPR-AttendanceGo':  {href:'OPR/AttendanceGo.html',       name:'AttendanceGo', ver:'v10', group:'OPR — Operations',        color:'#8B6C2A', order:7},
+  // 2026-09-13：原本常数叫 HOLIDAYGO_BUILD，版本核对读不到 → 改名 APP_VERSION 并补进 <title>，37→38。
+  'OPR-NoticeGo-Holiday': {href:'OPR/NoticeGo-Holiday.html', name:'NoticeGo-Holiday', ver:'v38', group:'OPR — Operations',    color:'#8B6C2A', order:8},
+  'LIB-SpellGo':       {href:'LIB/SpellGo.html',         name:'SpellGo',      ver:'v15',  group:'LIB — Library',           color:'#6B6B3A', order:8},
+  'LIB-WordGo':        {href:'LIB/WordGo.html',          name:'WordGo',       ver:'v9',   group:'LIB — Library',           color:'#6B6B3A', order:9},
+  'EDU-ClassGo':       {href:'EDU/ClassGo.html',         name:'ClassGo',      ver:'v481', group:'EDU — Education',         color:'#236FAD', order:7},
+  'EVT-SportsDay':     {href:'EVT/SportsDay.html',name:'SportsDay',  ver:'v24', group:'EVT — Events',            color:'#7870CC', order:10},
+  'EVT-FieldTrip':     {href:'EVT/FieldTrip.html',name:'FieldTrip',  ver:'v1',  group:'EVT — Events',            color:'#7870CC', order:11},
+  // ── academee-tools repo (同网域,不同 repo) ──
+  // MiscGo 有 3 个部门码,共用同一张卡片;下方 dedupe 只渲染一次。
+  'OPR-MiscGo-SRK-GAK':{href:'academee-tools/MiscGo.html',   name:'MiscGo',   ver:'v5', group:'OPR — Operations', color:'#8B6C2A', order:9},
+  'OPR-MiscGo-ATC':    {href:'academee-tools/MiscGo.html',   name:'MiscGo',   ver:'v5', group:'OPR — Operations', color:'#8B6C2A', order:9},
+  'OPR-MiscGo-SRT':    {href:'academee-tools/MiscGo.html',   name:'MiscGo',   ver:'v5', group:'OPR — Operations', color:'#8B6C2A', order:9},
+  // 2026-09-13：ParentGo 首次有版本号（原本档内完全没有，线上是哪一版查不出来）。
+  //             v1 与本卡同批上线。
+  'OPR-ParentGo':      {href:'academee-tools/parent-go.html',name:'ParentGo', ver:'v3', group:'OPR — Operations', color:'#8B6C2A', order:10},
+  // ── RPT 层 (2026-09-07 上线, ATC 9/7–9/12 考前输入期) ──
+  // registry: RPT-EvalGo-ATC · layer=RPT · TEACHER see=true edit=true (已实测)
+  // ⚠️ 新增 group 时必须同步加进 GROUP_ORDER,否则卡片静默不渲染。
+  // 2026-09-13 实抓线上 APP_VERSION = 26，卡片原写 v25 → 已更正。
+  // 2026-09-17：卡片原写 v47 → v51（v48 删除范围 · v49 拉回分页＋残留对账 · v50 考卷项目谁都能改 · v51 资料的卷跟着资料走＋我的记录可清除）。
+  //             v52 画面去掉程式字眼、填写改成三步引导 · v53 使用者角度整体修正（同一把尺、多卷不互相污染、上传可靠）· v54 每个项目各自从第 1 题编号 · v55 错字 / 同分二选一 / 我的记录删除键。
+  //             ⚠️ v55 须与本卡同批上线；若 EvalGo_ATC.html 不是 v55，「版本核对」会标红。
+  // 2026-09-23：v66 → v67（数学 / 科学的题型选单不再列「写作文」）。
+  // 2026-09-23：v65 → v66（进度页加「考卷项目总览」；有学生资料也能改文法/主题与作答方式）。
+  // 2026-09-23：v64 → v65（题型「理解文」改名「短答题」—— 数学 / 科学看了才通）。
+  // 2026-09-22：v63 → v64（开页不再排队：检查一起问、资料一起读，开页就带出卷清单）。
+  // 2026-09-22：v62 → v63（只有一份卷时首页也列出来，写明「系统已自动选好」与建立日期）。
+  // 2026-09-22：v60 → v62（v61 改项目不再变成「我登记的」、卷卡片只印真的填过的老师 · v62 有作文的卷先讲得分率（含作文））。
+  'RPT-EvalGo-ATC':    {href:'academee-tools/EvalGo_ATC.html',name:'EvalGo_ATC', ver:'v67',   group:'RPT — Reports', color:'#5A6470', order:0},
+  // ── OPR-ObsGo (2026-09-09 上线 · v12 2026-09-12 上线) · 巡班观察 ──
+  //    权限：管理页仅 OWNER/TOP_MGMT/ADMIN；进度页 OWNER/TOP_MGMT/ADMIN/MGMT；TEACHER 只有巡班+记录。
+  //    2026-09-13 实抓线上 APP_VERSION = 12（223,344 B），卡片原写 v7 → 已更正。
+  'OPR-ObsGo':         {href:'academee-tools/ObsGo.html',    name:'ObsGo',    ver:'v12', group:'OPR — Operations', color:'#8B6C2A', order:11},
+  // 2026-09-15：LoveGo 首次注册（SRK PTM Teacher Lens · ObsGo taxonomy authority）。ver=v68（v64 填写页独立化+上下位；v65 清除系统术语；v67 引导语改鼓励语气；v68 管理层不再只读、可正常输入）。
+  //             ⚠️ 卡片需 academee-tools/LoveGo.html 已实际部署才可点开；未部署前此卡会 404。
+  'OPR-LoveGo':        {href:'academee-tools/LoveGo.html',   name:'LoveGo',   ver:'v81', group:'OPR — Operations', color:'#8B6C2A', order:12}
+};
+
+const LAYER_COLORS={
+  'CORE':'#5C1010','EDU':'#236FAD','BIZ':'#C04E28','EVT':'#7870CC',
+  'RPT':'#5A6470','SOP':'#2A7B6F','OPR':'#8B6C2A','HR':'#993556',
+  'ACC':'#2B4570','LIB':'#6B6B3A'
+};
+
+// Group order for sections
+// ⚠️ 渲染只走 GROUP_ORDER。LIVE 里有卡片但 group 不在这个阵列 = 卡片永远不出现,而且零报错。
+const GROUP_ORDER=['CORE — Permissions','MasterHub — Master Data','EDU — Education','RPT — Reports','OPR — Operations','LIB — Library','EVT — Events'];
+
+async function doLogin(){
+  const email=document.getElementById('auth-email').value.trim();
+  const pass=document.getElementById('auth-pass').value;
+  document.getElementById('auth-err').textContent='';
+  if(!email||!pass){document.getElementById('auth-err').textContent='Enter email and password';return;}
+  const{error}=await _sb.auth.signInWithPassword({email,password:pass});
+  if(error){document.getElementById('auth-err').textContent=error.message;return;}
+  showApp();
+}
+async function doMagicLink(){
+  const email=document.getElementById('auth-email').value.trim();
+  document.getElementById('auth-err').textContent='';
+  if(!email){document.getElementById('auth-err').textContent='Enter email';return;}
+  const{error}=await _sb.auth.signInWithOtp({email});
+  if(error){document.getElementById('auth-err').textContent=error.message;return;}
+  document.getElementById('auth-err').style.color='#0F6E56';
+  document.getElementById('auth-err').textContent='✓ Check your email for the login link';
+}
+
+/* 平台层登出 —— 全 Academee 唯一的出口（2026-09-13 Owner 裁定）。
+   signOut() 是全域的：登出后 MiscGo / ParentGo / EvalGo / ObsGo 等共用同一个
+   Supabase session 的系统全部一起登出。所以要先问一句，别让人手滑。 */
+async function doLogout(){
+  if(!confirm('登出后，Academee 的所有系统都要重新登入。\n\n确定要登出吗？')) return;
+  const b=document.getElementById('btn-logout');
+  b.disabled=true; b.textContent='登出中…';
+  try{ await _sb.auth.signOut(); }
+  catch(e){ console.warn('signOut failed:',e); }
+  location.reload();
+}
+
+// 登入者显示名 —— 共用电脑上要一眼看得出「现在是谁」，不然登出按钮没有意义。
+let WHO='';
+
+async function showApp(){
+  document.getElementById('auth-screen').style.display='none';
+  document.getElementById('app-wrap').style.display='flex';
+  updateClock();
+
+  // Fetch user's visible systems via my_systems()
+  const{data:systems,error}=await _sb.rpc('my_systems');
+  if(error){console.error('my_systems error:',error);return;}
+
+  // Filter to only LIVE systems the user can see
+  const visible=(systems||[]).filter(s=>LIVE[s.code]);
+
+  // ── 诊断 (2026-07-13) ──────────────────────────────────────────────
+  // 卡片只在 my_systems() 返回的 code 命中 LIVE 的 key 时才渲染。
+  // code 对不上 = 卡片静默消失, 零报错。以下两条把静默变成可见。
+  const granted = new Set((systems||[]).map(s=>s.code));
+  const unknown = (systems||[]).filter(s=>!LIVE[s.code]).map(s=>s.code);
+  const missing = Object.keys(LIVE).filter(c=>!granted.has(c));
+  if(unknown.length) console.warn('[index] my_systems() 返回了 LIVE 里没有的 code (未建卡片):', unknown);
+  // 多部门系统(如 MiscGo 的 3 个部门码)本来就不会每个人都齐全,
+  // 只报「整个系统都拿不到」的,避免假警报。
+  const missingNames=[...new Set(missing.map(c=>LIVE[c].name))]
+    .filter(n=>!Object.keys(LIVE).some(c=>LIVE[c].name===n&&granted.has(c)));
+  if(missingNames.length) console.warn('[index] LIVE 里有卡片但你完全没有权限 (卡片不会显示):', missingNames);
+  // LIVE 的 group 若不在 GROUP_ORDER 里,卡片会静默消失 —— 这是设定错误,不是权限问题。
+  const orphanGroups=[...new Set(Object.values(LIVE).map(x=>x.group))].filter(g=>GROUP_ORDER.indexOf(g)<0);
+  if(orphanGroups.length) console.error('[index] 这些 group 不在 GROUP_ORDER 里,卡片不会显示:', orphanGroups);
+  // ──────────────────────────────────────────────────────────────────
+
+  // Group by section
+  const groups={};
+  const seen=new Set();   // 同一个系统若有多个部门码,只渲染一张卡片
+  visible.forEach(s=>{
+    const info=LIVE[s.code];
+    if(seen.has(info.name)) return;
+    seen.add(info.name);
+    const g=info.group;
+    if(!groups[g]) groups[g]=[];
+    groups[g].push({...info,code:s.code,can_edit:s.can_edit});
+  });
+
+  // Render
+  const main=document.getElementById('main-content');
+  if(!visible.length){
+    main.innerHTML='<div class="empty-msg">No systems available for your role.</div>';
+    return;
+  }
+
+  let html='';
+  GROUP_ORDER.forEach(g=>{
+    const items=groups[g];
+    if(!items||!items.length) return;
+    items.sort((a,b)=>a.order-b.order);
+    const layerCode=g.split('—')[0].trim().split(' ')[0];
+    const dotColor=LAYER_COLORS[layerCode]||'#5C1010';
+    html+=`<div class="section">
+      <div class="section-hdr">
+        <div class="section-dot" style="background:${dotColor}"></div>
+        <span class="section-title">${g}</span>
+        <span class="section-count">${items.length} system${items.length>1?'s':''}</span>
+      </div>
+      <div class="grid">`;
+    items.forEach(s=>{
+      // data-* 是给「版本核对」用的：核对时要知道这张卡对应哪个档、卡片宣称第几版。
+      html+=`<a class="app-card" style="--card-color:${s.color}" href="${s.href}"
+         data-name="${s.name}" data-href="${s.href}" data-ver="${s.ver||''}">
+        <span class="app-name">${s.name}</span>${s.ver?`<span class="app-ver">${s.ver}</span>`:''}
+      </a>`;
+    });
+    html+=`</div></div>`;
+  });
+  main.innerHTML=html;
+
+  // 版本核对按钮：只给管理层
+  try{
+    const{data:{user}}=await _sb.auth.getUser();
+    if(user){
+      const{data:um}=await _sb.from('users_meta').select('role,display_name').eq('user_id',user.id).maybeSingle();
+      if(um && VERCHECK_ROLES.indexOf(um.role)>=0) document.getElementById('btn-vercheck').hidden=false;
+      if(um && um.display_name){ WHO=um.display_name; updateClock(); }
+    }
+  }catch(e){ console.warn('[index] 读不到角色，版本核对按钮不显示:',e); }
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   版本核对 —— 2026-09-13 加入
+   为什么要有这个：LIVE 里每张卡的 ver 是人手写的字串，写错不会报错、
+   不会自己跟线上同步。2026-09-13 的全平台盘点一次抓到三张错卡
+   （ObsGo 卡 v7 / 线上 v12、EvalGo_ATC 卡 v25 / 线上 v26、Student 卡 v23 / 线上 v22）。
+   这是这个档的第三个「静默失败」，前两个是 GROUP_ORDER 孤儿 group
+   与 my_systems() code 对不上 —— 都是不报错、卡片直接不见。
+
+   刻意不做的事：不在开首页时自动核对。18 个档加起来约 3.5 MB
+   （ClassGo 一个就 1 MB），每次开首页都下载太重。改成按钮，要查才查。
+   ══════════════════════════════════════════════════════════════════ */
+const VERCHECK_ROLES=['OWNER','TOP_MGMT','ADMIN'];
+
+// 从档案内容读版本。先认 APP_VERSION 常数，再退回 <title> 里的 vNN。
+// 两个都读不到 = 这个系统档内根本没有版本号（不是抓失败）。
+function vcReadVersion(txt){
+  let m=txt.match(/APP_VERSION\s*[:=]\s*['"]?v?(\d+)/i);
+  if(m) return parseInt(m[1],10);
+  m=txt.match(/<title>[^<]*?\bv(\d+)[^<]*<\/title>/i);
+  if(m) return parseInt(m[1],10);
+  return null;
+}
+
+function vcBadge(card){
+  let b=card.querySelector('.app-ver');
+  if(!b){ b=document.createElement('span'); b.className='app-ver'; card.appendChild(b); }
+  return b;
+}
+
+async function runVerCheck(){
+  const btn=document.getElementById('btn-vercheck');
+  const box=document.getElementById('ver-report');
+  const cards=Array.prototype.slice.call(document.querySelectorAll('.app-card'));
+  btn.disabled=true; box.hidden=false;
+
+  let ok=0,bad=0,warn=0,done=0;
+  const notes=[];
+  const paint=msg=>{ box.innerHTML='<div class="ver-box">'+msg+'</div>'; };
+
+  for(const card of cards){
+    const name=card.dataset.name||'?';
+    const href=card.dataset.href||card.getAttribute('href');
+    const raw=(card.dataset.ver||'').replace(/^v/i,'');
+    const cardVer=raw===''?null:parseInt(raw,10);
+    const badge=vcBadge(card);
+    badge.className='app-ver v-run'; badge.textContent='…';
+
+    paint('<b>核对中…</b> '+done+' / '+cards.length+' · 正在读 '+name);
+
+    let live=null, err=null;
+    try{
+      const r=await fetch(href+'?vc='+Date.now(),{cache:'no-store'});
+      if(!r.ok) err='HTTP '+r.status;
+      else live=vcReadVersion(await r.text());
+    }catch(e){ err='抓不到'; }
+    done++;
+
+    if(err){
+      bad++; badge.className='app-ver v-bad'; badge.textContent=cardVer?('v'+cardVer):'?';
+      notes.push('<div class="vc-bad">'+name+'：线上读不到（'+err+'）</div>');
+    }else if(live===null && cardVer===null){
+      warn++; badge.className='app-ver v-warn'; badge.textContent='无版本号';
+      notes.push('<div class="vc-warn">'+name+'：档内没有版本号，无法核实 —— 建议补上</div>');
+    }else if(live===null){
+      warn++; badge.className='app-ver v-warn'; badge.textContent='v'+cardVer+' ?';
+      notes.push('<div class="vc-warn">'+name+'：卡片写 v'+cardVer+'，但线上档内找不到版本号 —— 这个数字没人能核实</div>');
+    }else if(cardVer===null){
+      warn++; badge.className='app-ver v-warn'; badge.textContent='v'+live;
+      notes.push('<div class="vc-warn">'+name+'：线上是 v'+live+'，卡片没写版本号 —— 建议补进 LIVE</div>');
+    }else if(live===cardVer){
+      ok++; badge.className='app-ver v-ok'; badge.textContent='v'+live;
+    }else{
+      bad++; badge.className='app-ver v-bad'; badge.textContent='v'+cardVer+' → 线上 v'+live;
+      notes.push('<div class="vc-bad">'+name+'：卡片写 v'+cardVer+'，线上实际是 v'+live+
+                 (live<cardVer?' —— 线上落后，可能有一版没部署':' —— 卡片落后，改 LIVE 里的 ver 即可')+'</div>');
+    }
+  }
+
+  const t=new Date();
+  const hh=(t.getHours()<10?'0':'')+t.getHours(), mm=(t.getMinutes()<10?'0':'')+t.getMinutes();
+  paint('<b>核对完成</b> · '+t.getDate()+'/'+(t.getMonth()+1)+' '+hh+':'+mm+
+    '<div class="ver-sum">'+
+      '<span class="vc-ok">✓ 一致 '+ok+'</span>'+
+      '<span class="vc-bad">✕ 不一致 '+bad+'</span>'+
+      '<span class="vc-warn">△ 无法核实 '+warn+'</span>'+
+      '<span style="color:var(--hint)">共 '+cards.length+' 个系统</span>'+
+    '</div>'+
+    (notes.length?'<div class="ver-list">'+notes.join('')+'</div>'
+                 :'<div class="ver-list vc-ok">全部对得上。</div>'));
+  btn.disabled=false;
+}
+
+function updateClock(){
+  const d=new Date();
+  const days=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const h=d.getHours(),m=d.getMinutes();
+  const ampm=h>=12?'PM':'AM';
+  const h12=h%12||12;
+  const mm=(m<10?'0':'')+m;
+  document.getElementById('header-meta').textContent=
+    (WHO?WHO+' · ':'')+days[d.getDay()]+' · '+d.getDate()+' '+months[d.getMonth()]+' '+d.getFullYear()+' · '+h12+':'+mm+' '+ampm;
+}
+setInterval(updateClock,30000);
+(async()=>{
+  const{data:{session}}=await _sb.auth.getSession();
+  if(session) showApp();
+})();
+</script>
+</body>
+</html>
