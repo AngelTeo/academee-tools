@@ -483,7 +483,7 @@ button.chip.sel-w{background:var(--warn);color:#fff}
    权限码：RPT-EvalGo-ATC
    ══════════════════════════════════════════════════════════════════ */
 
-const APP_VERSION = 64;
+const APP_VERSION = 65;
 
 /* ══ v46 · 旧版本守门 ══════════════════════════════════
    MiscGo 那边抓到实例：网址对、程式旧（手机快取把旧 HTML 钉住）。
@@ -723,7 +723,15 @@ const FIXOUT=[
 const SECTYPES=[
   {v:'MCQ',  lab:'选择题', hint:'A / B / C / D 选一个'},
   {v:'FILL', lab:'填写题', hint:'填空 · 填一填 · 配对 · 计算'},
-  {v:'SUBJ', lab:'理解文', hint:'Pemahaman · 阅读理解 · 短答'},
+  /* ══ v65 · Owner 2026-09-23：「数学出错，你植入了理解文」══
+     这一型原本叫「理解文」。09-08 照 KPM UASA 格式预填时，数学的
+     「A · 短答题（第 1–13 题）」「B · 长答题（第 14–15 题）」也归到这一型
+     （KPM 写的是 SRT 短答 / SRTb 长答），画面上就印成「理解文」——
+     数学老师看到的是「理解文」，科学的「C · 结构题」也一样不通。
+     这一型真正的意思是「要写出答案、可以逐题点、而且多一栏老师诊断」，
+     不是只有语文科的阅读理解。所以改名叫「短答题」，说明里才列阅读理解。
+     **只改画面上的名字 —— 资料库的 section_type 还是 SUBJ，一笔资料都没动。** */
+  {v:'SUBJ', lab:'短答题', hint:'短答 · 结构题 · 阅读理解 · Pemahaman'},
   {v:'ESSAY',lab:'写作文', hint:'Karangan · 作文'}
 ];
 /* 逐题记码的题型（含 v8 以前的 OBJ，相容用，前端不再产生） */
@@ -3652,7 +3660,7 @@ function renderF2(){
       批完整份卷按一次 <b>✓ 已核对整份</b>，系统才把没点的题算成答对
       —— 所以<b>全对的学生你一题都不用点</b>，只按那一下就完成。</div></div>
     <div class="chips-row" style="margin-top:8px">
-      <span class="chip chip-muted">客观 / 理解共 ${tq} 题</span>
+      <span class="chip chip-muted">逐题共 ${tq} 题</span>
       ${es.length?`<span class="chip chip-muted">写作 ${es.length} 篇</span>`:''}
       ${MARKS.map(m=>`<span class="chip ${m.chip}">${m.lab} ${m.zh}</span>`).join('')}
     </div>
@@ -4050,7 +4058,7 @@ function paintTail(sid){
       ${CL_SUB.map(c=>`<button class="chip ${w.cl_subtype===c.v?'sel':'chip-muted'}"
         onclick="clSub('${sid}',${w.q},'${c.v}',${w.qsub?`'${esc(w.qsub)}'`:'null'})">${c.zh}</button>`).join('')}</div>`).join(''));
 
-  if(subjQ.length) inner+=sub('理解文 · 老师诊断','写一句就好，这是报告里最有用的一段',
+  if(subjQ.length) inner+=sub('短答题 · 老师诊断','写一句就好，这是报告里最有用的一段',
     subjQ.map(w=>`<div class="form-row" style="margin-bottom:6px">
       <label class="form-label">${esc(qLabelOf(w))} · ${esc(markLab(w.code))}${w.topic?' · '+esc(w.topic):''}</label>
       <input type="text" value="${esc(w.diag||'')}" placeholder="例：抄了不相干的句子 / 只答了一半"
