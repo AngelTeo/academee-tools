@@ -483,7 +483,7 @@ button.chip.sel-w{background:var(--warn);color:#fff}
    权限码：RPT-EvalGo-ATC
    ══════════════════════════════════════════════════════════════════ */
 
-const APP_VERSION = 65;
+const APP_VERSION = 66;
 
 /* ══ v46 · 旧版本守门 ══════════════════════════════════
    MiscGo 那边抓到实例：网址对、程式旧（手机快取把旧 HTML 钉住）。
@@ -2460,8 +2460,11 @@ function renderBP(){
         <td>${used?`<span class="badge b-active">你填了 ${used} 位</span>`:'<span style="color:var(--hint)">—</span>'}</td>
         <td>${!secComplete(s)?'<span class="chip chip-warn">缺题号</span>'
              :'<span class="chip chip-ok">✓</span>'}</td>
-        <td style="white-space:nowrap">${bpLocked()?'':
-          `<button class="btn btn-sm" style="margin-right:4px" title="修改这个项目"
+        <td style="white-space:nowrap">${bpLocked()
+          ? `<button class="btn btn-sm" style="margin-right:4px"
+               title="只改文法 / 主题与作答方式 —— 这两栏不影响题号与分数"
+               onclick="bpNoteOpen('${s.id}')">改说明</button>`
+          : `<button class="btn btn-sm" style="margin-right:4px" title="修改这个项目"
              onclick="bpModal(false,'${s.id}')">改</button>`
           }<button class="btn btn-sm" style="margin-right:4px"
             title="只改分数：满分 / 每题同分 / 每题几分。题号范围不会动。"
@@ -2658,6 +2661,45 @@ function bpScoreOpen(id){
      <button class="btn" style="min-height:44px" onclick="closeModal(true)">取消</button>
      <button class="btn btn-pri" style="min-height:44px" onclick="bpScoreSave('${id}')">储存</button>`, true);
   if((sec.type||'MCQ')!=='ESSAY') bpQmRender();
+}
+/* ══ v66 · Owner 2026-09-23：「如果有错，哪里可以编辑（可以编辑不影响系统的部分）」══
+   有学生资料之后，v65 以前只剩「改分数」和「删除」两条路，
+   连「文法 / 主题」「作答方式」都改不了 —— 而这两栏**不参与任何计算**：
+     · 文法 / 主题 → 只是「这份卷他弱在哪」那排 chips 的来源
+     · 作答方式   → 只是写给老师看的一句话
+   题号、分数、题型一个字都不能在这里改（那几样照旧锁死）。 */
+function bpNoteOpen(id){
+  const sec=sections().find(x=>x.id===id);
+  if(!sec){ toast('✕ 找不到这个项目'); return; }
+  if(!bpCanEditPaper()){ toast('✕ 你的帐号没有填写权限 —— 请找管理层开通',3000); return; }
+  const body=`
+    <div class="tip" style="margin-top:0">${esc(sec.code)} · ${esc(typeLab(sec.type||'MCQ'))}${
+      (sec.type==='ESSAY')?'':' · '+esc(rangeLabel(sec))}${
+      (sec.max!=null&&sec.max!=='')?' · '+esc(String(sec.max))+' 分':''}</div>
+    <div class="alert alert-info"><div>这里只改<b>文法 / 主题</b>与<b>作答方式</b>。
+      这两栏不影响分数，也不影响题号 —— 学生的记录一笔都不会动。</div></div>
+    <div class="secbox" style="padding:12px">
+      <div class="form-row"><label class="form-label">文法 / 主题</label>
+        <input type="text" id="nTopic" value="${esc(sec.topic||'')}"
+          placeholder="例：动词 · 分数加减 · Pemahaman"></div>
+      <div class="form-row" style="margin-top:8px"><label class="form-label">作答方式</label>
+        <input type="text" id="nFmt" value="${esc(sec.fmt||'')}"
+          placeholder="例：填一填 · 横式，直式，答 · 选一个"></div>
+    </div>`;
+  openModal(`改说明 · ${esc(sec.code)}`, body,
+    `<span class="tip" style="margin:0;flex:1">项目名称、题型、题号、分数不在这里改。</span>
+     <button class="btn" style="min-height:44px" onclick="closeModal(true)">取消</button>
+     <button class="btn btn-pri" style="min-height:44px" onclick="bpNoteSave('${id}')">储存</button>`, true);
+}
+function bpNoteSave(id){
+  const arr=S.sections[bpKey()]||[], sec=arr.find(x=>x.id===id);
+  if(!sec){ toast('✕ 找不到这个项目'); return; }
+  const g=i=>String(((document.getElementById(i)||{}).value)||'').trim();
+  const before={topic:sec.topic||'',fmt:sec.fmt||''};
+  sec.topic=g('nTopic'); sec.fmt=g('nFmt');
+  if(before.topic===sec.topic && before.fmt===sec.fmt){ closeModal(true); toast('没有改动'); return; }
+  markSecDirty(sec);
+  if(saveThen('✓ 说明已更新')){ closeModal(true); bpRefresh(); autoPush(); }
 }
 function bpSEven(v,btn){
   const h=document.getElementById('mEven'); if(!h) return;
@@ -4587,6 +4629,109 @@ function viewCell(cls,subj,onlyMe){
     `<span style="flex:1"></span>
      <button class="btn" style="min-height:44px" onclick="closeModal(true)">关闭</button>`, false);
 }
+/* ══ v66 · 「我要去哪里看老师输入的考卷项目？」══
+   以前只能一格一格进去看（填写 → 班级 · 科目 → 第 ① 步）。
+   这里把**整场考试**的项目摊开来给管理层看，只读；要改还是回那一格改。
+   项目本身是本机已经有的（cloudPull 会把整场的项目拉回来），
+   卷名要另外问一次云端 —— 只问一次，两分钟内不重问。 */
+const SECOV={probOnly:false,loading:false};
+async function secOvLoad(force){
+  if(!_sb||!CLOUD.exam||SECOV.loading) return;
+  if(!force && CLOUD.papersAll && (Date.now()-(CLOUD.papersAllAt||0)<120000)) return;
+  SECOV.loading=true;
+  try{
+    const [p,sc,cl]=await Promise.all([
+      _sb.from('evalgo_paper_instance')
+         .select('id,label,display_no,sort_order,status,subject,year_level,created_by,created_at')
+         .eq('exam_id',CLOUD.exam.id),
+      _sb.from('evalgo_paper_scope').select('paper_instance_id,class_id'),
+      _sb.from('classes').select('id,class_name')]);
+    if(p.error) throw p.error;
+    const cname={}; if(!cl.error)(cl.data||[]).forEach(x=>{ cname[x.id]=x.class_name; });
+    const pcls={}; if(!sc.error)(sc.data||[]).forEach(x=>{
+      const nm=cname[x.class_id]; if(nm) (pcls[x.paper_instance_id]=pcls[x.paper_instance_id]||[]).push(nm); });
+    const m={};
+    (p.data||[]).forEach(x=>{ m[x.id]=Object.assign({},x,{cls:(pcls[x.id]||[]).sort()}); });
+    CLOUD.papersAll=m; CLOUD.papersAllAt=Date.now();
+  }catch(e){ console.warn('secOvLoad',e); }
+  finally{ SECOV.loading=false; if(document.getElementById('page-progress').classList.contains('on')) renderProgress(); }
+}
+function secOvProbs(s,sib){
+  const p=[], isE=(s.type||'MCQ')==='ESSAY';
+  if(!isE && !hasRange(s)) p.push('缺题号');
+  if(s.max==null||s.max==='') p.push('缺满分');
+  if(!isE && s.even!=='Y' && s.even!=='N') p.push('没声明每题同分');
+  if((s.type||'')==='OBJ') p.push('旧题型');
+  if(!isE && hasRange(s) && (sib||[]).some(o=>o!==s && (o.type||'MCQ')!=='ESSAY' && hasRange(o)
+      && (+s.qf)<=(+o.qt) && (+o.qf)<=(+s.qt))) p.push('题号跟别的项目重叠');
+  return p;
+}
+/* 本机所有考卷项目 → 一列一个项目（只限本轮考试） */
+function secOvRows(){
+  const pre=EXK()+'|', out=[];
+  Object.keys(S.sections||{}).forEach(k=>{
+    if(k.indexOf(pre)!==0) return;
+    const parts=k.split('|');                 /* EX | 科目 | 年级 | 卷(可省) */
+    const subj=parts[1], yr=+parts[2]||0, pi=parts[3]||'';
+    const arr=S.sections[k]||[]; if(!arr.length) return;
+    const p=(CLOUD.papersAll||{})[pi]||null;
+    const cls=(p&&p.cls&&p.cls.length)?p.cls.join(' / '):('ATC'+yr);
+    const lab=!pi ? '（旧资料 · 没有分卷）'
+      : (p ? ((/^legacy$/i.test(String(p.label||''))?('考卷 '+(p.display_no||1)):String(p.label||'考卷'))
+             + (p.created_at?' · '+((new Date(p.created_at)).getMonth()+1)+'月'+(new Date(p.created_at)).getDate()+'日建':'')
+             + (p.status!=='active'?' · 已收起':''))
+          : '（这份卷还没读回来）');
+    arr.forEach(s=>out.push({cls:cls,yr:yr,subj:subj,paper:lab,off:!!(p&&p.status!=='active'),sec:s,probs:secOvProbs(s,arr)}));
+  });
+  return out.sort((a,b)=>a.cls.localeCompare(b.cls)
+    ||SUBJECTS.indexOf(a.subj)-SUBJECTS.indexOf(b.subj)
+    ||String(a.paper).localeCompare(String(b.paper))
+    ||(+a.sec.qf||99)-(+b.sec.qf||99)
+    ||String(a.sec.code).localeCompare(String(b.sec.code)));
+}
+function secOvToggle(v){ SECOV.probOnly=!!v; renderProgress(); }
+function secOvHTML(){
+  let rows=secOvRows();
+  const nAll=rows.length, nBad=rows.filter(r=>r.probs.length).length;
+  if(SECOV.probOnly) rows=rows.filter(r=>r.probs.length);
+  const loading=!CLOUD.papersAll && CLOUD.session;
+  let h=`<div class="card"><div class="card-hdr">
+      <span class="card-title">考卷项目总览</span>
+      <span class="tip" style="margin:0">老师登记了什么，这里全部看得到。要改：回「填写」→ 那个班级 · 科目 → 第 ① 步</span></div>
+    <div class="chips-row" style="margin-bottom:8px">
+      <span class="chip chip-muted">共 ${nAll} 个项目</span>
+      <span class="chip ${nBad?'chip-warn':'chip-ok'}">${nBad} 个要看一下</span>
+      ${loading?'<span class="chip chip-muted">卷名读取中…</span>':''}
+      <button class="chip ${SECOV.probOnly?'sel':'chip-layer'}" style="min-height:36px"
+        onclick="secOvToggle(${SECOV.probOnly?'false':'true'})">${SECOV.probOnly?'看全部':'只看要处理的'}</button>
+    </div>`;
+  if(!rows.length) return h+`<div class="empty">${SECOV.probOnly?'没有要处理的项目。':'还没有任何考卷项目。'}</div></div>`;
+  h+=`<div class="tw"><table class="data"><thead><tr>
+      <th style="min-width:66px">班级</th><th style="min-width:56px">科目</th>
+      <th style="min-width:120px">考卷</th><th style="min-width:130px">项目</th>
+      <th style="min-width:64px">题型</th><th style="min-width:80px">题号</th>
+      <th style="min-width:56px">满分</th><th style="min-width:74px">每题同分</th>
+      <th style="min-width:110px">文法 / 主题</th><th style="min-width:110px">作答方式</th>
+      <th style="min-width:66px">登记人</th><th style="min-width:130px">要看一下</th></tr></thead><tbody>`;
+  h+=rows.map(r=>{ const s=r.sec, isE=(s.type||'MCQ')==='ESSAY';
+    return `<tr${r.off?' style="color:var(--mut)"':''}>
+      <td><b>${esc(r.cls)}</b></td><td>${esc(r.subj)}</td>
+      <td>${esc(r.paper)}</td>
+      <td><b>${esc(s.code||'')}</b></td>
+      <td><span class="chip chip-layer">${esc(typeLab(s.type||'MCQ'))}</span></td>
+      <td>${isE?'—':(hasRange(s)?esc(rangeLabel(s)):'<span class="chip chip-warn">缺</span>')}</td>
+      <td>${(s.max!=null&&s.max!=='')?esc(String(s.max))+' 分':'<span class="chip chip-warn">缺</span>'}</td>
+      <td>${isE?'—':(s.even==='Y'?'同分':(s.even==='N'?'不同分':'<span class="chip chip-warn">没声明</span>'))}</td>
+      <td>${s.topic?esc(s.topic):'<span style="color:var(--hint)">—</span>'}</td>
+      <td>${s.fmt?esc(s.fmt):'<span style="color:var(--hint)">—</span>'}</td>
+      <td>${s.by?esc(s.by):'<span style="color:var(--hint)">系统预填</span>'}</td>
+      <td>${r.probs.length?r.probs.map(x=>`<span class="chip chip-warn">${esc(x)}</span>`).join(' ')
+            :'<span class="chip chip-ok">✓</span>'}</td></tr>`;
+  }).join('');
+  return h+`</tbody></table></div>
+    <div class="tip" style="margin-top:8px">「没声明每题同分」= 老师还没回答「这个项目每一题分数一样吗」。
+      没回答就算不出这个项目的得分。回那一格按「改分数」就能补。</div></div>`;
+}
 function renderProgress(){
   const c=document.getElementById('c-progress');
   if(!canSeeReport()){ goPage('home'); return; }
@@ -4632,6 +4777,7 @@ function renderProgress(){
       <div style="font-size:11px;color:var(--mut)">Year ${yearOf(cls)}</div></td>${tds}</tr>`;
   }).join('');
   const gap=asgGaps();
+  secOvLoad(false);                 /* v66：卷名（只问一次，两分钟内不重问） */
   let h=hero('Progress','进度','')
    +`<div class="card">
       <div class="card-hdr"><span class="card-title">全团队进度 · ${esc(S.examLabel||'本轮')}</span>
@@ -4661,8 +4807,9 @@ function renderProgress(){
   if(tot.noSec.length)
     h+=`<div class="alert alert-warn"><div><b>${tot.noSec.length} 格还没有考卷项目</b>${
       tot.noSec.length<=6?' —— '+tot.noSec.map(esc).join('、'):''}</div></div>`;
+  h+=secOvHTML();                   /* v66：整场考试的考卷项目，摊开来看 */
   h+=`<div class="card"><button class="btn" style="min-height:44px"
-      onclick="cloudPull(false).then(()=>{renderProgress();toast('✓ 已重新读取');})">↻ 重新读取</button></div>`;
+      onclick="cloudPull(false).then(()=>{secOvLoad(true);renderProgress();toast('✓ 已重新读取');})">↻ 重新读取</button></div>`;
   c.innerHTML=h;
 }
 function pgOpen(cls,subj){
