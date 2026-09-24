@@ -483,7 +483,7 @@ button.chip.sel-w{background:var(--warn);color:#fff}
    权限码：RPT-EvalGo-ATC
    ══════════════════════════════════════════════════════════════════ */
 
-const APP_VERSION = 68;
+const APP_VERSION = 69;
 
 /* ══ v46 · 旧版本守门 ══════════════════════════════════
    MiscGo 那边抓到实例：网址对、程式旧（手机快取把旧 HTML 钉住）。
@@ -3274,10 +3274,12 @@ function f1Open(sid,preset){
     </div>
     `;
   if(notMine(rec)){
-    /* v53 · DL-17：这一项别位老师已经观察过 —— 老师看不到内容，也不能改（一位学生一个项目只能有一笔） */
+    /* v69：管理层看得到别位老师填的内容（唯读）；老师照旧只看到这句话。 */
+    if(canSeeManage()){ mgrStuView(sid,rec.by); return; }
     openModal(`${esc(nameOf(r))} · ${esc(sec.code)}`, b+`<div class="alert alert-warn"><div>
       <b>这个项目，其他老师已经观察过这位学生了。</b><br>
-      一位学生一个项目只能有一笔观察，所以你这边不能再填，也看不到内容。请在上面选别的项目。</div></div>`,
+      一位学生一个项目只能有一笔观察，所以你这边不能再填。请在上面选别的项目。<br>
+      要看内容，请找管理层 —— 管理层看得到。</div></div>`,
       `<button class="btn" onclick="closeModal()">关闭</button>`);
     return;
   }
@@ -4106,15 +4108,75 @@ function f2Missing(sid){
   return out;
 }
 
+/* ══ v69 · 管理层唯读检视：这位学生这一份卷，别人填了什么 ══
+   只读，不改任何东西。要改还是得那位老师改（或管理层在别的地方处理），
+   但至少「看不看得到」这件事，管理层不该被挡。 */
+function mgrStuView(sid,by){
+  const r=stuOf(sid); if(!r) return;
+  const p=S.f2[f2Key(sid)]||null;
+  const ps=paperScore(sid), mc=markCounts(sid);
+  const pct=pctOf(ps);
+  const wis=Object.keys(S.wi).map(k=>S.wi[k])
+    .filter(w=>w&&w.sid===sid&&w.subject===S.subject&&keyInPaper(wiKey(w.sid,w.q,w.qsub),curPi()))
+    .sort(wiCmp);
+  const line=(lab,val)=>`<div style="display:flex;gap:10px;padding:5px 0;border-top:1px solid var(--bdr)">
+    <div style="min-width:88px;font-size:12px;color:var(--mut);flex-shrink:0">${lab}</div>
+    <div style="flex:1;min-width:0;font-size:13px">${val}</div></div>`;
+  const chips=wis.length ? wis.map(w=>{
+      const mk=MARKS.find(x=>x.id===w.code)||{lab:w.code};
+      const sec=wiSecOf(w);
+      const lab=sec?(sec.code+' '+toPaper(sec,+w.q)):('第 '+w.q+' 题');
+      return `<span class="chip ${mk.chip||'chip-muted'}" style="font-size:11px">${esc(lab)}${
+        w.qsub?esc(subLabOf(sec&&sec.qm,w.q,w.qsub)):''} ${esc(mk.lab||'')}</span>`;
+    }).join(' ') : '<span style="color:var(--hint)">这份卷一题都没点（全对的学生本来就不用点）</span>';
+  const tp=p&&p.tp ? ((TPS.find(x=>x.v===p.tp)||{}).zh||p.tp) : '';
+  const st=f2State(p);
+  const stLab={none:'还没开始',progress:'填到一半',done:'已完成',absent:'缺席',notassessed:'本轮未评'}[st]||st;
+  const esTxt=essaySections().length?esLine(sid):'';
+  let b=`<div class="secbox" style="padding:12px">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <span class="chip chip-layer">${esc(S.cls)} · ${esc(S.subject)}</span>
+      <span class="chip ${st==='done'?'chip-ok':'chip-warn'}">${esc(stLab)}</span>
+      <span class="chip chip-muted">填写者 ${esc(teacherLabel(by||(p&&p.by)||''))}</span>
+      ${p&&p.savedAt?`<span class="chip chip-muted">最后存档 ${esc(String(p.savedAt))}</span>`:''}
+      <span class="chip chip-muted">你是管理层 · 唯读</span>
+    </div>
+    <div style="margin-top:10px">
+      ${line('得分', (ps.got!=null&&+ps.max>0)
+        ? `<b style="font-size:16px">${ps.got}</b> / ${ps.max}${pct!=null?`　${pctBadge(pct)}${essaySections().length?'<span class="tip" style="margin:0 0 0 6px">含作文</span>':''}`:''}`
+        : '<span style="color:var(--hint)">算不出来（项目分数还没登记齐）</span>')}
+      ${line('逐题答对率', (mc.rate!=null)
+        ? `${mc.rate}%　<span class="tip" style="margin:0">对 ${mc.right} / 共 ${mc.total} 格${essaySections().length?' · 不含作文':''}</span>`
+        : `<span style="color:var(--hint)">还没按「✓ 已核对整份」，算不出答对率（已点 ${mc.marked} 格 · 共 ${mc.total} 格）</span>`)}
+      ${esTxt?line('作文', esc(esTxt)):''}
+      ${line('掌握程度', tp?esc(tp):'<span style="color:var(--hint)">还没选</span>')}
+      ${line('整份核对', (p&&p.paper_checked)?'✓ 已核对整份':'<span style="color:var(--warn)">还没按「✓ 已核对整份」</span>')}
+      ${line('逐题记号', chips)}
+      ${line('较弱项目', (p&&(p.weak_options||[]).length)?esc((p.weak_options||[]).join('、')):'<span style="color:var(--hint)">—</span>')}
+      ${(p&&p.weak_note)?line('老师备注', esc(p.weak_note)):''}
+      ${(p&&(p.next_options||[]).length)?line('下一步', esc((p.next_options||[]).join('、'))):''}
+      ${(p&&p.next_note)?line('下一步备注', esc(p.next_note)):''}
+      ${(p&&p.parent_support)?line('家长配合', esc(p.parent_support)):''}
+    </div></div>
+    <div class="alert alert-info" style="margin-top:10px"><div>
+      这是<b>唯读</b>的。一位学生一份考卷只能有一份分析 —— 要改内容，请那位老师自己改；
+      如果是分错了人，删掉那一份才能换人填。</div></div>`;
+  openModal(esc(nameOf(r))+' · 考卷分析（管理层检视）', b,
+    `<button class="btn" style="min-height:44px" onclick="closeModal()">关闭</button>`);
+}
 function f2Open(sid){
   const r=stuOf(sid); if(!r) return;
   const other=paperOtherBy(sid,S.subject,curPi());
   if(other){
-    /* v53 · DL-17：一位学生一份考卷只能有一份分析 —— 别位老师在做，这边只能看到这句话 */
+    /* ══ v69 · Owner 2026-09-24：「我是 Owner 都无法查看！」══
+       v53 的 DL-17 是对的：一位学生一份考卷只能有一份分析，别位老师在做，你不能再填一份。
+       但那一版**连管理层都挡在外面**，连「她考得怎样」都看不到 —— 这不是保护，是断路。
+       现在分两种人：管理层看得到全部内容（唯读，写明是谁填的）；老师照旧只看到那句话。 */
+    if(canSeeManage()){ mgrStuView(sid,other); return; }
     openModal(esc(nameOf(r))+' · 考卷分析', navBar(sid,'f2')+`<div class="alert alert-warn"><div>
       <b>这位学生这份考卷，其他老师已经在做考卷分析了。</b><br>
-      一位学生一份考卷只能有一份分析，所以你这边不能再填，也看不到内容。<br>
-      如果是分错了人，请找管理层。</div></div>`,
+      一位学生一份考卷只能有一份分析，所以你这边不能再填。<br>
+      要看内容，请找管理层 —— 管理层看得到。</div></div>`,
       `<button class="btn" onclick="closeModal()">关闭</button>`);
     return;
   }
