@@ -483,7 +483,7 @@ button.chip.sel-w{background:var(--warn);color:#fff}
    权限码：RPT-EvalGo-ATC
    ══════════════════════════════════════════════════════════════════ */
 
-const APP_VERSION = 67;
+const APP_VERSION = 68;
 
 /* ══ v46 · 旧版本守门 ══════════════════════════════════
    MiscGo 那边抓到实例：网址对、程式旧（手机快取把旧 HTML 钉住）。
@@ -2476,6 +2476,9 @@ function renderBP(){
           ? `<button class="btn btn-sm" style="margin-right:4px"
                title="只改文法 / 主题与作答方式 —— 这两栏不影响题号与分数"
                onclick="bpNoteOpen('${s.id}')">改说明</button>`
+            + (canSeeManage() && (s.type||'MCQ')!=='ESSAY' ? `<button class="btn btn-sm" style="margin-right:4px"
+               title="管理层：改卷面题号，系统会把已经点过的记录按卷面题号重新归位"
+               onclick="bpRangeAdminOpen('${s.id}')">改题号</button>` : '')
           : `<button class="btn btn-sm" style="margin-right:4px" title="修改这个项目"
              onclick="bpModal(false,'${s.id}')">改</button>`
           }<button class="btn btn-sm" style="margin-right:4px"
@@ -2712,6 +2715,160 @@ function bpNoteSave(id){
   if(before.topic===sec.topic && before.fmt===sec.fmt){ closeModal(true); toast('没有改动'); return; }
   markSecDirty(sec);
   if(saveThen('✓ 说明已更新')){ closeModal(true); bpRefresh(); autoPush(); }
+}
+/* ══════════════════════════════════════════════════════════════════
+   v68 · Owner 2026-09-24：「为什么外面不能直接解决，我不要让老师按来按去」
+   ------------------------------------------------------------------
+   v28 的规矩是「有学生资料就不准改题号」—— 理由没有错：改了题号，旧记录会**静静地**
+   挂到别的项目上，画面正常、数字全错。但那条规矩留了一个洞：**管理层没有出口**，
+   结果每次题号建错（例：ATC2 数学 bahagian a 填成第 1–20 题，跟 b 的 11–18 重叠）
+   都只能有人进资料库手改。
+   这里补的就是那个出口，而且把手改时该做的三件事自动做掉：
+     ① 先把这一格所有逐题记录下载成备份（不问，直接下载）
+     ② 改完**按卷面题号重新归位** —— 老师当初点的是卷面第几题，那才是事实；
+        系统内部的流水号只是身分证，重算就好
+     ③ 归不到任何项目的记录先挡下来讲清楚，不准默默丢掉
+   只有管理层看得到这颗按钮（OWNER / TOP_MGMT / ADMIN），老师画面一个字不变。 */
+function bpRangeAdminOpen(id){
+  const sec=sections().find(x=>x.id===id);
+  if(!sec){ toast('✕ 找不到这个项目'); return; }
+  if(!canSeeManage()){ toast('✕ 只有管理层可以改题号',3000); return; }
+  if(!bpCanEditPaper()){ toast('✕ 你的帐号没有填写权限 —— 请找管理层开通',3000); return; }
+  if((sec.type||'MCQ')==='ESSAY'){ toast('✕ 写作文没有逐题题号',3000); return; }
+  const nf=hasRange(sec)?pfOf(sec):'', nt=hasRange(sec)?secPaperTo(sec):'';
+  const others=qSections().filter(x=>x!==sec);
+  const body=`
+    <div class="tip" style="margin-top:0">${esc(sec.code)} · ${esc(typeLab(sec.type||'MCQ'))} · ${
+      (sec.max!=null&&sec.max!=='')?esc(String(sec.max))+' 分':'还没填分数'}</div>
+    <div class="alert alert-warn"><div><b>这个项目底下已经有学生资料。</b>
+      改题号之后，系统会把已经点过的记录<b>按卷面题号重新归位</b> ——
+      老师当初点的是卷面第几题，就还是第几题，只是挂到对的项目底下。
+      动手之前会自动下载一份备份。</div></div>
+    <div class="secbox" style="padding:12px">
+      <div class="form-row"><label class="form-label">卷面题号 第 __ 到 __ 题 *</label>
+        <div style="display:flex;gap:6px;align-items:center">
+          <input type="number" id="rNf" min="1" style="width:90px" value="${esc(String(nf))}">
+          <span style="color:var(--mut)">–</span>
+          <input type="number" id="rNt" min="1" style="width:90px" value="${esc(String(nt))}">
+        </div>
+        <div class="tip" style="margin-top:6px">这一格其它项目现在占著：${
+          others.length?others.map(o=>esc(o.code)+' 第 '+pfOf(o)+'–'+secPaperTo(o)+' 题').join('、'):'（没有别的项目）'}</div>
+      </div>
+    </div>`;
+  openModal(`改题号 · ${esc(sec.code)}`, body,
+    `<span class="tip" style="margin:0;flex:1">管理层专用。分数、项目名称在别的按钮改。</span>
+     <button class="btn" style="min-height:44px" onclick="closeModal(true)">取消</button>
+     <button class="btn btn-pri" style="min-height:44px" onclick="bpRangeAdminSave('${id}')">检查并改</button>`, true);
+}
+/* 这一格（当下这份卷）所有逐题记录的 key */
+function cellWiKeys(){
+  const pre=EXK()+'|', pi=curPi(), out=[];
+  Object.keys(S.wi||{}).forEach(k=>{
+    const w=S.wi[k];
+    if(!w || k.indexOf(pre)!==0) return;
+    if(w.subject!==S.subject) return;
+    if((+w.year||yearOf(S.cls))!==yearOf(S.cls)) return;
+    if(!keyInPaper(k,pi)) return;
+    out.push(k);
+  });
+  return out;
+}
+/* 改题号的计划：谁要搬、搬去哪、谁没地方去 */
+function bpRangePlan(sec,nf,nt){
+  const arr=sections(), len=nt-nf+1;
+  const others=arr.filter(x=>x!==sec && QTYPES.indexOf(x.type||'MCQ')>=0 && hasRange(x));
+  /* ① 卷面不准跟别的项目重叠 */
+  const clash=others.filter(o=>nf<=secPaperTo(o) && pfOf(o)<=nt);
+  if(clash.length) return {err:'卷面第 '+nf+'–'+nt+' 题跟「'+clash.map(o=>o.code).join('、')+'」重叠 —— 先把那边改开'};
+  /* ② 内部流水号：能留就留，会撞就整段挪到最后面（内部号只是身分证，不给老师看） */
+  let qf=+sec.qf||1;
+  const occ=others.map(o=>[+o.qf,+o.qt]);
+  const hit=(a,b)=>occ.some(p=>a<=p[1]&&p[0]<=b);
+  if(hit(qf,qf+len-1)) qf=Math.max.apply(null,occ.map(p=>p[1]).concat([0]))+1;
+  const qt=qf+len-1;
+  /* ③ 新版面（拿来算「这个卷面题号归谁」） */
+  const next=others.map(o=>({sec:o,pf:pfOf(o),pt:secPaperTo(o),qf:+o.qf}))
+    .concat([{sec:sec,pf:nf,pt:nt,qf:qf}]);
+  const owner=p=>next.find(x=>p>=x.pf && p<=x.pt)||null;
+  /* ④ 每一笔记录：卷面题号不变，内部号跟著新版面重算 */
+  const moves=[], lost=[];
+  cellWiKeys().forEach(k=>{
+    const w=S.wi[k], cur=wiSecOf(w);
+    if(!cur) { lost.push({k:k,w:w,paper:null}); return; }
+    const paper=toPaper(cur,w.q);
+    const to=owner(paper);
+    if(!to){ lost.push({k:k,w:w,paper:paper}); return; }
+    const nq=to.qf+(paper-to.pf);
+    if(nq!==+w.q) moves.push({k:k,w:w,paper:paper,q:nq,to:to.sec});
+  });
+  return {qf:qf,qt:qt,pf:nf,pt:nt,moves:moves,lost:lost};
+}
+function bpRangeAdminSave(id){
+  const arr=S.sections[bpKey()]||[], sec=arr.find(x=>x.id===id);
+  if(!sec){ toast('✕ 找不到这个项目'); return; }
+  if(!canSeeManage()){ toast('✕ 只有管理层可以改题号',3000); return; }
+  const g=i=>String(((document.getElementById(i)||{}).value)||'').trim();
+  const nf=parseInt(g('rNf'),10), nt=parseInt(g('rNt'),10);
+  if(!(nf>=1) || !(nt>=nf)){ toast('✕ 题号要填「第几题 到 第几题」，而且后面不能小於前面',4000); return; }
+  const oldPf=hasRange(sec)?pfOf(sec):null, oldPt=hasRange(sec)?secPaperTo(sec):null;
+  if(oldPf===nf && oldPt===nt){ closeModal(true); toast('题号没有改动'); return; }
+  const plan=bpRangePlan(sec,nf,nt);
+  if(plan.err){ toast('✕ '+plan.err,8000); return; }
+  if(plan.lost.length){
+    const li=plan.lost.slice(0,8).map(x=>x.paper?('第 '+x.paper+' 题'):'（算不出题号的一笔）');
+    toast('✕ 这样改会有 '+plan.lost.length+' 笔记录没有项目可挂（'+li.join('、')
+      +'）—— 先把负责那几题的项目建好或改好，再来改这一个。',12000);
+    return;
+  }
+  /* 小题分数：新范围以外的小题不准掉（已有记录就更不行） */
+  if(sec.qm && sec.qm.subs){
+    const keep={subs:{},per_q:(sec.qm.per_q||null),labs:(sec.qm.labs||null)};
+    Object.keys(sec.qm.subs).forEach(q=>{ if(+q>=plan.qf && +q<=plan.qt) keep.subs[q]=sec.qm.subs[q]; });
+    const de=qmDropCheck(sec,keep);
+    if(de){ toast('✕ '+de,10000); return; }
+  }
+  const nMove=plan.moves.length;
+  if(!confirm('这一格有 '+cellWiKeys().length+' 笔逐题记录。\n\n'
+    +'「'+sec.code+'」的卷面题号：第 '+(oldPf==null?'—':oldPf+'–'+oldPt)+' 题 → 第 '+nf+'–'+nt+' 题。\n'
+    +(nMove?('其中 '+nMove+' 笔会按卷面题号挂到对的项目底下（学生答对 / 不会的记号不会变）。\n'):'没有记录需要搬。\n')
+    +'\n按「确定」之前会先下载一份备份。确定要改吗？')) return;
+  /* ① 备份先下载 —— 不问，直接下载 */
+  try{
+    const bak={meta:{system:'EvalGo_ATC v'+APP_VERSION,at:new Date().toISOString(),
+      cls:S.cls,subject:S.subject,paper:S.paperInstance||null,by:S.me||'',
+      action:'改题号',sec:sec.code,from:(oldPf==null?null:[oldPf,oldPt]),to:[nf,nt]},
+      sections:JSON.parse(JSON.stringify(arr)),
+      wrong_items:cellWiKeys().map(k=>({key:k,rec:S.wi[k]}))};
+    dl('EvalGo_ATC_改题号备份_'+S.cls+'_'+S.subject+'_'+stamp()+'.json', JSON.stringify(bak,null,2));
+  }catch(e){ console.warn('备份下载失败',e); }
+  /* ② 搬记录：卷面题号不变，内部流水号重算 */
+  let moved=0;
+  plan.moves.forEach(m=>{
+    const w=S.wi[m.k];
+    if(!w) return;
+    delete S.wi[m.k];
+    w.q=m.q; w.synced=false;
+    w.sec_code=(m.to&&m.to.code)||w.sec_code||'';
+    w.sec_type=(m.to&&(m.to.type||'MCQ'))||w.sec_type||'MCQ';
+    w.topic=(m.to&&m.to.topic)||'';
+    w.fmt=(m.to&&m.to.fmt)||'';
+    S.wi[wiKey(w.sid,w.q,w.qsub)]=w;
+    moved++;
+  });
+  /* ③ 改项目本身 + 留痕 */
+  const log=(sec.qm&&sec.qm._log)?sec.qm._log.slice():[];
+  log.push({by:S.me||'', at:new Date().toLocaleString('en-GB'),
+            max:(sec.max==null?null:+sec.max), even:sec.even||'',
+            note:'改题号 第 '+(oldPf==null?'—':oldPf+'–'+oldPt)+' 题 → 第 '+nf+'–'+nt+' 题，搬了 '+moved+' 笔'});
+  const nextQm=Object.assign({},sec.qm||{});
+  if(nextQm.subs){ const keep={}; Object.keys(nextQm.subs).forEach(q=>{ if(+q>=plan.qf&&+q<=plan.qt) keep[q]=nextQm.subs[q]; }); nextQm.subs=keep; }
+  if(nextQm.per_q){ const keep={}; Object.keys(nextQm.per_q).forEach(q=>{ if(+q>=plan.qf&&+q<=plan.qt) keep[q]=nextQm.per_q[q]; }); nextQm.per_q=keep; }
+  nextQm._log=log.slice(-20);
+  sec.qf=plan.qf; sec.qt=plan.qt; sec.pf=nf; sec.qm=nextQm;
+  markSecDirty(sec);
+  if(saveThen('✓ 题号已改成第 '+nf+'–'+nt+' 题'+(moved?('，'+moved+' 笔记录已归位'):''))){
+    closeModal(true); bpRefresh(); autoPush();
+  }
 }
 function bpSEven(v,btn){
   const h=document.getElementById('mEven'); if(!h) return;
