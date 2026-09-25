@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>ObsGo — 巡班观察 v12</title>
+<title>ObsGo — 巡班观察 v13</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root{
@@ -381,7 +381,7 @@ h1{font-size:26px;line-height:1.18;margin:8px 0 6px;font-weight:700}
 <div class="app" id="app" style="display:none">
   <header class="topbar">
     <button class="nav-home" onclick="goHomePlatform()" title="回平台">←</button>
-    <div class="nav-logo">🔭 ObsGo <span class="ver">v12</span></div>
+    <div class="nav-logo">🔭 ObsGo <span class="ver">v13</span></div>
     <button class="ntab on" data-nt="visit" onclick="goScreen('select')">巡班</button>
     <button class="ntab" data-nt="history" onclick="goScreen('history')">记录</button>
     <button class="ntab" id="nt-progress" data-nt="progress" onclick="goScreen('progress')" hidden style="display:none">进度</button>
@@ -1680,7 +1680,7 @@ function buildVisitInterpretations(v){
    本区块负责：硬闸登入 · Supabase 名单 · 幂等上传 · 作废 · 介面
    ⛔ 档内不写死任何学生姓名或班级 —— 一律从 Supabase 读
    ═══════════════════════════════════════════════════════════════════ */
-const APP_VERSION = 12;   /* 顶栏徽章、设定页、Export payload 共用这一个数字 */
+const APP_VERSION = 13;   /* 顶栏徽章、设定页、Export payload 共用这一个数字 */
 const STORAGE_KEY = 'obsgo_v2';
 const SYSTEM_CODE = 'OPR-ObsGo';
 
@@ -1799,7 +1799,7 @@ function writeLocal(payload){
   }catch(e){ return {ok:false, level:3, error:e.message||String(e)}; }
 }
 function save(now){
-  if(!now){ clearTimeout(_saveT); _saveT=setTimeout(()=>save(true),800); return; }   /* §4-05 800ms debounce */
+  if(!now){ clearTimeout(_saveT); _saveT=setTimeout(()=>save(true),800); scheduleAutoPush(); return; }   /* §4-05 800ms debounce */
   state.meta.last_updated=new Date().toISOString();
   const payload=JSON.stringify({meta:state.meta, roster:state.roster, drafts:state.drafts,
     visitUid:state.visit?state.visit.client_uid:null, records:state.records, hiddenUids:state.hiddenUids, ui:state.ui});
@@ -1961,22 +1961,42 @@ async function pullMyVisits(){
   if(!myUid) return {ok:false, n:0, error:'不知道是谁登入'};
   try{
     const r=await _sb.from('obsgo_visit')
-      .select('id,client_uid,status,draft_json,updated_at')
+      .select('id,client_uid,status,void_reason,draft_json,updated_at')
       .eq('created_by_uid', myUid);
     if(r.error) throw r.error;
-    let back=0;
+    let back=0, moved=0;
     (r.data||[]).forEach(row=>{
       if(!row.draft_json) return;                                  /* 旧列没有快照，跳过 */
       const uid0=row.client_uid;
       if((state.hiddenUids||[]).indexOf(uid0)>=0) return;   /* 已手动移除，不再拉回 */
-      if(state.drafts.some(d=>d.client_uid===uid0)) return;        /* 本机有，本机优先 */
+      /* ④ 本机还当草稿、云端已经收尾（管理层补救过）→ 状态以云端为准，搬进「记录」。
+         本机内容整份保留（可能有还没送出的观察），重送一次主档让快照也跟上。
+         旧版在这里直接 return，接着 reconcileGhosts 把它当残影删掉 —— 老师就再也看不到。 */
+      const local=state.drafts.find(d=>d.client_uid===uid0);
+      if(local){
+        if(row.status==='draft') return;                           /* 双方都是草稿：本机优先 */
+        state.drafts=state.drafts.filter(d=>d!==local);
+        if(state.visit===local) state.visit=null;
+        local.status=row.status;
+        local.void_reason= row.status==='cancelled' ? (row.void_reason||local.void_reason||'已作废') : null;
+        local.durationMin=null;
+        if(!local.rows) local.rows=buildRows(local);
+        local.cloud_id=row.id; local.synced=false;
+        state.records.unshift(local); moved++;
+        return;
+      }
       if(state.records.some(x=>x.client_uid===uid0)) return;
       const v=row.draft_json;
       v.cloud_id=row.id; v.synced=true; v.cloud_updated_at=row.updated_at||null;
+      /* ④ 快照里的 status 可能还是 draft（补救时只改了主档），一律以主档为准。 */
+      v.status=row.status;
+      v.void_reason= row.status==='cancelled' ? (row.void_reason||v.void_reason||null) : null;
       if(row.status==='draft') state.drafts.push(v); else state.records.unshift(v);
       back++;
     });
-    if(back){ save(true); toast('✓ 从云端找回 '+back+' 笔巡班 —— 上次没填完的都在', 7000); }
+    if(back||moved) save(true);
+    if(moved) toast('✓ 有 '+moved+' 笔巡班已经收尾，移到「记录」页', 7000);
+    else if(back) toast('✓ 从云端找回 '+back+' 笔巡班 —— 上次没填完的都在', 7000);
     return {ok:true, n:back, error:null};
   }catch(e){ return {ok:false, n:0, error:e.message||String(e)}; }
 }
@@ -2523,7 +2543,8 @@ async function reconcileGhosts(){
   catch(e){ return 0; }
   const live={}; rows.forEach(x=>{ live[x.client_uid]=x.status; });
   const before=state.drafts.length;
-  state.drafts=state.drafts.filter(d=> !d.cloud_id ? true : live[d.client_uid]==='draft');
+  /* ④ 只清「云端已经找不到」的。云端已收尾的，pullMyVisits 已经搬进记录，不准在这里丢掉。 */
+  state.drafts=state.drafts.filter(d=> !d.cloud_id ? true : live[d.client_uid]!==undefined);
   const pruned=before-state.drafts.length;
   if(state.visit && state.visit.cloud_id && state.drafts.indexOf(state.visit)<0) state.visit=null;
   if(pruned){ save(true); toast('✓ 清掉 '+pruned+' 笔本机残影（云端已不存在）', 6000); }
@@ -2976,6 +2997,31 @@ function buildRows(v){
     ent.push(Object.assign({}, oldE[k], {value:'', note:null, synced:false})); });
   return {cls, ent};
 }
+/* ══════ v13 · 25-09-2026 ══════
+   TAY 的巡班开了 14 天（4270 分钟）→ 资料库上限 480 分钟 → 主档存不进去 → 连带挡住后面所有观察。
+   这一版四件修正：
+     ① 时长超过上限或跨天 → 时长留空，整笔照收（不再整笔拒收）
+     ② 主档存失败不准连带挡住观察明细
+     ③ 自动上云 —— 填了就送，送不出去每分钟自动再试，不靠老师按按钮
+     ④ 云端已经收尾的巡班，老师在「记录」页看得到，不再被当成残影丢掉 */
+const MAX_DURATION_MIN = 480;   /* 跟资料库 obsgo_visit_duration_min_check 同一个上限，改一边必须改另一边 */
+function safeDuration(n){
+  const x=Number(n);
+  return (Number.isInteger(x) && x>=1 && x<=MAX_DURATION_MIN) ? x : null;
+}
+/* 自动上云：老师每改一次，停手 5 秒就送一次。不用按「储存」。
+   同一笔用同一个编号送，重送只会覆盖，不会重复。 */
+var _autoT=null;
+function scheduleAutoPush(){
+  clearTimeout(_autoT);
+  _autoT=setTimeout(()=>{
+    const v=state.visit;
+    if(!v || v._browseOnly) return;
+    if(CLOUD.busy){ scheduleAutoPush(); return; }       /* 正在传 → 等一下再来 */
+    if(state.drafts.indexOf(v)<0) state.drafts.unshift(v);
+    pushDraft(v).then(()=>{ paintSync(); });
+  }, 5000);
+}
 function finishVisit(){
   const v=state.visit; if(!v) return;
   const c=counts();
@@ -2986,7 +3032,8 @@ function finishVisit(){
         '还没记完可以按「退出」，下次回来接着填。\n确定现在就完成这一班吗？')) return;
   }
   v.endedAt=nowHM();
-  v.durationMin=Math.max(1, Math.round((Date.now()-v.startedTs)/60000));
+  /* ① 超过上限或没有开始时间 → 时长留空，整笔照收。旧版会算出 4270 然后整笔被资料库拒收。 */
+  v.durationMin = v.startedTs ? safeDuration(Math.max(1, Math.round((Date.now()-v.startedTs)/60000))) : null;
   v.status='completed';   /* 六统一状态：完成巡班 = completed */
   v.summary=c;
   const rows=buildRows(v);
@@ -2998,8 +3045,8 @@ function finishVisit(){
   save(true);
 
   el('m-stu').textContent=c.students; el('m-evi').textContent=c.evi; el('m-sr').textContent=c.sr;
-  el('done-preview').innerHTML='<h3>Evidence 摘要</h3><p>'+escapeHtml(v.classLabel)+' · '+v.durationMin+
-    ' min · '+c.students+' students · 班级层 '+rows.cls.length+' 列 · 学生层 '+rows.ent.length+' 列</p>';
+  el('done-preview').innerHTML='<h3>Evidence 摘要</h3><p>'+escapeHtml(v.classLabel)+' · '+(v.durationMin?(v.durationMin+' min'):'时长不计')+
+    ' · '+c.students+' students · 班级层 '+rows.cls.length+' 列 · 学生层 '+rows.ent.length+' 列</p>';
   el('done-cloud').innerHTML='<div class="alert alert-info">正在上传…</div>';
   showScreen('done');
   cloudPush(true).then(()=>{
@@ -3153,19 +3200,33 @@ async function cloudPush(silent){
         fail++; errs.push('纪录「'+(v.classLabel||v.client_uid)+'」结构不完整（没有明细），送不出去 —— 请 Export 後找管理层'); continue;
       }
       if(!v.cloud_id || !v.synced){
-        try{
-          const r=await _sb.from('obsgo_visit').upsert({
+        /* ① 旧版本机可能存着超标时长（例：4270），送之前一律过滤。 */
+        if(v.durationMin!=null && safeDuration(v.durationMin)===null) v.durationMin=null;
+        const payload=()=>({
             client_uid:v.client_uid, department:v.dept, class_id:v.classId,
-            visit_date:v.date, observer:v.observer, duration_min:v.durationMin||null,
+            visit_date:v.date, observer:v.observer, duration_min:safeDuration(v.durationMin),
             note:v.visitNote||null, status:v.status, void_reason:v.void_reason||null,
             created_by:(CLOUD.who&&CLOUD.who.initials)||null,
             /* 🔴 完整编辑状态也存上去 —— 摊平的明细列救不回「勾了哪几格」。
                换装置、清快取、第二次登入都要能原样读回来。 */
             draft_json:v
-          },{onConflict:'client_uid'}).select('id').single();
+          });
+        try{
+          let r=await _sb.from('obsgo_visit').upsert(payload(),{onConflict:'client_uid'}).select('id').single();
+          /* ① 第一次被拒 → 时长清空再送一次。时长是唯一「可有可无」的栏位，不值得为它卡住整笔。 */
+          if(r.error && v.durationMin!=null){
+            v.durationMin=null;
+            r=await _sb.from('obsgo_visit').upsert(payload(),{onConflict:'client_uid'}).select('id').single();
+          }
           if(r.error) throw r.error;
           v.cloud_id=r.data.id; v.synced=true; ok++;      /* R3：拿到 id 才算同步 */
-        }catch(e){ fail++; errs.push('巡班：'+(e.message||e)); continue; }
+        }catch(e){
+          fail++; errs.push('巡班：'+(e.message||e));
+          /* ② 旧版这里一律 continue —— 主档一出错，后面所有观察全部卡住（TAY 的 47 笔就是这样）。
+             现在：主档之前已经进过云端（有 cloud_id），明细照送，挂在那一笔下面。
+             只有主档从来没进过云端，明细才真的没地方挂，只好等下一轮。 */
+          if(!v.cloud_id) continue;
+        }
       }
       for(const row of v.rows.cls){
         if(row.synced) continue;
@@ -3560,6 +3621,9 @@ async function initApp(){
   renderSelect(); renderHistory(); if(canSeeManage())renderManage();
   save(true);
   await flushPendingAfterLogin();
+  /* ③ 自动再试：还有没送出去的，每 60 秒送一次；网路恢复也立刻送。 */
+  setInterval(()=>{ if(pendingRows() && !CLOUD.busy) cloudPush(true); }, 60000);
+  window.addEventListener('online', ()=>{ if(pendingRows()) cloudPush(true); });
   renderSelect(); renderHistory();
   /* 管理层：开机自动把全团队的进度读回来，不用按任何东西。
      放最後、不 await —— 读不到也不准挡住巡班本身。 */
