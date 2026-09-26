@@ -163,7 +163,7 @@ window.esc=esc;
 @media(max-width:700px){.lg-roster-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.lg-roster-board{padding:14px}}
 
 </style></head><body>
-<div class="gate" id="gate" style="display:none"><div class="gatebox"><div style="font-size:42px">💗</div><h2 id="gateTitle">正在确认你的登入…</h2><p id="gateMsg">LoveGo 会读取你的 Academee 身份与权限。</p><div id="gateAct"></div></div></div><div id="app"><header class="topbar"><button class="home" onclick="location.href='../index.html'">←</button><div class="brand">💗 LoveGo <span class="ver" id="verBadge">v83</span></div><button class="ntab on" data-p="collect" onclick="go('collect')">收集</button><button class="ntab" data-p="progress" onclick="go('progress')">进度</button><button class="ntab" id="manageTab" data-p="manage" onclick="go('manage')" style="display:none">设定</button><div class="navr"><span class="saved" id="saved"></span><button class="sync" id="sync">● 已保存</button><button class="navbtn" onclick="exportData()">↓ Export</button><label class="navbtn">↑ Import<input type="file" hidden accept=".json" onchange="importData(event)"></label><button class="logout" onclick="logout()">登出</button></div></header>
+<div class="gate" id="gate" style="display:none"><div class="gatebox"><div style="font-size:42px">💗</div><h2 id="gateTitle">正在确认你的登入…</h2><p id="gateMsg">LoveGo 会读取你的 Academee 身份与权限。</p><div id="gateAct"></div></div></div><div id="app"><header class="topbar"><button class="home" onclick="location.href='../index.html'">←</button><div class="brand">💗 LoveGo <span class="ver" id="verBadge">v84</span></div><button class="ntab on" data-p="collect" onclick="go('collect')">收集</button><button class="ntab" data-p="progress" onclick="go('progress')">进度</button><button class="ntab" id="manageTab" data-p="manage" onclick="go('manage')" style="display:none">设定</button><div class="navr"><span class="saved" id="saved"></span><button class="sync" id="sync">● 已保存</button><button class="navbtn" onclick="exportData()">↓ Export</button><label class="navbtn">↑ Import<input type="file" hidden accept=".json" onchange="importData(event)"></label><button class="logout" onclick="logout()">登出</button></div></header>
 <main class="shell">
 <section class="screen on" id="s-collect">
   <div class="hero">
@@ -207,7 +207,7 @@ window.esc=esc;
   <div id="collectSummary" style="display:none"></div>
   <div id="studentList" style="display:none"></div>
 </section>
-<section class="screen" id="s-review"><div class="review-head"><div class="review-card"><div><b id="reviewName"></b><div class="meta" id="reviewMeta"></div></div><div class="review-actions"><span class="review-live">● LIVE</span><button class="review-top-btn" id="lg-btn-home" onclick="loveGoReviewHome()">← 回主页</button><button class="review-top-btn" id="lg-btn-finish" style="display:none" onclick="loveGoFinishWriting()">完成填写 ✓</button></div></div></div><div class="lg-fillnav" id="lg-fillnav" style="display:none;align-items:center;gap:8px;flex-wrap:wrap;background:#fff;border:0.5px solid var(--line,#e5e0d8);border-radius:12px;padding:8px 10px;margin:0 0 10px"><button class="review-top-btn" onclick="lgBackToRoster()">← 返回名单</button><span id="lg-fill-progress" style="font-size:13px;color:#6b6459"></span><span style="margin-left:auto"></span><button class="review-top-btn" id="lg-prev-btn" onclick="lgPrevStudent()">← 上一位</button><button class="review-top-btn" id="lg-next-btn" onclick="lgNextStudent()">下一位 →</button><button class="review-top-btn" onclick="lgCompleteAndNext()" style="border-color:#7BA05B;color:#3f6b2f">完成这一位 ✓</button></div><div class="lg-roster-board">
+<section class="screen" id="s-review"><div class="review-head"><div class="review-card"><div><b id="reviewName"></b><div class="meta" id="reviewMeta"></div></div><div class="review-actions"><span class="review-live">● LIVE</span><button class="review-top-btn" id="lg-btn-home" onclick="loveGoReviewHome()">← 回主页</button><button class="review-top-btn" id="lg-btn-finish" style="display:none" onclick="loveGoFinishWriting()">完成填写 ✓</button></div></div></div><div class="lg-fillnav" id="lg-fillnav" style="display:none;align-items:center;gap:8px;flex-wrap:wrap;background:#fff;border:0.5px solid var(--line,#e5e0d8);border-radius:12px;padding:8px 10px;margin:0 0 10px"><button class="review-top-btn" onclick="lgBackToRoster()">← 回主页</button><span id="lg-fill-progress" style="font-size:13px;color:#6b6459"></span><span style="margin-left:auto"></span><button class="review-top-btn" id="lg-prev-btn" onclick="lgPrevStudent()">← 上一位</button><button class="review-top-btn" id="lg-next-btn" onclick="lgNextStudent()">下一位 →</button><button class="review-top-btn" onclick="lgCompleteAndNext()" style="border-color:#7BA05B;color:#3f6b2f">完成这一位 ✓</button></div><div class="lg-roster-board">
   <div class="lg-roster-head">
     <div>
       <div class="lg-addbar-title">学生观察</div>
@@ -222,7 +222,7 @@ window.esc=esc;
 <section class="screen" id="s-manage"><div class="hero"><div class="eyebrow">Settings</div><h1>LoveGo 设定</h1></div><div class="manage-card"><h3>① 我的身份</h3><div class="lines" id="m1"></div></div><div class="manage-card"><h3>② 系统资讯</h3><div class="lines">系统名：LoveGo<br>版本：<span id="verText">v61</span><br>资料笔数：<span id="mcount">0</span></div></div><div class="manage-card"><h3>⑤ 资料备份</h3><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="ghost" onclick="exportData()">Export JSON</button><button class="ghost" onclick="exportCSV()">Export CSV</button><label class="ghost" style="display:inline-flex;align-items:center;cursor:pointer">Import<input type="file" hidden accept=".json" onchange="importData(event)"></label><button class="ghost" onclick="window.print()">列印</button></div></div></section>
 </main><div class="toast" id="toast"></div>
 <script>
-const APP_VERSION=83,KEY='lovego';
+const APP_VERSION=84,KEY='lovego';
 const SUPABASE_URL='https://qnpvqsvvsgsantekgfbz.supabase.co';
 const SUPABASE_KEY='sb_publishable_v3Y3BD3XiPz33t-hfdX58g_BaFIkjPF';
 const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true}});
@@ -977,14 +977,9 @@ try{var _vb=document.getElementById("verBadge");if(_vb&&typeof APP_VERSION!=="un
       lgUpdateFillNav(id);
       window.scrollTo(0,0);
     };
+    /* v84：名单那一层拿掉了，这个按钮直接回主页（不再回名单） */
     window.lgBackToRoster=function(){
-      const e=lgFillEls();
-      if(e.board) e.board.style.display='';
-      if(e.body) e.body.style.display='none';
-      if(e.nav) e.nav.style.display='none';
-      if(e.home) e.home.style.display='';
-      if(e.finish) e.finish.style.display='none';
-      setTimeout(lgRenderClassRoster,0);
+      if(typeof loveGoReviewHome==='function') return loveGoReviewHome();
       window.scrollTo(0,0);
     };
     window.lgPrevStudent=function(){ const list=lgRosterList(); const i=list.findIndex(s=>String(s.id)===String(S.ui.studentId)); if(i>0) lgOpenRosterStudent(list[i-1].id); };
@@ -1021,21 +1016,13 @@ try{var _vb=document.getElementById("verBadge");if(_vb&&typeof APP_VERSION!=="un
       const rn=document.getElementById('reviewName');
       const rm=document.getElementById('reviewMeta');
       if(rn) rn.textContent=(c.display_name||c.class_name||'')+' · 学生观察';
-      if(rm) rm.textContent=(lgStageLabel(S.ui.stage)||S.ui.dept)+' · 请选择学生开始填写';
+      if(rm) rm.textContent=(lgStageLabel(S.ui.stage)||S.ui.dept);
 
-      const domains=document.getElementById('domains');
-      if(domains) domains.style.display='none';
-      ['dailyFold','summaryFold'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});
-
-      // Always enter in roster mode (restore if a previous session left fill mode open).
-      const _board=document.querySelector('#s-review .lg-roster-board'); if(_board) _board.style.display='';
-      const _fb=document.getElementById('lg-fillbody'); if(_fb) _fb.style.display='none';
-      const _fn=document.getElementById('lg-fillnav'); if(_fn) _fn.style.display='none';
-      const _home=document.getElementById('lg-btn-home'); if(_home) _home.style.display='';
-      const _fin=document.getElementById('lg-btn-finish'); if(_fin) _fin.style.display='none';
-
-      lgRenderClassRoster();
-      window.scrollTo({top:0,behavior:'auto'});
+      /* ══ v84（Owner 26-09 裁定 A）：回到最初的架构 —— 打开就直接看到评估项目，中间不再多一层名单。
+         接著哪一位：上次那一位还在这个班就接著填，否则第一位。换学生用「上一位 / 下一位」。 */
+      const _board=document.querySelector('#s-review .lg-roster-board'); if(_board) _board.style.display='none';
+      const _here=roster.some(s=>String(s.id)===String(S.ui.studentId));
+      lgOpenRosterStudent(_here?S.ui.studentId:roster[0].id);
     };
 
     // Default behavior mirrors ObsGo: no fake preselected class.
@@ -1207,7 +1194,7 @@ try{var _vb=document.getElementById("verBadge");if(_vb&&typeof APP_VERSION!=="un
             <div class="lg-detail-item">
               <div class="lg-detail-item-title">${it.label}</div>
               <div class="lg-detail-options">
-                ${it.options.map(op=>`<button type="button" class="lg-detail-opt ${saved[it.id]===op?'on':''}" onclick="event.stopPropagation();lgSetDetail('${key}','${it.id}',${JSON.stringify(op)})">${op}</button>`).join('')}
+                ${it.options.map(op=>`<button type="button" class="lg-detail-opt ${saved[it.id]===op?'on':''}" onclick="event.stopPropagation();lgSetDetail('${key}','${it.id}',${esc(JSON.stringify(op))})">${op}</button>`).join('')}
               </div>
             </div>`).join('')}
           <textarea class="lg-supp-note" placeholder="${notePlaceholder||'具体例子（选填）'}" oninput="lgSetDailyText('${noteKey}',this.value)">${esc(d[noteKey]||'')}</textarea>
@@ -1265,7 +1252,7 @@ try{var _vb=document.getElementById("verBadge");if(_vb&&typeof APP_VERSION!=="un
         </div>
         <div class="lg-supp-body">
           <div class="lg-supp-hint">${hint}</div>
-          <div class="chips">${items.map(x=>`<button type="button" class="chip ${chosen.has(x)?'on':''}" onclick="event.stopPropagation();lgToggleDailyArray('${key}',${JSON.stringify(x)})">${x}</button>`).join('')}</div>
+          <div class="chips">${items.map(x=>`<button type="button" class="chip ${chosen.has(x)?'on':''}" onclick="event.stopPropagation();lgToggleDailyArray('${key}',${esc(JSON.stringify(x))})">${x}</button>`).join('')}</div>
           <textarea class="lg-supp-note" placeholder="${notePlaceholder||'具体例子（选填）'}" oninput="lgSetDailyText('${noteKey}',this.value)">${esc(d[noteKey]||'')}</textarea>
         </div>
       </div>`;
@@ -1612,8 +1599,60 @@ try{var _vb=document.getElementById("verBadge");if(_vb&&typeof APP_VERSION!=="un
     function groupLoveGoDomainCards(force=false){
       /* v77: custom grouping disabled — it fought the native teacher render. Use native renderDomains layout. */
       if(force && typeof renderDomains==='function'){ const _r=document.getElementById('domains'); if(_r)_r.dataset.grouped=''; renderDomains(); }
+      lgMountSuppZone();
       return;
     }
+
+    /* ══ v84 · 把 MASTER §5 的补充层挂回来 ══
+       v77 把分组关掉之後，appendDeptSpecificEvidence 只剩 groupLoveGoDomainCards_DISABLED 在呼叫，
+       等於再也没跑过；而且它靠 data-group 找卡片挂进去，找的名字（INDEPENDENCE / SRK_FREEPLAY /
+       GAK_* 七个）跟真实 taxonomy 的 grp（SCHOOL LIFE / CARE_ROUTINES / …）对不上，十一个区块只有一个接得上。
+       这里不恢复分组（免得又跟原生 render 打架），改成在 #domains 後面开一个独立补充区，
+       按 MASTER §5 的顺序放好空壳让它填，填不到的空壳直接移除（§7：不准出现空的类别）。
+       区块内容与用字一个字都不动。 */
+    /* SRK 没有环节，三个区块一起出（MASTER §5 顺序：自理 → 自由活动与社交 → 书写）。 */
+    const LG_SUPP_SRK=['INDEPENDENCE','SRK_FREEPLAY','LEARNING CAPACITY'];
+    /* GAK 是按环节进的，补充区块就跟著老师选的那个环节走 —— 这正是 MASTER 架构那一行写的
+       「Department / Age / Level → Navigation or Stage → Canonical Domain → …」。
+       环节来自 lgStageOptions()：transition / bath / lunch / homework / learning / nap（nap 只有 3–4 岁）。
+       「上课」那个环节的英文标签本身就写著 Learning · … · 自由活动与社交，所以社交与书写挂在上课底下。 */
+    const LG_SUPP_GAK={
+      transition:['GAK_ENTRY'],
+      bath:['GAK_BATH'],
+      lunch:['GAK_LUNCH'],
+      homework:['GAK_HOMEWORK'],
+      learning:['GAK_LEARNING','GAK_SOCIAL'],
+      nap:['GAK_NAP']
+    };
+    /* ATC 功课班／上课班：MASTER §5 标 HOLD（A1–A11 的对应尚未 Owner 裁定），不准自己发明 → 不放。
+       SRT：MASTER 没有补充层 → 不放。 */
+    function lgSuppSlotsNow(){
+      const dept=String(S?.ui?.dept||'').toUpperCase();
+      if(dept==='SRK') return LG_SUPP_SRK;
+      if(dept==='GAK') return LG_SUPP_GAK[String(S?.ui?.stage||'')]||[];
+      return [];
+    }
+    function lgMountSuppZone(){
+      const host=document.getElementById('domains');
+      if(!host) return;
+      document.getElementById('lg-supp-zone')?.remove();
+      const slots=lgSuppSlotsNow();
+      if(!slots||!slots.length) return;
+      const zone=document.createElement('div');
+      zone.id='lg-supp-zone';
+      zone.innerHTML=slots.map(k=>
+        `<div class="lg-group-card open" data-group="${k}" style="border:0;background:none;padding:0;margin:0">`+
+        `<div class="lg-group-body" style="display:block;padding:0"></div></div>`).join('');
+      host.after(zone);
+      try{ appendDeptSpecificEvidence(zone); }catch(e){ console.error('[LoveGo 补充层]',e); }
+      /* 没被填到的空壳移除（例如 5–6 岁没有午睡） */
+      [...zone.querySelectorAll('.lg-group-card')].forEach(c=>{
+        if(!c.querySelector('.lg-supp-block')) c.remove();
+      });
+      if(!zone.children.length) zone.remove();
+    }
+    window.lgMountSuppZone=lgMountSuppZone;
+
     function groupLoveGoDomainCards_DISABLED(force=false){
       const root=document.getElementById('domains');
       if(!root) return;
