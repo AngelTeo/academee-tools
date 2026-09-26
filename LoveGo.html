@@ -163,7 +163,7 @@ window.esc=esc;
 @media(max-width:700px){.lg-roster-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.lg-roster-board{padding:14px}}
 
 </style></head><body>
-<div class="gate" id="gate" style="display:none"><div class="gatebox"><div style="font-size:42px">💗</div><h2 id="gateTitle">正在确认你的登入…</h2><p id="gateMsg">LoveGo 会读取你的 Academee 身份与权限。</p><div id="gateAct"></div></div></div><div id="app"><header class="topbar"><button class="home" onclick="location.href='../index.html'">←</button><div class="brand">💗 LoveGo <span class="ver" id="verBadge">v81</span></div><button class="ntab on" data-p="collect" onclick="go('collect')">收集</button><button class="ntab" data-p="progress" onclick="go('progress')">进度</button><button class="ntab" id="manageTab" data-p="manage" onclick="go('manage')" style="display:none">设定</button><div class="navr"><span class="saved" id="saved"></span><button class="sync" id="sync">● 已保存</button><button class="navbtn" onclick="exportData()">↓ Export</button><label class="navbtn">↑ Import<input type="file" hidden accept=".json" onchange="importData(event)"></label><button class="logout" onclick="logout()">登出</button></div></header>
+<div class="gate" id="gate" style="display:none"><div class="gatebox"><div style="font-size:42px">💗</div><h2 id="gateTitle">正在确认你的登入…</h2><p id="gateMsg">LoveGo 会读取你的 Academee 身份与权限。</p><div id="gateAct"></div></div></div><div id="app"><header class="topbar"><button class="home" onclick="location.href='../index.html'">←</button><div class="brand">💗 LoveGo <span class="ver" id="verBadge">v82</span></div><button class="ntab on" data-p="collect" onclick="go('collect')">收集</button><button class="ntab" data-p="progress" onclick="go('progress')">进度</button><button class="ntab" id="manageTab" data-p="manage" onclick="go('manage')" style="display:none">设定</button><div class="navr"><span class="saved" id="saved"></span><button class="sync" id="sync">● 已保存</button><button class="navbtn" onclick="exportData()">↓ Export</button><label class="navbtn">↑ Import<input type="file" hidden accept=".json" onchange="importData(event)"></label><button class="logout" onclick="logout()">登出</button></div></header>
 <main class="shell">
 <section class="screen on" id="s-collect">
   <div class="hero">
@@ -222,7 +222,7 @@ window.esc=esc;
 <section class="screen" id="s-manage"><div class="hero"><div class="eyebrow">Settings</div><h1>LoveGo 设定</h1></div><div class="manage-card"><h3>① 我的身份</h3><div class="lines" id="m1"></div></div><div class="manage-card"><h3>② 系统资讯</h3><div class="lines">系统名：LoveGo<br>版本：<span id="verText">v61</span><br>资料笔数：<span id="mcount">0</span></div></div><div class="manage-card"><h3>⑤ 资料备份</h3><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="ghost" onclick="exportData()">Export JSON</button><button class="ghost" onclick="exportCSV()">Export CSV</button><label class="ghost" style="display:inline-flex;align-items:center;cursor:pointer">Import<input type="file" hidden accept=".json" onchange="importData(event)"></label><button class="ghost" onclick="window.print()">列印</button></div></div></section>
 </main><div class="toast" id="toast"></div>
 <script>
-const APP_VERSION=81,KEY='lovego';
+const APP_VERSION=82,KEY='lovego';
 const SUPABASE_URL='https://qnpvqsvvsgsantekgfbz.supabase.co';
 const SUPABASE_KEY='sb_publishable_v3Y3BD3XiPz33t-hfdX58g_BaFIkjPF';
 const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true}});
@@ -1722,4 +1722,222 @@ try{var _vb=document.getElementById("verBadge");if(_vb&&typeof APP_VERSION!=="un
   },300);
 })();
 </script>
-</div><div class="lg-student-modal" id="lg-student-modal"><div class="lg-student-sheet"><div class="lg-student-sheet-head"><div><h2>加入填写学生</h2><div class="sub">选择今天要记录的学生；没有被加入 ≠ 没有进步或表现不好。</div></div><button class="lg-modal-x" onclick="lgCloseStudentPicker()">×</button></div><div class="lg-picker-grid" id="lg-picker-grid"></div></div></div></body></html>
+</div><div class="lg-student-modal" id="lg-student-modal"><div class="lg-student-sheet"><div class="lg-student-sheet-head"><div><h2>加入填写学生</h2><div class="sub">选择今天要记录的学生；没有被加入 ≠ 没有进步或表现不好。</div></div><button class="lg-modal-x" onclick="lgCloseStudentPicker()">×</button></div><div class="lg-picker-grid" id="lg-picker-grid"></div></div></div>
+<script>/* ══════ v82 · 派老师（Platform Ops 26-09-2026）══════
+   Owner 25-09 裁定：每生几位老师 SRK 4 · GAK 2 · ATC 4 · SRT 1；管理层（MAI/SQ/JN 等）不被派工。
+   Owner 26-09：「简单」—— 一班选老师，全班学生一次派好；不做逐生设定、不做 CSV。
+   资料库那一半早就有：lovego_set_class_assignment_v2（一班 1–4 位老师 → 全班学生的派工 + 少于 4 位时的人数设定）。
+   本段自给自足：自己读资料、自己画，不依赖旧的 assign 页（那一页调用的 renderAssignments 不存在）。 */
+(function(){
+  const NEED={SRK:4,GAK:2,ATC:4,SRT:1};
+  const ORDER=['SRK','GAK','ATC','SRT'];
+  const D={dept:'SRK',rows:[],teachers:{},loaded:false,busy:false,err:''};
+  const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const NAT=new Intl.Collator(undefined,{numeric:true,sensitivity:'base'});
+
+  function cycle(){ try{return CLOUD.cycleMap&&CLOUD.cycleMap[S.ui.cycle]||null;}catch(_){return null;} }
+
+  async function load(){
+    const cyc=cycle(); if(!cyc) throw new Error('还没有本轮的评语周期');
+    const [c,rc,rec,t,ca]=await Promise.all([
+      sb.from('classes').select('id,department,class_name,display_name,sort_order,is_active'),
+      sb.from('lovego_department_report_context').select('student_id,department,authority_class_id,authority_resolved').eq('cycle_id',cyc.id),
+      sb.from('lovego_assignment_recommendation').select('class_id,teacher_id,student_id').eq('cycle_id',cyc.id).eq('status','pending'),
+      sb.rpc('lovego_teacher_roster'),
+      sb.from('lovego_class_assignment').select('class_id,teacher_id,slot_no').eq('cycle_id',cyc.id).eq('status','active')
+    ]);
+    for(const q of [c,rc,rec,t]) if(q.error) throw q.error;
+    D.teachers={}; (t.data||[]).forEach(x=>{ D.teachers[x.user_id]=x.display_name||x.email||'—'; });
+    const stu={}; (rc.data||[]).forEach(x=>{ if(x.authority_resolved&&x.authority_class_id) stu[x.authority_class_id]=(stu[x.authority_class_id]||0)+1; });
+    const sug={}; (rec.data||[]).forEach(x=>{ if(!D.teachers[x.teacher_id]) return;   /* 只列老师，管理层不派工 */
+      const m=(sug[x.class_id]=sug[x.class_id]||{}); (m[x.teacher_id]=m[x.teacher_id]||new Set()).add(x.student_id); });
+    const done={}; (ca.error?[]:(ca.data||[])).forEach(x=>{ (done[x.class_id]=done[x.class_id]||[]).push(x); });
+    const old={}; D.rows.forEach(r=>{ old[r.id]=r.pick; });
+    D.rows=(c.data||[]).filter(x=>x.is_active!==false && NEED[x.department] && stu[x.id]).map(x=>{
+      const s=sug[x.id]||{};
+      const suggest=Object.keys(s).sort((a,b)=>s[b].size-s[a].size||NAT.compare(D.teachers[a],D.teachers[b]));
+      const assigned=(done[x.id]||[]).sort((a,b)=>a.slot_no-b.slot_no).map(y=>y.teacher_id);
+      const need=NEED[x.department];
+      return {id:x.id, dept:x.department, name:x.display_name||x.class_name, sort:x.sort_order||0,
+        students:stu[x.id], need, suggest, assigned,
+        pick: old[x.id] || (assigned.length? assigned.slice() : suggest.slice(0,need))};
+    }).sort((a,b)=>a.sort-b.sort||NAT.compare(a.name,b.name));
+    D.loaded=true; D.err='';
+  }
+
+  function readyToBatch(r){ return !r.assigned.length && r.suggest.length>=r.need; }
+
+  function render(){
+    const root=document.getElementById('dispatchBody'); if(!root) return;
+    if(D.err){ root.innerHTML='<div class="card"><div class="meta" style="color:var(--danger)">读不到资料：'+esc(D.err)+'</div><button class="ghost" onclick="lgDispatchReload()">再试一次</button></div>'; return; }
+    if(!D.loaded){ root.innerHTML='<div class="card"><div class="meta">正在读取班级与老师…</div></div>'; return; }
+    const tabs=ORDER.map(d=>{ const rs=D.rows.filter(r=>r.dept===d), ok=rs.filter(r=>r.assigned.length).length;
+      return '<button class="chip'+(D.dept===d?' on':'')+'" onclick="lgDispatchDept(\''+d+'\')"><b>'+d+'</b> · 每生 '+NEED[d]+' 位<br><span style="font-size:11px">已派 '+ok+' / '+rs.length+' 班</span></button>'; }).join('');
+    const rs=D.rows.filter(r=>r.dept===D.dept);
+    const batch=rs.filter(readyToBatch);
+    let h='<div class="chips" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-bottom:12px">'+tabs+'</div>';
+    if(batch.length) h+='<div class="card" style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><div><b>'+batch.length+' 班的建议老师已经够数</b><div class="meta">一次派好：每班照下面预先勾好的老师</div></div><button class="primary" '+(D.busy?'disabled':'')+' onclick="lgDispatchBatch()">一次派好这 '+batch.length+' 班</button></div>';
+    h+=rs.map(r=>{
+      const others=Object.keys(D.teachers).filter(id=>r.suggest.indexOf(id)<0&&r.pick.indexOf(id)<0).sort((a,b)=>NAT.compare(D.teachers[a],D.teachers[b]));
+      const list=r.suggest.concat(r.pick.filter(id=>r.suggest.indexOf(id)<0));
+      const chips=list.map(id=>'<button class="chip'+(r.pick.indexOf(id)>=0?' on':'')+'" style="min-height:40px" onclick="lgDispatchToggle(\''+r.id+'\',\''+id+'\')">'+esc(D.teachers[id]||'—')+'</button>').join('');
+      const add=others.length?'<select onchange="lgDispatchAdd(\''+r.id+'\',this.value);this.value=\'\'" style="min-height:40px;border-radius:10px;border:.5px solid var(--bdr);padding:0 8px"><option value="">＋ 其他老师</option>'+others.map(id=>'<option value="'+id+'">'+esc(D.teachers[id])+'</option>').join('')+'</select>':'';
+      const status=r.assigned.length
+        ? '<span class="badge done" style="background:#e6f2ec;color:var(--ok)">✓ 已派：'+esc(r.assigned.map(id=>D.teachers[id]||'管理层').join('、'))+'</span>'
+        : '<span class="badge" style="background:#fbeee0;color:var(--warn)">还没派</span>';
+      const n=r.pick.length, same=r.assigned.length===n && r.assigned.every(id=>r.pick.indexOf(id)>=0);
+      const hint=n===0?'点老师名字选人':(n<r.need?'已选 '+n+' 位（规定 '+r.need+' 位）':'已选 '+n+' 位');
+      return '<div class="card"><div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center"><div><b>'+esc(r.dept+' · '+r.name)+'</b><div class="meta">'+r.students+' 位学生 · 每生 '+r.need+' 位老师</div></div>'+status+'</div>'+
+        '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px">'+(chips||'<span class="meta">系统没有建议的老师，请从右边选</span>')+add+'</div>'+
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;gap:10px;flex-wrap:wrap"><span class="meta">'+hint+'</span>'+
+        '<button class="primary" '+((D.busy||n<1||n>4||same)?'disabled':'')+' onclick="lgDispatchOne(\''+r.id+'\')">'+(r.assigned.length?'改派这一班':'派这一班')+'</button></div></div>';
+    }).join('') || '<div class="card"><div class="meta">这个部门没有需要派老师的班</div></div>';
+    root.innerHTML=h;
+  }
+
+  async function assign(r){
+    const cyc=cycle(); const n=r.pick.length;
+    const reason = n>=4 ? null : (n===r.need ? ('部门规定每生 '+r.need+' 位老师') : ('这一班只派 '+n+' 位老师（规定 '+r.need+' 位）'));
+    const q=await sb.rpc('lovego_set_class_assignment_v2',{p_cycle_id:cyc.id,p_class_id:r.id,p_teacher_ids:r.pick,p_exception_reason:reason});
+    if(q.error) throw q.error;
+    return q.data;
+  }
+  function human(e){
+    const m=String(e&&e.message||e);
+    if(/locked after review/i.test(m)) return '这一班已经有老师交了评语，不能整班改派';
+    if(/management only|authorization/i.test(m)) return '这个帐号没有派工权限';
+    return '没派成功，请再按一次；还是不行请截图找管理层';
+  }
+
+  window.lgDispatchDept=d=>{ D.dept=d; render(); };
+  window.lgDispatchToggle=(cid,tid)=>{ const r=D.rows.find(x=>x.id===cid); if(!r) return;
+    const i=r.pick.indexOf(tid); if(i>=0) r.pick.splice(i,1); else { if(r.pick.length>=4){ toast('一班最多 4 位老师'); return; } r.pick.push(tid); } render(); };
+  window.lgDispatchAdd=(cid,tid)=>{ if(tid) window.lgDispatchToggle(cid,tid); };
+  window.lgDispatchOne=async cid=>{ const r=D.rows.find(x=>x.id===cid); if(!r||D.busy) return;
+    D.busy=true; render();
+    try{ const res=await assign(r); await load(); toast('✓ '+r.name+' 已派好（'+(res&&res.student_count!=null?res.student_count:r.students)+' 位学生）'); }
+    catch(e){ console.error('[LoveGo 派老师]',e); toast('✕ '+human(e)); }
+    finally{ D.busy=false; render(); } };
+  window.lgDispatchBatch=async ()=>{ if(D.busy) return;
+    const rs=D.rows.filter(r=>r.dept===D.dept && readyToBatch(r));
+    if(!rs.length) return;
+    if(!confirm('要一次派好 '+D.dept+' 的 '+rs.length+' 班吗？\n\n每班照画面上已勾好的老师派，派了老师就会看到要写的学生。')) return;
+    D.busy=true; render(); let ok=0, bad=[];
+    for(const r of rs){ try{ await assign(r); ok++; }catch(e){ console.error('[LoveGo 派老师]',r.name,e); bad.push(r.name); } }
+    try{ await load(); }catch(_){}
+    D.busy=false; render();
+    toast(bad.length ? ('派好 '+ok+' 班；没成功：'+bad.join('、')) : ('✓ 派好 '+ok+' 班'));
+  };
+  window.lgDispatchReload=async ()=>{ D.err=''; D.loaded=false; render(); try{ await load(); }catch(e){ D.err=human(e); console.error('[LoveGo 派老师]',e); } render(); };
+
+  /* 接进导航：只给管理层；go('dispatch') 时读资料 */
+  function install(){
+    if(typeof go!=='function'||typeof isAdmin!=='function'||!document.getElementById('manageTab')) return setTimeout(install,100);
+    if(!document.getElementById('s-dispatch')){
+      const sec=document.createElement('section'); sec.className='screen'; sec.id='s-dispatch';
+      sec.innerHTML='<div class="hero"><div class="eyebrow">LoveGo</div><h1>派老师</h1><div class="sub">一班选好老师，全班学生一次派好。派了之后，老师就会在「收集」看到要写的学生。</div></div><div id="dispatchBody"></div>';
+      (document.getElementById('s-manage')||document.body).insertAdjacentElement('beforebegin',sec);
+      const tab=document.createElement('button'); tab.className='ntab'; tab.id='dispatchTab'; tab.dataset.p='dispatch'; tab.textContent='派老师'; tab.style.display='none';
+      tab.onclick=()=>go('dispatch');
+      document.getElementById('manageTab').insertAdjacentElement('beforebegin',tab);
+    }
+    const _go=go;
+    window.go=go=function(p){
+      if(p==='dispatch'){
+        if(!isAdmin()){ toast('没有管理权限'); p='collect'; }
+        else { document.querySelectorAll('.screen').forEach(x=>x.classList.remove('on')); document.querySelectorAll('.ntab').forEach(x=>x.classList.remove('on'));
+          document.getElementById('s-dispatch').classList.add('on'); document.getElementById('dispatchTab').classList.add('on');
+          render(); window.lgDispatchReload(); return; }
+      }
+      return _go.apply(this,arguments);
+    };
+    setInterval(()=>{ const t=document.getElementById('dispatchTab'); if(t){ const ok=isAdmin(); if((t.style.display!=='none')!==ok) t.style.display=ok?'':'none'; } },1000);
+  }
+  install();
+})();
+</script>
+
+<script>/* ══════ v82 · 输入即上云（Owner 26-09：「凡是输入的数据都上云，不管有没有按任何按钮」）══════
+   v81 的三个洞：
+     ① 勾选项只写进这台电脑，只有按「完成填写 ✓」才上云；按「← 回主页」一笔都不上去
+     ② 生活片段与补充那五个输入框，只有按「完成填写 ✓」时才被读取 —— 按「回主页」= 打的字整段丢掉
+     ③ 顶栏永远写死「● 已保存」，送不出去也照样这样写
+   本段只加不改：包住原本的 save()，每次输入就记一笔「还没上云」，停手 5 秒自动送，
+   切走 App / 关分页马上送，送不出去每 60 秒再试、网路回来立刻送、下次打开自动补送。 */
+(function(){
+  const AUTO_MS=5000, RETRY_MS=60000;
+  let timer=null, busy=false, pushing=false, booted=false;
+
+  const list=()=>{ try{ return Object.values(S.reviews||{}); }catch(_){ return []; } };
+  const locked=r=>!!(r&&(r.status==='completed'||r.submitted_at||r.locked_at));
+  const pending=()=>list().filter(r=>r&&r._dirty&&!locked(r));
+  const cloudReady=()=>{ try{ return !!(CLOUD&&CLOUD.available); }catch(_){ return false; } };
+  const isMgmt=()=>['OWNER','TOP_MGMT','MGMT','ADMIN'].includes(String(S.who&&S.who.role||'').toUpperCase());
+
+  function cur(){
+    try{ if(typeof currentReviewForStudent==='function'&&S.ui&&S.ui.studentId) return currentReviewForStudent(S.ui.studentId)||null; }catch(_){}
+    return null;
+  }
+  function paint(){
+    const n=pending().length, el=document.getElementById('sync'), s=document.getElementById('saved');
+    if(el){ el.textContent = busy ? '上传中…' : (n ? ('⚠ 未上云 '+n) : '☁ 已同步');
+      el.style.background = n && !busy ? '#fbeee0' : ''; el.style.color = n && !busy ? '#854F0B' : ''; }
+    if(s && !n && !busy) s.textContent='☁ 已同步 '+new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+  }
+  function mark(){
+    if(pushing) return;
+    const r=cur(); if(r&&!locked(r)) r._dirty=true;
+    paint(); schedule();
+  }
+  function schedule(){ clearTimeout(timer); timer=setTimeout(()=>flush(), AUTO_MS); }
+
+  async function flush(){
+    if(busy||pushing) return;
+    const rows=pending(); if(!rows.length){ paint(); return; }
+    if(!cloudReady()){ paint(); return; }
+    busy=true; paint();
+    for(const r of rows){
+      /* 还没派老师 → 云端没地方挂，留在本机，等派好了自动补送 */
+      if(!isMgmt() && !r.assignment_id) continue;
+      try{ await cloudUpsertReview(r,false); delete r._dirty; }
+      catch(e){ console.error('[LoveGo 自动上云]',e); break; }
+    }
+    busy=false;
+    pushing=true; try{ save(); }catch(_){} pushing=false;
+    paint();
+  }
+
+  /* 每次输入 → 记一笔 */
+  const _save=window.save;
+  window.save=function(){ const out=_save.apply(this,arguments); mark(); return out; };
+
+  /* 生活片段与补充：边打边存进这一份，不再等按钮（补洞 ②） */
+  const FIELD={dailyRoutine:'routine',dailySocial:'social',dailyEmotion:'emotion',dailyChange:'change'};
+  document.addEventListener('input',e=>{
+    const id=e.target&&e.target.id; if(!id) return;
+    if(!FIELD[id]&&id!=='summary') return;
+    const r=cur(); if(!r||locked(r)) return;
+    if(id==='summary') r.summary=e.target.value;
+    else { r.daily_life=r.daily_life||{}; r.daily_life[FIELD[id]]=e.target.value; }
+    r.updated_at=new Date().toISOString();
+    pushing=true; try{ _save(); }catch(_){} pushing=false;
+    r._dirty=true; paint(); schedule();
+  },true);
+
+  /* 切走 App / 关分页 → 马上送，不等 5 秒 */
+  document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='hidden'&&pending().length){ clearTimeout(timer); flush(); } });
+  window.addEventListener('pagehide',()=>{ if(pending().length){ clearTimeout(timer); flush(); } });
+  window.addEventListener('beforeunload',e=>{ if(pending().length){ e.preventDefault(); e.returnValue=''; } });
+  window.addEventListener('online',()=>{ if(pending().length) flush(); });
+  setInterval(()=>{ if(pending().length) flush(); }, RETRY_MS);
+
+  /* 开机补送：上次没送出去的，连上云端就自动送 */
+  (function boot(){
+    if(booted) return;
+    if(!cloudReady()) return setTimeout(boot,1000);
+    booted=true; paint(); if(pending().length) flush();
+  })();
+  window.lgFlushNow=flush;
+})();
+</script>
+</body></html>
