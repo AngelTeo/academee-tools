@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>MiscGo v2</title>
+<title>MiscGo v6</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
@@ -411,6 +411,13 @@ body.teacher-mode .teacher-hide{display:none !important;}
     border-radius:6px;padding:4px 12px;font-weight:700;font-size:12px;cursor:pointer;">立即更新</button>
 </div>
 
+<div id="mg-cloud-bar" style="display:none;position:fixed;left:0;right:0;bottom:0;z-index:99997;
+  background:#b91c1c;color:#fff;font-size:13px;font-weight:700;padding:9px 14px;text-align:center;
+  font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei',sans-serif">
+  <span id="mg-cloud-msg"></span>
+  <button onclick="mgFlushNow()" style="margin-left:10px;background:#fff;color:#b91c1c;border:0;
+    border-radius:6px;padding:4px 12px;font-weight:700;font-size:12px;cursor:pointer;">立刻再试</button>
+</div>
 <!-- ══ ENTRY SCREEN ══ -->
 <div class="scr on" id="s-entry">
   <div class="entry-inner">
@@ -551,7 +558,7 @@ body.teacher-mode .teacher-hide{display:none !important;}
    \u6539\u7248\u89c4\u5219\uff1a\u53ea\u7528\u6574\u6570\uff0c\u4e14\u4e09\u5904\u5fc5\u987b\u540c\u65f6\u6539 \u2014\u2014
    \u2460 <title>  \u2461 \u4e3b\u9875\u9876\u680f\u7684\u7248\u672c\u5fbd\u7ae0  \u2462 \u4e0b\u9762\u8fd9\u4e2a\u5e38\u6570
    \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550 */
-const APP_VERSION = 5;
+const APP_VERSION = 6;
 
 const B='\u2980';
 const H=(n,e='')=>`*${B}${B}${B}${B} ${n} ${B}${B}${B}${B}*`+(e?` ${e}`:'');
@@ -1481,9 +1488,19 @@ async function syncStudentsFromSupabase(){
     if(error){ console.warn('Supabase students sync failed:',error.message); return; }
     if(!data||!data.length) return;
 
-    /* 已退班 / 已停的不要拉进来 */
-    const live=data.filter(r=>r.enrollment_active!==false && (r.status||'')!=='Stopped');
+    /* v6（Owner 26-09 裁示）：三种状态全列，名册去重後 366 人。
+       老师补记旧事时会需要 RSVP / Stopped 的孩子，挡掉等於静默漏人。 */
+    const live=data;
     if(!live.length) return;
+
+    /* v6 · 两把钥匙：名册这支 student_id 是 uuid（= hub_students.legacy_uuid），
+       但 records.student_id 存的是 hub_students.id（std_xxxx，2613 笔无例外）。
+       写错格式这一栏会变成一半 uuid 一半 std_，所以在这里先换成 std_ 再往下传。 */
+    let _sidByUuid={};
+    try{
+      const hs=await _sb.from('hub_students').select('id,legacy_uuid');
+      if(!hs.error && hs.data) hs.data.forEach(r=>{ if(r.legacy_uuid) _sidByUuid[r.legacy_uuid]=r.id; });
+    }catch(_){}
 
     /* 部门优先序：决定哪一班算「主班」，颜色跟 FORGOT 预设清单看它。
        排在前面的赢。GAK 在 index 注册表里本来就跟 SRK 共用一张卡
@@ -1495,7 +1512,7 @@ async function syncStudentsFromSupabase(){
       if(!nm) return;
       const id=r.student_id||('name:'+nm);
       let e=byId.get(id);
-      if(!e){ e={name:nm, rows:[]}; byId.set(id,e); }
+      if(!e){ e={name:nm, rows:[], uuid:r.student_id||null}; byId.set(id,e); }
       e.rows.push({cls:r.class_name||'', dep:r.department||''});
     });
 
@@ -1509,6 +1526,7 @@ async function syncStudentsFromSupabase(){
       const main=rows[0];
       const extra=rows.slice(1).map(r=>r.cls).filter(Boolean);
       out.push({
+        sid  : (e.uuid && _sidByUuid[e.uuid]) || '',   /* v6：hub_students.id，records 要的就是这个 */
         name : e.name,
         cls  : main.cls||'',
         prog : main.dep||'SRK',
@@ -1547,9 +1565,19 @@ async function pushRecordToSupabase(rec){
       parent_notified:rec.parentNotified||false,
       schedule_id:rec.schedule_id||null,
     };
+    /* ══ v6 · student_id 真的送上去 ══
+       栏位一直都在，2613 笔也都填著 std_xxxx，只是前端从来没送。
+       名字优先用当初「点选」时钉住的 id；旧纪录没有 id 才退回用名字回查。
+       名册有一组同名同姓，所以名字回查只当最后手段，对不上就留空，不硬猜。 */
+    const _sidOf=(name)=>{
+      const pinned=(rec.studentIds||{})[name];
+      if(pinned) return pinned;
+      const hit=(S.students||[]).filter(x=>String(x.name||'').toUpperCase()===String(name||'').toUpperCase());
+      return (hit.length===1 && hit[0].sid) ? hit[0].sid : null;
+    };
     const rows=(rec.students||[]).length?
-      (rec.students||[]).map(name=>({...base,student_name:name})):
-      [{...base,student_name:'(no student)'}];
+      (rec.students||[]).map(name=>({...base,student_name:name,student_id:_sidOf(name)})):
+      [{...base,student_name:'(no student)',student_id:null}];
     let {data,error}=await _sb.from('records').insert(rows).select();
     // Fallback: if report_date column doesn't exist, retry without it
     if(error&&String(error.message||'').toLowerCase().includes('report_date')){
@@ -2358,7 +2386,7 @@ function renderFields(){
    if(_skipMgmt)return;
    h+=`<div class="frow"><label>${f.label}${f.req?`<span class="req"> *</span>`:''}</label>`;
    const def=(f.id==='reported'||f.id==='checked')?ini:(f.type==='date'?today():f.type==='time'?nowT():'');
-   if(f.type==='student')h+=`<div class="stu-wrap" style="position:relative;"><input type="text" id="f_${f.id}" placeholder="Type or tap student…" list="stu-datalist-shared" autocomplete="off" oninput="this.value=this.value.toUpperCase()" style="text-transform:uppercase;background:var(--sur);padding-right:36px;"><button type="button" onclick="openStuPicker('f_${f.id}')" title="Tap to pick" style="position:absolute;right:4px;top:50%;transform:translateY(-50%);background:var(--sur);border:.5px solid var(--bdr);border-radius:50%;width:28px;height:28px;padding:0;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;">👤</button></div>`;
+   if(f.type==='student')h+=`<div class="stu-wrap" style="position:relative;"><input type="text" id="f_${f.id}" placeholder="Tap to pick a student…" autocomplete="off" readonly onclick="openStuPicker('f_${f.id}')" style="text-transform:uppercase;background:var(--sur);padding-right:36px;cursor:pointer;"><button type="button" onclick="openStuPicker('f_${f.id}')" title="Tap to pick" style="position:absolute;right:4px;top:50%;transform:translateY(-50%);background:var(--sur);border:.5px solid var(--bdr);border-radius:50%;width:28px;height:28px;padding:0;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;">👤</button></div>`;
    else if(f.type==='text')h+=`<input type="text" id="f_${f.id}" value="${esc(def)}" placeholder="${esc(f.ph||'')}" ${f.upper?'oninput="this.value=this.value.toUpperCase()"':''}>`;
    else if(f.type==='date')h+=`<input type="date" id="f_${f.id}" value="${today()}">`;
    else if(f.type==='time')h+=`<input type="time" id="f_${f.id}" value="${nowT()}">`;
@@ -2391,7 +2419,7 @@ function renderEntry(f,entry,idx){
    }else if(s.type==='time'){
     h+=`<input type="time" id="me_${f.id}_${idx}_${s.id}" value="${entry[s.id]||''}" onchange="syncMe('${f.id}',${idx},'${s.id}',this.value)">`;
    }else if(s.type==='student'){
-    h+=`<div class="stu-wrap" style="position:relative;"><input type="text" id="me_${f.id}_${idx}_${s.id}" value="${esc(entry[s.id]||'')}" placeholder="Type or tap student…" list="stu-datalist-shared" autocomplete="off" oninput="this.value=this.value.toUpperCase();syncMe('${f.id}',${idx},'${s.id}',this.value)" style="text-transform:uppercase;background:var(--sur);padding-right:36px;"><button type="button" onclick="openStuPicker('me_${f.id}_${idx}_${s.id}')" title="Tap to pick" style="position:absolute;right:4px;top:50%;transform:translateY(-50%);background:var(--sur);border:.5px solid var(--bdr);border-radius:50%;width:28px;height:28px;padding:0;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;">👤</button></div>`;
+    h+=`<div class="stu-wrap" style="position:relative;"><input type="text" id="me_${f.id}_${idx}_${s.id}" value="${esc(entry[s.id]||'')}" placeholder="Tap to pick a student…" autocomplete="off" readonly onclick="openStuPicker('me_${f.id}_${idx}_${s.id}')" onchange="syncMe('${f.id}',${idx},'${s.id}',this.value)" style="text-transform:uppercase;background:var(--sur);padding-right:36px;"><button type="button" onclick="openStuPicker('me_${f.id}_${idx}_${s.id}')" title="Tap to pick" style="position:absolute;right:4px;top:50%;transform:translateY(-50%);background:var(--sur);border:.5px solid var(--bdr);border-radius:50%;width:28px;height:28px;padding:0;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;">👤</button></div>`;
    }else if(s.type==='select'){
     h+=`<select id="me_${f.id}_${idx}_${s.id}" onchange="syncMe('${f.id}',${idx},'${s.id}',this.value)"><option value="">— Select —</option>`;
     (s.opts||[]).forEach(o=>{const sel=entry[s.id]===o?' selected':'';h+=`<option value="${esc(o)}"${sel}>${esc(o)}</option>`;});
@@ -2444,7 +2472,7 @@ function renderForgotBlock(){
   return`<div id="forgot-block"><div class="sec-div">STUDENTS — ADD THEN TAP WHAT THEY FORGOT</div>
     <div class="stu-add-row">
       <div class="stu-wrap" style="flex:1;position:relative;">
-        <input type="text" id="stu-nn" placeholder="Type or tap student…" list="stu-datalist-shared" oninput="this.value=this.value.toUpperCase()" autocomplete="off" style="text-transform:uppercase;background:var(--sur);width:100%;border:.5px solid var(--bdr);border-radius:var(--rs);padding:11px 40px 11px 12px;font-family:'DM Sans',sans-serif;font-size:14px;outline:none;">
+        <input type="text" id="stu-nn" placeholder="Tap to pick a student…" readonly onclick="openStuPicker('stu-nn')" autocomplete="off" style="text-transform:uppercase;cursor:pointer;background:var(--sur);width:100%;border:.5px solid var(--bdr);border-radius:var(--rs);padding:11px 40px 11px 12px;font-family:'DM Sans',sans-serif;font-size:14px;outline:none;">
         <button type="button" onclick="openStuPicker('stu-nn')" title="Tap to pick" style="position:absolute;right:4px;top:50%;transform:translateY(-50%);background:var(--sur);border:.5px solid var(--bdr);border-radius:50%;width:28px;height:28px;padding:0;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;">👤</button>
       </div>
       <button onclick="addFS()">Add</button>
@@ -2479,7 +2507,10 @@ function addFS(){
   const inp=document.getElementById('stu-nn');
   const n=inp.value.trim().toUpperCase();if(!n){toast('Please select a student first',true);return;}
   if(forgotState.students.includes(n)){toast('Already added',true);return;}
-  forgotState.students.push(n);forgotState.items[n]=[];inp.value='';
+  forgotState.students.push(n);forgotState.items[n]=[];
+  /* v6：把选中的 hub_students.id 一起记住，送出时才不用靠名字猜 */
+  forgotState.sids=forgotState.sids||{}; forgotState.sids[n]=(inp.dataset.sids||'').split(',')[0]||'';
+  inp.value=''; inp.dataset.sids='';
   // Auto-detect prog from first student added
   if(!forgotState.prog||forgotState.students.length===1){
     const stu=S.students.find(s=>s.name===n);
@@ -2563,7 +2594,7 @@ function stuPickerSearch(q){
     h+='<div style="font-size:10px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.08em;padding:10px 0 4px;">'+cls+'</div>';
     byClass[cls].forEach(function(s){
       const col=pc[s.prog]||'#6b7280';
-      h+='<div data-name="'+s.name+'" data-cls="'+s.cls+'" onclick="stuPickerPick(this.dataset.name,this.dataset.cls)" style="display:flex;align-items:center;justify-content:space-between;padding:11px 12px;background:var(--sur);border-radius:var(--rs);margin-bottom:5px;cursor:pointer;border:.5px solid var(--bdr);">'
+      h+='<div data-name="'+s.name+'" data-cls="'+s.cls+'" data-sid="'+(s.sid||'')+'" onclick="stuPickerPick(this.dataset.name,this.dataset.cls,this.dataset.sid)" style="display:flex;align-items:center;justify-content:space-between;padding:11px 12px;background:var(--sur);border-radius:var(--rs);margin-bottom:5px;cursor:pointer;border:.5px solid var(--bdr);">'
         +'<span style="font-size:13px;font-weight:600;">'+s.name+(s.cls2?'<span style="font-weight:500;color:var(--mut);font-size:10.5px;"> · '+s.cls2+'</span>':'')+'</span>'
         +'<span style="font-size:11px;font-weight:700;color:'+col+';background:'+col+'15;padding:3px 9px;border-radius:10px;">'+s.cls+'</span>'
         +'</div>';
@@ -2571,24 +2602,31 @@ function stuPickerSearch(q){
   });
   list.innerHTML=h;
 }
-function stuPickerPick(name,cls){
-  if(_stuPickerTarget){
-    const inp=document.getElementById(_stuPickerTarget);
-    if(inp){
-      if(_stuPickerMode==='append'){
-        const cur=(inp.value||'').trim();
-        const existing=cur.split(/,\s*/).map(s=>s.trim().toUpperCase()).filter(Boolean);
-        if(!existing.includes(name.toUpperCase())){
-          inp.value=cur?cur+', '+name:name;
+function stuPickerPick(name,cls,sid){
+      /* v6：名字与 hub_students.id 一起带走。
+         名册有一组同名同姓（std_0120 / std_0121），单靠名字回查会认错人，
+         所以 id 从这里就钉在输入栏上，不在送出时才猜。 */
+      if(_stuPickerTarget){
+        const inp=document.getElementById(_stuPickerTarget);
+        if(inp){
+          if(_stuPickerMode==='append'){
+            const cur=(inp.value||'').trim();
+            const existing=cur.split(/,\s*/).map(s=>s.trim().toUpperCase()).filter(Boolean);
+            if(!existing.includes(name.toUpperCase())){
+              inp.value=cur?cur+', '+name:name;
+              const sids=(inp.dataset.sids||'').split(',').filter(Boolean);
+              sids.push(sid||''); inp.dataset.sids=sids.join(',');
+            }
+          }else{
+            inp.value=name;
+            inp.dataset.sids=sid||'';
+          }
+          inp.dispatchEvent(new Event('change'));
+          inp.dispatchEvent(new Event('input',{bubbles:true}));
         }
-      }else{
-        inp.value=name;
       }
-      inp.dispatchEvent(new Event('change'));
+      closeStuPicker();
     }
-  }
-  closeStuPicker();
-}
 // Legacy stubs (unused but kept for safety)
 function stuSearch(){}
 function stuPick(){}
@@ -2617,6 +2655,34 @@ function extractStudentsFromForm(){
     }
   });
   return[...students];
+}
+
+/* v6 · 把每个名字当初「点选」时钉住的 hub_students.id 抓出来。
+   名册有一组同名同姓，只靠名字回查会认错人，所以 id 要从输入栏带出来。 */
+function extractStudentIdsFromForm(){
+  const map={};
+  if(!curFmt)return map;
+  const put=(nm,sid)=>{ nm=String(nm||'').trim().toUpperCase(); if(nm&&sid) map[nm]=sid; };
+  curFmt.fields.forEach(f=>{
+    if(f.type==='student'){
+      const el=document.getElementById('f_'+f.id);
+      if(el) put(el.value, (el.dataset.sids||'').split(',')[0]);
+    }
+    if(f.type==='multi'){
+      (multiState[f.id]||[]).forEach((e,idx)=>{
+        (curFmt.fields||[]).forEach(()=>{});
+        Object.keys(e||{}).forEach(k=>{
+          const el=document.getElementById('me_'+f.id+'_'+idx+'_'+k);
+          if(el) put(el.value, (el.dataset.sids||'').split(',')[0]);
+        });
+      });
+    }
+    if(f.type==='forgot'){
+      const sids=forgotState.sids||{};
+      Object.keys(sids).forEach(nm=>put(nm,sids[nm]));
+    }
+  });
+  return map;
 }
 
 function saveDirectly(){
@@ -2662,7 +2728,7 @@ function saveDirectly(){
     cat:curFmt.cat,
     raw:curMsg,
     date:recDate,
-    students:students,
+    students:students,studentIds:(typeof extractStudentIdsFromForm==='function'?extractStudentIdsFromForm():{}),
     summary:summary,
     handled:false,
     parentNotified:false,
@@ -2727,7 +2793,7 @@ function generateAndSave(){
   S.records.unshift({
     id:'r_'+Date.now()+'_'+Math.random().toString(36).slice(2,5),
     type:curFmt.id,cat:curFmt.cat,raw:curMsg,
-    date:recDate,students:students,summary:summary,
+    date:recDate,students:students,studentIds:(typeof extractStudentIdsFromForm==='function'?extractStudentIdsFromForm():{}),summary:summary,
     handled:false,parentNotified:false,remarks:'',
     status:'open',followUpDate:'',createdAt:createdAt,
     savedBy:savedBy
@@ -4740,7 +4806,12 @@ async function archiveBirthdayEntry(idx){
     renderDrafts();
     renderDash();
     // Push to Supabase (best-effort)
-    pushRecordToSupabase(rec).catch(err=>console.warn('SB push:',err));
+    pushRecordToSupabase(rec).catch(err=>{
+      /* 坑 14：存档失败是静默的，画面照样说 Saved。失败一定要看得见。 */
+      console.error('SB push:',err);
+      toast('⚠ 这一笔没上云：'+(err&&err.message||err)+' —— 资料还在这台电脑，会自动再试。',12000);
+      try{ _mgMarkDirty&&_mgMarkDirty(); }catch(_){}
+    });
     toast(`✅ Saved: ${e.name} — ${iso}`);
   }catch(err){
     console.warn('archiveBirthdayEntry fail:',err);
@@ -5921,5 +5992,91 @@ function bulkFinish(){
   </div>
 </div>
 
+
+<script>/* ══════ v6 · 输入即上云（Owner 26-09：「凡是输入的数据都上云，不管有没有按任何按钮」）══════
+   §00A3 规则一：存档一律自动，走一个出口。规则三：指示器看云端不看本机。
+   Owner 26-09 裁示：七颗 Save 按钮保留（老师习惯不变），背后补自动上云。
+
+   v5 的洞：pushRecordToSupabase 只被那七颗按钮的处理器呼叫。按钮没按、
+   或按了但那一次推送失败（网路断、RLS 挡下），就没有第二次机会 ——
+   而且失败只写 console，画面照样说 Saved（操作手册坑 14）。
+
+   本段只加不改：
+     · 纪录一进 S.records 就排程上云，不等按钮
+     · 送不出去每 60 秒再试、网路回来立刻送、下次打开自动补送
+     · 还没上云的数量常驻红条（看 supabase_id，不看本机时间）
+     · 表单打到一半的字每次输入就存进这台电脑，关掉再开会问要不要接回去 */
+(function(){
+  const AUTO_MS=5000, RETRY_MS=60000, DRAFT_KEY='miscgo_form_draft_v6';
+  let timer=null, busy=false, booted=false;
+
+  const pending=()=>{ try{ return (S.records||[]).filter(r=>r&&!r.supabase_id); }catch(_){ return []; } };
+  window._mgPending=pending;
+
+  function paint(){
+    const n=pending().length;
+    const bar=document.getElementById('mg-cloud-bar'), msg=document.getElementById('mg-cloud-msg');
+    if(!bar||!msg) return;
+    if(busy){ bar.style.display='block'; bar.style.background='#b45309'; msg.textContent='正在上云… 还有 '+n+' 笔'; return; }
+    if(n){ bar.style.display='block'; bar.style.background='#b91c1c';
+           msg.textContent='⚠ 有 '+n+' 笔还没上云 —— 只在这台电脑，换台机器看不到'; }
+    else { bar.style.display='none'; }
+  }
+  window._mgMarkDirty=function(){ paint(); schedule(); };
+  function schedule(){ clearTimeout(timer); timer=setTimeout(flush, AUTO_MS); }
+
+  async function flush(){
+    if(busy) return;
+    const rows=pending(); if(!rows.length){ paint(); return; }
+    if(typeof _sb==='undefined' || !_sb){ paint(); return; }
+    busy=true; paint();
+    for(const rec of rows){
+      try{ await pushRecordToSupabase(rec); }
+      catch(e){ console.error('[MiscGo 自动上云]',e); break; }
+    }
+    busy=false; paint();
+  }
+  window.mgFlushNow=flush;
+
+  /* 任何输入都算一次「有东西还没送」，并把表单草稿存进这台电脑 */
+  function snapshotForm(){
+    try{
+      const f={};
+      document.querySelectorAll('#s-form input,#s-form textarea,#s-form select').forEach(el=>{
+        if(el.id) f[el.id]=el.value;
+      });
+      if(Object.keys(f).length) localStorage.setItem(DRAFT_KEY, JSON.stringify({t:Date.now(),f:f}));
+    }catch(_){}
+  }
+  let snapT=null;
+  document.addEventListener('input', ()=>{ clearTimeout(snapT); snapT=setTimeout(snapshotForm,400); paint(); schedule(); }, true);
+  document.addEventListener('change',()=>{ clearTimeout(snapT); snapT=setTimeout(snapshotForm,400); paint(); schedule(); }, true);
+
+  /* 切走 App / 关分页 → 马上送 */
+  document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='hidden'){ snapshotForm(); if(pending().length){ clearTimeout(timer); flush(); } } });
+  window.addEventListener('pagehide',()=>{ snapshotForm(); if(pending().length){ clearTimeout(timer); flush(); } });
+  window.addEventListener('online',()=>{ if(pending().length) flush(); });
+  setInterval(()=>{ if(pending().length) flush(); }, RETRY_MS);
+
+  /* 开机补送 + 问要不要接回打到一半的表单 */
+  (function boot(){
+    if(booted) return;
+    if(typeof S==='undefined' || typeof _sb==='undefined' || !_sb) return setTimeout(boot,1000);
+    booted=true; paint(); if(pending().length) flush();
+    try{
+      const raw=localStorage.getItem(DRAFT_KEY); if(!raw) return;
+      const d=JSON.parse(raw); const mins=Math.round((Date.now()-(d.t||0))/60000);
+      if(!d.f || mins>720) { localStorage.removeItem(DRAFT_KEY); return; }
+      window._mgRestoreDraft=function(){
+        Object.keys(d.f).forEach(id=>{ const el=document.getElementById(id); if(el) el.value=d.f[id]; });
+        localStorage.removeItem(DRAFT_KEY);
+        if(typeof toast==='function') toast('已接回上次打到一半的内容');
+      };
+      if(typeof toast==='function')
+        toast('上次有一份表单打到一半没送出（'+mins+' 分钟前）。要接回去就到表单页按一次「接回草稿」。',12000);
+    }catch(_){}
+  })();
+})();
+</script>
 </body>
 </html>
