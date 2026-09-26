@@ -163,7 +163,7 @@ window.esc=esc;
 @media(max-width:700px){.lg-roster-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.lg-roster-board{padding:14px}}
 
 </style></head><body>
-<div class="gate" id="gate" style="display:none"><div class="gatebox"><div style="font-size:42px">💗</div><h2 id="gateTitle">正在确认你的登入…</h2><p id="gateMsg">LoveGo 会读取你的 Academee 身份与权限。</p><div id="gateAct"></div></div></div><div id="app"><header class="topbar"><button class="home" onclick="location.href='../index.html'">←</button><div class="brand">💗 LoveGo <span class="ver" id="verBadge">v82</span></div><button class="ntab on" data-p="collect" onclick="go('collect')">收集</button><button class="ntab" data-p="progress" onclick="go('progress')">进度</button><button class="ntab" id="manageTab" data-p="manage" onclick="go('manage')" style="display:none">设定</button><div class="navr"><span class="saved" id="saved"></span><button class="sync" id="sync">● 已保存</button><button class="navbtn" onclick="exportData()">↓ Export</button><label class="navbtn">↑ Import<input type="file" hidden accept=".json" onchange="importData(event)"></label><button class="logout" onclick="logout()">登出</button></div></header>
+<div class="gate" id="gate" style="display:none"><div class="gatebox"><div style="font-size:42px">💗</div><h2 id="gateTitle">正在确认你的登入…</h2><p id="gateMsg">LoveGo 会读取你的 Academee 身份与权限。</p><div id="gateAct"></div></div></div><div id="app"><header class="topbar"><button class="home" onclick="location.href='../index.html'">←</button><div class="brand">💗 LoveGo <span class="ver" id="verBadge">v83</span></div><button class="ntab on" data-p="collect" onclick="go('collect')">收集</button><button class="ntab" data-p="progress" onclick="go('progress')">进度</button><button class="ntab" id="manageTab" data-p="manage" onclick="go('manage')" style="display:none">设定</button><div class="navr"><span class="saved" id="saved"></span><button class="sync" id="sync">● 已保存</button><button class="navbtn" onclick="exportData()">↓ Export</button><label class="navbtn">↑ Import<input type="file" hidden accept=".json" onchange="importData(event)"></label><button class="logout" onclick="logout()">登出</button></div></header>
 <main class="shell">
 <section class="screen on" id="s-collect">
   <div class="hero">
@@ -222,7 +222,7 @@ window.esc=esc;
 <section class="screen" id="s-manage"><div class="hero"><div class="eyebrow">Settings</div><h1>LoveGo 设定</h1></div><div class="manage-card"><h3>① 我的身份</h3><div class="lines" id="m1"></div></div><div class="manage-card"><h3>② 系统资讯</h3><div class="lines">系统名：LoveGo<br>版本：<span id="verText">v61</span><br>资料笔数：<span id="mcount">0</span></div></div><div class="manage-card"><h3>⑤ 资料备份</h3><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="ghost" onclick="exportData()">Export JSON</button><button class="ghost" onclick="exportCSV()">Export CSV</button><label class="ghost" style="display:inline-flex;align-items:center;cursor:pointer">Import<input type="file" hidden accept=".json" onchange="importData(event)"></label><button class="ghost" onclick="window.print()">列印</button></div></div></section>
 </main><div class="toast" id="toast"></div>
 <script>
-const APP_VERSION=82,KEY='lovego';
+const APP_VERSION=83,KEY='lovego';
 const SUPABASE_URL='https://qnpvqsvvsgsantekgfbz.supabase.co';
 const SUPABASE_KEY='sb_publishable_v3Y3BD3XiPz33t-hfdX58g_BaFIkjPF';
 const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true}});
@@ -1938,6 +1938,43 @@ try{var _vb=document.getElementById("verBadge");if(_vb&&typeof APP_VERSION!=="un
     booted=true; paint(); if(pending().length) flush();
   })();
   window.lgFlushNow=flush;
+})();
+</script>
+
+<script>/* ══════ v83 · 拿掉「分配老师」（Owner 26-09：功能跟「派老师」重叠就删掉）══════
+   两页都是派老师，旧那页一次只能一班、而且少于 4 位老师时不会自动记人数 → 闸门会卡在「未完整」。
+   做法：拿掉导航上的「分配老师」；那一页留着（「进度」页点学生会连过去），
+   但内容改成唯读 —— 只显示这一班现在派了谁，要改就去「派老师」。 */
+(function(){
+  function killTab(){ const t=document.getElementById('assignTab'); if(t&&t.parentNode) t.parentNode.removeChild(t); }
+  function install(){
+    if(typeof isAdmin!=='function'||typeof go!=='function') return setTimeout(install,100);
+    killTab(); setInterval(killTab,1000);
+    const ro=async function(){
+      if(!isAdmin()) return;
+      const root=document.getElementById('assignList'); if(!root) return;
+      const cl=(S.classes||[]).find(x=>x.id===S.ui.classId);
+      let names='尚未指定';
+      try{
+        const cyc=CLOUD.cycleMap&&CLOUD.cycleMap[S.ui.cycle];
+        if(cyc&&S.ui.classId){
+          const q=await sb.from('lovego_class_assignment').select('teacher_id,slot_no').eq('cycle_id',cyc.id).eq('class_id',S.ui.classId).eq('status','active');
+          const rows=(q.error?[]:(q.data||[])).sort((a,b)=>a.slot_no-b.slot_no);
+          if(rows.length) names=rows.map(x=>{ try{ return teacherName(x.teacher_id); }catch(_){ return '—'; } }).join('、');
+        }
+      }catch(_){}
+      root.innerHTML='<div class="card"><div class="title">这一班现在的老师</div>'+
+        '<div style="font-size:18px;font-weight:800;margin:4px 0">'+((cl&&(cl.display_name||cl.class_name))||'')+'</div>'+
+        '<div class="lines">负责老师：<b>'+names+'</b></div>'+
+        '<div class="sub" style="margin-top:8px">要派老师或换老师，请到上面的「派老师」。这一页只给你看现况。</div>'+
+        '<div class="actions"><button class="primary" onclick="go(\'dispatch\')">去派老师 →</button></div></div>';
+    };
+    window.renderAssignments=ro;
+    /* lovego-management.js 是後来才载入的，会把 renderAssignments 盖回去 —— 盯着，盖回来就再换成唯读版 */
+    let n=0; const guard=setInterval(()=>{ if(window.renderAssignments!==ro) window.renderAssignments=ro; if(++n>60) clearInterval(guard); },500);
+    const _go=go; window.go=go=function(p){ const r=_go.apply(this,arguments); if(p==='assign') try{ ro(); }catch(_){} return r; };
+  }
+  install();
 })();
 </script>
 </body></html>
