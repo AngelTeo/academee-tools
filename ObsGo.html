@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>ObsGo — 巡班观察 v13</title>
+<title>ObsGo — 巡班观察 v14</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root{
@@ -381,7 +381,7 @@ h1{font-size:26px;line-height:1.18;margin:8px 0 6px;font-weight:700}
 <div class="app" id="app" style="display:none">
   <header class="topbar">
     <button class="nav-home" onclick="goHomePlatform()" title="回平台">←</button>
-    <div class="nav-logo">🔭 ObsGo <span class="ver">v13</span></div>
+    <div class="nav-logo">🔭 ObsGo <span class="ver">v14</span></div>
     <button class="ntab on" data-nt="visit" onclick="goScreen('select')">巡班</button>
     <button class="ntab" data-nt="history" onclick="goScreen('history')">记录</button>
     <button class="ntab" id="nt-progress" data-nt="progress" onclick="goScreen('progress')" hidden style="display:none">进度</button>
@@ -1680,7 +1680,7 @@ function buildVisitInterpretations(v){
    本区块负责：硬闸登入 · Supabase 名单 · 幂等上传 · 作废 · 介面
    ⛔ 档内不写死任何学生姓名或班级 —— 一律从 Supabase 读
    ═══════════════════════════════════════════════════════════════════ */
-const APP_VERSION = 13;   /* 顶栏徽章、设定页、Export payload 共用这一个数字 */
+const APP_VERSION = 14;   /* 顶栏徽章、设定页、Export payload 共用这一个数字 */
 const STORAGE_KEY = 'obsgo_v2';
 const SYSTEM_CODE = 'OPR-ObsGo';
 
@@ -1799,7 +1799,8 @@ function writeLocal(payload){
   }catch(e){ return {ok:false, level:3, error:e.message||String(e)}; }
 }
 function save(now){
-  if(!now){ clearTimeout(_saveT); _saveT=setTimeout(()=>save(true),800); scheduleAutoPush(); return; }   /* §4-05 800ms debounce */
+  if(!now){ if(state.visit && !state.visit._browseOnly) state.visit._dirty=true;   /* v14：有新输入，还没打包上云 */
+    clearTimeout(_saveT); _saveT=setTimeout(()=>save(true),800); scheduleAutoPush(); return; }   /* §4-05 800ms debounce */
   state.meta.last_updated=new Date().toISOString();
   const payload=JSON.stringify({meta:state.meta, roster:state.roster, drafts:state.drafts,
     visitUid:state.visit?state.visit.client_uid:null, records:state.records, hiddenUids:state.hiddenUids, ui:state.ui});
@@ -1825,10 +1826,15 @@ function applyLoaded(p){
   /* 旧档只有单一 visit —— 迁移成一份草稿，绝不丢掉。 */
   state.drafts = (Array.isArray(p.drafts) ? p.drafts : (p.visit ? [p.visit] : [])).filter(Boolean);
   state.visit  = p.visitUid ? (state.drafts.find(d=>d.client_uid===p.visitUid) || null) : null;
+  /* v14：已完成的巡班也能接着填，那一份放在 records 里，重新整理后要找得回来 */
+  if(!state.visit && p.visitUid && Array.isArray(p.records))
+    state.visit = p.records.find(r=>r.client_uid===p.visitUid && r.status==='completed') || null;
   state.ui     = Object.assign({advOpen:false}, p.ui||{});
   /* ⛔ 绝不裁剪：未同步的纪录永远保留（ChatGPT 版 slice(0,30) 会静默丢资料） */
   state.records= Array.isArray(p.records)? p.records : [];
   state.hiddenUids= Array.isArray(p.hiddenUids)? p.hiddenUids : [];
+  if(state.visit && state.visit.status==='completed')
+    state.visit = state.records.find(r=>r.client_uid===state.visit.client_uid) || null;
 }
 function load(){
   const raw=localStorage.getItem(STORAGE_KEY);
@@ -2214,9 +2220,12 @@ function visitRow(v, actions, q){
     name:q?hl(nm0,q):nm0, meta:q?hl(mt0,q):mt0, html:!!q,
     cls:(v.status==='draft'?'draft':''),
     c1v:ctxDone+' / '+ctxTotal+' 入口',
-    c1p:ctxDone>=ctxTotal?pill('good','已完成'):(ctxDone?pill('warn','进行中'):pill('','未开始')),
+    /* v14：已完成的巡班是抽样，没记满全班不是「进行中」 */
+    c1p:v.status==='completed' ? (ctxDone?pill('good','已记 '+ctxDone+' 项'):pill('','没记班级'))
+        : (ctxDone>=ctxTotal?pill('good','已完成'):(ctxDone?pill('warn','进行中'):pill('','未开始'))),
     c2v:stuDone+' / '+stuTotal+' 位',
-    c2p:(stuTotal&&stuDone>=stuTotal)?pill('good','已完成'):(stuDone?pill('warn','进行中'):pill('','未开始')),
+    c2p:v.status==='completed' ? (stuDone?pill('good','抽看 '+stuDone+' 位'):pill('','没记学生'))
+        : ((stuTotal&&stuDone>=stuTotal)?pill('good','已完成'):(stuDone?pill('warn','进行中'):pill('','未开始'))),
     sync:left?pill('warn','待传 '+left):pill('good','✓ 已上云'),
     actions:actions
   });
@@ -2522,7 +2531,7 @@ function obsgoV9StartDraft(){
   if(!v || !v._browseOnly) return;
   v._browseOnly=false;
   if(!v.startedAt){ v.startedAt=nowHM(); v.startedTs=Date.now(); }
-  if(state.drafts.indexOf(v)<0) state.drafts.unshift(v);
+  keepAsDraft(v);
   save(true);
 }
 /* v9 · 回主页面：还在 browse-only（没输入任何东西）直接丢掉，不留幽灵草稿。
@@ -2556,6 +2565,9 @@ function startVisit(){
   const existing=state.drafts.find(d=>d.classId===c.id);
   if(existing){ state.visit=existing; save(true); resumeVisit();
     toast('接着上次「'+(c.display_name||c.class_name)+'」未完成的继续', 4000); return; }
+  /* v14：同一班每位老师只有一份巡班（Owner 26-09：简单，不问）。巡过、已完成 → 直接打开那一份接着填 */
+  const last=state.records.find(r=>r.classId===c.id && r.status==='completed');
+  if(last){ reopenRecord(last.client_uid); return; }
   /* 手上开着别班 → 自动存起来，不用问、也绝不丢。 */
   if(state.visit && !state.visit._browseOnly && state.drafts.indexOf(state.visit)<0) state.drafts.unshift(state.visit);
   state.visit=null;
@@ -3012,13 +3024,32 @@ function safeDuration(n){
 /* 自动上云：老师每改一次，停手 5 秒就送一次。不用按「储存」。
    同一笔用同一个编号送，重送只会覆盖，不会重复。 */
 var _autoT=null;
+/* v14 · 已完成的巡班接着填（TAY 26-09：「无法接着填」）。
+   做法：那一份留在「记录」、状态维持已完成 —— 云端的状态不会退回草稿，
+   已经进报告的观察不会因为打开来补填而暂时消失。新记的照样自动上云。 */
+function isReopened(v){ return !!(v && v.status==='completed' && state.records.indexOf(v)>=0); }
+function keepAsDraft(v){ if(!isReopened(v) && state.drafts.indexOf(v)<0) state.drafts.unshift(v); }
+function fillMissingMeta(v){
+  v.studentMeta=v.studentMeta||{};
+  rosterOf(v.classId).forEach(s=>{ if(!v.studentMeta[s.id]) v.studentMeta[s.id]={age:ageFromStudent(s), num:s.num}; });
+}
+function reopenRecord(uid){
+  const r=state.records.find(x=>x.client_uid===uid && x.status==='completed'); if(!r) return;
+  const h=healClassId(r);
+  if(!h.ok){ toast('✕ 这一份的班级对不上了（'+h.why+'）—— 请截图找管理层，不要重填', 12000); return; }
+  if(state.visit && state.visit!==r && !state.visit._browseOnly) keepAsDraft(state.visit);
+  fillMissingMeta(r);
+  r._browseOnly=false;
+  state.visit=r; save(true); resumeVisit();
+  toast('接着填「'+r.classLabel+'」（'+(r.dateLabel||r.date)+'）—— 新记的会自动上云', 5000);
+}
 function scheduleAutoPush(){
   clearTimeout(_autoT);
   _autoT=setTimeout(()=>{
     const v=state.visit;
     if(!v || v._browseOnly) return;
     if(CLOUD.busy){ scheduleAutoPush(); return; }       /* 正在传 → 等一下再来 */
-    if(state.drafts.indexOf(v)<0) state.drafts.unshift(v);
+    keepAsDraft(v);
     pushDraft(v).then(()=>{ paintSync(); });
   }, 5000);
 }
@@ -3026,20 +3057,20 @@ function finishVisit(){
   const v=state.visit; if(!v) return;
   const c=counts();
   if(!c.evi && !Object.keys(v.classContext).length){ toast('✕ 这次巡班还没有任何记录'); return; }
-  const totalStu=rosterOf(v.classId).length;
-  if(totalStu && c.students < totalStu){
-    if(!confirm('全班 '+totalStu+' 位，目前记录了 '+c.students+' 位。\n\n'+
-        '还没记完可以按「退出」，下次回来接着填。\n确定现在就完成这一班吗？')) return;
+  /* v14：巡班是抽看，不再问「全班几位只记了几位，确定完成吗」。随时可以再打开接着填。 */
+  const wasReopened=isReopened(v);
+  if(!wasReopened){
+    v.endedAt=nowHM();
+    /* ① 超过上限或没有开始时间 → 时长留空，整笔照收。旧版会算出 4270 然后整笔被资料库拒收。 */
+    v.durationMin = v.startedTs ? safeDuration(Math.max(1, Math.round((Date.now()-v.startedTs)/60000))) : null;
   }
-  v.endedAt=nowHM();
-  /* ① 超过上限或没有开始时间 → 时长留空，整笔照收。旧版会算出 4270 然后整笔被资料库拒收。 */
-  v.durationMin = v.startedTs ? safeDuration(Math.max(1, Math.round((Date.now()-v.startedTs)/60000))) : null;
   v.status='completed';   /* 六统一状态：完成巡班 = completed */
   v.summary=c;
   const rows=buildRows(v);
   v.rows=rows; v.synced=false;
   /* ⛔ 不存 interpretations —— 那是推论不是声明，且 trend 会随历史变动过期，改成读取时现算 */
   state.drafts=state.drafts.filter(x=>x.client_uid!==v.client_uid);   /* 完成了就不再是草稿 */
+  state.records=state.records.filter(x=>x.client_uid!==v.client_uid);  /* v14：接着填的那份不要出现两次 */
   state.records.unshift(v);
   state.visit=null;
   save(true);
@@ -3059,6 +3090,7 @@ function finishVisit(){
 }
 function discardVisit(){
   const v=state.visit; if(!v) return;
+  if(isReopened(v)){ parkVisit(); return; }   /* v14：已完成的那份按放弃 = 存好退出，绝不作废 */
   const c=counts();
   if(!confirm('放弃这次巡班？\n\n'+v.dept+' · '+v.classLabel+'\n已记录：学生 '+c.students+' 位 · '+c.evi+
       ' 条 evidence · 班级层 '+Object.keys(v.classContext).length+' 项\n\n这些资料会被丢掉，无法复原。')) return;
@@ -3069,8 +3101,8 @@ function discardVisit(){
 /* 存了退出 —— 巡班分好几次完成，这是常态动作，不是「完成」。 */
 /* 建列 + 上云。草稿的 status 一律 'draft'（DB CHECK 允许），完成时才改 completed。 */
 function pushDraft(v){
-  v.rows=buildRows(v);
-  v.status='draft';
+  v.rows=buildRows(v); v._dirty=false;
+  if(v.status!=='completed') v.status='draft';   /* v14：接着填已完成的那份，状态维持已完成 */
   /* 🔴 v12 P0-1：主档必须重新上传，否则 draft_json 会冻结在第一次上传的状态。
      cloudPush 的守卫是 if(!v.cloud_id || !v.synced)，不把 synced 打回 false，
      后面填的东西只会进明细表，主档快照永远是旧的 ——
@@ -3086,7 +3118,7 @@ function leftOf(v){
 function saveNow(){
   const v=state.visit; if(!v) return;
   if(v._browseOnly){ toast('还没有可储存的内容 —— 记一笔 evidence 再存'); return; }
-  if(state.drafts.indexOf(v)<0) state.drafts.unshift(v);
+  keepAsDraft(v);
   toast('储存中…', 1500);
   pushDraft(v).then(()=>{
     const left=leftOf(v);
@@ -3098,7 +3130,7 @@ function saveNow(){
 function parkVisit(){
   const v=state.visit; if(!v) return;
   if(v._browseOnly){ state.visit=null; showScreen('select'); renderSelect(); return; }   /* v9：没输入直接退，不留幽灵 */
-  if(state.drafts.indexOf(v)<0) state.drafts.unshift(v);
+  keepAsDraft(v);
   state.visit=null;
   pushDraft(v).then(()=>{
     const left=leftOf(v);
@@ -3177,6 +3209,7 @@ function pendingRows(){
   let n=0;
   /* 草稿也会上云，所以待送笔数要一起算。还没按过储存的草稿没有 rows，不算。 */
   state.drafts.concat(state.records).forEach(v=>{
+    if(v._dirty) n++;                /* v14：刚输入、还没打包的也算待送 */
     if(!v.rows) return;
     if(!v.synced) n++;
     v.rows.cls.forEach(r=>{ if(!r.synced) n++; });
@@ -3189,6 +3222,13 @@ async function cloudPush(silent){
   if(!CLOUD.ready){ if(!silent) toast('✕ 还没连上'); return; }
   if(state.roster.source!=='cloud'){ if(!silent) alert('名单不是从云端来的，不会上传。'); return; }
   if(!CLOUD.perm || CLOUD.perm.can_edit!==true){ if(!silent) alert('这个帐号没有填写权限。'); return; }
+  /* v14：刚输入、还没打包的先打包（5 秒内关掉网页、刷新、切 App 的那几笔） */
+  state.drafts.concat(state.records).forEach(v=>{
+    if(!v._dirty) return;
+    v.rows=buildRows(v);
+    if(v.status!=='completed' && v.status!=='cancelled') v.status='draft';
+    v.synced=false; v._dirty=false;
+  });
   CLOUD.busy=true; paintSync();
   let ok=0, fail=0; const errs=[];
   try{
@@ -3297,8 +3337,8 @@ function renderRecent(){
   const byDept={}; t.forEach(r=>byDept[r.dept]=(byDept[r.dept]||0)+1);
   const sum=Object.keys(byDept).map(d=>d+' '+byDept[d]).join(' · ');
   const shown=state.records.filter(r=>r.status!=='cancelled');   /* 作废的不在首页列 */
-  box.innerHTML='<div class="panel-title" style="margin:22px 3px 10px">今天完成 · '+t.length+' 班'+
-      (sum?('　'+sum):'')+'</div>'+
+  box.innerHTML='<div class="panel-title" style="margin:22px 3px 10px">最近巡班'+
+      '<span style="font-weight:400;opacity:.75">　今天 '+t.length+' 班'+(sum?(' · '+sum):'')+'</span></div>'+
     (shown.length? shown.slice(0,5).map(r=>visitRow(r,recActions(r))).join('')
                  : '<div class="empty">今天还没有巡班</div>')+
     (shown.length>5
@@ -3469,9 +3509,9 @@ function hl(text, q){
 }
 /* v12：一笔记录右边该给哪几颗按钮。行本身由 visitRow() 画，五处共用。 */
 function recActions(r){
-  return r.status==='cancelled'
-    ? [['移除',"removeRecord('"+r.client_uid+"')"]]
-    : [['作废',"openVoid('"+r.client_uid+"')"]];
+  if(r.status==='cancelled') return [['移除',"removeRecord('"+r.client_uid+"')"]];
+  if(r.status==='completed') return [['接着填',"reopenRecord('"+r.client_uid+"')"],['作废',"openVoid('"+r.client_uid+"')"]];
+  return [['作废',"openVoid('"+r.client_uid+"')"]];
 }
 function renderHistory(){
   const box=el('hist-body'); if(!box) return;
@@ -3624,6 +3664,10 @@ async function initApp(){
   /* ③ 自动再试：还有没送出去的，每 60 秒送一次；网路恢复也立刻送。 */
   setInterval(()=>{ if(pendingRows() && !CLOUD.busy) cloudPush(true); }, 60000);
   window.addEventListener('online', ()=>{ if(pendingRows()) cloudPush(true); });
+  /* v14：手机切到别的 App、关分页 —— 马上送，不等 5 秒 */
+  document.addEventListener('visibilitychange', ()=>{
+    if(document.visibilityState==='hidden' && pendingRows() && !CLOUD.busy){ clearTimeout(_autoT); save(true); cloudPush(true); }
+  });
   renderSelect(); renderHistory();
   /* 管理层：开机自动把全团队的进度读回来，不用按任何东西。
      放最後、不 await —— 读不到也不准挡住巡班本身。 */
@@ -3648,6 +3692,7 @@ window.resumeVisit = resumeVisit;
 window.parkVisit = parkVisit;
 window.saveNow = saveNow;
 window.resumeDraft = resumeDraft;
+window.reopenRecord = reopenRecord;
 window.pullMyVisits = pullMyVisits;
 window.discardDraft = discardDraft;
 window.startVisit = startVisit;
