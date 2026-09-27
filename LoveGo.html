@@ -163,7 +163,7 @@ window.esc=esc;
 @media(max-width:700px){.lg-roster-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.lg-roster-board{padding:14px}}
 
 </style></head><body>
-<div class="gate" id="gate" style="display:none"><div class="gatebox"><div style="font-size:42px">💗</div><h2 id="gateTitle">正在确认你的登入…</h2><p id="gateMsg">LoveGo 会读取你的 Academee 身份与权限。</p><div id="gateAct"></div></div></div><div id="app"><header class="topbar"><button class="home" onclick="location.href='../index.html'">←</button><div class="brand">💗 LoveGo <span class="ver" id="verBadge">v87</span></div><button class="ntab on" data-p="collect" onclick="go('collect')">收集</button><button class="ntab" data-p="progress" onclick="go('progress')">进度</button><button class="ntab" id="manageTab" data-p="manage" onclick="go('manage')" style="display:none">设定</button><div class="navr"><span class="saved" id="saved"></span><button class="sync" id="sync">● 已保存</button><button class="navbtn" onclick="exportData()">↓ Export</button><label class="navbtn">↑ Import<input type="file" hidden accept=".json" onchange="importData(event)"></label><button class="logout" onclick="logout()">登出</button></div></header>
+<div class="gate" id="gate" style="display:none"><div class="gatebox"><div style="font-size:42px">💗</div><h2 id="gateTitle">正在确认你的登入…</h2><p id="gateMsg">LoveGo 会读取你的 Academee 身份与权限。</p><div id="gateAct"></div></div></div><div id="app"><header class="topbar"><button class="home" onclick="location.href='../index.html'">←</button><div class="brand">💗 LoveGo <span class="ver" id="verBadge">v88</span></div><button class="ntab on" data-p="collect" onclick="go('collect')">收集</button><button class="ntab" data-p="progress" onclick="go('progress')">进度</button><button class="ntab" id="manageTab" data-p="manage" onclick="go('manage')" style="display:none">设定</button><div class="navr"><span class="saved" id="saved"></span><button class="sync" id="sync">● 已保存</button><button class="navbtn" onclick="exportData()">↓ Export</button><label class="navbtn">↑ Import<input type="file" hidden accept=".json" onchange="importData(event)"></label><button class="logout" onclick="logout()">登出</button></div></header>
 <main class="shell">
 <section class="screen on" id="s-collect">
   <div class="hero">
@@ -222,7 +222,7 @@ window.esc=esc;
 <section class="screen" id="s-manage"><div class="hero"><div class="eyebrow">Settings</div><h1>LoveGo 设定</h1></div><div class="manage-card"><h3>① 我的身份</h3><div class="lines" id="m1"></div></div><div class="manage-card"><h3>② 系统资讯</h3><div class="lines">系统名：LoveGo<br>版本：<span id="verText">v61</span><br>资料笔数：<span id="mcount">0</span></div></div><div class="manage-card"><h3>⑤ 资料备份</h3><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="ghost" onclick="exportData()">Export JSON</button><button class="ghost" onclick="exportCSV()">Export CSV</button><label class="ghost" style="display:inline-flex;align-items:center;cursor:pointer">Import<input type="file" hidden accept=".json" onchange="importData(event)"></label><button class="ghost" onclick="window.print()">列印</button></div></div></section>
 </main><div class="toast" id="toast"></div>
 <script>
-const APP_VERSION=87,KEY='lovego';
+const APP_VERSION=88,KEY='lovego';
 const SUPABASE_URL='https://qnpvqsvvsgsantekgfbz.supabase.co';
 const SUPABASE_KEY='sb_publishable_v3Y3BD3XiPz33t-hfdX58g_BaFIkjPF';
 const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true}});
@@ -1604,10 +1604,78 @@ try{var _vb=document.getElementById("verBadge");if(_vb&&typeof APP_VERSION!=="un
     window.lgToggleGroup=lgToggleGroup;
 
     function groupLoveGoDomainCards(force=false){
-      /* v77: custom grouping disabled — it fought the native teacher render. Use native renderDomains layout. */
-      if(force && typeof renderDomains==='function'){ const _r=document.getElementById('domains'); if(_r)_r.dataset.grouped=''; renderDomains(); }
-      lgMountSuppZone();
-      return;
+      /* v88（Owner 27-09）：接回 v61 的 CARD 1–5 分组。v77 关掉它之後 S1–S10 变成一长串、
+         补充区块被挤到最底下；v84 当时判断「group key 对不上」是拿 taxonomy grp 去比，比错对象 ——
+         补充区块要找的是 loveGoGroupSpec() 的 key，两边一直是对得上的。 */
+
+      const root=document.getElementById('domains');
+      if(!root) return;
+      if(force){root.dataset.grouped=''; if(typeof renderDomains==='function'){renderDomains(); return;}}
+      if(root.dataset.grouped==='1') return;
+
+      const domains=[...root.children].filter(x=>x.classList && x.classList.contains('domain'));
+      if(!domains.length) return;
+
+      const byCode=new Map();
+      domains.forEach(el=>{
+        const code=loveGoDomainCode(el);
+        if(code)byCode.set(code,el);
+      });
+      const frag=document.createDocumentFragment();
+
+      const activeDept=String(S?.ui?.dept||'').toUpperCase();
+      loveGoGroupSpec().forEach((g,idx)=>{
+        const members=g.codes.map(c=>byCode.get(c)).filter(Boolean);
+        const allowEmpty=(activeDept==='GAK');
+        if(!members.length && !allowEmpty) return;
+        const card=document.createElement('section');
+        card.className='lg-group-card';
+        card.dataset.group=g.key;
+        const isOpen=!!lgOpenState()[g.key];
+        if(isOpen) card.classList.add('open');
+        card.innerHTML=
+          `<div class="lg-group-head" onclick="lgToggleGroup('${g.key}')">
+             <div class="lg-group-head-main">
+               <div class="lg-group-kicker">CARD ${idx+1}</div>
+               <div class="lg-group-title">${g.title} · ${g.en}</div>
+               <div class="lg-group-sub">${g.sub}</div>
+             </div>
+             <div class="lg-group-toggle" role="button" aria-expanded="${isOpen?'true':'false'}">⌄</div>
+           </div>
+           <div class="lg-group-body"></div>`;
+        const body=card.querySelector('.lg-group-body');
+        members.forEach(el=>body.appendChild(el));
+        frag.appendChild(card);
+      });
+
+      // Any future/unknown domain stays visible in a final card; never drop evidence.
+      const used=new Set(loveGoGroupSpec().flatMap(g=>g.codes));
+      /* v88：v61 这里对 GAK 是直接丢掉 G1–G10（extras=[]）。没有任何文件裁定要藏，
+         照 Fail-Safe「不确定就不丢」，GAK 的 G1–G10 也收进最後一张卡。 */
+      const extras=domains.filter(el=>{
+        const code=loveGoDomainCode(el);
+        return !code || !used.has(code);
+      });
+      if(extras.length){
+        const card=document.createElement('section');
+        card.className='lg-group-card';
+        const otherOpen=!!lgOpenState()['OTHER'];
+        if(otherOpen) card.classList.add('open');
+        card.dataset.group='OTHER';
+        card.innerHTML=`<div class="lg-group-head" onclick="lgToggleGroup('OTHER')">
+          <div class="lg-group-head-main">
+            <div class="lg-group-kicker">${activeDept==='GAK'?'评估项目':'OTHER'}</div>
+            <div class="lg-group-title">${activeDept==='GAK'?'GAK 评估项目 · G1–G10':'其他观察 · Other'}</div>
+          </div>
+          <div class="lg-group-toggle" role="button" aria-expanded="${otherOpen?'true':'false'}">⌄</div>
+        </div><div class="lg-group-body"></div>`;
+        extras.forEach(el=>card.querySelector('.lg-group-body').appendChild(el));
+        frag.appendChild(card);
+      }
+
+      root.replaceChildren(frag);
+      root.dataset.grouped='1';
+      appendDeptSpecificEvidence(root);
     }
 
     /* ══ v84 · 把 MASTER §5 的补充层挂回来 ══
@@ -1659,6 +1727,38 @@ try{var _vb=document.getElementById("verBadge");if(_vb&&typeof APP_VERSION!=="un
       if(!zone.children.length) zone.remove();
     }
     window.lgMountSuppZone=lgMountSuppZone;
+
+    /* ══ v88 · 卡片分组守卫 ══
+       v77 关掉分组的原因（27-09 实测重现）：老师点任何一个选项，原生 renderDomains 会把
+       #domains 整个重画成 S1–S10 一长串，分组没有跟着再跑 → 卡片散掉、补充区块消失，换学生才回来。
+       CDN 里至少三支模组各自把 renderDomains 换成自己的版本，所以去「接」任何一支都会被别支盖掉。
+       它们最後都是写 #domains.innerHTML —— 所以这里直接盯 #domains：一出现散开的 .domain，
+       就在同一帧内收回卡片（MutationObserver 在画面绘制前执行，不会闪）。不碰任何一支模组。 */
+    (function lgGroupGuard(){
+      function hook(){
+        const root=document.getElementById('domains');
+        if(!root) return;
+        if(root.__lgGroupObs) return;
+        let busy=false;
+        const mo=new MutationObserver(()=>{
+          if(busy) return;
+          const loose=[...root.children].some(x=>x.classList&&x.classList.contains('domain'));
+          if(!loose) return;
+          busy=true;
+          try{
+            root.dataset.grouped='';
+            groupLoveGoDomainCards();
+            try{ lgWireDomainAccordions(); }catch(_){}
+          }catch(e){ console.error('[LoveGo 卡片分组]',e); }
+          finally{ busy=false; }
+        });
+        mo.observe(root,{childList:true});
+        root.__lgGroupObs=mo;
+      }
+      hook();
+      /* #domains 若整块被换掉，重新挂上 */
+      setInterval(hook,1000);
+    })();
 
     function groupLoveGoDomainCards_DISABLED(force=false){
       const root=document.getElementById('domains');
