@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>ObsGo — 巡班观察 v14</title>
+<title>ObsGo — 巡班观察 v15</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root{
@@ -381,7 +381,7 @@ h1{font-size:26px;line-height:1.18;margin:8px 0 6px;font-weight:700}
 <div class="app" id="app" style="display:none">
   <header class="topbar">
     <button class="nav-home" onclick="goHomePlatform()" title="回平台">←</button>
-    <div class="nav-logo">🔭 ObsGo <span class="ver">v14</span></div>
+    <div class="nav-logo">🔭 ObsGo <span class="ver">v15</span></div>
     <button class="ntab on" data-nt="visit" onclick="goScreen('select')">巡班</button>
     <button class="ntab" data-nt="history" onclick="goScreen('history')">记录</button>
     <button class="ntab" id="nt-progress" data-nt="progress" onclick="goScreen('progress')" hidden style="display:none">进度</button>
@@ -1680,7 +1680,7 @@ function buildVisitInterpretations(v){
    本区块负责：硬闸登入 · Supabase 名单 · 幂等上传 · 作废 · 介面
    ⛔ 档内不写死任何学生姓名或班级 —— 一律从 Supabase 读
    ═══════════════════════════════════════════════════════════════════ */
-const APP_VERSION = 14;   /* 顶栏徽章、设定页、Export payload 共用这一个数字 */
+const APP_VERSION = 15;   /* 顶栏徽章、设定页、Export payload 共用这一个数字 */
 const STORAGE_KEY = 'obsgo_v2';
 const SYSTEM_CODE = 'OPR-ObsGo';
 
@@ -1911,7 +1911,47 @@ async function bootstrapAuth(){
   }
   CLOUD.perm=perm; CLOUD.who=who; CLOUD.ready=true;
   el('gate').style.display='none'; el('app').style.display='';
+  await loadSentenceBank();
   await initApp();
+}
+
+/* ═══ v15 · 句库改读资料库（全平台只留一份：evidence_sentence）═══
+   28-09-2026 Owner：「在你这里做了」。
+   资料库那份是 27-09 从 LoveGo 画面冻结的；ObsGo 原本这 463 句跟它逐字相同、顺序相同（已逐句比对）。
+   做法：登入后读 evidence_sentence（行为句、画面会出现、没停用），按「部门 → 领域 → 年龄档 → 顺序」
+   把句子换进 DEPT_TAXONOMY 里「ObsGo 本来就有的领域」。
+   - 已有的句子位置不变；资料库新加的句子排在后面（S3 / S4 / S6 多 19 句旧句）
+   - 资料库有、ObsGo 没有的领域（SRK S11 日常自理）不加进来，领域清单仍是 ObsGo 自己的
+   - 读不到（断网、逾时、权限）→ 沿用档案里原本那一份，照常使用，不挡人
+   - 巡班纪录存的是句子原文，所以换来源不影响旧纪录 */
+const SENTENCE_BANK={source:'inline', rows:0, replaced:0, error:null};
+async function loadSentenceBank(){
+  try{
+    const q=await withTimeout(
+      _sb.from('evidence_sentence').select('dept,domain_code,age_band,position,label,level,shown,retired_at').eq('kind','BEHAVIOUR').limit(5000),
+      8000,'句库');
+    if(q.error) throw q.error;
+    const rows=(q.data||[]).filter(x=>x.shown!==false && !x.retired_at);
+    if(!rows.length) throw new Error('资料库句库是空的');
+    const g={};
+    rows.forEach(x=>{ const k=x.dept+'|'+x.domain_code+'|'+x.age_band; (g[k]||(g[k]=[])).push(x); });
+    let replaced=0;
+    Object.entries(DEPT_TAXONOMY).forEach(([dept,list])=>{
+      (list||[]).forEach(d=>{
+        if(!d||!d.beh) return;
+        const pick=band=>{ const a=g[dept+'|'+d.code+'|'+band]; return a&&a.length ? a.sort((p,q)=>p.position-q.position).map(x=>[x.label, x.level]) : null; };
+        if(Array.isArray(d.beh)){
+          const a=pick('NA'); if(a){ d.beh.splice(0, d.beh.length, ...a); replaced++; }
+        }else{
+          Object.keys(d.beh).forEach(band=>{ const a=pick(band); if(a){ d.beh[band]=a; replaced++; } });
+        }
+      });
+    });
+    SENTENCE_BANK.source='db'; SENTENCE_BANK.rows=rows.length; SENTENCE_BANK.replaced=replaced;
+  }catch(e){
+    SENTENCE_BANK.source='inline'; SENTENCE_BANK.error=String(e&&e.message||e);
+    console.warn('[ObsGo] 句库读不到，沿用档案内的一份：', SENTENCE_BANK.error);
+  }
 }
 _sb.auth.onAuthStateChange((e)=>{ if(e==='SIGNED_OUT') redirectToPlatformLogin(); });
 
@@ -3595,6 +3635,7 @@ function renderManage(){
   el('mg-system').innerHTML =
     mgLine('系统','<strong>ObsGo — 巡班观察</strong>')+
     mgLine('版本','<span class="ver">v'+APP_VERSION+'</span>')+
+    mgLine('句库', SENTENCE_BANK.source==='db' ? ('资料库 evidence_sentence · '+SENTENCE_BANK.rows+' 句') : ('档案内备份（资料库读不到：'+escapeHtml(SENTENCE_BANK.error||'')+'）'))+
     mgLine('Layer','OPR')+
     mgLine('权限码','<code>'+SYSTEM_CODE+'</code>')+
     mgLine('Storage','<code>'+STORAGE_KEY+'</code>')+
