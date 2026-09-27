@@ -163,7 +163,7 @@ window.esc=esc;
 @media(max-width:700px){.lg-roster-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.lg-roster-board{padding:14px}}
 
 </style></head><body>
-<div class="gate" id="gate" style="display:none"><div class="gatebox"><div style="font-size:42px">💗</div><h2 id="gateTitle">正在确认你的登入…</h2><p id="gateMsg">LoveGo 会读取你的 Academee 身份与权限。</p><div id="gateAct"></div></div></div><div id="app"><header class="topbar"><button class="home" onclick="location.href='../index.html'">←</button><div class="brand">💗 LoveGo <span class="ver" id="verBadge">v85</span></div><button class="ntab on" data-p="collect" onclick="go('collect')">收集</button><button class="ntab" data-p="progress" onclick="go('progress')">进度</button><button class="ntab" id="manageTab" data-p="manage" onclick="go('manage')" style="display:none">设定</button><div class="navr"><span class="saved" id="saved"></span><button class="sync" id="sync">● 已保存</button><button class="navbtn" onclick="exportData()">↓ Export</button><label class="navbtn">↑ Import<input type="file" hidden accept=".json" onchange="importData(event)"></label><button class="logout" onclick="logout()">登出</button></div></header>
+<div class="gate" id="gate" style="display:none"><div class="gatebox"><div style="font-size:42px">💗</div><h2 id="gateTitle">正在确认你的登入…</h2><p id="gateMsg">LoveGo 会读取你的 Academee 身份与权限。</p><div id="gateAct"></div></div></div><div id="app"><header class="topbar"><button class="home" onclick="location.href='../index.html'">←</button><div class="brand">💗 LoveGo <span class="ver" id="verBadge">v86</span></div><button class="ntab on" data-p="collect" onclick="go('collect')">收集</button><button class="ntab" data-p="progress" onclick="go('progress')">进度</button><button class="ntab" id="manageTab" data-p="manage" onclick="go('manage')" style="display:none">设定</button><div class="navr"><span class="saved" id="saved"></span><button class="sync" id="sync">● 已保存</button><button class="navbtn" onclick="exportData()">↓ Export</button><label class="navbtn">↑ Import<input type="file" hidden accept=".json" onchange="importData(event)"></label><button class="logout" onclick="logout()">登出</button></div></header>
 <main class="shell">
 <section class="screen on" id="s-collect">
   <div class="hero">
@@ -222,7 +222,7 @@ window.esc=esc;
 <section class="screen" id="s-manage"><div class="hero"><div class="eyebrow">Settings</div><h1>LoveGo 设定</h1></div><div class="manage-card"><h3>① 我的身份</h3><div class="lines" id="m1"></div></div><div class="manage-card"><h3>② 系统资讯</h3><div class="lines">系统名：LoveGo<br>版本：<span id="verText">v61</span><br>资料笔数：<span id="mcount">0</span></div></div><div class="manage-card"><h3>⑤ 资料备份</h3><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="ghost" onclick="exportData()">Export JSON</button><button class="ghost" onclick="exportCSV()">Export CSV</button><label class="ghost" style="display:inline-flex;align-items:center;cursor:pointer">Import<input type="file" hidden accept=".json" onchange="importData(event)"></label><button class="ghost" onclick="window.print()">列印</button></div></div></section>
 </main><div class="toast" id="toast"></div>
 <script>
-const APP_VERSION=85,KEY='lovego';
+const APP_VERSION=86,KEY='lovego';
 const SUPABASE_URL='https://qnpvqsvvsgsantekgfbz.supabase.co';
 const SUPABASE_KEY='sb_publishable_v3Y3BD3XiPz33t-hfdX58g_BaFIkjPF';
 const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true}});
@@ -1777,7 +1777,7 @@ try{var _vb=document.getElementById("verBadge");if(_vb&&typeof APP_VERSION!=="un
 (function(){
   const NEED={SRK:4,GAK:2,ATC:4,SRT:1};
   const ORDER=['SRK','GAK','ATC','SRT'];
-  const D={dept:'SRK',rows:[],teachers:{},loaded:false,busy:false,err:''};
+  const D={dept:'SRK',rows:[],teachers:{},loaded:false,busy:false,err:'',ho:{cid:null,from:'',to:'',reason:''}};
   const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const NAT=new Intl.Collator(undefined,{numeric:true,sensitivity:'base'});
 
@@ -1785,12 +1785,14 @@ try{var _vb=document.getElementById("verBadge");if(_vb&&typeof APP_VERSION!=="un
 
   async function load(){
     const cyc=cycle(); if(!cyc) throw new Error('还没有本轮的评语周期');
-    const [c,rc,rec,t,ca]=await Promise.all([
+    const [c,rc,rec,t,ca,rv]=await Promise.all([
       sb.from('classes').select('id,department,class_name,display_name,sort_order,is_active'),
       sb.from('lovego_department_report_context').select('student_id,department,authority_class_id,authority_resolved').eq('cycle_id',cyc.id),
       sb.from('lovego_assignment_recommendation').select('class_id,teacher_id,student_id').eq('cycle_id',cyc.id).eq('status','pending'),
       sb.rpc('lovego_teacher_roster'),
-      sb.from('lovego_class_assignment').select('class_id,teacher_id,slot_no').eq('cycle_id',cyc.id).eq('status','active')
+      sb.from('lovego_class_assignment').select('class_id,teacher_id,slot_no').eq('cycle_id',cyc.id).eq('status','active'),
+      /* v86：哪些班已经有人交评语 → 整班改派会被资料库挡，事先让画面知道 */
+      sb.from('lovego_review').select('class_id').eq('cycle_id',cyc.id).not('submitted_at','is',null)
     ]);
     for(const q of [c,rc,rec,t]) if(q.error) throw q.error;
     D.teachers={}; (t.data||[]).forEach(x=>{ D.teachers[x.user_id]=x.display_name||x.email||'—'; });
@@ -1798,6 +1800,7 @@ try{var _vb=document.getElementById("verBadge");if(_vb&&typeof APP_VERSION!=="un
     const sug={}; (rec.data||[]).forEach(x=>{ if(!D.teachers[x.teacher_id]) return;   /* 只列老师，管理层不派工 */
       const m=(sug[x.class_id]=sug[x.class_id]||{}); (m[x.teacher_id]=m[x.teacher_id]||new Set()).add(x.student_id); });
     const done={}; (ca.error?[]:(ca.data||[])).forEach(x=>{ (done[x.class_id]=done[x.class_id]||[]).push(x); });
+    const lock={}; (rv&&rv.error?[]:((rv&&rv.data)||[])).forEach(x=>{ lock[x.class_id]=true; });
     const old={}; D.rows.forEach(r=>{ old[r.id]=r.pick; });
     D.rows=(c.data||[]).filter(x=>x.is_active!==false && NEED[x.department] && stu[x.id]).map(x=>{
       const s=sug[x.id]||{};
@@ -1805,13 +1808,45 @@ try{var _vb=document.getElementById("verBadge");if(_vb&&typeof APP_VERSION!=="un
       const assigned=(done[x.id]||[]).sort((a,b)=>a.slot_no-b.slot_no).map(y=>y.teacher_id);
       const need=NEED[x.department];
       return {id:x.id, dept:x.department, name:x.display_name||x.class_name, sort:x.sort_order||0,
-        students:stu[x.id], need, suggest, assigned,
+        students:stu[x.id], need, suggest, assigned, locked: !!lock[x.id],
         pick: old[x.id] || (assigned.length? assigned.slice() : suggest.slice(0,need))};
     }).sort((a,b)=>a.sort-b.sort||NAT.compare(a.name,b.name));
     D.loaded=true; D.err='';
   }
 
   function readyToBatch(r){ return !r.assigned.length && r.suggest.length>=r.need; }
+
+  /* ══ v86 · 换人接手 ══
+     老师离职 / 请长假，评估做到一半要换人。走资料库现成的 lovego_replace_assignment：
+       · 旧的那笔派工封存，记下 replaced_assignment_id 与理由
+       · 旧老师若已交评语 → 标 counts_for_cycle=false ＋ invalidated_at ＋ 理由（不删，留证据）
+       · 新老师拿到同一个 slot 的新派工，从空白写
+     一位老师在一班可能对应很多笔（一个学生一笔），所以要逐笔换。 */
+  function handoverPanel(r){
+    if(!D.ho || D.ho.cid!==r.id) return '';
+    const inClass = r.assigned.slice();
+    const others = Object.keys(D.teachers).filter(id=>inClass.indexOf(id)<0)
+                     .sort((a,b)=>NAT.compare(D.teachers[a],D.teachers[b]));
+    const optFrom = inClass.map(id=>'<option value="'+id+'"'+(D.ho.from===id?' selected':'')+'>'+esc(D.teachers[id]||'—')+'</option>').join('');
+    const optTo   = others.map(id=>'<option value="'+id+'"'+(D.ho.to===id?' selected':'')+'>'+esc(D.teachers[id]||'—')+'</option>').join('');
+    const inp='min-height:44px;border:.5px solid var(--bdr);border-radius:10px;padding:0 10px;width:100%';
+    return '<div class="card" style="margin-top:10px;background:var(--sur2);border:.5px dashed var(--bdr)">'+
+      '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><b>换人接手</b>'+
+      '<button class="ghost" onclick="lgHandoverClose()">取消</button></div>'+
+      '<div class="meta" style="margin:6px 0 10px">这一班 '+r.students+' 位学生会一起换。'+
+      '旧老师写过的评语<b>留着当纪录</b>，但不计入这一轮，新老师要重写。</div>'+
+      '<div class="daily-grid" style="gap:10px">'+
+        '<label><span>把谁换掉</span><select style="'+inp+'" onchange="lgHandoverSet(\'from\',this.value)">'+
+          '<option value="">请选择</option>'+optFrom+'</select></label>'+
+        '<label><span>换成谁</span><select style="'+inp+'" onchange="lgHandoverSet(\'to\',this.value)">'+
+          '<option value="">请选择</option>'+optTo+'</select></label>'+
+      '</div>'+
+      '<label style="display:block;margin-top:10px"><span style="display:block;font-size:11px;font-weight:700;color:var(--mut);margin-bottom:3px">'+
+        '理由（必填，会永久存进纪录）</span>'+
+        '<input style="'+inp+'" placeholder="例：陈老师 9 月底离职，由林老师接手" value="'+esc(D.ho.reason||'')+'" oninput="lgHandoverSet(\'reason\',this.value)"></label>'+
+      '<div style="display:flex;justify-content:flex-end;margin-top:12px">'+
+        '<button class="primary" '+(D.busy?'disabled':'')+' onclick="lgHandoverGo()">确认换人</button></div></div>';
+  }
 
   function render(){
     const root=document.getElementById('dispatchBody'); if(!root) return;
@@ -1826,17 +1861,40 @@ try{var _vb=document.getElementById("verBadge");if(_vb&&typeof APP_VERSION!=="un
     h+=rs.map(r=>{
       const others=Object.keys(D.teachers).filter(id=>r.suggest.indexOf(id)<0&&r.pick.indexOf(id)<0).sort((a,b)=>NAT.compare(D.teachers[a],D.teachers[b]));
       const list=r.suggest.concat(r.pick.filter(id=>r.suggest.indexOf(id)<0));
-      const chips=list.map(id=>'<button class="chip'+(r.pick.indexOf(id)>=0?' on':'')+'" style="min-height:40px" onclick="lgDispatchToggle(\''+r.id+'\',\''+id+'\')">'+esc(D.teachers[id]||'—')+'</button>').join('');
+      /* v86：还没派的班，勾起来的是「建议」，用虚线外框跟「已派」的实心区分开 */
+      const isSug = !r.assigned.length;
+      const chips=list.map(id=>{ const on=r.pick.indexOf(id)>=0;
+        const st = on&&isSug ? 'min-height:40px;background:transparent;border:2px dashed var(--warn);color:var(--warn);font-weight:700' : 'min-height:40px';
+        return '<button class="chip'+(on?' on':'')+'" style="'+st+'" onclick="lgDispatchToggle(\''+r.id+'\',\''+id+'\')">'+esc(D.teachers[id]||'—')+'</button>'; }).join('');
       const add=others.length?'<select onchange="lgDispatchAdd(\''+r.id+'\',this.value);this.value=\'\'" style="min-height:40px;border-radius:10px;border:.5px solid var(--bdr);padding:0 8px"><option value="">＋ 其他老师</option>'+others.map(id=>'<option value="'+id+'">'+esc(D.teachers[id])+'</option>').join('')+'</select>':'';
       const status=r.assigned.length
         ? '<span class="badge done" style="background:#e6f2ec;color:var(--ok)">✓ 已派：'+esc(r.assigned.map(id=>D.teachers[id]||'管理层').join('、'))+'</span>'
-        : '<span class="badge" style="background:#fbeee0;color:var(--warn)">还没派</span>';
+        : '<span class="badge" style="background:#fbeee0;color:var(--warn)">还没派 · 下面是建议</span>';
       const n=r.pick.length, same=r.assigned.length===n && r.assigned.every(id=>r.pick.indexOf(id)>=0);
       const hint=n===0?'点老师名字选人':(n<r.need?'已选 '+n+' 位（规定 '+r.need+' 位）':'已选 '+n+' 位');
+
+      /* v86 ① 还没派 → 明写「这只是建议，要按下去才算数」 */
+      const sugNote = isSug
+        ? '<div class="alert" style="margin:10px 0 0;background:#fbeee0;color:#854F0B">下面勾好的是<b>系统建议</b>，还没送出。要按「派这一班」才算数。</div>'
+        : '';
+
+      /* v86 ② 已经有人交评语 → 事先讲，不要等按下去才吃错误 */
+      const lockNote = r.locked
+        ? '<div class="alert" style="margin:10px 0 0;background:#fbeee0;color:#854F0B">这一班<b>已经有老师交了评语</b>，不能再整班改派（资料库会挡）。要换人请用下面的<b>换人接手</b>。</div>'
+        : '';
+
+      /* v86 ③ 已派的班 → 给「换人接手」；老师离职、做到一半换人走这里 */
+      const hoBtn = r.assigned.length
+        ? '<button class="ghost" '+(D.busy?'disabled':'')+' onclick="lgHandoverOpen(\''+r.id+'\')">换人接手</button>'
+        : '';
+
+      const mainBtn = '<button class="primary" '+((D.busy||n<1||n>4||same||r.locked)?'disabled':'')+' onclick="lgDispatchOne(\''+r.id+'\')">'+(r.assigned.length?'改派这一班':'派这一班')+'</button>';
+
       return '<div class="card"><div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center"><div><b>'+esc(r.dept+' · '+r.name)+'</b><div class="meta">'+r.students+' 位学生 · 每生 '+r.need+' 位老师</div></div>'+status+'</div>'+
         '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px">'+(chips||'<span class="meta">系统没有建议的老师，请从右边选</span>')+add+'</div>'+
+        sugNote + lockNote + handoverPanel(r) +
         '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;gap:10px;flex-wrap:wrap"><span class="meta">'+hint+'</span>'+
-        '<button class="primary" '+((D.busy||n<1||n>4||same)?'disabled':'')+' onclick="lgDispatchOne(\''+r.id+'\')">'+(r.assigned.length?'改派这一班':'派这一班')+'</button></div></div>';
+        '<span style="display:flex;gap:8px;flex-wrap:wrap">'+hoBtn+mainBtn+'</span></div></div>';
     }).join('') || '<div class="card"><div class="meta">这个部门没有需要派老师的班</div></div>';
     root.innerHTML=h;
   }
@@ -1850,8 +1908,13 @@ try{var _vb=document.getElementById("verBadge");if(_vb&&typeof APP_VERSION!=="un
   }
   function human(e){
     const m=String(e&&e.message||e);
-    if(/locked after review/i.test(m)) return '这一班已经有老师交了评语，不能整班改派';
-    if(/management only|authorization/i.test(m)) return '这个帐号没有派工权限';
+    if(/locked after review/i.test(m)) return '这一班已经有老师交了评语，不能整班改派 —— 请用「换人接手」';
+    if(/management only|management permission|authorization/i.test(m)) return '这个帐号没有派工权限';
+    if(/active assignment not found/i.test(m)) return '找不到进行中的派工（可能已经被别人换过了，请重整一次）';
+    if(/replacement reason required/i.test(m)) return '这位老师已经交过评语，换人一定要写理由';
+    if(/1 to 4 teachers/i.test(m)) return '一班只能派 1 到 4 位老师';
+    if(/duplicate teacher/i.test(m)) return '同一位老师被选了两次';
+    if(/not active eligible staff/i.test(m)) return '这位老师的帐号不是在职状态，不能被派工';
     return '没派成功，请再按一次；还是不行请截图找管理层';
   }
 
@@ -1874,6 +1937,43 @@ try{var _vb=document.getElementById("verBadge");if(_vb&&typeof APP_VERSION!=="un
     D.busy=false; render();
     toast(bad.length ? ('派好 '+ok+' 班；没成功：'+bad.join('、')) : ('✓ 派好 '+ok+' 班'));
   };
+  window.lgHandoverOpen=cid=>{ D.ho={cid,from:'',to:'',reason:''}; render(); };
+  window.lgHandoverClose=()=>{ D.ho={cid:null,from:'',to:'',reason:''}; render(); };
+  /* 不重画，不然打到一半的字会被洗掉 */
+  window.lgHandoverSet=(k,v)=>{ if(D.ho) D.ho[k]=v; };
+  window.lgHandoverGo=async ()=>{
+    const h=D.ho; if(!h||!h.cid||D.busy) return;
+    const r=D.rows.find(x=>x.id===h.cid); if(!r) return;
+    if(!h.from||!h.to){ toast('请选「把谁换掉」和「换成谁」'); return; }
+    if(h.from===h.to){ toast('两个是同一位老师'); return; }
+    const reason=String(h.reason||'').trim();
+    if(!reason){ toast('请写换人的理由，会永久存进纪录'); return; }
+    const cyc=cycle(); if(!cyc){ toast('还没有本轮的评语周期'); return; }
+    if(!confirm('把 '+(D.teachers[h.from]||'—')+' 换成 '+(D.teachers[h.to]||'—')+'？\n\n'
+      +r.name+' 这一班 '+r.students+' 位学生会一起换。\n'
+      +'旧老师写过的评语会留着当纪录，但不计入这一轮。')) return;
+    D.busy=true; render();
+    try{
+      const q=await sb.from('lovego_assignment').select('id')
+        .eq('cycle_id',cyc.id).eq('class_id',r.id).eq('teacher_id',h.from)
+        .is('archived_at',null).in('status',['active','pending','completed']);
+      if(q.error) throw q.error;
+      const rows=q.data||[];
+      if(!rows.length) throw new Error('active assignment not found');
+      let ok=0; const bad=[];
+      for(const a of rows){
+        const w=await sb.rpc('lovego_replace_assignment',{p_assignment_id:a.id,p_new_teacher_id:h.to,p_reason:reason});
+        if(w.error){ console.error('[LoveGo 换人接手]',a.id,w.error); bad.push(w.error.message||String(w.error)); }
+        else ok++;
+      }
+      D.ho={cid:null,from:'',to:'',reason:''};
+      await load();
+      toast(bad.length ? ('换好 '+ok+' 位，'+bad.length+' 位没成功：'+human(bad[0]))
+                       : ('✓ '+(D.teachers[h.to]||'新老师')+' 接手 '+ok+' 位学生'));
+    }catch(e){ console.error('[LoveGo 换人接手]',e); toast('✕ '+human(e)); }
+    finally{ D.busy=false; render(); }
+  };
+
   window.lgDispatchReload=async ()=>{ D.err=''; D.loaded=false; render(); try{ await load(); }catch(e){ D.err=human(e); console.error('[LoveGo 派老师]',e); } render(); };
 
   /* 接进导航：只给管理层；go('dispatch') 时读资料 */
