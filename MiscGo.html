@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>MiscGo v6</title>
+<title>MiscGo v7</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
@@ -460,18 +460,20 @@ body.teacher-mode .teacher-hide{display:none !important;}
 <!-- ══ PREVIEW ══ -->
 <div class="scr" id="s-prev">
   <div class="prev-hdr">
-    <button class="back-btn" onclick="goForm()">‹</button>
+    <button class="back-btn" onclick="leavePrev(goForm)">‹</button>
     <div style="color:#fff;font-size:16px;font-weight:700;flex:1;">Preview & Send</div>
-    <button class="back-btn" onclick="goTeacher()" style="font-size:12px;font-weight:600;width:auto;padding:0 10px;">Done</button>
+    <button class="back-btn" onclick="leavePrev(goTeacher)" style="font-size:12px;font-weight:600;width:auto;padding:0 10px;">Done</button>
   </div>
   <div class="prev-body">
     <div class="msg-card" id="msg-card"></div>
     <div class="prev-note">Review the message above, then tap Send to WhatsApp.<br>Select your group and send.</div>
+    <!-- v7：纪录已经存进系统了，但没送出 MGMT 当下不会知道。送出前这条常驻。 -->
+    <div id="prev-wa-bar" style="display:none;margin-top:10px;border-radius:8px;padding:10px 12px;font-size:12.5px;font-weight:600;line-height:1.5;"></div>
   </div>
   <div class="send-bar">
     <button class="copy-btn2" id="copy-btn2" onclick="copyMsg()" title="Copy">📋</button>
     <button class="save-sys-btn" id="prev-save-btn" onclick="saveDirectly()" style="display:none;">💾 Save to System</button>
-    <button class="wa-btn" onclick="sendWA()">
+    <button class="wa-btn" onclick="sendWAFromPrev()">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
       Send to WhatsApp
     </button>
@@ -558,7 +560,7 @@ body.teacher-mode .teacher-hide{display:none !important;}
    \u6539\u7248\u89c4\u5219\uff1a\u53ea\u7528\u6574\u6570\uff0c\u4e14\u4e09\u5904\u5fc5\u987b\u540c\u65f6\u6539 \u2014\u2014
    \u2460 <title>  \u2461 \u4e3b\u9875\u9876\u680f\u7684\u7248\u672c\u5fbd\u7ae0  \u2462 \u4e0b\u9762\u8fd9\u4e2a\u5e38\u6570
    \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550 */
-const APP_VERSION = 6;
+const APP_VERSION = 7;
 
 const B='\u2980';
 const H=(n,e='')=>`*${B}${B}${B}${B} ${n} ${B}${B}${B}${B}*`+(e?` ${e}`:'');
@@ -1544,6 +1546,18 @@ async function syncStudentsFromSupabase(){
 
 // Push a record to Supabase
 async function pushRecordToSupabase(rec){
+  /* ── v7 重入锁 ──
+     v6 的自动上云层（本档最下方那个 IIFE）用 busy 只锁住 flush() 自己。
+     saveDirectly() 等 8 个呼叫点是直接叫这个函式，绕过那把锁。
+     实际会撞到的情境：按下存档 → 推送还在飞 → 页面切背景（例如跳 WhatsApp）
+     → visibilitychange 叫醒 flush() → 那笔的 supabase_id 还没写上，pending() 仍算它
+     → 同一笔被推第二次。records 用的是 insert 不是 upsert，没有 client_uid 去重，
+     所以那真的会多出一列。
+     锁挂在 rec 上，同一笔同时只准有一条推送在飞。 */
+  if(!rec) return;
+  if(rec._pushing) { console.warn('[MiscGo] 这一笔正在上云，略过重复推送'); return; }
+  if(rec.supabase_id){ return; }          // 已经在云端了，不要再推
+  rec._pushing = true;
   try{
     const ini=getIni();
     // Use the record's actual createdAt (important for backdated/bulk records)
@@ -1564,6 +1578,8 @@ async function pushRecordToSupabase(rec){
       handled:rec.handled||false,
       parent_notified:rec.parentNotified||false,
       schedule_id:rec.schedule_id||null,
+      wa_sent:rec.waSent||false,                                  // v7
+      wa_sent_at:rec.waSentAt||null,                              // v7
     };
     /* ══ v6 · student_id 真的送上去 ══
        栏位一直都在，2613 笔也都填著 std_xxxx，只是前端从来没送。
@@ -1587,6 +1603,13 @@ async function pushRecordToSupabase(rec){
       const retry=await _sb.from('records').insert(fallbackRows).select();
       data=retry.data;error=retry.error;
     }
+    // v7 Fallback：wa_sent 栏位还没建时，脱掉再试一次（不要因为这个就整笔存不进去）
+    if(error&&String(error.message||'').toLowerCase().includes('wa_sent')){
+      console.warn('wa_sent column missing — retrying without it.');
+      const fb=rows.map(row=>{const{wa_sent,wa_sent_at,...rest}=row;return rest;});
+      const retry=await _sb.from('records').insert(fb).select();
+      data=retry.data;error=retry.error;
+    }
     // Fallback: if schedule_id column doesn't exist, retry without it
     if(error&&String(error.message||'').toLowerCase().includes('schedule_id')){
       console.warn('schedule_id column missing — retrying without it. Run records migration.');
@@ -1605,6 +1628,8 @@ async function pushRecordToSupabase(rec){
   }catch(e){
     console.error('❌ Supabase push ERROR:',e);
     toast('⚠️ Network error — record saved locally only',true);
+  }finally{
+    rec._pushing = false;                 // 成功或失败都要放掉，否则这笔永远重试不了
   }
 }
 
@@ -2804,8 +2829,9 @@ function generateAndSave(){
   document.getElementById('msg-card').textContent=curMsg;
   const saveBtn=document.getElementById('prev-save-btn');
   if(saveBtn)saveBtn.style.display='none';
+  prevBindRecord(S.records[0]);            // v7：红条跟这一笔绑在一起
   show('s-prev');window.scrollTo(0,0);
-  toast('✓ Saved! Now send to WhatsApp if needed');
+  toast('✓ 已存进系统 —— 还要送到 WhatsApp，主管才看得到');
 }
 
 function generate(){
@@ -2819,10 +2845,77 @@ function generate(){
   // Show Save to System button for all users (Entry + Teacher + MGMT)
   const saveBtn=document.getElementById('prev-save-btn');
   if(saveBtn)saveBtn.style.display='flex';
+  // v7：这条路还没存，没有纪录可绑 —— 红条不显示，离开也不拦
+  prevBindRecord(null);
   show('s-prev');window.scrollTo(0,0);
 }
 function goForm(){show('s-form');}
 function sendWA(){if(!curMsg)return;const e=encodeURIComponent(curMsg);window.location.href='whatsapp://send?text='+e;setTimeout(()=>window.open('https://wa.me/?text='+e,'_blank'),1500);}
+
+/* ══════ v7 · 存了没送 ══════
+   实况：唯一进预览页的入口是 generateAndSave()，它在跳预览之前就已经存好并推云了。
+   所以「送了没存」不可能发生 —— generate() 没有任何呼叫者，
+   那颗「Save to System」永远不会显示。
+   真正会漏的只有一种：老师在预览页不按 Send to WhatsApp 就走，
+   纪录进了系统，但 MGMT 当下完全不知道。
+   这一段只做三件事：送出前红条常驻、没送就想离开会被问一次、有没有送记进云端。 */
+let _prevRec = null;      // 这一次预览对应的那笔纪录
+let _prevWaSent = false;  // 这一次有没有按过 Send to WhatsApp
+
+function prevBindRecord(rec){
+  _prevRec = rec || null;
+  _prevWaSent = !!(rec && rec.waSent);
+  paintPrevWaBar();
+}
+function paintPrevWaBar(){
+  const bar = document.getElementById('prev-wa-bar');
+  if(!bar) return;
+  if(!_prevRec){ bar.style.display='none'; return; }
+  bar.style.display = 'block';
+  if(_prevWaSent){
+    bar.style.background = '#E8F7F2'; bar.style.color = '#0F6E56';
+    bar.textContent = '✓ 已送到 WhatsApp。这一笔做完了。';
+  }else{
+    bar.style.background = '#FCEBEB'; bar.style.color = '#A32D2D';
+    bar.textContent = '⚠ 还没送到 WhatsApp —— 纪录已经存起来了，但主管现在还不知道这件事。';
+  }
+}
+async function markWaSent(){
+  _prevWaSent = true;
+  paintPrevWaBar();
+  if(!_prevRec) return;
+  _prevRec.waSent = true;
+  _prevRec.waSentAt = new Date().toISOString();
+  try{ save(); }catch(_){}
+  // 云端那笔标起来，MGMT 才查得到「哪几笔只存没送」
+  // supabase_id 可能还没回来（推送还在飞），等它一下 —— 最多试 6 次、共约 9 秒
+  const rec=_prevRec;
+  for(let i=0;i<6;i++){
+    try{
+      if(typeof _sb!=='undefined' && _sb && rec.supabase_id){
+        await _sb.from('records')
+          .update({wa_sent:true, wa_sent_at:rec.waSentAt})
+          .eq('id', rec.supabase_id);
+        return;
+      }
+    }catch(e){ console.warn('[MiscGo] wa_sent 标不上去：', e); return; }
+    await new Promise(r=>setTimeout(r,1500));
+  }
+  console.warn('[MiscGo] 这一笔还没拿到 supabase_id，wa_sent 只记在本机');
+}
+function sendWAFromPrev(){
+  if(!curMsg) return;
+  markWaSent();          // 先标起来，跳走之后就没机会了
+  sendWA();
+}
+function leavePrev(go){
+  if(_prevRec && !_prevWaSent){
+    if(!confirm('这一笔还没送到 WhatsApp。\n\n纪录已经存进系统了，但主管现在不会看到 —— 校车学生没到这种事，要靠你送出去他们才知道。\n\n真的要离开吗？')) return;
+  }
+  _prevRec = null; _prevWaSent = false;
+  paintPrevWaBar();
+  go();
+}
 function copyMsg(){
   navigator.clipboard.writeText(curMsg).then(()=>{document.getElementById('copy-btn2').textContent='✓';setTimeout(()=>document.getElementById('copy-btn2').textContent='📋',2000);toast('Copied!');})
   .catch(()=>{const b=document.getElementById('msg-card');const s=window.getSelection();const r=document.createRange();r.selectNodeContents(b);s.removeAllRanges();s.addRange(r);toast('Selected — press Copy');});
