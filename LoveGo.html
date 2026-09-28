@@ -224,7 +224,7 @@ window.esc=esc;
 <script>
 /* v94（28-09-2026）：日常成长 ＋ 学科能力 ＋ 总结；派老师加「每位老师教哪几科」（见文件最下方 v94 段；不设负责老师）。
    v93（28-09-2026）：Owner 决定换回整张表 —— 一年填一次、凭一直以来的观察、每个领域都要填。内容与 v91 完全相同，只改版本号；v92「一期多笔」停用。 */
-const APP_VERSION=94,KEY='lovego';
+const APP_VERSION=95,KEY='lovego';
 const SUPABASE_URL='https://qnpvqsvvsgsantekgfbz.supabase.co';
 const SUPABASE_KEY='sb_publishable_v3Y3BD3XiPz33t-hfdX58g_BaFIkjPF';
 const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true}});
@@ -812,7 +812,8 @@ try{var _vb=document.getElementById("verBadge");if(_vb&&typeof APP_VERSION!=="un
 
     function lgStageOptions(){
       const dept=String(S.ui.dept||'').toUpperCase();
-      if(dept==='GAK'){
+      /* v95（Owner 28-09 13:10）：GAK 环节改由派老师页指定，老师不用自己选 */
+      if(dept==='GAK'&&window.__lgGakPick){
         const cls=lgClassById(S.ui.classId);
         const nm=String(cls?.class_name||cls?.display_name||'').toUpperCase();
         const age34=/(^|[ ._-])(BB|JR)([ ._-]|$)/.test(nm);
@@ -1119,8 +1120,9 @@ try{var _vb=document.getElementById("verBadge");if(_vb&&typeof APP_VERSION!=="un
           ...(age34?[{key:'GAK_NAP',stage:'nap',title:'睡觉',en:'Nap',codes:[],
            sub:'喝牛奶 · 入睡协助 · 睡醒后的情绪 · 醒后恢复'}]:[])
         ];
-        const chosen=String(S?.ui?.stage||'');
-        return chosen ? all.filter(x=>x.stage===chosen) : [];
+        /* v95：派到哪几个环节就出哪几个（原本是老师自己选一个） */
+        const set=(window.lgGakStages?lgGakStages():[]);
+        return all.filter(x=>set.includes(x.stage));
       }
 
       if(dept==='SRT'){
@@ -1739,7 +1741,7 @@ try{var _vb=document.getElementById("verBadge");if(_vb&&typeof APP_VERSION!=="un
     function lgSuppSlotsNow(){
       const dept=String(S?.ui?.dept||'').toUpperCase();
       if(dept==='SRK') return LG_SUPP_SRK;
-      if(dept==='GAK') return LG_SUPP_GAK[String(S?.ui?.stage||'')]||[];
+      if(dept==='GAK') return (window.lgGakStages?lgGakStages():[]).flatMap(s=>LG_SUPP_GAK[s]||[]);
       return [];
     }
     function lgMountSuppZone(){
@@ -1925,7 +1927,7 @@ try{var _vb=document.getElementById("verBadge");if(_vb&&typeof APP_VERSION!=="un
       sb.from('classes').select('id,department,class_name,display_name,sort_order,is_active'),
       sb.from('lovego_department_report_context').select('student_id,department,authority_class_id,authority_resolved').eq('cycle_id',cyc.id),
       sb.rpc('lovego_teacher_roster'),
-      sb.from('lovego_class_assignment').select('class_id,teacher_id,slot_no,subjects,is_responsible').eq('cycle_id',cyc.id).eq('status','active'),
+      sb.from('lovego_class_assignment').select('class_id,teacher_id,slot_no,subjects,stages,is_responsible').eq('cycle_id',cyc.id).eq('status','active'),
       /* v86：哪些班已经有人交评语 → 整班改派会被资料库挡，事先让画面知道 */
       sb.from('lovego_review').select('class_id').eq('cycle_id',cyc.id).not('submitted_at','is',null)
     ]);
@@ -1942,7 +1944,7 @@ try{var _vb=document.getElementById("verBadge");if(_vb&&typeof APP_VERSION!=="un
       const assigned=(done[x.id]||[]).sort((a,b)=>a.slot_no-b.slot_no).map(y=>y.teacher_id);
       const need=NEED[x.department];
       /* v94：每位已派老师教哪几科 */
-      const roles={}; (done[x.id]||[]).forEach(y=>{ roles[y.teacher_id]={subjects:Array.isArray(y.subjects)?y.subjects.slice():[],resp:!!y.is_responsible}; });
+      const roles={}; (done[x.id]||[]).forEach(y=>{ roles[y.teacher_id]={subjects:Array.isArray(y.subjects)?y.subjects.slice():[],stages:Array.isArray(y.stages)?y.stages.slice():[],resp:!!y.is_responsible}; });
       return {id:x.id, dept:x.department, name:x.display_name||x.class_name, sort:x.sort_order||0,
         students:stu[x.id], need, suggest:[], assigned, locked: !!lock[x.id], roles,
         /* v87：已派的班带出已派的人；没派的班一律空白，不预先勾 */
@@ -1993,33 +1995,55 @@ try{var _vb=document.getElementById("verBadge");if(_vb&&typeof APP_VERSION!=="un
   const SUBJ={SRK:['MD','ENG','BM','MATH'],GAK:['MD','ENG','BM','MATH'],ATC:['MD','BM','ENG','MATH','SCI','HW'],SRT:['ENG']};
   const SN0={MD:'华文',ENG:'英文',BM:'国文',MATH:'数学',SCI:'科学',HW:'功课班'};  /* Owner 28-09 12:00：马来文一律叫国文 */
   const snOf=(d,s)=>SN0[s];
+  /* v95（Owner 28-09 13:10）：GAK 跟 SRK 一样由派老师页指定 —— 但 GAK 先勾「环节」，勾了「上课」才勾科目（华文、英文、国文、数学） */
+  const GAK_STG=[['transition','下午班转换'],['bath','沐浴'],['lunch','午餐'],['homework','功课'],['learning','上课'],['nap','睡觉']];
+  function gakStagesFor(r){ const nm=String(r.name||'').toUpperCase(); const age34=/(^|[^A-Z])(BB|JR)([^A-Z]|$)/.test(nm); return GAK_STG.filter(s=>s[0]!=='nap'||age34); }
+  const chip=(on,click,label)=>'<button class="chip'+(on?' on':'')+'" style="min-height:36px" '+(D.busy?'disabled':'')+' onclick="'+click+'">'+label+'</button>';
   function rolePanel(r){
     if(!r.assigned.length) return '';
     const all=SUBJ[r.dept]||[];
-    const covered=new Set();
-    r.assigned.forEach(id=>{ const x=r.roles&&r.roles[id]; if(x){ (x.subjects||[]).forEach(s=>covered.add(s)); } });
+    const gak=r.dept==='GAK', stg=gak?gakStagesFor(r):[];
+    const covered=new Set(), stCovered=new Set();
+    r.assigned.forEach(id=>{ const x=r.roles&&r.roles[id]; if(x){ (x.subjects||[]).forEach(s=>covered.add(s)); (x.stages||[]).forEach(s=>stCovered.add(s)); } });
     if(r.dept==='SRT') all.forEach(s=>covered.add(s));
-    const miss=all.filter(s=>!covered.has(s));
-    const rows=r.assigned.map(id=>{ const x=(r.roles&&r.roles[id])||{subjects:[],resp:false};
-      const subj=r.dept==='SRT'?'<span class="meta">英文（SRT 只有英文）</span>':all.map(s=>{ const on=(x.subjects||[]).indexOf(s)>=0;
-        return '<button class="chip'+(on?' on':'')+'" style="min-height:36px" '+(D.busy?'disabled':'')+' onclick="lgRoleSubj(\''+r.id+'\',\''+id+'\',\''+s+'\')">'+snOf(r.dept,s)+'</button>'; }).join('');
-      return '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:8px 0;border-top:.5px solid var(--bdr)"><b style="min-width:84px">'+esc(D.teachers[id]||'—')+'</b>'+subj+'</div>';
+    const miss=all.filter(s=>!covered.has(s)), stMiss=stg.filter(s=>!stCovered.has(s[0]));
+    const rows=r.assigned.map(id=>{ const x=(r.roles&&r.roles[id])||{subjects:[],stages:[],resp:false};
+      let body;
+      if(r.dept==='SRT') body='<span class="meta">英文（SRT 只有英文）</span>';
+      else if(gak){
+        const learn=(x.stages||[]).indexOf('learning')>=0;
+        body='<div style="display:flex;flex-wrap:wrap;gap:6px">'+stg.map(s=>chip((x.stages||[]).indexOf(s[0])>=0,"lgRoleStage('"+r.id+"','"+id+"','"+s[0]+"')",s[1])).join('')+'</div>'+
+          (learn?'<div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:6px;padding-left:10px;border-left:3px solid var(--layer)"><span class="meta">上课教：</span>'+all.map(s=>chip((x.subjects||[]).indexOf(s)>=0,"lgRoleSubj('"+r.id+"','"+id+"','"+s+"')",snOf(r.dept,s))).join('')+'</div>':'');
+        body='<div style="flex:1;min-width:200px">'+body+'</div>';
+      }
+      else body=all.map(s=>chip((x.subjects||[]).indexOf(s)>=0,"lgRoleSubj('"+r.id+"','"+id+"','"+s+"')",snOf(r.dept,s))).join('');
+      return '<div style="display:flex;flex-wrap:wrap;align-items:flex-start;gap:6px;padding:8px 0;border-top:.5px solid var(--bdr)"><b style="min-width:84px;padding-top:8px">'+esc(D.teachers[id]||'—')+'</b>'+body+'</div>';
     }).join('');
     const warn=[];
+    if(gak&&stMiss.length) warn.push('还没有人负责的环节：<b>'+stMiss.map(s=>s[1]).join('、')+'</b>');
     if(miss.length) warn.push('还没有人教：<b>'+miss.map(s=>snOf(r.dept,s)).join('、')+'</b>（这几科卡上的格子会空）');
+    const title=gak?'每位老师负责哪几个环节':'每位老师教哪几科';
+    const tip=gak?'点环节 = 这位老师要填这个环节。勾了「上课」再点他教哪几科（学科能力）。一个环节、一科都可以不只一位老师。点一下就存。':'点科目 = 这位老师要评这一科的学科能力。一科可以不只一位老师。点一下就存。';
     return '<div style="margin-top:10px;background:var(--sur2);border-radius:12px;padding:8px 12px">'+
-      '<div style="font-weight:800;font-size:13px;margin:4px 0 2px">每位老师教哪几科</div><div class="meta" style="margin-bottom:4px">点科目 = 这位老师要评这一科的学科能力。一科可以不只一位老师。点一下就存。</div>'+rows+
-      (warn.length?'<div class="alert" style="margin:8px 0 2px;background:#fbeee0;color:#854F0B">'+warn.join('<br>')+'</div>':'<div class="meta" style="color:var(--ok);margin:6px 0 2px">✓ 每一科都有人教</div>')+'</div>';
+      '<div style="font-weight:800;font-size:13px;margin:4px 0 2px">'+title+'</div><div class="meta" style="margin-bottom:4px">'+tip+'</div>'+rows+
+      (warn.length?'<div class="alert" style="margin:8px 0 2px;background:#fbeee0;color:#854F0B">'+warn.join('<br>')+'</div>':'<div class="meta" style="color:var(--ok);margin:6px 0 2px">✓ '+(gak?'每个环节、每一科都有人负责':'每一科都有人教')+'</div>')+'</div>';
   }
-  async function saveRole(r,tid,subjects,resp){
+  async function saveRole(r,tid,subjects,stages){
     const cyc=cycle(); if(!cyc) throw new Error('还没有本轮的评语周期');
-    const q=await sb.rpc('lovego_set_class_teacher_role',{p_cycle_id:cyc.id,p_class_id:r.id,p_teacher_id:tid,p_subjects:subjects,p_is_responsible:resp});
+    const q=await sb.rpc('lovego_set_class_teacher_role_v2',{p_cycle_id:cyc.id,p_class_id:r.id,p_teacher_id:tid,p_subjects:subjects,p_stages:stages||[]});
     if(q.error) throw q.error; return q.data;
   }
   window.lgRoleSubj=async (cid,tid,s)=>{ const r=D.rows.find(x=>x.id===cid); if(!r||D.busy) return;
-    const x=(r.roles[tid]=r.roles[tid]||{subjects:[],resp:false}); const next=(x.subjects||[]).slice(); const i=next.indexOf(s); if(i>=0) next.splice(i,1); else next.push(s);
+    const x=(r.roles[tid]=r.roles[tid]||{subjects:[],stages:[],resp:false}); const next=(x.subjects||[]).slice(); const i=next.indexOf(s); if(i>=0) next.splice(i,1); else next.push(s);
     D.busy=true; render();
-    try{ await saveRole(r,tid,next,false); x.subjects=next; toast('✓ 已存'); }catch(e){ console.error('[LoveGo 科目]',e); toast('✕ '+human(e)); }
+    try{ await saveRole(r,tid,next,x.stages||[]); x.subjects=next; toast('✓ 已存'); }catch(e){ console.error('[LoveGo 科目]',e); toast('✕ '+human(e)); }
+    finally{ D.busy=false; render(); } };
+  /* v95：GAK 环节；拿掉「上课」时，他的科目一起拿掉 */
+  window.lgRoleStage=async (cid,tid,s)=>{ const r=D.rows.find(x=>x.id===cid); if(!r||D.busy) return;
+    const x=(r.roles[tid]=r.roles[tid]||{subjects:[],stages:[],resp:false}); const next=(x.stages||[]).slice(); const i=next.indexOf(s); if(i>=0) next.splice(i,1); else next.push(s);
+    const subj=next.indexOf('learning')>=0?(x.subjects||[]):[];
+    D.busy=true; render();
+    try{ await saveRole(r,tid,subj,next); x.stages=next; x.subjects=subj; toast('✓ 已存'); }catch(e){ console.error('[LoveGo 环节]',e); toast('✕ '+human(e)); }
     finally{ D.busy=false; render(); } };
   /* v94：不设负责老师（Owner 28-09 11:08） */
 
@@ -3047,6 +3071,279 @@ body.lg-teacher .navr .navbtn{display:none!important}
   setInterval(hook,400); hook();
   const _rd=window.renderDomains;
   if(typeof _rd==='function'){ window.renderDomains=function(){ const o=_rd.apply(this,arguments); setTimeout(paintAll,0); return o; }; }
+})();
+
+</script>
+<style id="lg95-css">
+/* v95 · 名单 → 三张卡 → 填写 */
+#lg95-list,#lg95-top,#lg95-bottom{display:none}
+.lg95-st{margin-top:6px;font-size:13px;font-weight:700;color:var(--mut)}
+.lg95-st.done{color:#1e7a4f}.lg95-st.doing{color:#b54708}
+/* 全部地方不显示题数 */
+body[data-lg95] .lg94-count,body[data-lg95] .lg94-subj-c,body[data-lg95] #lg-fill-progress,body[data-lg95] #lg-fill-progress-b{display:none!important}
+/* 名单 */
+body[data-lg95="list"] #s-review #lg95-list{display:block}
+body[data-lg95="list"] #s-review #lg-fillnav,body[data-lg95="list"] #s-review #lg-fillbody,body[data-lg95="list"] #s-review .lg-roster-board{display:none!important}
+.lg95-lhead{display:flex;align-items:center;gap:12px;margin:0 0 12px}
+.lg95-ltitle{font-size:18px;font-weight:800}
+.lg95-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+@media(max-width:480px){.lg95-grid{grid-template-columns:1fr 1fr}}
+.lg95-stu{display:flex;flex-direction:column;align-items:flex-start;gap:4px;text-align:left;background:#fff;border:.5px solid var(--bdr);border-radius:14px;padding:12px;min-height:84px;cursor:pointer}
+.lg95-stu .nm{font-weight:800;font-size:14px;line-height:1.3;word-break:break-word}
+.lg95-stu .cn{font-size:13px;color:var(--mut)}
+.lg95-stu.done{border-color:#bfe0cf;background:#fbfefc}
+.lg95-pill{margin-top:auto;font-size:12px;font-weight:800;border-radius:999px;padding:3px 10px;background:var(--sur2);color:var(--mut)}
+.lg95-pill.done{background:#e6f2ec;color:#1e7a4f}.lg95-pill.doing{background:#fbeee0;color:#b54708}
+.lg95-back{border:.5px solid var(--bdr);background:#fff;border-radius:12px;padding:10px 14px;min-height:44px;font-weight:700;font-size:14px;color:var(--txt);cursor:pointer}
+/* 三张卡 & 卡内：原本的上一位 / 下一位那一排收起来 */
+body[data-lg95="hub"] #s-review #lg-fillnav,body[data-lg95="card"] #s-review #lg-fillnav,
+body[data-lg95="hub"] #s-review #lg-fillnav-bottom,body[data-lg95="card"] #s-review #lg-fillnav-bottom,
+body[data-lg95="hub"] #s-review .lg-roster-board,body[data-lg95="card"] #s-review .lg-roster-board{display:none!important}
+body[data-lg95="hub"] #lg95-top,body[data-lg95="card"] #lg95-top{display:flex;gap:8px;margin:0 0 12px}
+body[data-lg95="hub"] #lg95-back-hub{display:none}
+body[data-lg95="card"] #lg95-back-list{display:none}
+body[data-lg95="hub"] #lg95-bottom,body[data-lg95="card"] #lg95-bottom{display:block;margin:14px 0 24px}
+body[data-lg95="hub"] #lg95-card-ok{display:none}
+body[data-lg95="card"] #lg95-done,body[data-lg95="card"] #lg95-locked{display:none!important}
+.lg95-main{width:100%;min-height:52px;border-radius:14px;border:0;background:var(--layer);color:#fff;font-size:16px;font-weight:800;cursor:pointer}
+.lg95-locked{background:var(--sur2);border-radius:12px;padding:12px;text-align:center;color:var(--mut);font-weight:700}
+/* 三张卡那一层：卡只当按钮，不展开 */
+body[data-lg95="hub"] .lg94-big>.lg94-body{display:none!important}
+body[data-lg95="hub"] .lg94-tog{transform:none!important}
+body[data-lg95="hub"] .lg94-tog::before{content:'›';font-size:24px}
+body[data-lg95="hub"] .lg94-tog{font-size:0}
+body[data-lg95="hub"] .lg94-big{cursor:pointer}
+body[data-lg95="hub"] .lg94-big[data-lg95st="done"]{border-color:#bfe0cf;background:#fbfefc}
+body[data-lg95="hub"] .lg94-head{padding:20px 16px}
+/* 卡里面：只留这一张，整张打开 */
+body[data-lg95="card"] .lg94-big{display:none}
+body[data-lg95="card"][data-lg95card="lg94-daily"] #lg94-daily,
+body[data-lg95="card"][data-lg95card="lg94-acad"] #lg94-acad,
+body[data-lg95="card"][data-lg95card="lg94-sum"] #lg94-sum{display:block}
+body[data-lg95="card"] .lg94-big>.lg94-body{display:block!important}
+body[data-lg95="card"] .lg94-tog{display:none}
+body[data-lg95="card"] .lg94-head{cursor:default}
+body[data-lg95="card"] #lg-fillbody>.alert{display:none}
+body[data-lg95] .lg-card-prog,body[data-lg95] .lg-supp-prog{display:none!important}
+.lg95-gst{display:inline-block;margin-left:8px;font-size:12px;font-weight:800;color:var(--mut)}
+.lg95-gst.done{color:#1e7a4f}.lg95-gst.doing{color:#b54708}.lg95-gst.miss{color:var(--danger)}
+body:not([data-lg95]) .lg95-gst{display:none}
+</style>
+<script>
+/* ══════ v95 · 名单 → 三张卡 → 填写（Owner 28-09 12:36）══════
+   Owner：「选择学生名字之后，跳出 3 张卡片，点击卡片后才进入要填写的页面，填写完之后回到 3 个卡片继续填写。」
+   Owner 拍板：推翻 26-09 决定 A（打开直接看题）→ 改回先有名单；「完成这一位」之后回名单；
+             卡片没填完也可以先回三张卡，但**全部地方都不显示「还差几题」**。
+   只改画面怎么走：题目、存档、上云、交出、挡漏填，全部沿用 v94。 */
+(function(){
+  const $=id=>document.getElementById(id);
+  const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const CARDS=[['lg94-daily','日常成长'],['lg94-acad','学科能力'],['lg94-sum','总结']];
+  const KIND_CARD={domain:'lg94-daily',supp:'lg94-daily',p3:'lg94-daily',acad:'lg94-acad',sum:'lg94-sum'};
+  let afterDone=false, starting=false;
+
+  function mode(){ return document.body.dataset.lg95||''; }
+  function setMode(m,card){
+    document.body.dataset.lg95=m;
+    if(card) document.body.dataset.lg95card=card; else delete document.body.dataset.lg95card;
+    const bn=$('lg94-banner'); if(bn) bn.remove();
+    document.querySelectorAll('#s-review .lg-missing').forEach(e=>e.classList.remove('lg-missing'));
+    chrome(); paintHub();
+    window.scrollTo(0,0);
+  }
+
+  /* ── 自己的几块：名单、三张卡上下的按钮 ── */
+  function chrome(){
+    const sr=$('s-review'); if(!sr) return false;
+    if(!$('lg95-list')){
+      const l=document.createElement('div'); l.id='lg95-list';
+      const nav=$('lg-fillnav'); (nav||sr.firstChild).insertAdjacentElement('afterend',l);
+    }
+    const fb=$('lg-fillbody'); if(!fb) return false;
+    if(!$('lg95-top')){
+      const t=document.createElement('div'); t.id='lg95-top';
+      t.innerHTML='<button type="button" class="lg95-back" id="lg95-back-list" onclick="lg95ToList()">← 回名单</button><button type="button" class="lg95-back" id="lg95-back-hub" onclick="lg95ToHub()">← 回三张卡</button>';
+      fb.insertBefore(t,fb.firstChild);
+    }
+    if(!$('lg95-bottom')){
+      const b=document.createElement('div'); b.id='lg95-bottom';
+      b.innerHTML='<button type="button" class="lg95-main" id="lg95-card-ok" onclick="lg95CardOk()">这张填好了，回三张卡</button><button type="button" class="lg95-main" id="lg95-done" onclick="lg95Done()">完成这一位 ✓</button><div class="lg95-locked" id="lg95-locked">这一位已经交出，只能看、不能改。</div>';
+      fb.appendChild(b);
+    } else if(fb.lastElementChild!==$('lg95-bottom')) fb.appendChild($('lg95-bottom'));
+    CARDS.forEach(([id])=>{ const c=$(id); if(c&&!c.querySelector('.lg95-st')){ const h=c.querySelector('.lg94-hmain'); if(h){ const s=document.createElement('div'); s.className='lg95-st'; h.appendChild(s); } } });
+    return true;
+  }
+
+  /* ── 状态：只分「还没开始 / 填写中 / 填好了」，不写题数 ── */
+  function rv(){ try{ return ensure(); }catch(_){ return null; } }
+  function locked(r){ return !!(r&&(r.submitted_at||r.locked_at||String(r.status||'')==='completed')); }
+  function cardState(id){
+    const st=window.lg94Stats&&lg94Stats(); if(!st) return null;
+    const [d,t]=id==='lg94-daily'?[st.dDone,st.dTotal]:id==='lg94-acad'?[st.aDone,st.aTotal]:[st.sDone,st.sTotal];
+    if(!t) return 'none';
+    if(d>=t) return 'done';
+    return d>0?'doing':'todo';
+  }
+  const ST_TXT={done:'✓ 填好了',doing:'填写中',todo:'还没开始',none:'这一块没有要填的题'};
+  function paintHub(){
+    if(!chrome()) return;
+    const r=rv(), lk=locked(r);
+    CARDS.forEach(([id])=>{ const c=$(id); if(!c) return; const s=c.querySelector('.lg95-st'); const k=cardState(id)||'todo';
+      if(s){ s.textContent=ST_TXT[k]; s.className='lg95-st '+k; } c.dataset.lg95st=k; });
+    /* 日常成长里面各组：原本写「已填 2 / 3 项」「补充 0 / 5 题」→ 藏起来，改写状态 */
+    document.querySelectorAll('#domains > .lg-group-card').forEach(card=>{
+      const main=card.querySelector('.lg-group-head-main'); if(!main) return;
+      const cp=main.querySelector(':scope > .lg-card-prog'), sp=main.querySelector(':scope > .lg-supp-prog');
+      if(!cp&&!sp) return;
+      const allD=!cp||cp.classList.contains('all'), allS=!sp||/^✓/.test(sp.textContent);
+      const miss=!!(cp&&cp.classList.contains('miss'))||!!card.querySelector('.lg-missing');
+      const anyD=cp&&!/^已填 0 /.test(cp.textContent), anyS=sp&&!/补充 0 /.test(sp.textContent);
+      const k=(allD&&allS)?'done':miss?'miss':(anyD||anyS)?'doing':'todo';
+      let g=main.querySelector(':scope > .lg95-gst'); if(!g){ g=document.createElement('span'); main.appendChild(g); }
+      const txt={done:'✓ 填好了',miss:'有没填的',doing:'填写中',todo:''}[k];
+      if(g.textContent!==txt) g.textContent=txt; const cls='lg95-gst '+k; if(g.className!==cls) g.className=cls;
+    });
+    const dn=$('lg95-done'), lm=$('lg95-locked');
+    if(dn) dn.style.display=lk?'none':''; if(lm) lm.style.display=lk?'':'none';
+    const ok=$('lg95-card-ok'); if(ok) ok.textContent=lk?'回三张卡':'这张填好了，回三张卡';
+  }
+
+  /* ── 名单 ── */
+  /* 跟旧程式 lgRosterOf 同一个算法（那个是区域函数，拿不到） */
+  function roster(){ try{
+    const cid=S.ui.classId, byId={}; (S.students||[]).forEach(st=>byId[st.id]=st);
+    return (S.enroll||[]).filter(e=>e.class_id===cid&&e.is_active!==false)
+      .map(e=>Object.assign({},byId[e.student_id]||{id:e.student_id,name_en:'(名单缺此人)'},{num:e.class_number}))
+      .filter(st=>String(st.status||'').toUpperCase()!=='INACTIVE')
+      .filter(st=>{ const sc=window.lgTeacherScope?lgTeacherScope():null; if(!sc) return true; const set=sc[cid]; return !!(set&&set.has(String(st.id))); })
+      .filter(st=>{ try{ return (typeof isAdmin==='function'&&isAdmin())||typeof currentTeacherAssigned!=='function'||currentTeacherAssigned(st.id); }catch(_){ return true; } })
+      .sort((x,y)=>(x.num||999)-(y.num||999));
+  }catch(_){ return []; } }
+  function reviewOf(id){ try{ return typeof currentReviewForStudent==='function'?currentReviewForStudent(id):null; }catch(_){ return null; } }
+  function hasContent(r){
+    if(!r) return false;
+    if(Object.values(r.domains||{}).some(x=>x&&Array.isArray(x.obs)&&x.obs.length)) return true;
+    if(r.abilities&&typeof r.abilities==='object'&&Object.keys(r.abilities).length) return true;
+    if(String(r.brightest||'').trim()||String(r.growth_note||'').trim()||String(r.summary||'').trim()) return true;
+    if((r.strength_refs||[]).length||(r.growth_refs||[]).length) return true;
+    return Object.values(r.daily_life||{}).some(v=>String(v||'').trim());
+  }
+  function stuState(id){ const r=reviewOf(id); if(r&&String(r.status||'').toLowerCase()==='completed'&&r.submitted_at) return 'done'; return hasContent(r)?'doing':'todo'; }
+  const STU_TXT={done:'✓ 已完成',doing:'填写中',todo:'还没开始'};
+  function showReview(){ const sr=$('s-review'); if(!sr||sr.classList.contains('on')) return;
+    document.querySelectorAll('.screen').forEach(el=>el.classList.remove('on')); sr.classList.add('on');
+    document.querySelectorAll('.ntab').forEach(el=>el.classList.remove('on')); }
+  function paintList(){
+    showReview(); chrome(); const l=$('lg95-list'); if(!l) return;
+    const rows=roster();
+    let cls=''; try{ const c=(S.classes||[]).find(x=>x.id===S.ui.classId); cls=(c&&(c.display_name||c.class_name))||''; }catch(_){}
+    const rn=$('reviewName'); if(rn) rn.textContent=cls+' · 学生观察';
+    l.innerHTML='<div class="lg95-lhead"><button type="button" class="lg95-back" onclick="lgBackToRoster()">← 回主页</button><div class="lg95-ltitle">选一位学生</div></div>'+
+      (rows.length?'<div class="lg95-grid">'+rows.map(st=>{
+        const k=stuState(st.id);
+        const en=st.name_en||st.name||st.display_name||'', cn=st.name_cn||'';
+        return '<button type="button" class="lg95-stu '+k+'" onclick="lg95Open(\''+esc(st.id)+'\')"><span class="nm">'+esc(en||cn||st.id)+'</span>'+(cn&&en?'<span class="cn">'+esc(cn)+'</span>':'')+'<span class="lg95-pill '+k+'">'+STU_TXT[k]+'</span></button>';
+      }).join('')+'</div>':'<div class="lg94-note">这个班目前没有学生。</div>');
+  }
+
+  /* ── 切换 ── */
+  window.lg95ToList=function(){ try{ if(typeof save==='function') save(); }catch(_){} setMode('list'); paintList(); };
+  window.lg95ToHub=function(){ try{ if(typeof save==='function') save(); }catch(_){} setMode('hub'); };
+  window.lg95Open=function(id){ lgOpenRosterStudent(id); };
+  function enterCard(id){ setMode('card',id); }
+  window.lg95EnterCard=enterCard;
+
+  /* 大卡的头：在三张卡那一层 → 进那一张；在卡里面 → 不动 */
+  const _tog=window.lg94Toggle;
+  window.lg94Toggle=function(id){ const m=mode(); if(m==='hub') return enterCard(id); if(m==='card') return; return _tog&&_tog(id); };
+
+  function missingOf(card){ const m=(window.lg94Missing&&lg94Missing())||[]; return card?m.filter(x=>KIND_CARD[x.kind]===card):m; }
+  function markMissing(m){ if(m.length&&window.lg94ShowMissing) lg94ShowMissing(m); }
+
+  window.lg95CardOk=function(){
+    const r=rv(); const card=document.body.dataset.lg95card;
+    if(r&&!locked(r)){ const m=missingOf(card); if(m.length){ markMissing(m); return; } }
+    lg95ToHub();
+  };
+  window.lg95Done=async function(){
+    const r=rv(); if(!r||locked(r)) return;
+    const m=missingOf(null);
+    if(m.length){ const first=CARDS.map(c=>c[0]).find(id=>m.some(x=>KIND_CARD[x.kind]===id))||'lg94-daily';
+      enterCard(first); setTimeout(()=>markMissing(missingOf(first)),60); return; }
+    afterDone=true;
+    try{ await window.lgCompleteAndNext(); }finally{
+      const rr=rv(); const ok=afterDone===false || (rr&&locked(rr));
+      afterDone=false;
+      if(ok&&mode()!=='list'){ setMode('list'); paintList(); }
+    }
+  };
+
+  /* 交出之后原本会跳下一位 / 回主页 → 一律回名单。
+     这几个函数是旧程式开页 300ms 后才定义的，所以一直检查、没包到就包 */
+  function wrapAll(){
+    const o=window.lgOpenRosterStudent;
+    if(typeof o==='function'&&!o.__lg95){
+      const w=async function(id){
+        if(afterDone){ afterDone=false; setMode('list'); paintList(); try{ toast('已完成 ✓'); }catch(_){} return; }
+        const quiet=starting; starting=false;
+        /* 没派给这位老师的孩子：旧程式只跳讯息不打开 → 这里也留在名单，免得三张卡显示上一位的资料 */
+        if(!quiet){ try{ if(!(typeof isAdmin==='function'&&isAdmin())&&typeof currentTeacherAssigned==='function'&&!currentTeacherAssigned(id)){ toast('这名学生没有指定给你'); return; } }catch(_){} }
+        const r=await o.apply(this,arguments);
+        if(quiet){ setMode('list'); paintList(); return r; }   /* 开始填写时旧程式会自动开第 1 位 → 留在名单 */
+        setMode('hub'); setTimeout(paintHub,50);
+        return r;
+      }; w.__lg95=true; window.lgOpenRosterStudent=w; }
+    const b=window.lgBackToRoster;
+    if(typeof b==='function'&&!b.__lg95){
+      const w=function(){
+        if(afterDone){ afterDone=false; setMode('list'); paintList(); try{ toast('已完成 ✓'); }catch(_){} return; }
+        delete document.body.dataset.lg95; delete document.body.dataset.lg95card;
+        return b.apply(this,arguments);
+      }; w.__lg95=true; window.lgBackToRoster=w; }
+    /* 开始填写 → 先到名单 */
+    const st=window.loveGoStartClass;
+    if(typeof st==='function'&&!st.__lg95){
+      const w=function(){
+        starting=true;
+        const r=st.apply(this,arguments);
+        if($('s-review')&&$('s-review').classList.contains('on')){ setMode('list'); paintList(); }
+        return r;
+      }; w.__lg95=true; window.loveGoStartClass=w; }
+  }
+  wrapAll(); setInterval(wrapAll,300);
+  /* 离开这一页（上面的「收集 / 进度 / 派老师 / 设定」）→ 清掉状态，下次从名单进 */
+  document.addEventListener('click',e=>{ const t=e.target&&e.target.closest&&e.target.closest('.ntab'); if(t){ delete document.body.dataset.lg95; delete document.body.dataset.lg95card; } },true);
+
+  /* ── 不显示「还差几题」：提示字、跳出讯息一律改成不带数字 ── */
+  const _toast=window.toast;
+  if(typeof _toast==='function'){ window.toast=function(msg){ let s=String(msg==null?'':msg); if(/还差|\d+\s*\/\s*\d+|\d+\s*(题|项)/.test(s)&&!/最多/.test(s)) s='还有没填的，已用红框标出'; return _toast.call(this,s); }; }
+  function tidyBanner(){ const bn=$('lg94-banner'); if(!bn) return; const t=mode()==='card'?'这一张还有没填的，已用红框标出。':'还有没填的，已用红框标出。'; if(bn.textContent!==t) bn.textContent=t;
+    const top=$('lg95-top'); if(top&&bn.previousElementSibling!==top) top.insertAdjacentElement('afterend',bn); }
+
+  /* 画面一直跟着更新 */
+  document.addEventListener('click',()=>setTimeout(()=>{ if(mode()==='hub'||mode()==='card') paintHub(); tidyBanner(); },30),true);
+  document.addEventListener('input',()=>setTimeout(()=>{ paintHub(); tidyBanner(); },30),true);
+  setInterval(()=>{ const on=$('s-review')&&$('s-review').classList.contains('on'); if(!on) return; if(mode()==='hub'||mode()==='card'){ chrome(); paintHub(); } tidyBanner(); },500);
+
+  /* ── v95 · GAK 环节由派老师页指定（Owner 28-09 13:10）──
+     老师：派到哪几个环节就填哪几个（全部必填）；勾了「上课」才有学科能力。管理层：全部环节都看得到。 */
+  const GAK_ALL=['transition','bath','lunch','homework','learning','nap'];
+  window.lgGakStages=function(){
+    try{
+      if(typeof isAdmin==='function'&&isAdmin()) return GAK_ALL.slice();
+      const sid=S.ui.studentId, tid=S.who&&S.who.id;
+      const a=(S.cloudAssignments||[]).find(x=>x.student_id===sid&&x.teacher_id===tid&&!x.archived_at&&['active','pending','completed'].includes(x.status));
+      return (a&&Array.isArray(a.stages))?a.stages.slice():[];
+    }catch(_){ return []; }
+  };
+  function gakNote(){
+    const body=$('lg94-daily-body'); if(!body) return;
+    let n=$('lg95-gak-note');
+    const need=String(S.ui&&S.ui.dept||'').toUpperCase()==='GAK'&&!(typeof isAdmin==='function'&&isAdmin())&&!lgGakStages().length;
+    if(!need){ if(n) n.remove(); return; }
+    if(!n){ n=document.createElement('div'); n.id='lg95-gak-note'; n.className='lg94-note'; n.textContent='管理层还没有派你负责哪几个环节，所以这里只有共同的观察项目。请找管理层在「派老师」页设定。'; body.insertBefore(n,body.firstChild); }
+  }
+  setInterval(()=>{ try{ gakNote(); }catch(_){} },600);
 })();
 
 </script>
