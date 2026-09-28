@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>MiscGo v8</title>
+<title>MiscGo v9</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
@@ -425,9 +425,9 @@ body.teacher-mode .teacher-hide{display:none !important;}
     <div class="entry-title">MiscGo</div>
     <div class="entry-sub">Report Generator · Daily Log System</div>
     <div class="entry-card">
-      <div style="text-align:center;padding:8px 0;color:var(--mut);font-size:13px;">Checking your login…</div>
+      <div style="text-align:center;padding:8px 0;color:var(--mut);font-size:13px;">Opening MiscGo…</div>
       <div class="pw-err" id="pw-err" style="display:none;"></div>
-      <a href="https://angelteo.github.io/" style="display:inline-block;margin-top:12px;padding:10px 20px;background:var(--navy);color:#fff;border-radius:8px;text-decoration:none;font-weight:600;font-size:13px;">Go to Platform Login</a>
+      <a id="mg-entry-login" href="https://angelteo.github.io/" style="display:none;margin-top:12px;padding:10px 20px;background:var(--navy);color:#fff;border-radius:8px;text-decoration:none;font-weight:600;font-size:13px;">Go to Platform Login</a>
     </div>
   </div>
 </div>
@@ -560,7 +560,7 @@ body.teacher-mode .teacher-hide{display:none !important;}
    \u6539\u7248\u89c4\u5219\uff1a\u53ea\u7528\u6574\u6570\uff0c\u4e14\u4e09\u5904\u5fc5\u987b\u540c\u65f6\u6539 \u2014\u2014
    \u2460 <title>  \u2461 \u4e3b\u9875\u9876\u680f\u7684\u7248\u672c\u5fbd\u7ae0  \u2462 \u4e0b\u9762\u8fd9\u4e2a\u5e38\u6570
    \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550 */
-const APP_VERSION = 8;
+const APP_VERSION = 9;
 
 const B='\u2980';
 const H=(n,e='')=>`*${B}${B}${B}${B} ${n} ${B}${B}${B}${B}*`+(e?` ${e}`:'');
@@ -1791,13 +1791,42 @@ async function loadPermissions(){
   if(initials) localStorage.setItem('ini_v4',initials);
   return window.PERM;
 }
+/* v9：Owner「我要直接进入」。
+   读权限要连续问资料库 3–6 次，以前每次开都要等。现在把上次通过的权限记在这台装置，
+   下次直接用它进入，背後再向资料库确认；权限有变（例如被拿掉）才重新载入或挡下。
+   这份记忆只决定画面先长什么样 —— 资料能不能读写，仍由资料库规则决定。 */
+const MG_PERM_KEY='mg_perm_v1';
+function mgReadPerm(uid){try{const c=JSON.parse(localStorage.getItem(MG_PERM_KEY)||'null');return (c&&c.userId===uid)?c:null;}catch(_){return null;}}
+function mgWritePerm(){try{localStorage.setItem(MG_PERM_KEY,JSON.stringify(Object.assign({},window.PERM,{isTeacher:window._isTeacher,canSeeSettings:window._canSeeSettings})));}catch(_){}}
+function mgPermSig(p){return JSON.stringify([p.canSeeAnyMisc,p.isTeacher,p.canSeeSettings,p.canApproveRecords,(p.miscCodes||[]).join(',')]);}
+setTimeout(()=>{const e=document.getElementById('mg-entry-login');const scr=document.getElementById('s-entry');
+  if(e&&scr&&scr.classList.contains('on'))e.style.display='inline-block';},8000);
 async function bootstrapAuth(){
   const { data:{ session }, error }=await _sb.auth.getSession();
   if(error){ showMiscAuthError('Auth error: '+error.message); return; }
   if(!session){ redirectToPlatformLogin(); return; }
+  const cached=mgReadPerm(session.user.id);
+  if(cached&&cached.canSeeAnyMisc){
+    const {isTeacher,canSeeSettings,...perm}=cached;
+    window.PERM=perm; window._canDeleteRecords=!!perm.canApproveRecords;
+    window._isTeacher=!!isTeacher; window._canSeeSettings=!!canSeeSettings;
+    if(perm.initials) localStorage.setItem('ini_v4',perm.initials);
+    mgEnterApp();
+    loadPermissions().then(()=>{
+      const fresh=Object.assign({},window.PERM,{isTeacher:window._isTeacher,canSeeSettings:window._canSeeSettings});
+      mgWritePerm();
+      if(!fresh.canSeeAnyMisc){ showMiscAccessDenied(); return; }
+      if(mgPermSig(fresh)!==mgPermSig(cached)) location.reload();   // 权限变了：照新的重新进一次
+    }).catch(e=>console.warn('[MiscGo] background permission check failed',e));
+    return;
+  }
   try{ await loadPermissions(); }
   catch(e){ console.warn('loadPermissions failed',e); showMiscAuthError('Could not load your permissions. Please try again.'); return; }
   if(!window.PERM.canSeeAnyMisc){ showMiscAccessDenied(); return; }
+  mgWritePerm();
+  mgEnterApp();
+}
+function mgEnterApp(){
   // Enter app (mirrors old mgmtLogin success path)
   show('s-mgmt');
   (async()=>{ await syncAllFromSupabase(); await syncSchedulesFromSupabase(); await generateTodayFromSchedules(); })();
@@ -1810,6 +1839,7 @@ function showMiscAuthError(msg){
   show('s-entry');
   const e=document.getElementById('pw-err');
   if(e){ e.textContent='⚠ '+msg; e.style.display='block'; }
+  const b=document.getElementById('mg-entry-login'); if(b) b.style.display='inline-block';
 }
 function showMiscAccessDenied(){
   document.body.innerHTML=`<div style="max-width:420px;margin:80px auto;padding:32px 28px;text-align:center;font-family:sans-serif;">
@@ -1823,6 +1853,7 @@ function showMiscAccessDenied(){
 async function realLogout(){
   try{ await _sb.auth.signOut(); }catch(e){ console.warn('signOut',e); }
   localStorage.removeItem('ini_v4');
+  try{localStorage.removeItem(MG_PERM_KEY);}catch(_){}
   stopCheckReminder();
   location.replace(PLATFORM_URL);
 }
