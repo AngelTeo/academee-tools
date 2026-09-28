@@ -163,7 +163,7 @@ window.esc=esc;
 @media(max-width:700px){.lg-roster-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.lg-roster-board{padding:14px}}
 
 </style></head><body>
-<div class="gate" id="gate" style="display:none"><div class="gatebox"><div style="font-size:42px">💗</div><h2 id="gateTitle">正在确认你的登入…</h2><p id="gateMsg">LoveGo 会读取你的 Academee 身份与权限。</p><div id="gateAct"></div></div></div><div id="app"><header class="topbar"><button class="home" onclick="location.href='../index.html'">←</button><div class="brand">💗 LoveGo <span class="ver" id="verBadge">v93</span></div><button class="ntab on" data-p="collect" onclick="go('collect')">收集</button><button class="ntab" data-p="progress" onclick="go('progress')">进度</button><button class="ntab" id="manageTab" data-p="manage" onclick="go('manage')" style="display:none">设定</button><div class="navr"><span class="saved" id="saved"></span><button class="sync" id="sync">● 已保存</button><button class="navbtn" onclick="exportData()">↓ Export</button><label class="navbtn">↑ Import<input type="file" hidden accept=".json" onchange="importData(event)"></label><button class="logout" onclick="logout()">登出</button></div></header>
+<div class="gate" id="gate" style="display:none"><div class="gatebox"><div style="font-size:42px">💗</div><h2 id="gateTitle">正在确认你的登入…</h2><p id="gateMsg">LoveGo 会读取你的 Academee 身份与权限。</p><div id="gateAct"></div></div></div><div id="app"><header class="topbar"><button class="home" onclick="location.href='../index.html'">←</button><div class="brand">💗 LoveGo <span class="ver" id="verBadge">v94</span></div><button class="ntab on" data-p="collect" onclick="go('collect')">收集</button><button class="ntab" data-p="progress" onclick="go('progress')">进度</button><button class="ntab" id="manageTab" data-p="manage" onclick="go('manage')" style="display:none">设定</button><div class="navr"><span class="saved" id="saved"></span><button class="sync" id="sync">● 已保存</button><button class="navbtn" onclick="exportData()">↓ Export</button><label class="navbtn">↑ Import<input type="file" hidden accept=".json" onchange="importData(event)"></label><button class="logout" onclick="logout()">登出</button></div></header>
 <main class="shell">
 <section class="screen on" id="s-collect">
   <div class="hero">
@@ -218,12 +218,13 @@ window.esc=esc;
   <div class="lg-roster-grid" id="lg-roster-grid"></div>
 </div><div id="lg-fillbody" style="display:none"><div class="alert" id="lg-cloudbox" style="display:none"><b>⚠ Cloud 状态</b>　<span id="cloudReviewStatus">正在确认正式写入路径…</span></div><div class="alert"><b>长期观察</b>　写下你这一阶段真正看见这孩子的样子——看见多少写多少，最真实的观察，最珍贵。</div><div id="domains"></div><div class="review-fold" id="dailyFold"><div class="review-fold-head" onclick="lgToggleReviewFold('dailyFold')">生活片段 · Daily Student Life <span class="lg-req" id="lg-daily-req">必填 · 至少写一格</span></div><div class="review-fold-body"><div class="sub" style="margin:10px 0 8px">写一两件你印象最深的小事就好——最平常的日常，往往最动人。</div><div class="daily-grid"><label><span>习惯 / Routine</span><textarea class="note" id="dailyRoutine" placeholder="平常的习惯、独立性、责任感…"></textarea></label><label><span>与人相处 / Social</span><textarea class="note" id="dailySocial" placeholder="与同伴、老师互动时常见的样子…"></textarea></label><label><span>情绪 / Regulation</span><textarea class="note" id="dailyEmotion" placeholder="面对提醒、挫折、变化时常见的反应…"></textarea></label><label><span>特别变化 / Something I noticed</span><textarea class="note" id="dailyChange" placeholder="这一阶段明显的进步、变化或值得家长知道的小事…"></textarea></label></div></div></div><div class="review-fold" id="summaryFold"><div class="review-fold-head" onclick="lgToggleReviewFold('summaryFold')">Teacher Summary（选填）</div><div class="review-fold-body"><textarea class="note" id="summary" placeholder="如果还有一件你觉得值得补充的事，可以写在这里。"></textarea></div></div></div></section>
 <section class="screen" id="s-progress"><div class="hero"><div class="eyebrow">进度</div><h1>填写进度</h1><div class="sub" id="progressIntro">查看本轮 Review 完成情况。</div></div><div id="progressBody"></div></section>
-<section class="screen" id="s-assign"><div class="hero"><div class="eyebrow">Teacher Assignment</div><h1>指定本轮 LoveGo 老师</h1><div class="sub">管理层逐生指定本轮负责 Review 的老师，每位学生最多 4 位。管理层可随时查看已保存/已提交的 LoveGo 内容；系统不设硬性填写截止日。</div></div><div class="card"><div class="toolbar" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><select id="assignCycle" onchange="renderAssignments()"></select><select id="assignDept" onchange="renderAssignClasses()"></select><select id="assignClass" onchange="renderAssignments()"></select></div></div><div id="assignList"></div><div class="card" id="mgmtReviewView" style="display:none"><div class="title">Teacher Review · 管理层查看</div><div class="sub">这是 LoveGo Teacher Lens 原始 evidence。管理层可随时预览部分资料；只有全部当前有效老师 Submit 后，学生才是 Completed / Ready for PTMGo。查看不会改变 ObsGo，也不会改变原老师提交内容。</div><div id="mgmtReviewBody"></div></div></section>
+<section class="screen" id="s-assign"><div class="hero"><div class="eyebrow">Teacher Assignment</div><h1>指定本轮 LoveGo 老师</h1><div class="sub">管理层逐生指定本轮负责 Review 的老师，每位学生的老师人数照部门规定（SRK 4 · GAK 4 · ATC 6 · SRT 2）。管理层可随时查看已保存/已提交的 LoveGo 内容；系统不设硬性填写截止日。</div></div><div class="card"><div class="toolbar" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><select id="assignCycle" onchange="renderAssignments()"></select><select id="assignDept" onchange="renderAssignClasses()"></select><select id="assignClass" onchange="renderAssignments()"></select></div></div><div id="assignList"></div><div class="card" id="mgmtReviewView" style="display:none"><div class="title">Teacher Review · 管理层查看</div><div class="sub">这是 LoveGo Teacher Lens 原始 evidence。管理层可随时预览部分资料；只有全部当前有效老师 Submit 后，学生才是 Completed / Ready for PTMGo。查看不会改变 ObsGo，也不会改变原老师提交内容。</div><div id="mgmtReviewBody"></div></div></section>
 <section class="screen" id="s-manage"><div class="hero"><div class="eyebrow">Settings</div><h1>LoveGo 设定</h1></div><div class="manage-card"><h3>① 我的身份</h3><div class="lines" id="m1"></div></div><div class="manage-card"><h3>② 系统资讯</h3><div class="lines">系统名：LoveGo<br>版本：<span id="verText">v61</span><br>资料笔数：<span id="mcount">0</span></div></div><div class="manage-card"><h3>⑤ 资料备份</h3><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="ghost" onclick="exportData()">Export JSON</button><button class="ghost" onclick="exportCSV()">Export CSV</button><label class="ghost" style="display:inline-flex;align-items:center;cursor:pointer">Import<input type="file" hidden accept=".json" onchange="importData(event)"></label><button class="ghost" onclick="window.print()">列印</button></div></div></section>
 </main><div class="toast" id="toast"></div>
 <script>
-/* v93（28-09-2026）：Owner 决定换回整张表 —— 一年填一次、凭一直以来的观察、每个领域都要填。内容与 v91 完全相同，只改版本号；v92「一期多笔」停用。 */
-const APP_VERSION=93,KEY='lovego';
+/* v94（28-09-2026）：日常成长 ＋ 学科能力 ＋ 总结；派老师加「每位老师教哪几科」（见文件最下方 v94 段；不设负责老师）。
+   v93（28-09-2026）：Owner 决定换回整张表 —— 一年填一次、凭一直以来的观察、每个领域都要填。内容与 v91 完全相同，只改版本号；v92「一期多笔」停用。 */
+const APP_VERSION=94,KEY='lovego';
 const SUPABASE_URL='https://qnpvqsvvsgsantekgfbz.supabase.co';
 const SUPABASE_KEY='sb_publishable_v3Y3BD3XiPz33t-hfdX58g_BaFIkjPF';
 const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true}});
@@ -496,7 +497,7 @@ function renderProgress(){
     const st=S.students.find(x=>x.id===sid)||{};
     const as=current.filter(a=>a.student_id===sid).sort((a,b)=>a.slot_no-b.slot_no);
     const submitted=as.filter(a=>{const r=Object.values(S.reviews).find(x=>x.assignment_id===a.id&&x.counts_for_cycle!==false);return r?.status==='completed'&&!!r?.submitted_at}).length;
-    const ex=getAssignmentException(sid), assignmentValid=(as.length===4)||(ex?.approved&&ex.approved_count===as.length&&as.length>0);
+    const ex=getAssignmentException(sid), assignmentValid=(as.length>=({SRK:4,GAK:4,ATC:6,SRT:2}[String(as[0]?.department||'').toUpperCase()]||4))||(ex?.approved&&ex.approved_count===as.length&&as.length>0); /* v94：部门人数 Owner 28-09 11:46 */
     const ready=assignmentValid&&as.length>0&&submitted===as.length;
     const enr=S.enroll.find(e=>e.student_id===sid&&e.is_active!==false), cls=S.classes.find(c=>c.id===(enr?.class_id||as[0]?.class_id));
     return {sid,st,as,submitted,ready,assignmentValid,cls};
@@ -1906,10 +1907,11 @@ try{var _vb=document.getElementById("verBadge");if(_vb&&typeof APP_VERSION!=="un
 <script>/* ══════ v82 · 派老师（Platform Ops 26-09-2026）══════
    Owner 25-09 裁定：每生几位老师 SRK 4 · GAK 2 · ATC 4 · SRT 1；管理层（MAI/SQ/JN 等）不被派工。
    Owner 26-09：「简单」—— 一班选老师，全班学生一次派好；不做逐生设定、不做 CSV。
-   资料库那一半早就有：lovego_set_class_assignment_v2（一班 1–4 位老师 → 全班学生的派工 + 少于 4 位时的人数设定）。
+   资料库那一半早就有：lovego_set_class_assignment_v2（一班 1 到部门人数位老师 → 全班学生的派工 + 少于部门人数时的人数设定；v94 起部门人数 SRK 4 · GAK 4 · ATC 6 · SRT 2）。
    本段自给自足：自己读资料、自己画，不依赖旧的 assign 页（那一页调用的 renderAssignments 不存在）。 */
 (function(){
-  const NEED={SRK:4,GAK:2,ATC:4,SRT:1};
+  /* Owner 28-09：每生老师人数 SRK 4 · GAK 4 · ATC 6 · SRT 2（原 4 / 2 / 4 / 1）；也是一班最多可派的人数。资料库 lovego_dept_teacher_need() 同一组数字 */
+  const NEED={SRK:4,GAK:4,ATC:6,SRT:2};
   const ORDER=['SRK','GAK','ATC','SRT'];
   const D={dept:'SRK',rows:[],teachers:{},loaded:false,busy:false,err:'',ho:{cid:null,from:'',to:'',reason:''}};
   const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -1923,7 +1925,7 @@ try{var _vb=document.getElementById("verBadge");if(_vb&&typeof APP_VERSION!=="un
       sb.from('classes').select('id,department,class_name,display_name,sort_order,is_active'),
       sb.from('lovego_department_report_context').select('student_id,department,authority_class_id,authority_resolved').eq('cycle_id',cyc.id),
       sb.rpc('lovego_teacher_roster'),
-      sb.from('lovego_class_assignment').select('class_id,teacher_id,slot_no').eq('cycle_id',cyc.id).eq('status','active'),
+      sb.from('lovego_class_assignment').select('class_id,teacher_id,slot_no,subjects,is_responsible').eq('cycle_id',cyc.id).eq('status','active'),
       /* v86：哪些班已经有人交评语 → 整班改派会被资料库挡，事先让画面知道 */
       sb.from('lovego_review').select('class_id').eq('cycle_id',cyc.id).not('submitted_at','is',null)
     ]);
@@ -1939,8 +1941,10 @@ try{var _vb=document.getElementById("verBadge");if(_vb&&typeof APP_VERSION!=="un
     D.rows=(c.data||[]).filter(x=>x.is_active!==false && NEED[x.department] && stu[x.id]).map(x=>{
       const assigned=(done[x.id]||[]).sort((a,b)=>a.slot_no-b.slot_no).map(y=>y.teacher_id);
       const need=NEED[x.department];
+      /* v94：每位已派老师教哪几科 */
+      const roles={}; (done[x.id]||[]).forEach(y=>{ roles[y.teacher_id]={subjects:Array.isArray(y.subjects)?y.subjects.slice():[],resp:!!y.is_responsible}; });
       return {id:x.id, dept:x.department, name:x.display_name||x.class_name, sort:x.sort_order||0,
-        students:stu[x.id], need, suggest:[], assigned, locked: !!lock[x.id],
+        students:stu[x.id], need, suggest:[], assigned, locked: !!lock[x.id], roles,
         /* v87：已派的班带出已派的人；没派的班一律空白，不预先勾 */
         pick: old[x.id] || (assigned.length? assigned.slice() : [])};
     }).sort((a,b)=>a.sort-b.sort||NAT.compare(a.name,b.name));
@@ -1981,6 +1985,43 @@ try{var _vb=document.getElementById("verBadge");if(_vb&&typeof APP_VERSION!=="un
       '<div style="display:flex;justify-content:flex-end;margin-top:12px">'+
         '<button class="primary" '+(D.busy?'disabled':'')+' onclick="lgHandoverGo()">确认换人</button></div></div>';
   }
+
+  /* ══ v94 · 科目（Owner 28-09：「在派老师里，我们直接委任老师＋科目」）
+     Owner 28-09 11:08：不设「负责老师」—— 被派的老师共同承担责任，每位都一样算数。
+     几位老师评分合成卡上等级：取中间值，差 2 级以上标黄（PTMGo 负责算）。 ══ */
+  /* Owner 28-09 11:51：ATC 科目 华文、国文、英文、数学、科学、功课班 */
+  const SUBJ={SRK:['MD','ENG','BM','MATH'],GAK:['MD','ENG','BM','MATH'],ATC:['MD','BM','ENG','MATH','SCI','HW'],SRT:['ENG']};
+  const SN0={MD:'华文',ENG:'英文',BM:'国文',MATH:'数学',SCI:'科学',HW:'功课班'};  /* Owner 28-09 12:00：马来文一律叫国文 */
+  const snOf=(d,s)=>SN0[s];
+  function rolePanel(r){
+    if(!r.assigned.length) return '';
+    const all=SUBJ[r.dept]||[];
+    const covered=new Set();
+    r.assigned.forEach(id=>{ const x=r.roles&&r.roles[id]; if(x){ (x.subjects||[]).forEach(s=>covered.add(s)); } });
+    if(r.dept==='SRT') all.forEach(s=>covered.add(s));
+    const miss=all.filter(s=>!covered.has(s));
+    const rows=r.assigned.map(id=>{ const x=(r.roles&&r.roles[id])||{subjects:[],resp:false};
+      const subj=r.dept==='SRT'?'<span class="meta">英文（SRT 只有英文）</span>':all.map(s=>{ const on=(x.subjects||[]).indexOf(s)>=0;
+        return '<button class="chip'+(on?' on':'')+'" style="min-height:36px" '+(D.busy?'disabled':'')+' onclick="lgRoleSubj(\''+r.id+'\',\''+id+'\',\''+s+'\')">'+snOf(r.dept,s)+'</button>'; }).join('');
+      return '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:8px 0;border-top:.5px solid var(--bdr)"><b style="min-width:84px">'+esc(D.teachers[id]||'—')+'</b>'+subj+'</div>';
+    }).join('');
+    const warn=[];
+    if(miss.length) warn.push('还没有人教：<b>'+miss.map(s=>snOf(r.dept,s)).join('、')+'</b>（这几科卡上的格子会空）');
+    return '<div style="margin-top:10px;background:var(--sur2);border-radius:12px;padding:8px 12px">'+
+      '<div style="font-weight:800;font-size:13px;margin:4px 0 2px">每位老师教哪几科</div><div class="meta" style="margin-bottom:4px">点科目 = 这位老师要评这一科的学科能力。一科可以不只一位老师。点一下就存。</div>'+rows+
+      (warn.length?'<div class="alert" style="margin:8px 0 2px;background:#fbeee0;color:#854F0B">'+warn.join('<br>')+'</div>':'<div class="meta" style="color:var(--ok);margin:6px 0 2px">✓ 每一科都有人教</div>')+'</div>';
+  }
+  async function saveRole(r,tid,subjects,resp){
+    const cyc=cycle(); if(!cyc) throw new Error('还没有本轮的评语周期');
+    const q=await sb.rpc('lovego_set_class_teacher_role',{p_cycle_id:cyc.id,p_class_id:r.id,p_teacher_id:tid,p_subjects:subjects,p_is_responsible:resp});
+    if(q.error) throw q.error; return q.data;
+  }
+  window.lgRoleSubj=async (cid,tid,s)=>{ const r=D.rows.find(x=>x.id===cid); if(!r||D.busy) return;
+    const x=(r.roles[tid]=r.roles[tid]||{subjects:[],resp:false}); const next=(x.subjects||[]).slice(); const i=next.indexOf(s); if(i>=0) next.splice(i,1); else next.push(s);
+    D.busy=true; render();
+    try{ await saveRole(r,tid,next,false); x.subjects=next; toast('✓ 已存'); }catch(e){ console.error('[LoveGo 科目]',e); toast('✕ '+human(e)); }
+    finally{ D.busy=false; render(); } };
+  /* v94：不设负责老师（Owner 28-09 11:08） */
 
   function render(){
     const root=document.getElementById('dispatchBody'); if(!root) return;
@@ -2025,11 +2066,11 @@ try{var _vb=document.getElementById("verBadge");if(_vb&&typeof APP_VERSION!=="un
         ? '<button class="ghost" '+(D.busy?'disabled':'')+' onclick="lgHandoverOpen(\''+r.id+'\')">换人接手</button>'
         : '';
 
-      const mainBtn = '<button class="primary" '+((D.busy||n<1||n>4||same||r.locked)?'disabled':'')+' onclick="lgDispatchOne(\''+r.id+'\')">'+(r.assigned.length?'改派这一班':'派这一班')+'</button>';
+      const mainBtn = '<button class="primary" '+((D.busy||n<1||n>r.need||same||r.locked)?'disabled':'')+' onclick="lgDispatchOne(\''+r.id+'\')">'+(r.assigned.length?'改派这一班':'派这一班')+'</button>';
 
       return '<div class="card"><div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center"><div><b>'+esc(r.dept+' · '+r.name)+'</b><div class="meta">'+r.students+' 位学生 · 每生 '+r.need+' 位老师</div></div>'+status+'</div>'+
         '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px">'+(chips||'<span class="meta">系统没有建议的老师，请从右边选</span>')+add+'</div>'+
-        sugNote + lockNote + handoverPanel(r) +
+        sugNote + lockNote + rolePanel(r) + handoverPanel(r) +
         '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;gap:10px;flex-wrap:wrap"><span class="meta">'+hint+'</span>'+
         '<span style="display:flex;gap:8px;flex-wrap:wrap">'+hoBtn+mainBtn+'</span></div></div>';
     }).join('') || '<div class="card"><div class="meta">这个部门没有需要派老师的班</div></div>';
@@ -2038,7 +2079,7 @@ try{var _vb=document.getElementById("verBadge");if(_vb&&typeof APP_VERSION!=="un
 
   async function assign(r){
     const cyc=cycle(); const n=r.pick.length;
-    const reason = n>=4 ? null : (n===r.need ? ('部门规定每生 '+r.need+' 位老师') : ('这一班只派 '+n+' 位老师（规定 '+r.need+' 位）'));
+    const reason = n>=r.need ? null : ('这一班只派 '+n+' 位老师（规定 '+r.need+' 位）');
     const q=await sb.rpc('lovego_set_class_assignment_v2',{p_cycle_id:cyc.id,p_class_id:r.id,p_teacher_ids:r.pick,p_exception_reason:reason});
     if(q.error) throw q.error;
     return q.data;
@@ -2049,15 +2090,17 @@ try{var _vb=document.getElementById("verBadge");if(_vb&&typeof APP_VERSION!=="un
     if(/management only|management permission|authorization/i.test(m)) return '这个帐号没有派工权限';
     if(/active assignment not found/i.test(m)) return '找不到进行中的派工（可能已经被别人换过了，请重整一次）';
     if(/replacement reason required/i.test(m)) return '这位老师已经交过评语，换人一定要写理由';
-    if(/1 to 4 teachers/i.test(m)) return '一班只能派 1 到 4 位老师';
+    if(/requires 1 to (\d+) teachers/i.test(m)) return '这个部门一班最多派 '+m.match(/requires 1 to (\d+) teachers/i)[1]+' 位老师';
     if(/duplicate teacher/i.test(m)) return '同一位老师被选了两次';
+    if(/teacher is not assigned to this class/i.test(m)) return '这位老师还没派到这一班';
+    if(/subject .* not allowed/i.test(m)) return '这个部门没有这一科';
     if(/not active eligible staff/i.test(m)) return '这位老师的帐号不是在职状态，不能被派工';
     return '没派成功，请再按一次；还是不行请截图找管理层';
   }
 
   window.lgDispatchDept=d=>{ D.dept=d; render(); };
   window.lgDispatchToggle=(cid,tid)=>{ const r=D.rows.find(x=>x.id===cid); if(!r) return;
-    const i=r.pick.indexOf(tid); if(i>=0) r.pick.splice(i,1); else { if(r.pick.length>=4){ toast('一班最多 4 位老师'); return; } r.pick.push(tid); } render(); };
+    const i=r.pick.indexOf(tid); if(i>=0) r.pick.splice(i,1); else { if(r.pick.length>=r.need){ toast(r.dept+' 一班最多 '+r.need+' 位老师'); return; } r.pick.push(tid); } render(); };
   window.lgDispatchAdd=(cid,tid)=>{ if(tid) window.lgDispatchToggle(cid,tid); };
   window.lgDispatchOne=async cid=>{ const r=D.rows.find(x=>x.id===cid); if(!r||D.busy) return;
     D.busy=true; render();
@@ -2534,5 +2577,477 @@ body.lg-teacher .navr .navbtn{display:none!important}
   }
   (function boot(){ if(!wrap()&&!(window.lgCompleteAndNext&&window.lgCompleteAndNext.__v90)) setTimeout(boot,200); })();
 })();
+</script>
+<style id="lg94-css">
+.lg94-big{background:#fff;border:.5px solid var(--bdr);border-radius:16px;margin:0 0 12px;overflow:hidden}
+.lg94-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 16px;cursor:pointer;user-select:none}
+.lg94-title{font-size:19px;font-weight:800;color:var(--txt)}
+.lg94-en{font-size:13px;font-weight:600;color:var(--mut)}
+.lg94-count{margin-top:6px;font-size:13px;font-weight:700;color:var(--mut)}
+.lg94-count.miss{color:#b54708}.lg94-count.all{color:#1e7a4f}
+.lg94-tog{width:38px;height:38px;border:.5px solid var(--bdr);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:18px;color:var(--layer);flex:none;transition:transform .15s}
+.lg94-big.open>.lg94-head .lg94-tog{transform:rotate(180deg)}
+.lg94-body{display:none;padding:0 12px 12px}
+.lg94-big.open>.lg94-body{display:block}
+.lg94-big>.lg94-body>#domains{margin-top:0}
+.lg94-sect{margin:14px 2px 4px}
+.lg94-sect-t{font-weight:800;font-size:15px}
+.lg94-sect-s{font-size:12px;color:var(--mut);margin:4px 0 8px;line-height:1.5}
+.lg94-grp{margin:14px 0 6px;font-size:12px;font-weight:800;letter-spacing:.04em;color:var(--layer)}
+.lg94-item{border:.5px solid var(--bdr);border-radius:12px;padding:10px;margin:8px 0;background:#fff}
+.lg94-item.done{border-color:#bfe0cf;background:#fbfefc}
+.lg94-q{font-weight:700;font-size:14px;margin-bottom:8px}
+.lg94-req{font-size:11px;font-weight:800;color:#b54708;background:#fbeee0;border-radius:999px;padding:2px 8px;margin-left:4px}
+.lg94-ok{font-size:11px;font-weight:800;color:#1e7a4f;background:#e6f2ec;border-radius:999px;padding:2px 8px;margin-left:4px}
+.lg94-lv{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+@media(max-width:640px){.lg94-lv{grid-template-columns:1fr}}
+.lg94-opt{text-align:left;border:.5px solid var(--bdr);border-radius:10px;background:#fff;padding:8px 10px;min-height:44px;font-size:12.5px;line-height:1.45;color:var(--txt)}
+.lg94-opt b{display:block;font-size:11.5px;color:var(--layer);margin-bottom:2px}
+.lg94-opt.on{background:var(--layer);border-color:var(--layer);color:#fff}
+.lg94-opt.on b{color:#fff}
+.lg94-opt:disabled{opacity:.6}
+.lg94-subj{margin:12px 0}
+.lg94-subj-t{font-weight:800;font-size:16px;margin:4px 2px}
+.lg94-subj-c{font-size:12px;color:#b54708;margin-left:6px}.lg94-subj-c.all{color:#1e7a4f}
+.lg94-note{background:var(--sur2);border-radius:10px;padding:10px 12px;font-size:13px;color:var(--mut);margin:10px 0}
+.lg94-sblock{border:.5px solid var(--bdr);border-radius:12px;padding:12px;margin:10px 0}
+.lg94-sblock.todo{border-color:#f0c9a8}
+.lg94-item.lg-missing,.lg94-sblock.lg-missing,#dailyFold.lg-missing{border:2px solid var(--danger)!important;background:#fff6f5}
+#lg94-banner{background:#fdecea;color:var(--danger);font-weight:700;border-radius:12px;padding:10px 12px;margin:0 0 10px}
+#domains button.chip[onclick^="toggleInsufficient"]{display:none!important}
+#lg-miss-banner{display:none!important}
+</style>
+<script>
+/* ══════ v94 · 日常成长 ＋ 学科能力 ＋ 总结（Owner 28-09 定案；PTMGo 最终需要清单 v2）══════
+   · 学生页一进来：两张大卡「日常成长」「学科能力」＋ 下面一块「总结」；卡上直接显示已填 / 还差
+   · 日常成长：原本的各领域 ＋ 补充题 ＋ 卡上页 3 的 15 格（幼儿园），每格四级必填；拿掉「无法判断」
+   · 学科能力：只出现派老师页指定给这位老师的科目；班 ＋ 年龄都符合才出现
+   · 总结：强项、成长（各 1–3 个领域）、成长短文、生活片段、这一年最亮的一件事（必填）、补充
+   · 每题存：固定代号、0–3、当时题目与等级原文、对应卡上格子
+   · 2 岁：不出学科能力与页 3 */
+(function(){
+  'use strict';
+  const RUB = {"E-L1": {"3": ["熟悉简单指令仍常需重复、手势或示范", "理解熟悉单步指令和常用词,偶需提示", "熟悉情境中理解符合年龄的简单口头信息并正确回应"], "4": ["较完整指令或短故事需重复/提示", "理解简单两步要求及短叙事主要内容", "稳定理解符合年龄的较完整指令、提问和熟悉短叙事"], "5": ["多步骤或叙事顺序仍需支持", "理解多步骤要求和故事主要顺序,偶需澄清", "稳定理解多步骤语言和短叙事,并回答相关问题"], "6": ["条件、因果或非眼前内容仍需解释", "理解大部分较复杂口头信息并回应", "理解符合年龄的条件、因果及非眼前内容,并作简单推断"]}, "E-L2": {"3": ["主要靠动作、单字或成人猜测", "用熟悉单字/短语表达基本需要", "用符合年龄的单字和短语主动传达简单意思"], "4": ["组句明显依赖成人提示", "用简单句表达需要或描述熟悉事物", "用简单完整句表达需要、经历或熟悉想法"], "5": ["连续表达易停在零散句子", "用数句描述事件,偶需帮助连接", "较连贯描述事情、分享想法或简单复述"], "6": ["解释关系或组织多句仍需支持", "连贯表达主要内容", "用多句有组织地叙述、解释及表达简单因果"]}, "E-L3": {"3": ["字母/声音对应仍不稳定", "辨认部分熟悉字母或常见音", "稳定辨认符合课堂阶段的一组熟悉字母及常见音"], "4": ["合音仍高度依赖提示", "把部分声音合起来读简单规则词", "运用已学 letter-sound 拼读符合年龄的简单规则词"], "5": ["新词仍主要依赖猜测或成人带读", "拼读多数已学模式的规则词", "独立运用已学 phonics pattern 处理熟悉及部分新规则词"], "6": ["较长/复杂词仍需拆解支持", "处理多数已学拼读模式", "灵活使用已学 decoding,并稳定辨认常见高频词"]}, "E-L4": {"4": ["读熟悉短句需成人协助;理解零散", "读部分熟悉短句并说出主要意思", "独立读符合年龄的熟悉短句,理解基本字面意义"], "5": ["多句文本需明显支持", "读简单短文并理解部分主要内容", "读符合年龄的短文,回答主要字面问题"], "6": ["段落阅读或意义整合仍需支持", "理解段落主要内容和多数信息", "读符合年龄段落,理解主要内容并作简单推断"]}, "E-L5": {"4": ["字母/熟悉词主要依赖描写或范例", "独立形成部分已学字母/熟悉词", "独立写出符合年龄、课堂已学的熟悉字母/简单词"], "5": ["自主写词仍需频繁参考", "独立写熟悉词,开始组成短语", "独立写符合年龄的熟悉词及简单短语表达意思"], "6": ["组句仍高度依赖范例", "写简单句但组织/拼写仍需部分支持", "写符合年龄的简单句子传达清楚意思"]}, "B-L1": {"3": ["熟悉单步 BM 语言仍需重复/手势", "理解熟悉单步指令,偶需提示", "熟悉情境中理解符合年龄的简单 BM 口头信息并回应"], "4": ["较完整 BM 指令/短叙事需提示", "理解简单两步要求及短叙事", "稳定理解符合年龄的较完整 BM 指令、提问、短叙事"], "5": ["多步骤/叙事顺序仍需支持", "理解多步骤要求和故事顺序", "稳定理解多步骤 BM 语言并回答问题"], "6": ["条件/因果仍需解释", "理解大部分较复杂 BM 信息", "理解符合年龄的条件、因果并作简单推断"]}, "B-L2": {"3": ["主要靠动作/单字/成人猜测", "perkataan / frasa ringkas 表达基本需要", "用符合年龄的 perkataan/frasa 主动传达简单意思"], "4": ["组句依赖成人提示", "ayat mudah 表达需要/描述", "用 ayat mudah 表达需要、经历或想法"], "5": ["连续表达易零散", "beberapa ayat yang berkaitan", "较连贯描述、分享或复述"], "6": ["组织多句仍需支持", "连贯表达主要内容", "penerangan / penceritaan yang lebih tersusun"]}, "B-L3": {"3": ["熟悉 bunyi/suku kata 仍需提示", "辨认部分已学音节", "稳定辨认符合年龄、已学的基本 bunyi/suku kata"], "4": ["拼合音节高度依赖带读", "拼合部分简单音节", "把已学 suku kata 拼合成符合年龄的简单词"], "5": ["较长词仍需逐步提示", "eja 多数熟悉词", "独立拼读符合年龄的多音节熟悉词"], "6": ["新结构仍需拆分支持", "处理多数已学词形", "运用已学 syllabication 处理较长词及常见词形结构"]}, "B-L4": {"4": ["读熟悉短句需协助;理解零散", "读部分熟悉短句说出主要意思", "独立读符合年龄的熟悉 BM 短句,理解字面"], "5": ["多句文本需明显支持", "读简单短文理解部分内容", "读符合年龄 BM 短文,回答字面问题"], "6": ["段落/意义整合仍需支持", "理解段落主要内容", "读符合年龄 BM 段落,理解并作简单推断"]}, "B-L5": {"4": ["字母/熟悉词依赖描写/范例", "独立形成部分已学字母/词", "自主写符合阶段的熟悉字母/简单词"], "5": ["自主写词需频繁参考", "独立写熟悉词,开始短语", "自主写熟悉词及简单短语"], "6": ["组句依赖范例", "写简单句但组织/拼写需支持", "写简单 BM 句传意"]}, "M-L1": {"3": ["熟悉简单华语仍需重复/手势", "理解熟悉单步指令,偶需提示", "稳定理解符合年龄的简单当下华语信息并回应"], "4": ["较完整指令/短叙事需提示", "理解简单两步要求及短叙事", "稳定理解符合年龄的较完整华语指令、短叙事"], "5": ["多步骤与故事关系需支持", "理解多步骤与故事顺序", "稳定理解多步骤华语并回答问题"], "6": ["因果/条件仍需解释", "理解大部分较复杂华语", "理解符合年龄的因果、条件并作简单推断"]}, "M-L2": {"3": ["靠动作/单字/成人猜测", "单字/短语表达基本需要", "用符合年龄的单字/短语主动传达简单意思"], "4": ["组句依赖提示", "简单完整句表达", "用简单完整句表达需要、经历或想法"], "5": ["连续表达易零散", "数句相连描述", "较连贯描述、分享或复述"], "6": ["组织多句需支持", "连贯表达主要内容", "连贯叙述与简单解释"]}, "M-L3": {"3": ["熟悉字仍常需图片/成人提示", "辨认部分已学高频字", "稳定辨认符合年龄、课堂已学的一组熟悉汉字"], "4": ["独立认字仍不稳定", "认读较多熟悉字,偶混形近字", "稳定认读符合年龄的常用已学字,开始区分明显形近字"], "5": ["新组合/相近字形仍需提示", "稳定认读多数已学常用字", "利用字形、语境或部件线索辨认符合年龄的常用字"], "6": ["较不熟悉文字高度依赖提示", "稳定认读课堂阶段常用字", "在符合年龄材料中稳定认读已学字,并利用线索处理部分不熟悉字"]}, "M-L4": {"4": ["读熟悉短句需协助;理解零散", "读部分熟悉短句说出意思", "独立读符合年龄的熟悉华语短句,理解字面"], "5": ["多句短文需支持", "读多句短文理解部分内容", "读符合年龄华语短文,回答字面问题"], "6": ["段落/推断需支持", "理解段落主要内容", "读符合年龄华语段落,理解并作简单推断"]}, "M-L5": {"5": ["写熟悉汉字主要依赖描红/范例", "自主写出部分熟悉汉字,结构/笔画偶需参考", "自主写符合阶段的熟悉汉字,并组成简单词"], "6": ["自主成字/组词需较多参考", "自主写已学汉字及简单词,开始短句", "自主用符合年龄的已学汉字组成词或简单短句表意"]}, "M1": {"3": ["认数/口数小范围需提示,顺序偶乱", "认读并口数小范围数字（如 0–10)", "稳定认读并按序口数符合年龄的小范围数字"], "4": ["较大范围认读/排序需支持", "认读较大范围,开始排序、比较前后", "稳定认读符合年龄范围,能排序并比较前后大小"], "5": ["位置/较大范围需引导", "排序较大范围,理解前后位置", "稳定排序、比较,并理解数字位置关系"], "6": ["更大范围/位值概念需支持", "处理较大范围数序", "稳定处理符合年龄较大范围数序并显现位值雏形"]}, "M2": {"3": ["点数小量偶重复或跳过", "一一对应点数小量并说总数", "稳定点数符合年龄小量并正确说出总数"], "4": ["较大量点数/基数不稳", "点数较大量并说总数", "稳定点数符合年龄较大量,理解总数即基数"], "5": ["数量守恒/比较需支持", "比较两组多少,基数较稳", "稳定一一对应,理解总数不因排列改变"], "6": ["估计/较大量比较需引导", "比较并粗略估计数量", "稳定比较、估计符合年龄的数量"]}, "M4": {"3": ["辨认基本形状/明显差异需提示", "辨认基本形状,比较明显大小/长短", "稳定辨认符合年龄基本形状并比较明显可测属性"], "4": ["延续规律需带领", "延续简单规律,比较可测属性", "稳定延续简单规律并排序符合年龄可测属性"], "5": ["创造规律/排序需支持", "排序可测属性,尝试创造规律", "稳定创造简单规律并比较排序可测属性"], "6": ["非标准单位测量需引导", "用非标准单位比较", "稳定用非标准单位测量并创造符合年龄规律"]}, "M5": {"4": ["发现简单关系需引导", "在具体情境发现简单关系（更多/更少/一样)", "稳定在具体情境发现符合年龄的简单数学关系"], "5": ["解决熟悉小问题需支持", "解决熟悉小问题,尝试解释", "稳定解决符合年龄熟悉小问题并尝试解释想法"], "6": ["推理/迁移需引导", "推理并解释部分想法", "稳定推理、解释「为什么」并迁移到新情境"]}, "H1": {"3": ["简单熟悉要求仍需示范、重复或明显提示", "理解大部分熟悉单步要求,偶需提示", "稳定理解符合年龄的简单、当下要求,并知道要做什么"], "4": ["两个相关步骤或较完整要求需示范", "理解简单两步要求,偶需澄清", "稳定理解符合年龄的两步要求及基本目的"], "5": ["多步要求易漏掉部分", "理解多步要求,偶需确认", "稳定理解符合年龄的多步要求,并说出/表现主要要求"], "6": ["含条件/顺序/例外的要求需解释", "理解多数较复杂要求并主动澄清", "理解符合年龄的条件式要求,并在不确定时自行厘清"]}, "H2": {"3": ["熟悉单步指令需反复提醒才继续", "完成大部分熟悉单步指令,偶需提醒", "稳定跟随符合年龄的熟悉单步指令,无需反复催促"], "4": ["简单两步指令常做到一半偏离", "完成简单两步要求,偶需提醒", "稳定跟随符合年龄的两步指令并完成各步骤"], "5": ["多步骤中易遗漏或次序混乱", "执行多步骤要求,偶需重新定位", "稳定执行符合年龄的多步骤要求,不易半途走失"], "6": ["条件/先后要求需成人监督", "执行较复杂要求并开始自查", "稳定执行含顺序/条件的要求,并主动检查是否照做"]}, "H3": {"3": ["短活动也常需成人持续在旁/提醒才留在活动中", "投入熟悉短活动,偶需成人带回", "在符合年龄的熟悉活动中稳定投入到自然结束,轻微分心后回来"], "4": ["开始后易离开任务,需多次带回", "维持大部分熟悉活动,偶需提醒", "较自主开始并维持符合年龄的活动,轻微打断后能继续"], "5": ["活动较长或有干扰时常失去投入", "持续较完整活动,被打断后通常能回来", "稳定投入符合年龄的工作,并较自主从干扰中回到任务"], "6": ["跨较长任务或打断时仍需成人维持", "维持较长活动并恢复投入", "自主投入、维持到自然结束,中断后重新进入工作状态"]}, "H4": {"3": ["熟悉短任务也常需成人持续推动才完成", "支持下完成大部分熟悉短任务", "稳定完成符合年龄的熟悉短任务,所需支持很少"], "4": ["简单任务常留下未完成部分", "完成多数熟悉任务,偶需提醒收尾", "稳定完成符合年龄的简单任务,包括基本收尾"], "5": ["多部分任务易遗漏其中一部分", "完成多部分任务,偶需检查提醒", "稳定完成符合年龄的多部分任务,并注意是否遗漏"], "6": ["较长任务或完整性依赖成人检查", "完成较长任务并开始自己检查", "完成符合年龄的较长任务,并自主检查基本完整性"]}, "H5": {"3": ["一遇困难通常马上停止,需成人较多带动才再试", "鼓励下愿意再试一次", "遇符合年龄小困难时,能接受鼓励并继续尝试,而非立即放弃"], "4": ["困难出现时常等成人直接解决", "会再试,必要时求助后继续", "较主动再试,并在得到适当帮助后继续完成尝试"], "5": ["第一个方法失败后易停住", "重复尝试,开始换简单方法", "稳定再试,并尝试调整做法或适当求助后继续"], "6": ["挫折后较依赖成人决定下一步", "尝试不同方法继续", "在符合年龄困难中自行调整策略、求助或重新尝试"]}, "I1": {"3": ["熟悉常规和转换需成人一对一带领", "提示下跟随熟悉常规", "跟着日常 cue 进入下一项熟悉活动,不需持续一对一带领"], "4": ["多数转换需个别提醒", "跟随熟悉常规,偶需提醒", "较自主完成符合年龄的日常常规与熟悉转换"], "5": ["日常顺序改变时易停住或等待", "自主跟随常规并准备下一活动", "预期熟悉转换,并提前做基本准备"], "6": ["常规临时改变时高度依赖成人重新安排", "说明后能适应变化", "理解常规变化并较自主调整下一步"]}, "I2": {"3": ["收拾熟悉物品常需成人直接协助", "提醒下会拿/收自己的东西", "在符合年龄日常中把熟悉个人物品放回适当位置"], "4": ["常忘记归位或带走东西", "多数时候自行收拾,偶需提醒", "较稳定记得、拿取及归位自己的日常物品"], "5": ["准备所需物品常依赖提醒", "照管大部分物品并开始自查", "自主准备、归位,并发现明显遗漏"], "6": ["物品责任主要靠成人提醒", "管理日常物品并作基本检查", "稳定对自己的物品负责,并自行纠正常见遗漏"]}, "I3": {"3": ["成人一离开就常停下或寻找持续协助", "成人在附近时能自己进行熟悉活动", "成人合理可及但不持续介入时,能自己进行符合年龄的熟悉活动"], "4": ["熟悉任务需成人频繁在旁确认", "成人不紧贴旁边时能继续", "较自主开展及进行符合年龄的熟悉活动"], "5": ["多步骤活动频繁寻求成人确认", "独立推进大部分熟悉工作", "自主推进符合年龄的熟悉多步骤活动,需要时才求助"], "6": ["自主计划/推进高度依赖成人", "独立选择并推进熟悉任务", "自主开始、组织并推进符合年龄的工作"]}, "I4": {"3": ["卡住后常完全停下,需成人先发现", "鼓励下会用话、动作或接近成人表示需要帮助", "需要时能用符合年龄的语言或明确方式让成人知道需要帮助"], "4": ["常等成人猜需要什么", "主动求助,但说明仍不够清楚", "主动求助,并大致表达需要什么帮助"], "5": ["一遇困难就马上求助,或完全不求助", "开始先尝试,再寻求帮助", "先作合理尝试,需要时再主动求助"], "6": ["求助时机/对象常不恰当", "判断多数时候何时需要帮助", "判断何时、向谁、需要哪类帮助,并作适当求助"]}, "I5": {"3": ["多数基本自理步骤仍需成人直接协助", "参与并完成部分熟悉自理步骤,仍需提醒/协助", "在符合 3 岁发展的熟悉日常中,完成多项基本自理步骤,仅需年龄合理的少量支持"], "4": ["多数自理事项需较多成人处理", "多数熟悉自理步骤能自己完成,少数需提醒", "稳定自主完成符合 4 岁发展的多数日常自理事项,需要时适当求助"]}, "C1": {"3": ["有需要时多依赖成人猜测或代为表达", "熟悉成人鼓励下表达基本需要", "熟悉环境中用符合年龄语言/明确方式表达基本需要或感受"], "4": ["在同伴/小组中常完全退回不表达", "熟悉群体中开始表达想法", "熟悉同伴/小组中较自然表达需要、感受或简单意见"], "5": ["有不同意见/需要时仍常沉默", "群体中表达想法,偶需鼓励", "符合年龄群体情境中为自己的需要和想法发声"], "6": ["较不熟悉情境高度依赖成人代言", "多数情境能表达自己", "熟悉及部分新情境中以适当方式表达需要、感受或不同意见"]}, "C2": {"3": ["常停在外围,需成人持续带入", "鼓励下加入熟悉群体活动", "熟悉群体活动中加入并维持符合年龄的参与"], "4": ["加入后易退出或需频繁重新带入", "主动加入部分熟悉活动", "较自然加入并参与符合年龄的群体活动"], "5": ["群体任务中较被动,需分配才参与", "承担简单角色并持续参与", "稳定参与群体任务,并作符合年龄的简单贡献"], "6": ["需成人持续安排参与方式", "持续参与并偶尔贡献想法", "主动参与、贡献想法或行动,并帮助群体活动继续"]}, "C3": {"3": ["轮流通常需成人持续介入", "提醒下可以等待和轮流", "熟悉活动中能在年龄合理提示下稳定轮流、共享材料"], "4": ["没被提醒时易抢先/中断轮流", "多数时候自行等待、轮流", "较自主等待、轮流并参与简单合作"], "5": ["有共同目标时较难协调", "合作完成简单共同任务", "稳定合作、共享角色/材料完成符合年龄的共同目标"], "6": ["分工或简单冲突完全依赖成人", "协商基本分工", "协调简单分工,并在小冲突中尝试年龄合适的解决方式"]}, "C4": {"3": ["与熟悉成人/同伴互动非常有限或难持续", "回应熟悉的人并建立简单联系", "与熟悉成人或同伴形成符合年龄的稳定、正向互动"], "4": ["互动多为短暂并行,互相回应较少", "与同伴有来回互动并逐渐建立熟悉关系", "维持简单友谊/伙伴互动,并表现基本关心"], "5": ["关系出现小摩擦后常难重新连接", "维持几段熟悉关系", "稳定维持符合年龄的友谊,并在小摩擦后恢复互动"], "6": ["面对不同同伴/关系变化较依赖成人", "与不同同伴建立互动", "建立较多样的正向关系,并处理符合年龄的关系起伏"]}, "C5": {"3": ["小挫折后需较大量或较长成人帮助才恢复", "接受熟悉成人安抚,并逐渐回到活动", "在年龄合理的成人共同调节下,从一般小挫折中恢复并重新参与"], "4": ["平复仍主要依赖成人全程带领", "开始用简单方法/语言表达情绪并恢复", "在少量支持下逐渐平静,并重新进入活动"], "5": ["小挫折后仍较难自行恢复", "使用简单的自我调节方式", "较自主说出感受、使用简单策略并从一般挫折中恢复"], "6": ["情绪上来后常需成人决定调节方式", "使用已学策略调节多数小挫折", "预期/辨认自己的情绪,并选择符合年龄的方法调节、恢复和继续"]}};
+  const $=id=>document.getElementById(id);
+  const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+  /* ── 四级 ── */
+  const TAG=['0 起步','1 开始做到','2 大致做到','3 稳定'];
+  function rubricLevels(cell,age){
+    const rows=RUB[cell]; if(!rows) return null;
+    const ages=Object.keys(rows).map(Number).sort((a,b)=>a-b);
+    let a=Math.max(ages[0],Math.min(ages[ages.length-1],age));
+    const r=rows[a]; if(!r) return null;
+    return [r[0],'常要提示才做到：'+r[1],r[1],r[2]];
+  }
+  const FIX={
+    KG_DICT:['听写的字词多数写不出，要看着抄','写得出一部分，常漏字、写错或要提示','大多能听写正确，偶尔错一两个','听写稳定正确，写得清楚'],
+    KG_ANSWER:['常不知道要怎么回答，要老师一步一步带着做','简单的题会答，但常答不完整或答非所问，要提示','大多数题目能按要求回答，偶尔漏答','能按要求完整回答，做完会自己看一遍'],
+    KG_NUMWRITE:['还写不出教过的数字，要老师手把手','会描、会抄，常写反或写错','大多能自己写对','写得对、清楚，顺序写得出来'],
+    A_READ:['课内短文或题目读不懂，要老师一句一句解释','读得出字面意思，句子一长就漏看或误解','大多能读懂题目和短文，偶尔误解','能读懂题目要求，也读得出短文里没直接写出的意思'],
+    A_QREAD:['常不知道题目要做什么，要老师解释题意','短题看得懂，文字题常漏看条件或看错要求','大多能看清题目和条件，偶尔漏看','能看清题目每个条件和要求，包括较长的文字题'],
+    A_ANSWER:['常空白或答非所问','会作答，但常不完整、格式不对或漏答','大多按要求作答，偶有粗心','按要求完整作答，会主动检查'],
+    A_WRITE:['字常写错、难辨认，要老师示范','大多写得出，但错字多或很乱','大多写对、清楚，偶有错字','写得对、整齐，速度跟得上'],
+    A_DICT:['听写大部分写错或写不出','一半左右写对，常见字也会错','大多写对，偶有错字','听写稳定正确，连较难的字词也写得对'],
+    HW_ONTIME:['常做不完，要带回家或留下来补','要老师一直催才赶得完','大多能在功课班时间内做完','稳定按时做完当天的功课'],
+    HW_ACCURACY:['错很多，大部分要重做','常有错，要老师指出才改','大多做对，偶有错','稳定做对'],
+    HW_CHECK:['做完不看，错了也不改','老师提醒才检查、订正','大多会自己检查，订正偶尔要提醒','做完会自己检查，错的会自己订正'],
+    HW_INDEP:['要老师一直在旁边才做','常要提醒才开始或继续','大多自己开始、自己做完，偶尔要提醒','自己开始、自己做完，不用提醒'],
+    A_NUM:['年级内的基本计算还不会，要老师一步步教','会基本计算，但步骤常错，要提示','年级内的计算大多做对，偶尔出错','计算稳定正确，会用在应用题']
+  };
+  /* Owner 28-09 12:00：马来文一律叫「国文」（代号仍是 BM） */
+  const SUBJ_NAME={MD:'华文',ENG:'英文',BM:'国文',MATH:'数学',SCI:'科学',HW:'功课班'};
+  /* Owner 28-09 11:51：ATC 科目 华文、国文、英文、数学、科学、功课班（功课班没有学科能力题） */
+  const DEPT_SUBJ={SRK:['MD','ENG','BM','MATH'],GAK:['MD','ENG','BM','MATH'],ATC:['MD','BM','ENG','MATH','SCI','HW'],SRT:['ENG']};
+  const subjName=s=>SUBJ_NAME[s];
+
+  /* ── 题库 ── */
+  const KG=[], ATC=[], SRT=[], P3=[];
+  const ALL=['BB','JR','IN','SR'], UP=['JR','IN','SR'];
+  [['MD','M'],['ENG','E'],['BM','B']].forEach(([s,c])=>{
+    const SN=SUBJ_NAME[s];
+    KG.push({code:'KG-'+s+'-LISTEN',subject:s,title:'听懂',tiers:ALL,min:3,cells:[c+'-L1'],rub:c+'-L1'});
+    KG.push({code:'KG-'+s+'-SPEAK', subject:s,title:'说',tiers:ALL,min:3,cells:[c+'-L2'],rub:c+'-L2'});
+    KG.push({code:'KG-'+s+'-RECOG', subject:s,title:'认读',bbTitle:'认字',tiers:ALL,min:3,cells:[c+'-L3'],rub:c+'-L3'});
+    KG.push({code:'KG-'+s+'-READ',  subject:s,title:'读懂',tiers:UP,min:4,cells:[c+'-L4'],rub:c+'-L4'});
+    KG.push({code:'KG-'+s+'-WRITE', subject:s,title:'书写',tiers:UP,min:(s==='MD'?5:4),cells:[c+'-L5'],rub:c+'-L5'});
+    KG.push({code:'KG-'+s+'-DICT',  subject:s,title:(s==='MD'?'听写':s==='ENG'?'Spelling 听写':'Ejaan 听写'),tiers:['IN','SR'],min:3,cells:[],support:[c+'-L5'],fix:'KG_DICT'});
+    KG.push({code:'KG-'+s+'-ANSWER',subject:s,title:'作答',tiers:UP,min:3,cells:[],support:[c+'-L4',c+'-L5'],fix:'KG_ANSWER'});
+  });
+  KG.push({code:'KG-MATH-NUMORDER',subject:'MATH',title:'认数与数序',bbTitle:'认数字',tiers:ALL,min:3,cells:['M1'],rub:'M1'});
+  KG.push({code:'KG-MATH-COUNT',   subject:'MATH',title:'数量与数数',tiers:ALL,min:3,cells:['M2'],rub:'M2'});
+  KG.push({code:'KG-MATH-NUMWRITE',subject:'MATH',title:'写数字',tiers:UP,min:3,cells:['CARD-MATH-3'],fix:'KG_NUMWRITE'});
+  KG.push({code:'KG-MATH-SHAPE',   subject:'MATH',title:'形状 · 规律 · 测量',bbTitle:'形状',tiers:ALL,min:3,cells:['M4'],rub:'M4'});
+  KG.push({code:'KG-MATH-THINK',   subject:'MATH',title:'数学思维',tiers:UP,min:4,cells:['M5'],rub:'M5'});
+  KG.push({code:'KG-MATH-ANSWER',  subject:'MATH',title:'作答',tiers:UP,min:3,cells:[],support:['M1','M2','M4','M5'],fix:'KG_ANSWER'});
+  ['MD','ENG','BM'].forEach(s=>{
+    ATC.push({code:'ATC-'+s+'-READ',subject:s,title:'阅读',fix:'A_READ'});
+    ATC.push({code:'ATC-'+s+'-ANSWER',subject:s,title:'作答',fix:'A_ANSWER'});
+    ATC.push({code:'ATC-'+s+'-WRITE',subject:s,title:'书写',fix:'A_WRITE'});
+  });
+  ATC.push({code:'ATC-MATH-QREAD',subject:'MATH',title:'读题',fix:'A_QREAD'});
+  ATC.push({code:'ATC-MATH-ANSWER',subject:'MATH',title:'作答',fix:'A_ANSWER'});
+  ATC.push({code:'ATC-MATH-NUM',subject:'MATH',title:'数与计算',fix:'A_NUM'});
+  ATC.push({code:'ATC-SCI-QREAD',subject:'SCI',title:'读题',fix:'A_QREAD'});
+  ATC.push({code:'ATC-SCI-ANSWER',subject:'SCI',title:'作答',fix:'A_ANSWER'});
+  ATC.push({code:'ATC-SCI-WRITE',subject:'SCI',title:'书写',fix:'A_WRITE'});
+  /* Owner 28-09 12:00：功课班 7 题，只有功课班老师填；ATC 听写只由功课班评（三语科不再有听写题） */
+  ATC.push({code:'ATC-HW-ONTIME',  subject:'HW',title:'功课按时完成',fix:'HW_ONTIME'});
+  ATC.push({code:'ATC-HW-ACCURACY',subject:'HW',title:'作业正确度',fix:'HW_ACCURACY'});
+  ATC.push({code:'ATC-HW-CHECK',   subject:'HW',title:'会自己检查、订正',fix:'HW_CHECK'});
+  ATC.push({code:'ATC-HW-INDEP',   subject:'HW',title:'独立完成（需要多少提醒）',fix:'HW_INDEP'});
+  ATC.push({code:'ATC-HW-DICT-MD', subject:'HW',title:'华文听写的学习状况',fix:'A_DICT'});
+  ATC.push({code:'ATC-HW-DICT-ENG',subject:'HW',title:'英文 Spelling 的学习状况',fix:'A_DICT'});
+  ATC.push({code:'ATC-HW-DICT-BM', subject:'HW',title:'国文 Ejaan 的学习状况',fix:'A_DICT'});
+  SRT.push({code:'SRT-ENG-ANSWER',subject:'ENG',title:'作答',fix:'A_ANSWER'});
+  [['H','学习习惯',['听懂要求','照着做完指示','专心','做完我的工作','困难时继续试']],
+   ['I','独立',['常规与转换','管好自己的东西','自己独立做','需要时会求助','照顾自己（自理）']],
+   ['C','社交情绪',['为自己发声','参加团体活动','合作与轮流','建立良好关系','管理情绪与小挫折']]].forEach(([g,gn,names])=>{
+    names.forEach((n,i)=>{ const cell=g+(i+1); P3.push({code:'KG-CARD-'+cell,group:gn,title:n,cells:[cell],rub:cell,min:3,max:(cell==='I5'?4:6)}); });
+  });
+  window.LG94_BANK={KG,ATC,SRT,P3,RUB,FIX};
+
+  /* ── 这位孩子 ── */
+  function dept(){ return String(S.ui&&S.ui.dept||'').toUpperCase(); }
+  function isKG(){ return dept()==='SRK'||dept()==='GAK'; }
+  function stu(){ try{ return currentStudentObj(); }catch(_){ return null; } }
+  /* PTMGo 验收 v94（28-09 11:20）两处更正：
+     ① 幼儿园出哪些题一律照这位孩子在 SRK 的班（GAK 分班跟 SRK 不一样）；没有 SRK 班才用眼前这一班
+     ② 年龄 ＝ 报告期学年 − 出生年（不用出生日期、不用今天）；读不到报告期就用今年 */
+  let ACAD_YEAR=null, acadLoading=false;
+  async function loadAcadYear(){
+    if(ACAD_YEAR!=null||acadLoading) return; acadLoading=true;
+    try{
+      const cyc=CLOUD&&CLOUD.cycleMap&&CLOUD.cycleMap[S.ui.cycle]; if(!cyc||!cyc.id) return;
+      const c=await sb.from('lovego_cycle').select('report_period_id').eq('id',cyc.id).limit(1);
+      const rp=c&&!c.error&&c.data&&c.data[0]&&c.data[0].report_period_id; if(!rp) return;
+      const q=await sb.from('report_period').select('academic_year').eq('id',rp).limit(1);
+      const y=q&&!q.error&&q.data&&q.data[0]&&Number(q.data[0].academic_year);
+      if(y>2000){ ACAD_YEAR=y; setTimeout(()=>{ try{ paintAll(); }catch(_){ } },0); }
+    }catch(_){ } finally{ acadLoading=false; }
+  }
+  function acadYear(){ if(ACAD_YEAR==null) loadAcadYear(); return ACAD_YEAR||new Date().getFullYear(); }
+  function realAge(){ const s=stu(); const by=s&&Number(s.birth_year); return (by>1990)?(acadYear()-by):null; }
+  function tierFromName(n){ const m=String(n||'').toUpperCase().match(/(?:^|[^A-Z])(BB|JR|IN|SR)(?=[^A-Z]|$)/); return m?m[1]:null; }
+  function srkClass(){
+    try{
+      const sid=S.ui.studentId;
+      const ids=(S.enroll||[]).filter(e=>e.student_id===sid&&e.is_active!==false).map(e=>e.class_id);
+      return (S.classes||[]).find(c=>ids.includes(c.id)&&String(c.department||'').toUpperCase()==='SRK'&&c.is_active!==false)||null;
+    }catch(_){ return null; }
+  }
+  function classTier(){
+    const k=srkClass(); if(k){ const t=tierFromName(k.class_name||k.display_name); if(t) return t; }
+    const c=(typeof currentClassObj==='function')?currentClassObj():null;
+    return tierFromName(c&&(c.class_name||c.display_name));
+  }
+  /* 没有出生年（资料库 4 位）→ 按班级推算：BB 3 · JR 4 · IN 5 · SR 6 */
+  const TIER_AGE={BB:3,JR:4,IN:5,SR:6};
+  function age(){ const a=realAge(); if(a!=null) return a; const t=classTier(); return t?TIER_AGE[t]:null; }
+  function ageGuessed(){ return realAge()==null&&!!classTier(); }
+  function tier(){ const t=classTier(); if(t) return t; const a=realAge(); if(a==null) return null; return a<=3?'BB':a===4?'JR':a===5?'IN':'SR'; }
+  function levelsOf(it,a){ if(it.fix) return FIX[it.fix]; return rubricLevels(it.rub,a); }
+  function visibleKG(it,a,t){ return it.tiers.includes(t) && a!=null && a>=it.min && (it.max==null||a<=it.max) && (!it.rub||!!rubricLevels(it.rub,a)); }
+  function myAssignment(){
+    try{ const sid=S.ui.studentId, tid=S.who&&S.who.id;
+      return (S.cloudAssignments||[]).find(x=>x.student_id===sid&&x.teacher_id===tid&&!x.archived_at&&['active','pending','completed'].includes(x.status))||null; }catch(_){ return null; }
+  }
+  /* 管理层（包括被派到的管理层）写的评语，资料库一律记成「管理层」那一份：科目全部列出、学科能力选填 */
+  function mgmt(){ try{ return typeof isAdmin==='function'&&isAdmin(); }catch(_){ return false; } }
+  function mySubjects(){
+    if(dept()==='SRT') return ['ENG'];
+    if(mgmt()) return (DEPT_SUBJ[dept()]||[]).slice();
+    const a=myAssignment(); return (a&&Array.isArray(a.subjects))?a.subjects.slice():[];
+  }
+  /* 这一份要填的题 */
+  function plan(){
+    const d=dept(), a=age(), t=tier();
+    const out={p3:[],acad:[],acadRequired:!mgmt(),tooYoung:false,subjects:mySubjects(),age:a,tier:t,ageGuessed:ageGuessed()};
+    if(isKG()){
+      if(a!=null&&a<3){ out.tooYoung=true; return out; }
+      out.p3=P3.filter(it=>a!=null&&a>=it.min&&a<=it.max).map(it=>Object.assign({},it,{levels:levelsOf(it,a)}));
+      out.acad=KG.filter(it=>out.subjects.includes(it.subject)&&visibleKG(it,a,t)).map(it=>Object.assign({},it,{title:(t==='BB'&&it.bbTitle)||it.title,levels:levelsOf(it,a)}));
+    } else if(d==='ATC'){
+      out.acad=ATC.filter(it=>out.subjects.includes(it.subject)).map(it=>Object.assign({},it,{levels:levelsOf(it,a)}));
+    } else if(d==='SRT'){
+      out.acad=SRT.map(it=>Object.assign({},it,{levels:levelsOf(it,a)}));
+    }
+    return out;
+  }
+  window.lg94Plan=plan;
+
+  function rv(){ try{ return ensure(); }catch(_){ return null; } }
+  function locked(r){ return !!(r&&(r.submitted_at||r.locked_at||String(r.status||'')==='completed')); }
+  function ab(r){ if(!r.abilities||typeof r.abilities!=='object'||Array.isArray(r.abilities)) r.abilities={}; return r.abilities; }
+  function valOf(r,code){ const x=ab(r)[code]; return (x&&typeof x.v==='number')?x.v:null; }
+
+  /* ── 统计 ── */
+  function domainDone(r,code){ const x=(r.domains||{})[code]||{}; return Array.isArray(x.obs)&&x.obs.length>0; }
+  function dailyOk(r){ const dl=r.daily_life||{}; return ['routine','social','emotion','change'].some(k=>String(dl[k]||'').trim()); }
+  function refs(r,k){ return (Array.isArray(r[k+'_refs'])?r[k+'_refs']:[]).filter(x=>x&&x.kind==='DOMAIN'); }
+  function stats(){
+    const r=rv(); if(!r) return null; const p=plan();
+    const doms=(typeof domains==='function'?domains():[]).map(d=>d.code);
+    const host=$('domains'); const sup=(host&&window.lgSuppStats)?window.lgSuppStats(host):{total:0,done:0};
+    const p3done=p.p3.filter(it=>valOf(r,it.code)!=null).length;
+    const dTotal=doms.length+sup.total+p.p3.length, dDone=doms.filter(c=>domainDone(r,c)).length+sup.done+p3done;
+    const aTotal=p.acad.length, aDone=p.acad.filter(it=>valOf(r,it.code)!=null).length;
+    const sItems=[['strength',refs(r,'strength').length>0],['growth',refs(r,'growth').length>0],['daily',dailyOk(r)],['brightest',!!String(r.brightest||'').trim()]];
+    return {r,p,doms,sup,dTotal,dDone,aTotal,aDone,aReq:p.acadRequired,sTotal:sItems.length,sDone:sItems.filter(x=>x[1]).length,sItems};
+  }
+  window.lg94Stats=stats;
+  function missingList(){
+    const st=stats(); if(!st) return [];
+    const r=st.r, miss=[];
+    st.doms.forEach(c=>{ if(!domainDone(r,c)) miss.push({kind:'domain',code:c}); });
+    if(st.sup.total>st.sup.done) miss.push({kind:'supp',code:'SUPP',n:st.sup.total-st.sup.done});
+    st.p.p3.forEach(it=>{ if(valOf(r,it.code)==null) miss.push({kind:'p3',code:it.code,title:it.title}); });
+    if(st.aReq) st.p.acad.forEach(it=>{ if(valOf(r,it.code)==null) miss.push({kind:'acad',code:it.code,title:subjName(it.subject)+' '+it.title}); });
+    st.sItems.forEach(([k,ok])=>{ if(!ok) miss.push({kind:'sum',code:k}); });
+    return miss;
+  }
+  window.lg94Missing=missingList;
+
+  /* ── 画面骨架（一次） ── */
+  function big(id,title,en,open){
+    const s=document.createElement('section'); s.className='lg94-big'+(open?' open':''); s.id=id;
+    s.innerHTML='<div class="lg94-head" onclick="lg94Toggle(\''+id+'\')"><div class="lg94-hmain"><div class="lg94-title">'+title+' <span class="lg94-en">· '+en+'</span></div><div class="lg94-count" id="'+id+'-count"></div></div><div class="lg94-tog">⌄</div></div><div class="lg94-body" id="'+id+'-body"></div>';
+    return s;
+  }
+  function skeleton(){
+    const body=$('lg-fillbody'), doms=$('domains'); if(!body||!doms) return false;
+    if($('lg94-daily')) return true;
+    const d=big('lg94-daily','日常成长','Daily Growth',false);
+    const a=big('lg94-acad','学科能力','Academic Skills',false);
+    const s=big('lg94-sum','总结','Summary',true);
+    doms.parentNode.insertBefore(d,doms);
+    d.querySelector('.lg94-body').appendChild(doms);
+    const p3=document.createElement('div'); p3.id='lg94-p3'; d.querySelector('.lg94-body').appendChild(p3);
+    d.insertAdjacentElement('afterend',a); a.insertAdjacentElement('afterend',s);
+    const sb=s.querySelector('.lg94-body');
+    const sg=document.createElement('div'); sg.id='lg94-sg'; sb.appendChild(sg);
+    const df=$('dailyFold'); if(df){ sb.appendChild(df); df.classList.add('open'); }
+    const br=document.createElement('div'); br.id='lg94-bright'; sb.appendChild(br);
+    const sf=$('summaryFold'); if(sf) sb.appendChild(sf);
+    return true;
+  }
+  let lastSid=null;
+  window.lg94Toggle=function(id){ const e=$(id); if(e) e.classList.toggle('open'); };
+
+  /* ── 一题四级 ── */
+  function itemHtml(it,r,dis){
+    const v=valOf(r,it.code);
+    return '<div class="lg94-item'+(v==null?'':' done')+'" data-code="'+esc(it.code)+'"><div class="lg94-q">'+esc(it.title)+(v==null?' <span class="lg94-req">必填</span>':' <span class="lg94-ok">✓</span>')+'</div>'+
+      '<div class="lg94-lv">'+it.levels.map((t,i)=>'<button type="button" class="lg94-opt'+(v===i?' on':'')+'" '+(dis?'disabled':'')+' onclick="lg94Set(\''+it.code+'\','+i+')"><b>'+TAG[i]+'</b><span>'+esc(t)+'</span></button>').join('')+'</div></div>';
+  }
+  function paintP3(st){
+    const host=$('lg94-p3'); if(!host) return;
+    const r=st.r, dis=locked(r), p=st.p;
+    if(!isKG()){ host.innerHTML=''; return; }
+    if(p.tooYoung){ host.innerHTML='<div class="lg94-note">2 岁的孩子：只记观察，不评格子等级。</div>'; return; }
+    let h='<div class="lg94-sect"><div class="lg94-sect-t">卡上页 3 · 每格一题（四级必填）</div><div class="lg94-sect-s">照你一整年看到的，选最接近这孩子平常样子的一级。上面各领域点的句子是例子，这里才是等级。</div>';
+    let g=null;
+    p.p3.forEach(it=>{ if(it.group!==g){ g=it.group; h+='<div class="lg94-grp">'+esc(g)+'</div>'; } h+=itemHtml(it,r,dis); });
+    host.innerHTML=h+'</div>';
+  }
+  function paintAcad(st){
+    const host=$('lg94-acad-body'); if(!host) return;
+    const r=st.r, dis=locked(r), p=st.p;
+    const sec=$('lg94-acad');
+    if(p.tooYoung){ host.innerHTML='<div class="lg94-note">2 岁的孩子：不评学科能力。</div>'; return; }
+    if(!p.subjects.length){ host.innerHTML='<div class="lg94-note">管理层还没有指定你教这位孩子哪一科，所以这里没有题目。请找管理层在「派老师」页设定。</div>'; return; }
+    let h=(p.acadRequired?'':'<div class="lg94-note">你是管理层：学科能力选填，只当参考。</div>')+(p.ageGuessed?'<div class="lg94-note">系统里没有这位孩子的出生年，年龄先按班级算（'+esc(p.tier)+' → '+p.age+' 岁）。请管理层到 MasterHub 补出生年。</div>':'');
+    (DEPT_SUBJ[dept()]||[]).filter(s=>p.subjects.includes(s)).forEach(s=>{
+      const items=p.acad.filter(it=>it.subject===s); if(!items.length) return;
+      const n=items.filter(it=>valOf(r,it.code)!=null).length;
+      h+='<div class="lg94-subj"><div class="lg94-subj-t">'+esc(subjName(s)||s)+' <span class="lg94-subj-c'+(n===items.length?' all':'')+'">'+n+' / '+items.length+'</span></div>'+items.map(it=>itemHtml(it,r,dis)).join('')+'</div>';
+    });
+    host.innerHTML=h||'<div class="lg94-note">这位孩子的年龄 / 班级没有要评的题。</div>';
+  }
+  function paintSum(st){
+    const r=st.r, dis=locked(r);
+    const sg=$('lg94-sg');
+    if(sg){
+      const ds=(typeof domains==='function'?domains():[]);
+      const pick=k=>{ const on=new Set(refs(r,k).map(x=>x.domain_code));
+        return '<div class="chips">'+ds.map(d=>'<button type="button" class="chip'+(on.has(d.code)?' on':'')+'" '+(dis?'disabled':'')+' onclick="lg94Ref(\''+k+'\',\''+d.code+'\')">'+esc(d.code+' · '+d.name)+'</button>').join('')+'</div>'; };
+      const sOk=refs(r,'strength').length>0, gOk=refs(r,'growth').length>0;
+      sg.innerHTML=
+        '<div class="lg94-sblock'+(sOk?'':' todo')+'" id="lg94-s-strength"><div class="lg94-q">强项：这孩子最突出的 1–3 个方面 '+(sOk?'<span class="lg94-ok">✓</span>':'<span class="lg94-req">必填</span>')+'</div>'+pick('strength')+'</div>'+
+        '<div class="lg94-sblock'+(gOk?'':' todo')+'" id="lg94-s-growth"><div class="lg94-q">成长：最需要成长的 1–3 个方面 '+(gOk?'<span class="lg94-ok">✓</span>':'<span class="lg94-req">必填</span>')+'</div>'+pick('growth')+
+        '<div class="lg94-q" style="margin-top:10px">成长短文（选填）</div><textarea class="note" id="lg94-growth-note" '+(dis?'disabled':'')+' placeholder="这孩子接下来可以往哪里走、在家可以怎么帮">'+esc(r.growth_note||'')+'</textarea></div>';
+    }
+    const br=$('lg94-bright');
+    if(br){
+      const ok=!!String(r.brightest||'').trim();
+      if(!br.querySelector('textarea')){
+        br.innerHTML='<div class="lg94-sblock" id="lg94-s-brightest"><div class="lg94-q">这一年最亮的一件事 <span id="lg94-bright-tag"></span></div><div class="lg94-sect-s">写一件<b>具体发生过的事</b>：谁、在做什么、做到了什么。不写形容词。例：学期中他第一次自己把积木城堡搭完，还拉同学来看。</div><textarea class="note" id="lg94-brightest"></textarea></div>';
+      }
+      const ta=$('lg94-brightest'); if(ta){ if(document.activeElement!==ta&&ta.value!==(r.brightest||'')) ta.value=r.brightest||''; ta.disabled=dis; }
+      const tg=$('lg94-bright-tag'); if(tg) tg.innerHTML=ok?'<span class="lg94-ok">✓</span>':'<span class="lg94-req">必填</span>';
+      const bl=$('lg94-s-brightest'); if(bl) bl.classList.toggle('todo',!ok);
+    }
+  }
+  function paintCounts(st){
+    const set=(id,done,total,req)=>{ const el=$(id+'-count'); if(!el) return;
+      const left=total-done;
+      const t=total===0?'这一块没有要填的题':(left===0?'✓ 已填完 '+total+' 题':'已填 '+done+' / '+total+' 题'+(req?' · 还差 '+left:''));
+      el.textContent=t; el.className='lg94-count'+(total&&left===0?' all':(req&&left>0?' miss':'')); };
+    set('lg94-daily',st.dDone,st.dTotal,true);
+    set('lg94-acad',st.aDone,st.aTotal,st.aReq);
+    set('lg94-sum',st.sDone,st.sTotal,true);
+  }
+  let painting=false;
+  function paintAll(){
+    if(painting) return; painting=true;
+    try{
+      if(!skeleton()) return;
+      const sid=S.ui&&S.ui.studentId;
+      if(sid!==lastSid){ lastSid=sid; ['lg94-daily','lg94-acad'].forEach(id=>{ const e=$(id); if(e) e.classList.remove('open'); }); const s=$('lg94-sum'); if(s) s.classList.add('open'); }
+      const r=rv(); if(!r) return;
+      /* 拿掉「无法判断」：旧草稿里勾过的清掉（交出的不动） */
+      if(!locked(r)){ let ch=false; Object.values(r.domains||{}).forEach(x=>{ if(x&&x.insufficient_observation){ x.insufficient_observation=false; ch=true; } }); if(ch){ try{ save(); }catch(_){} } }
+      const st=stats(); if(!st) return;
+      paintP3(st); paintAcad(st); paintSum(st); paintCounts(st);
+    }catch(e){ console.warn('[LoveGo v94]',e); }
+    finally{ painting=false; }
+  }
+  window.lg94Paint=paintAll;
+  function recount(){ try{ const st=stats(); if(st) paintCounts(st); }catch(_){} }
+
+  /* ── 输入 ── */
+  window.lg94Set=function(code,v){
+    const r=rv(); if(!r||locked(r)) return;
+    const p=plan(); const it=p.acad.concat(p.p3).find(x=>x.code===code); if(!it) return;
+    const cur=valOf(r,code);
+    if(cur===v){ delete ab(r)[code]; }
+    else ab(r)[code]={v,label:it.title,level_text:it.levels[v],cell:(it.cells||[]).join(','),support:(it.support||[]).join(',')||undefined,subject:it.subject||null,age:p.age,tier:p.tier};
+    r.updated_at=new Date().toISOString();
+    try{ save(); }catch(_){}
+    const el=document.querySelector('.lg94-item[data-code="'+code+'"]');
+    if(el){ const nv=valOf(r,code); el.classList.toggle('done',nv!=null); el.classList.remove('lg-missing');
+      el.querySelectorAll('.lg94-opt').forEach((b,i)=>b.classList.toggle('on',nv===i));
+      const q=el.querySelector('.lg94-q'); if(q){ const tag=q.querySelector('.lg94-req,.lg94-ok'); if(tag){ tag.className=nv==null?'lg94-req':'lg94-ok'; tag.textContent=nv==null?'必填':'✓'; } } }
+    const st=stats(); if(st){ paintCounts(st); const host=$('lg94-acad-body'); if(host&&el&&host.contains(el)) paintAcad(st); }
+    lg94Banner();
+  };
+  window.lg94Ref=function(kind,code){
+    const r=rv(); if(!r||locked(r)) return;
+    let arr=Array.isArray(r[kind+'_refs'])?r[kind+'_refs'].filter(x=>x&&x.kind==='DOMAIN'):[];
+    const i=arr.findIndex(x=>x.domain_code===code);
+    if(i>=0) arr.splice(i,1); else { if(arr.length>=3){ toast('最多选 3 个'); return; } arr.push({kind:'DOMAIN',domain_code:code,taxonomy_version:r.taxonomy_version||null}); }
+    r[kind+'_refs']=arr; r.updated_at=new Date().toISOString();
+    try{ save(); }catch(_){}
+    const st=stats(); if(st){ paintSum(st); paintCounts(st); } lg94Banner();
+  };
+  document.addEventListener('input',e=>{
+    const id=e.target&&e.target.id; if(id!=='lg94-brightest'&&id!=='lg94-growth-note') return;
+    const r=rv(); if(!r||locked(r)) return;
+    if(id==='lg94-brightest') r.brightest=e.target.value; else r.growth_note=e.target.value;
+    r.updated_at=new Date().toISOString();
+    try{ save(); }catch(_){}
+    if(id==='lg94-brightest'){ const st=stats(); if(st){ paintSum(st); paintCounts(st); } }
+    lg94Banner();
+  },true);
+  document.addEventListener('input',e=>{ const id=e.target&&e.target.id; if(/^daily(Routine|Social|Emotion|Change)$/.test(id)) setTimeout(recount,0); },true);
+  document.addEventListener('click',()=>setTimeout(recount,0),true);
+
+  /* ── 漏填：标红、打开、跳过去 ── */
+  function lg94Banner(){
+    const bn=$('lg94-banner'); if(!bn) return;
+    const m=missingList(); if(!m.length){ bn.remove(); return; }
+    bn.textContent='还不能完成：还有 '+m.length+' 项没填，已用红框标出。';
+  }
+  function showMissing(m){
+    const body=$('lg-fillbody'); if(!body) return;
+    let bn=$('lg94-banner'); if(!bn){ bn=document.createElement('div'); bn.id='lg94-banner'; body.insertBefore(bn,body.firstChild); }
+    const cnt={domain:0,supp:0,p3:0,acad:0,sum:0}; m.forEach(x=>{ cnt[x.kind]+= (x.kind==='supp'?x.n:1); });
+    const parts=[]; if(cnt.domain) parts.push('日常成长的领域 '+cnt.domain+' 项'); if(cnt.supp) parts.push('补充题 '+cnt.supp+' 题'); if(cnt.p3) parts.push('页 3 格子 '+cnt.p3+' 题'); if(cnt.acad) parts.push('学科能力 '+cnt.acad+' 题'); if(cnt.sum) parts.push('总结 '+cnt.sum+' 项');
+    bn.textContent='还不能完成：还差 '+parts.join('、')+'。已用红框标出。';
+    let first=null;
+    const open=id=>{ const e=$(id); if(e&&!e.classList.contains('open')) e.classList.add('open'); };
+    if(cnt.domain||cnt.supp||cnt.p3) open('lg94-daily');
+    if(cnt.acad) open('lg94-acad');
+    if(cnt.sum) open('lg94-sum');
+    /* 领域与补充：交给 v89 / v90 原本的标红 */
+    if(cnt.domain&&window.lgShowMissing){ try{ window.lgShowMissing({missing:m.filter(x=>x.kind==='domain').map(x=>({code:x.code,name:''})),daily:true}); }catch(_){} }
+    try{ toast('还差 '+parts.join('、')); }catch(_){}
+    if(cnt.supp){ const host=$('domains');
+      if(host){ host.querySelectorAll(':scope > .lg-group-card').forEach(card=>{ const c=window.lgSuppStats?window.lgSuppStats(card):{done:0,total:0}; if(c.done<c.total&&!card.classList.contains('open')&&window.lgToggleGroup) lgToggleGroup(card.dataset.group); });
+        setTimeout(()=>{ host.querySelectorAll('.lg-detail-item').forEach(it=>{ if(!it.querySelector('.lg-detail-opt.on')) it.classList.add('lg-missing'); }); },80); } }
+    setTimeout(()=>{
+      m.forEach(x=>{
+        let el=null;
+        if(x.kind==='p3'||x.kind==='acad') el=document.querySelector('.lg94-item[data-code="'+x.code+'"]');
+        else if(x.kind==='sum') el=x.code==='daily'?$('dailyFold'):$('lg94-s-'+x.code);
+        else if(x.kind==='domain') el=[...document.querySelectorAll('#domains .domain')].find(d=>{ const dn=d.querySelector('.dn'); return dn&&dn.textContent.split('·')[0].trim()===x.code; });
+        if(el){ el.classList.add('lg-missing'); if(!first) first=el; }
+      });
+      if(first) first.scrollIntoView({behavior:'smooth',block:'center'});
+    },160);
+  }
+  window.lg94ShowMissing=showMissing;
+
+  /* 「完成这一位」：先查全部 */
+  function wrapComplete(){
+    const base=window.lgCompleteAndNext;
+    if(typeof base!=='function'||!base.__v90) return false;
+    if(base.__v94) return true;
+    const w=async function(){
+      try{ const r=rv(); if(r&&!locked(r)){ const m=missingList(); if(m.length){ showMissing(m); return; } } }catch(e){ console.warn('[LoveGo v94 完成]',e); }
+      return base.apply(this,arguments);
+    };
+    w.__v90=true; w.__v94=true; window.lgCompleteAndNext=w; return true;
+  }
+  (function boot(){ if(!wrapComplete()) setTimeout(boot,200); })();
+
+  /* 其他路径交出（saveReview(true)）也一样挡 */
+  const _val=window.validateReviewV33;
+  window.validateReviewV33=function(r){
+    const g=_val?_val(r):{ok:true,missing:[],daily:true};
+    try{ const m=missingList().filter(x=>x.kind!=='domain'&&!(x.kind==='sum'&&x.code==='daily'));
+      if(m.length){ g.missing=(g.missing||[]).concat(m.map(x=>({code:'v94:'+x.code,name:x.title||x.code}))); g.ok=false; setTimeout(()=>showMissing(missingList()),0); } }catch(_){}
+    return g;
+  };
+
+  /* ── 上云：带新栏位 ── */
+  const _pl=window.cloudReviewPayload;
+  window.cloudReviewPayload=function(r,submitted){
+    const p=_pl(r,submitted);
+    p.abilities=(r.abilities&&typeof r.abilities==='object')?r.abilities:{};
+    p.brightest=r.brightest||null;
+    p.growth_note=r.growth_note||null;
+    return p;
+  };
+  window.cloudUpsertReview=async function(r,submitted=false){
+    if(!CLOUD.available)throw new Error('LoveGo Cloud 尚未启用');
+    const cyc=CLOUD.cycleMap[S.ui.cycle]; if(!cyc)throw new Error('当前周期尚未建立在 LoveGo Cloud');
+    r.cloud_cycle_id=cyc.id;
+    const role=String(S.who&&S.who.role||'').toUpperCase();
+    const isMgmtRole=['OWNER','TOP_MGMT','MGMT','ADMIN'].includes(role);
+    if(isMgmtRole){
+      const payload={cycle_id:cyc.id,student_id:r.student_id,class_id:r.class_id,department:r.department,taxonomy_version:r.taxonomy_version,status:submitted?'completed':'draft',domains:r.domains||{},daily_life:r.daily_life||{},strength_refs:r.strength_refs||[],growth_refs:r.growth_refs||[],strength_note:r.strength_note||null,growth_note:r.growth_note||null,strength_growth_overlap_note:r.strength_growth_overlap_note||null,summary:r.summary||null,abilities:(r.abilities&&typeof r.abilities==='object')?r.abilities:{},brightest:r.brightest||null,entered_by_role:role};
+      const q=await sb.rpc('lovego_upsert_management_review',{p:payload}); if(q.error)throw q.error;
+      Object.assign(r,q.data||{}); r.cloud_cycle_id=cyc.id; return q.data;
+    }
+    if(!r.assignment_id)throw new Error('没有有效 Teacher Assignment');
+    const payload=window.cloudReviewPayload(r,submitted);
+    const q=await sb.from('lovego_review').upsert(payload,{onConflict:'assignment_id'}).select('id,status,submitted_at,locked_at').single();
+    if(q.error)throw q.error; Object.assign(r,q.data||{}); return q.data;
+  };
+
+  /* ── 接上：每次画领域后重画 ── */
+  function hook(){
+    const host=$('domains'); if(!host) return;
+    if(!host.__lg94){ host.__lg94=true;
+      let q=false; new MutationObserver(()=>{ if(q) return; q=true; requestAnimationFrame(()=>{ q=false; paintAll(); }); }).observe(host,{childList:true}); }
+    const onRev=$('s-review')&&$('s-review').classList.contains('on')&&$('lg-fillbody')&&$('lg-fillbody').style.display!=='none';
+    if(onRev){ const sid=S.ui&&S.ui.studentId; if(sid!==lastSid||!$('lg94-daily')) paintAll(); }
+  }
+  setInterval(hook,400); hook();
+  const _rd=window.renderDomains;
+  if(typeof _rd==='function'){ window.renderDomains=function(){ const o=_rd.apply(this,arguments); setTimeout(paintAll,0); return o; }; }
+})();
+
 </script>
 </body></html>
