@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>MiscGo v9</title>
+<title>MiscGo v10</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
@@ -447,7 +447,7 @@ body.teacher-mode .teacher-hide{display:none !important;}
 <!-- ══ FORM ══ -->
 <div class="scr" id="s-form">
   <div class="form-hdr">
-    <button class="back-btn" onclick="goTeacher()">‹</button>
+    <button class="back-btn" onclick="leaveForm()">‹</button>
     <div style="flex:1;"><div class="fh1" id="fh-title"></div><div class="fh2" id="fh-cat"></div></div>
     <span id="fh-ico" style="font-size:22px;"></span>
   </div>
@@ -460,7 +460,7 @@ body.teacher-mode .teacher-hide{display:none !important;}
 <!-- ══ PREVIEW ══ -->
 <div class="scr" id="s-prev">
   <div class="prev-hdr">
-    <button class="back-btn" onclick="leavePrev(goForm)">‹</button>
+    <button class="back-btn" onclick="startEditPrev()" style="font-size:12px;font-weight:600;width:auto;padding:0 10px;">✏️ Edit</button>
     <div style="color:#fff;font-size:16px;font-weight:700;flex:1;">Preview & Send</div>
     <button class="back-btn" onclick="leavePrev(goTeacher)" style="font-size:12px;font-weight:600;width:auto;padding:0 10px;">Done</button>
   </div>
@@ -560,7 +560,7 @@ body.teacher-mode .teacher-hide{display:none !important;}
    \u6539\u7248\u89c4\u5219\uff1a\u53ea\u7528\u6574\u6570\uff0c\u4e14\u4e09\u5904\u5fc5\u987b\u540c\u65f6\u6539 \u2014\u2014
    \u2460 <title>  \u2461 \u4e3b\u9875\u9876\u680f\u7684\u7248\u672c\u5fbd\u7ae0  \u2462 \u4e0b\u9762\u8fd9\u4e2a\u5e38\u6570
    \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550 */
-const APP_VERSION = 9;
+const APP_VERSION = 10;
 
 const B='\u2980';
 const H=(n,e='')=>`*${B}${B}${B}${B} ${n} ${B}${B}${B}${B}*`+(e?` ${e}`:'');
@@ -1622,7 +1622,7 @@ async function pushRecordToSupabase(rec){
       toast('⚠️ Save failed: '+(error.message||'unknown'),true);
     }else{
       // Store supabase id back on local record
-      if(data&&data[0]){rec.supabase_id=data[0].id;save();}
+      if(data&&data[0]){rec.supabase_id=data[0].id;rec.supabase_ids=data.map(x=>x.id);save();}
       console.log('✅ Record pushed to Supabase');
     }
   }catch(e){
@@ -2413,6 +2413,7 @@ function goTeacher(){
 
 // ══ FORM ══
 function openForm(id,caller){
+  window._editingRec=null;   // v10：开新报告一定不是编辑旧的
   curFmt=FORMATS.find(f=>f.id===id);if(!curFmt)return;
   formCaller=caller||'teacher';
   multiState={};forgotState={students:[],items:{}};
@@ -2821,6 +2822,27 @@ function generateAndSave(){
     }
   });
   const summary=curFmt.sum?curFmt.sum(v):'';
+  // ── v10：编辑中 → 更新同一笔，不再多存一笔 ──
+  const er=window._editingRec;
+  if(er && S.records.indexOf(er)>=0 && er.type===curFmt.id){
+    const oldN=(er.students||[]).length||1, newN=(students||[]).length||1;
+    if(oldN!==newN){ toast('To change the number of students, please make a new report.',true); return; }
+    const wasSent=!!(er.waSent||er.everSent);
+    if(wasSent) curMsg='✏️ *EDITED*\n'+curMsg;        // 主管收过旧版：标出这是更正版
+    Object.assign(er,{raw:curMsg,date:recDate,students:students,
+      studentIds:(typeof extractStudentIdsFromForm==='function'?extractStudentIdsFromForm():er.studentIds),
+      summary:summary,editedAt:Date.now(),edits:(er.edits||0)+1,waSent:false,waSentAt:null});
+    save();
+    mgPushEdit(er);
+    window._editingRec=null;
+    document.getElementById('msg-card').textContent=curMsg;
+    const sb2=document.getElementById('prev-save-btn'); if(sb2)sb2.style.display='none';
+    prevBindRecord(er);                                   // 改过 = 没送，一定要再送
+    show('s-prev');window.scrollTo(0,0);
+    toast(wasSent?'✓ Updated. Send it to WhatsApp again.':'✓ Updated. Now tap Send to WhatsApp.');
+    return;
+  }
+  window._editingRec=null;
   // Save record immediately
   // 3-tier savedBy:
   //   Entry (no password)      → just initials, e.g. 'MR'
@@ -2932,6 +2954,7 @@ async function markWaSent(){
   paintPrevWaBar();
   if(!_prevRec) return;
   _prevRec.waSent = true;
+  _prevRec.everSent = true;   // v10：改过之後要标 EDITED
   _prevRec.waSentAt = new Date().toISOString();
   try{ save(); }catch(_){}
   // 云端那笔标起来，MGMT 才查得到「哪几笔只存没送」
@@ -2940,9 +2963,10 @@ async function markWaSent(){
   for(let i=0;i<6;i++){
     try{
       if(typeof _sb!=='undefined' && _sb && rec.supabase_id){
+        // v10：一笔多个学生 = 云端多列，全部都要标
         await _sb.from('records')
           .update({wa_sent:true, wa_sent_at:rec.waSentAt})
-          .eq('id', rec.supabase_id);
+          .in('id', (rec.supabase_ids&&rec.supabase_ids.length)?rec.supabase_ids:[rec.supabase_id]);
         return;
       }
     }catch(e){ console.warn('[MiscGo] wa_sent 标不上去：', e); return; }
@@ -2955,6 +2979,51 @@ function sendWAFromPrev(){
   markWaSent();          // 先标起来，跳走之后就没机会了
   sendWA();
 }
+// ── v10：改同一笔 ──
+function startEditPrev(){
+  if(!_prevRec){ goForm(); return; }
+  window._editingRec=_prevRec;
+  goForm();                                                // 表单里还是刚才填的内容
+  toast('Make your changes, then tap Generate again.');
+}
+function leaveForm(){
+  const er=window._editingRec;
+  if(er && S.records.indexOf(er)>=0){                     // 编辑中：回预览，不回首页（没送出去不能溜走）
+    window._editingRec=null;
+    curMsg=er.raw;
+    document.getElementById('msg-card').textContent=curMsg;
+    const sb2=document.getElementById('prev-save-btn'); if(sb2)sb2.style.display='none';
+    prevBindRecord(er);
+    show('s-prev');window.scrollTo(0,0);
+    return;
+  }
+  goTeacher();
+}
+function mgSidOf(rec,name){
+  const pinned=(rec.studentIds||{})[name]; if(pinned) return pinned;
+  const hit=(S.students||[]).filter(x=>String(x.name||'').toUpperCase()===String(name||'').toUpperCase());
+  return (hit.length===1&&hit[0].sid)?hit[0].sid:null;
+}
+async function mgPushEdit(rec){
+  for(let i=0;i<15&&rec._pushing;i++) await new Promise(r=>setTimeout(r,800));   // 第一次上云还在飞：等它
+  const ids=(rec.supabase_ids&&rec.supabase_ids.length)?rec.supabase_ids:(rec.supabase_id?[rec.supabase_id]:[]);
+  if(!ids.length){ return; }            // 还没上过云：自动上云会直接推「改过的内容」
+  const names=(rec.students&&rec.students.length)?rec.students:['(no student)'];
+  try{
+    for(let k=0;k<ids.length;k++){
+      const nm=names[k]||names[0];
+      const {error}=await _sb.from('records').update({details:rec.raw,report_date:rec.date,wa_sent:false,wa_sent_at:null,
+        student_name:nm,student_id:mgSidOf(rec,nm)}).eq('id',ids[k]);
+      if(error) throw error;
+    }
+    rec._editPending=false; save();
+  }catch(e){
+    console.warn('[MiscGo] edit not saved online yet',e);
+    rec._editPending=true; save();
+    toast('⚠ Not saved online yet — it will retry by itself. Keep this page open.',8000);
+  }
+}
+setInterval(()=>{try{(S.records||[]).filter(r=>r._editPending&&!r._pushing).forEach(r=>mgPushEdit(r));}catch(_){}} ,60000);
 function leavePrev(go){
   if(_prevRec && !_prevWaSent){ showNotSentPrompt(go); return; }
   _prevRec = null; _prevWaSent = false;
