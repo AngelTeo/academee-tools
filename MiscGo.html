@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>MiscGo v7</title>
+<title>MiscGo v8</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
@@ -406,9 +406,9 @@ body.teacher-mode .teacher-hide{display:none !important;}
 <div id="mg-stale-bar" style="display:none;position:fixed;left:0;right:0;top:0;z-index:99998;
   background:#1d4ed8;color:#fff;font-size:13px;font-weight:600;padding:9px 14px;text-align:center;
   font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei',sans-serif">
-  你这台装置跑的是旧版本。<span id="mg-stale-ver"></span>
+  A newer version of MiscGo is ready. <span id="mg-stale-ver"></span>
   <button onclick="mgApplyUpdate()" style="margin-left:10px;background:#fff;color:#1d4ed8;border:0;
-    border-radius:6px;padding:4px 12px;font-weight:700;font-size:12px;cursor:pointer;">立即更新</button>
+    border-radius:6px;padding:4px 12px;font-weight:700;font-size:12px;cursor:pointer;">Update now</button>
 </div>
 
 <div id="mg-cloud-bar" style="display:none;position:fixed;left:0;right:0;bottom:0;z-index:99997;
@@ -416,7 +416,7 @@ body.teacher-mode .teacher-hide{display:none !important;}
   font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei',sans-serif">
   <span id="mg-cloud-msg"></span>
   <button onclick="mgFlushNow()" style="margin-left:10px;background:#fff;color:#b91c1c;border:0;
-    border-radius:6px;padding:4px 12px;font-weight:700;font-size:12px;cursor:pointer;">立刻再试</button>
+    border-radius:6px;padding:4px 12px;font-weight:700;font-size:12px;cursor:pointer;">Try again</button>
 </div>
 <!-- ══ ENTRY SCREEN ══ -->
 <div class="scr on" id="s-entry">
@@ -486,7 +486,7 @@ body.teacher-mode .teacher-hide{display:none !important;}
     <!-- Topbar 契约 §2：① ← 回平台　② 图示 + 系统名 + [vN]　③ 分页
          原本这里写「🏫 MGMT」—— 那是角色，不是系统名，使用者看不出自己在哪一套系统。
          角色改用右边那颗 chip 显示。 -->
-    <a class="m-back" href="https://angelteo.github.io/" title="回平台首页">←</a>
+    <a class="m-back" href="https://angelteo.github.io/" title="Back to Academee home">←</a>
     <span class="m-brand">📋 MiscGo <span class="m-ver" id="m-ver"></span></span>
     <button class="m-tab on" onclick="mGoPage('dashboard')">Dashboard</button>
     <button class="m-tab" onclick="mGoPage('mreport')">✏️ Report</button>
@@ -560,7 +560,7 @@ body.teacher-mode .teacher-hide{display:none !important;}
    \u6539\u7248\u89c4\u5219\uff1a\u53ea\u7528\u6574\u6570\uff0c\u4e14\u4e09\u5904\u5fc5\u987b\u540c\u65f6\u6539 \u2014\u2014
    \u2460 <title>  \u2461 \u4e3b\u9875\u9876\u680f\u7684\u7248\u672c\u5fbd\u7ae0  \u2462 \u4e0b\u9762\u8fd9\u4e2a\u5e38\u6570
    \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550 */
-const APP_VERSION = 7;
+const APP_VERSION = 8;
 
 const B='\u2980';
 const H=(n,e='')=>`*${B}${B}${B}${B} ${n} ${B}${B}${B}${B}*`+(e?` ${e}`:'');
@@ -1676,10 +1676,8 @@ async function getStudentHistory(name){
    学生名单的**正本在 Master Data**，由那边维护；MiscGo 是消费端，不是来源。
    所以这里不修、不改栏位、不加确认框 —— **拿掉写入能力**，只留一句话讲清楚去哪里改。 */
 async function uploadStudentsToSupabase(){
-  toast('学生名单的正本在 Master Data，不从这里上传', true);
-  alert('学生名单不从 MiscGo 上传。\n\n'
-    +'正本在 Master Data Hub，那里改了，这里按「🔄 从云端同步学生名单」就会拿到最新的。\n\n'
-    +'（旧版这颗按钮会先删掉云端整张学生表再塞回去，栏位又对不上 —— 已经拆掉。）');
+  toast('The student list is managed in Master Data Hub.', true);
+  alert('The student list is edited in Master Data Hub, not in MiscGo.\n\nAfter changing it there, tap "🔄 Sync student list" here to get the latest.');
 }
 
 // Render student history panel
@@ -1900,54 +1898,54 @@ function renderSettings(){
   const online = (typeof navigator!=='undefined' && navigator.onLine!==false);
   const nRec=(S.records||[]).length, nStu=(S.students||[]).length, nSch=(S.schedules||[]).length;
 
-  let h='<div style="font-size:16px;font-weight:700;color:var(--navy);margin-bottom:4px;">⚙️ 管理</div>'
-      + '<div style="font-size:12px;color:var(--mut);margin-bottom:4px;">仅 OWNER / TOP_MGMT / ADMIN 可见</div>';
+  let h='<div style="font-size:16px;font-weight:700;color:var(--navy);margin-bottom:4px;">⚙️ Admin</div>'
+      + '<div style="font-size:12px;color:var(--mut);margin-bottom:4px;">Visible to OWNER / TOP_MGMT / ADMIN only</div>';
 
-  h+=box('①','我的身份',
-      line('登入者', esc2(P.initials))+
-      line('角色', esc2(P.role))+
+  h+=box('①','My account',
+      line('Signed in as', esc2(P.initials))+
+      line('Role', esc2(P.role))+
       line('can_see', P.canSeeAnyMisc?'✓':'✗')+
-      line('can_approve', P.canApproveRecords?'✓ 可删记录':'✗'));
+      line('can_approve', P.canApproveRecords?'✓ can delete records':'✗'));
 
-  h+=box('②','系统资讯',
-      line('系统', 'MiscGo')+
-      line('版本', 'v'+APP_VERSION)+
+  h+=box('②','System',
+      line('System', 'MiscGo')+
+      line('Version', 'v'+APP_VERSION)+
       line('Layer', 'OPR')+
-      line('权限码', esc2((P.miscCodes||[]).join('　')))+
+      line('Access codes', esc2((P.miscCodes||[]).join('　')))+
       line('Storage key', KEY)+
-      line('资料笔数', nRec+' 笔记录 · '+nStu+' 位学生 · '+nSch+' 张课表'));
+      line('Data', nRec+' records · '+nStu+' students · '+nSch+' schedules'));
 
-  h+=box('③','云端连线',
-      line('连线', online?'<span style="color:var(--g);">✓ 线上</span>':'<span style="color:var(--red);">✗ 离线</span>')+
-      line('资料库', 'Supabase')+
-      `<div style="margin-top:8px;"><button class="btn btn-sm" onclick="syncAllFromSupabase().then(()=>{toast('已重新载入');renderSettings();})">🔄 立刻重新载入</button></div>`);
+  h+=box('③','Cloud connection',
+      line('Status', online?'<span style="color:var(--g);">✓ Online</span>':'<span style="color:var(--red);">✗ Offline</span>')+
+      line('Database', 'Supabase')+
+      `<div style="margin-top:8px;"><button class="btn btn-sm" onclick="syncAllFromSupabase().then(()=>{toast('Reloaded');renderSettings();})">🔄 Reload now</button></div>`);
 
-  h+=box('④','主数据维护',
-      `<button onclick="uploadStudentsToSupabase()" class="btn btn-sm" style="margin-right:8px;margin-bottom:6px;" title="学生名单的正本在 Master Data Hub">ℹ️ 学生名单从哪里改？</button>
-       <button onclick="syncStudentsFromSupabase().then(()=>{toast('学生名单已同步');renderSettings();})" class="btn btn-sm" style="margin-bottom:6px;">🔄 从云端同步学生名单</button>
-       <div style="font-size:10px;color:var(--mut);margin-top:4px;">学生名单是主数据。上传会以本机为准覆盖云端，同步会以云端为准覆盖本机。</div>`);
+  h+=box('④','Master data',
+      `<button onclick="uploadStudentsToSupabase()" class="btn btn-sm" style="margin-right:8px;margin-bottom:6px;" title="The student list is managed in Master Data Hub">ℹ️ Where to edit the student list?</button>
+       <button onclick="syncStudentsFromSupabase().then(()=>{toast('Student list synced');renderSettings();})" class="btn btn-sm" style="margin-bottom:6px;">🔄 Sync student list</button>
+       <div style="font-size:10px;color:var(--mut);margin-top:4px;">The student list comes from Master Data Hub. Sync pulls the latest copy to this device.</div>`);
 
-  h+=box('⑤','资料备份',
+  h+=box('⑤','Backup',
       `<button onclick="exportCSV()" class="btn btn-sm">↓ Export CSV</button>
-       <div style="font-size:10px;color:var(--mut);margin-top:4px;">汇出目前筛选范围内的记录。</div>`);
+       <div style="font-size:10px;color:var(--mut);margin-top:4px;">Exports the records in the current filter.</div>`);
 
   const open=advOpen();
   h+=`<div style="margin-top:18px;padding-top:14px;border-top:.5px solid var(--bdr);">
       <div onclick="toggleAdv()" style="font-size:11px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.06em;cursor:pointer;display:flex;align-items:center;gap:6px;min-height:44px;">
-        <span style="display:inline-block;transform:rotate(${open?90:0}deg);transition:transform .15s;">▶</span>⑥ 进阶 · 管理员用
+        <span style="display:inline-block;transform:rotate(${open?90:0}deg);transition:transform .15s;">▶</span>⑥ Advanced · admins only
       </div>
       <div style="display:${open?'block':'none'};">
         ${line('User ID', esc2(P.userId))}
-        ${line('是否老师模式', window._isTeacher?'是':'否')}
-        ${line('设定页权限', window._canSeeSettings?'✓':'✗')}
+        ${line('Teacher mode', window._isTeacher?'Yes':'No')}
+        ${line('Admin page access', window._canSeeSettings?'✓':'✗')}
         <div style="margin-top:10px;">
-          <button onclick="rebuildAllSummaries()" class="btn btn-sm" style="background:#e9d5ff;color:#6b21a8;border:.5px solid #a855f7;">✨ 重建全部摘要</button>
-          <div style="font-size:10px;color:var(--mut);margin-top:4px;">摘要算错时用。不会动原始记录。</div>
+          <button onclick="rebuildAllSummaries()" class="btn btn-sm" style="background:#e9d5ff;color:#6b21a8;border:.5px solid #a855f7;">✨ Rebuild all summaries</button>
+          <div style="font-size:10px;color:var(--mut);margin-top:4px;">Use when summaries look wrong. Original records are not changed.</div>
         </div>
         <div style="font-size:10px;color:var(--mut);margin-top:12px;line-height:1.6;">
-          v2 移除：临时密码（死码）· Bulk Import JSON · Clean Garbage Names · Fix createdAt · Delete Historical。<br>
-          迁移工具的函式仍在档内，必要时从 console 呼叫。<br>
-          依 Standard v8 §12，本系统不设 Reset / 清空本机资料按钮。
+          Removed in v2: temp passwords · Bulk Import JSON · Clean Garbage Names · Fix createdAt · Delete Historical.<br>
+          Migration functions remain in the file and can be run from the console if needed.<br>
+          Per Standard v8 §12 there is no Reset / clear-local-data button.
         </div>
       </div>
     </div>`;
@@ -2831,7 +2829,7 @@ function generateAndSave(){
   if(saveBtn)saveBtn.style.display='none';
   prevBindRecord(S.records[0]);            // v7：红条跟这一笔绑在一起
   show('s-prev');window.scrollTo(0,0);
-  toast('✓ 已存进系统 —— 还要送到 WhatsApp，主管才看得到');
+  toast('✓ Saved. Now tap Send to WhatsApp.');
 }
 
 function generate(){
@@ -2850,7 +2848,25 @@ function generate(){
   show('s-prev');window.scrollTo(0,0);
 }
 function goForm(){show('s-form');}
-function sendWA(){if(!curMsg)return;const e=encodeURIComponent(curMsg);window.location.href='whatsapp://send?text='+e;setTimeout(()=>window.open('https://wa.me/?text='+e,'_blank'),1500);}
+/* v8：以前 1.5 秒後「不管 app 有没有打开」都再开一次 wa.me 网页，
+   手机上老师送完回来就看到一页多余的 Share on WhatsApp。
+   现在只有页面一直留在前景（代表 app 没打开，例如电脑没装 WhatsApp）才开网页版。 */
+function openWhatsApp(text){
+  if(!text)return;
+  const e=encodeURIComponent(text);
+  let left=false;
+  const mark=()=>{left=true;};
+  const onVis=()=>{if(document.hidden)left=true;};
+  document.addEventListener('visibilitychange',onVis);
+  window.addEventListener('blur',mark); window.addEventListener('pagehide',mark);
+  window.location.href='whatsapp://send?text='+e;
+  setTimeout(()=>{
+    document.removeEventListener('visibilitychange',onVis);
+    window.removeEventListener('blur',mark); window.removeEventListener('pagehide',mark);
+    if(!left&&!document.hidden) window.open('https://wa.me/?text='+e,'_blank');
+  },2000);
+}
+function sendWA(){if(!curMsg)return;openWhatsApp(curMsg);}
 
 /* ══════ v7 · 存了没送 ══════
    实况：唯一进预览页的入口是 generateAndSave()，它在跳预览之前就已经存好并推云了。
@@ -2874,10 +2890,10 @@ function paintPrevWaBar(){
   bar.style.display = 'block';
   if(_prevWaSent){
     bar.style.background = '#E8F7F2'; bar.style.color = '#0F6E56';
-    bar.textContent = '✓ 已送到 WhatsApp。这一笔做完了。';
+    bar.textContent = '✓ Sent to WhatsApp.';
   }else{
     bar.style.background = '#FCEBEB'; bar.style.color = '#A32D2D';
-    bar.textContent = '⚠ 还没送到 WhatsApp —— 纪录已经存起来了，但主管现在还不知道这件事。';
+    bar.textContent = '⚠ Not sent to WhatsApp yet — tap Send to WhatsApp below.';
   }
 }
 async function markWaSent(){
@@ -2909,12 +2925,25 @@ function sendWAFromPrev(){
   sendWA();
 }
 function leavePrev(go){
-  if(_prevRec && !_prevWaSent){
-    if(!confirm('这一笔还没送到 WhatsApp。\n\n纪录已经存进系统了，但主管现在不会看到 —— 校车学生没到这种事，要靠你送出去他们才知道。\n\n真的要离开吗？')) return;
-  }
+  if(_prevRec && !_prevWaSent){ showNotSentPrompt(go); return; }
   _prevRec = null; _prevWaSent = false;
   paintPrevWaBar();
   go();
+}
+// v8：老师只需要知道「还没送、要不要送」，不需要知道後台怎么存
+function showNotSentPrompt(go){
+  const old=document.getElementById('mg-notsent'); if(old)old.remove();
+  const ov=document.createElement('div'); ov.id='mg-notsent';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:100000;display:flex;align-items:center;justify-content:center;padding:20px';
+  ov.innerHTML='<div style="background:#fff;border-radius:16px;max-width:360px;width:100%;padding:22px 20px;font-family:inherit">'
+    +'<div style="font-size:17px;font-weight:700;color:#1a3a5c;margin-bottom:8px">Not sent to WhatsApp yet</div>'
+    +'<div style="font-size:14px;color:#475569;line-height:1.5;margin-bottom:18px">Please send it so management sees this report.</div>'
+    +'<button id="mg-ns-send" style="width:100%;padding:12px;border:0;border-radius:10px;background:#25D366;color:#fff;font-size:15px;font-weight:700;margin-bottom:8px">Send to WhatsApp</button>'
+    +'<button id="mg-ns-leave" style="width:100%;padding:11px;border:1px solid #cbd5e1;border-radius:10px;background:#fff;color:#475569;font-size:14px">Leave without sending</button></div>';
+  document.body.appendChild(ov);
+  ov.querySelector('#mg-ns-send').onclick=()=>{ov.remove();sendWAFromPrev();};
+  ov.querySelector('#mg-ns-leave').onclick=()=>{ov.remove();_prevRec=null;_prevWaSent=false;paintPrevWaBar();go();};
+  ov.addEventListener('click',e=>{if(e.target===ov)ov.remove();});
 }
 function copyMsg(){
   navigator.clipboard.writeText(curMsg).then(()=>{document.getElementById('copy-btn2').textContent='✓';setTimeout(()=>document.getElementById('copy-btn2').textContent='📋',2000);toast('Copied!');})
@@ -3803,9 +3832,7 @@ function sendFuWA(recId, entryIdx){
   if(e.note)msg+=`\n\n${e.note}`;
   const nextDates=r.followUpDates?r.followUpDates.filter(function(d){return d>(e.updatedAt||e.date);}):[];
   if(nextDates.length)msg+=`\nNext: ${fd(nextDates[0])} ${dayN(nextDates[0])}`;
-  const _waEnc=encodeURIComponent(msg);
-  window.location.href='whatsapp://send?text='+_waEnc;
-  setTimeout(function(){window.open('https://wa.me/?text='+_waEnc,'_blank');},1500);
+  openWhatsApp(msg);
 }
 
 function openRec(id){
@@ -4421,7 +4448,7 @@ function mGoPage(p){
   // Block access to restricted tabs if teacher
   // 设定页：只有 OWNER / TOP_MGMT / ADMIN。守卫写在最前面，直接呼叫函式也挡得住。
   if(p==='settings' && window._canSeeSettings!==true){
-    toast('没有权限',true);
+    toast('You do not have permission for this.',true);
     p='records';
   }
   if(window._isTeacher===true&&['dashboard','drafts','log','students','schedules'].includes(p)){
@@ -4840,9 +4867,7 @@ function genDraft(key){
 
 function sendDraftWA(){
   if(!window._dMsg)return;
-  const enc=encodeURIComponent(window._dMsg);
-  window.location.href='whatsapp://send?text='+enc;
-  setTimeout(()=>window.open('https://wa.me/?text='+enc,'_blank'),1500);
+  openWhatsApp(window._dMsg);
   closeModal();
   setTimeout(()=>{
     openModal('\u2713 Sent \u2014 Clear Draft?',
@@ -4902,7 +4927,7 @@ async function archiveBirthdayEntry(idx){
     pushRecordToSupabase(rec).catch(err=>{
       /* 坑 14：存档失败是静默的，画面照样说 Saved。失败一定要看得见。 */
       console.error('SB push:',err);
-      toast('⚠ 这一笔没上云：'+(err&&err.message||err)+' —— 资料还在这台电脑，会自动再试。',12000);
+      toast('⚠ Not saved online yet — it will retry by itself. Keep this page open.',12000);
       try{ _mgMarkDirty&&_mgMarkDirty(); }catch(_){}
     });
     toast(`✅ Saved: ${e.name} — ${iso}`);
@@ -5809,7 +5834,7 @@ function mgApplyUpdate(){
       if(_mgTouched){                                     /* 红线 ① */
         const bar=document.getElementById('mg-stale-bar');
         const lab=document.getElementById('mg-stale-ver');
-        if(lab) lab.textContent='（你的 v'+APP_VERSION+' → 最新 v'+server+'）';
+        if(lab) lab.textContent='(v'+APP_VERSION+' → v'+server+')';
         if(bar) bar.style.display='block';
         return;
       }
@@ -6110,9 +6135,9 @@ function bulkFinish(){
     const n=pending().length;
     const bar=document.getElementById('mg-cloud-bar'), msg=document.getElementById('mg-cloud-msg');
     if(!bar||!msg) return;
-    if(busy){ bar.style.display='block'; bar.style.background='#b45309'; msg.textContent='正在上云… 还有 '+n+' 笔'; return; }
+    if(busy){ bar.style.display='block'; bar.style.background='#b45309'; msg.textContent='Saving… '+n+' left'; return; }
     if(n){ bar.style.display='block'; bar.style.background='#b91c1c';
-           msg.textContent='⚠ 有 '+n+' 笔还没上云 —— 只在这台电脑，换台机器看不到'; }
+           msg.textContent='⚠ '+n+' report(s) not saved online yet'; }
     else { bar.style.display='none'; }
   }
   window._mgMarkDirty=function(){ paint(); schedule(); };
@@ -6163,10 +6188,10 @@ function bulkFinish(){
       window._mgRestoreDraft=function(){
         Object.keys(d.f).forEach(id=>{ const el=document.getElementById(id); if(el) el.value=d.f[id]; });
         localStorage.removeItem(DRAFT_KEY);
-        if(typeof toast==='function') toast('已接回上次打到一半的内容');
+        if(typeof toast==='function') toast('Your unfinished report is back.',6000);
       };
-      if(typeof toast==='function')
-        toast('上次有一份表单打到一半没送出（'+mins+' 分钟前）。要接回去就到表单页按一次「接回草稿」。',12000);
+      // v8：以前叫老师去按「接回草稿」，但画面上根本没有这颗按钮 —— 现在直接接回来
+      window._mgRestoreDraft();
     }catch(_){}
   })();
 })();
