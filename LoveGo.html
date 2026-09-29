@@ -224,7 +224,7 @@ window.esc=esc;
 <script>
 /* v94（28-09-2026）：日常成长 ＋ 学科能力 ＋ 总结；派老师加「每位老师教哪几科」（见文件最下方 v94 段；不设负责老师）。
    v93（28-09-2026）：Owner 决定换回整张表 —— 一年填一次、凭一直以来的观察、每个领域都要填。内容与 v91 完全相同，只改版本号；v92「一期多笔」停用。 */
-const APP_VERSION=98,KEY='lovego';
+const APP_VERSION=99,KEY='lovego';
 const SUPABASE_URL='https://qnpvqsvvsgsantekgfbz.supabase.co';
 const SUPABASE_KEY='sb_publishable_v3Y3BD3XiPz33t-hfdX58g_BaFIkjPF';
 const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true}});
@@ -310,7 +310,10 @@ let S={ui:{cycle:null,dept:null,classId:null,studentId:null,advOpen:false},who:n
 function load(){try{const x=JSON.parse(localStorage.getItem(KEY)||'null');if(x)S={...S,...x,ui:{...S.ui,...(x.ui||{})}}}catch(e){}}
 function save(){localStorage.setItem(KEY,JSON.stringify(S));document.getElementById('saved').textContent='仅本机草稿 '+new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});document.getElementById('mcount').textContent=Object.keys(S.reviews).length}
 function toast(x){const e=document.getElementById('toast');e.textContent=x;e.classList.add('on');setTimeout(()=>e.classList.remove('on'),1800)}
-function isAdmin(){return ['OWNER','TOP_MGMT','MGMT','ADMIN'].includes(S.who?.role||'')}function go(p){if((p==='manage'||p==='assign')&&!isAdmin()){toast('没有管理权限');p='collect'}document.querySelectorAll('.screen').forEach(x=>x.classList.remove('on'));document.querySelectorAll('.ntab').forEach(x=>x.classList.remove('on'));document.getElementById('s-'+p).classList.add('on');document.querySelector('.ntab[data-p="'+p+'"]')?.classList.add('on');if(p==='collect')renderCollect();if(p==='progress')renderProgress()}
+function isAdmin(){return ['OWNER','TOP_MGMT','MGMT','ADMIN'].includes(S.who?.role||'')}
+/* v99（Owner 29-09：管理层也可以是老师）：这位孩子有派给我 → 照老师算；没派给我的孩子，管理层才是「参考」那一份 */
+function lgAssignedHere(sid){try{const tid=S.who&&S.who.id;if(!tid||!sid||typeof currentAssignmentRows!=='function')return false;return (currentAssignmentRows(sid)||[]).some(x=>x&&x.teacher_id===tid);}catch(_){return false}}
+function lgActAsMgmt(sid){return isAdmin()&&!lgAssignedHere(sid)}function go(p){if((p==='manage'||p==='assign')&&!isAdmin()){toast('没有管理权限');p='collect'}document.querySelectorAll('.screen').forEach(x=>x.classList.remove('on'));document.querySelectorAll('.ntab').forEach(x=>x.classList.remove('on'));document.getElementById('s-'+p).classList.add('on');document.querySelector('.ntab[data-p="'+p+'"]')?.classList.add('on');if(p==='collect')renderCollect();if(p==='progress')renderProgress()}
 function cloudCycleId(){return (CLOUD.cycleMap[S.ui.cycle]||{}).id||null;}
 /* ONE canonical identity — Teacher=ASSIGNMENT:{id}; Management=MGMT|{cloud_cycle_uuid}|{class}|{student}|{user} */
 function reviewIdentity(r){
@@ -322,7 +325,7 @@ function reviewKey(sid){return ['MGMT',cloudCycleId(),S.ui.classId,sid,(S.who&&S
 function currentReviewForStudent(sid){
   normaliseAssignmentStore();
   const uid=S.who&&S.who.id;
-  if(isAdmin()){
+  if(lgActAsMgmt(sid)){
     // MANAGEMENT: 只找自己的 management review(assignment_id=NULL)
     const cyc=cloudCycleId();
     return S.reviews[reviewKey(sid)]||Object.values(S.reviews).find(r=>!r.assignment_id&&r.student_id===sid&&r.class_id===S.ui.classId&&r.teacher_id===uid&&((r.cloud_cycle_id&&r.cloud_cycle_id===cyc)||r.cycle_id===S.ui.cycle));
@@ -361,13 +364,13 @@ function renderCollect(){
   document.getElementById('collectSummary').textContent=st.length?`${done} / ${st.length} completed`:(S.ui.classId?'目前没有分配给你的学生':'请选择班级');
   document.getElementById('studentList').innerHTML=st.map(x=>{let r=currentReviewForStudent(x.id);const submitted=r?.status==='completed'&&!!r?.submitted_at;return `<button class="stu" onclick="openReview('${x.id}')"><b>${x.name_en||x.name_cn||x.id}</b><div class="meta">${x.name_cn||''}</div><div style="margin-top:7px"><span class="badge ${submitted?'done':r?'draft':''}">${submitted?'Completed':r?'Draft':'Not started'}</span></div></button>`}).join('');
 }
-function openReview(id){if(S.perm&&S.perm.can_edit===false){toast('你只有查看权限');return}const _mgmt=isAdmin();if(!_mgmt&&!currentTeacherAssigned(id)){toast('这名学生没有指定给你');return}S.ui.studentId=id;S.ui.contributor=_mgmt?'MANAGEMENT':'ASSIGNED_TEACHER';if(window.lgAcc){if(lgAcc.sid!==id)lgAcc.open.clear();lgAcc.sid=id;}save();let st=S.students.find(x=>x.id===id);document.getElementById('reviewName').textContent=st?.name_en||st?.name_cn||id;const age=ageFromStudent(st),cls=currentClassObj();document.getElementById('reviewMeta').textContent=`${S.ui.dept} · ${cls?.display_name||cls?.class_name||''}${age==null?'':' · '+age+' 岁'}`;renderDomains();go('review')}
+function openReview(id){if(S.perm&&S.perm.can_edit===false){toast('你只有查看权限');return}const _mgmt=lgActAsMgmt(id);if(!isAdmin()&&!currentTeacherAssigned(id)){toast('这名学生没有指定给你');return}S.ui.studentId=id;S.ui.contributor=_mgmt?'MANAGEMENT':'ASSIGNED_TEACHER';if(window.lgAcc){if(lgAcc.sid!==id)lgAcc.open.clear();lgAcc.sid=id;}save();let st=S.students.find(x=>x.id===id);document.getElementById('reviewName').textContent=st?.name_en||st?.name_cn||id;const age=ageFromStudent(st),cls=currentClassObj();document.getElementById('reviewMeta').textContent=`${S.ui.dept} · ${cls?.display_name||cls?.class_name||''}${age==null?'':' · '+age+' 岁'}`;renderDomains();go('review')}
 function ensure(){
   normaliseAssignmentStore();
   const rows=currentAssignmentRows(S.ui.studentId);
   const a=rows.find(x=>x.teacher_id===S.who?.id)||null;
   const assignmentId=a?.id||null;
-  const _mgmt=isAdmin();const k=reviewIdentity({assignment_id:assignmentId,cloud_cycle_id:cloudCycleId(),class_id:S.ui.classId,student_id:S.ui.studentId,teacher_id:S.who&&S.who.id});
+  const _mgmt=lgActAsMgmt(S.ui.studentId);const k=reviewIdentity({assignment_id:assignmentId,cloud_cycle_id:cloudCycleId(),class_id:S.ui.classId,student_id:S.ui.studentId,teacher_id:S.who&&S.who.id});
   if(!S.reviews[k])S.reviews[k]={
     id:`local-review-${crypto.randomUUID?.()||Math.random().toString(36).slice(2)}`,
     assignment_id:_mgmt?null:assignmentId,assignment_slot:_mgmt?null:(a?.slot_no||null),
@@ -380,6 +383,12 @@ function ensure(){
     strength_growth_overlap_note:'',summary:'',updated_at:new Date().toISOString()
   };
   const r=S.reviews[k];
+  /* v99：被派到的管理层以前存成「管理层参考」的草稿 → 第一次改用老师身份时把内容带过来（旧那份留着不删） */
+  if(!_mgmt&&isAdmin()&&!r.__v99seeded&&!r.submitted_at){ r.__v99seeded=true;
+    const old=Object.values(S.reviews).find(x=>x!==r&&!x.assignment_id&&x.student_id===r.student_id&&x.class_id===r.class_id&&x.teacher_id===r.teacher_id&&!x.submitted_at);
+    const empty=!Object.keys(r.domains||{}).length&&!(r.abilities&&Object.keys(r.abilities).length)&&!String(r.brightest||'').trim();
+    if(old&&empty){ ['domains','daily_life','strength_refs','growth_refs','strength_note','growth_note','strength_growth_overlap_note','summary','abilities','brightest'].forEach(f=>{ if(old[f]!=null) r[f]=JSON.parse(JSON.stringify(old[f])); }); }
+  }
   r.strength_refs ||= []; r.growth_refs ||= [];
   r.strength_note ??= r.strength||''; r.growth_note ??= r.growth||'';
   return r;
@@ -2783,7 +2792,8 @@ body.lg-teacher .navr .navbtn{display:none!important}
       return (S.cloudAssignments||[]).find(x=>x.student_id===sid&&x.teacher_id===tid&&!x.archived_at&&['active','pending','completed'].includes(x.status))||null; }catch(_){ return null; }
   }
   /* 管理层（包括被派到的管理层）写的评语，资料库一律记成「管理层」那一份：科目全部列出、学科能力选填 */
-  function mgmt(){ try{ return typeof isAdmin==='function'&&isAdmin(); }catch(_){ return false; } }
+  /* v99（Owner 29-09：管理层也可以是老师）：被派到这位孩子的管理层 → 照老师算（科目照派工、必填、交出算数） */
+  function mgmt(){ try{ return typeof isAdmin==='function'&&isAdmin()&&!(window.lgAssignedHere&&lgAssignedHere(S.ui&&S.ui.studentId)); }catch(_){ return false; } }
   function mySubjects(){
     if(dept()==='SRT') return ['ENG'];
     if(mgmt()) return (DEPT_SUBJ[dept()]||[]).slice();
@@ -3054,7 +3064,7 @@ body.lg-teacher .navr .navbtn{display:none!important}
     const cyc=CLOUD.cycleMap[S.ui.cycle]; if(!cyc)throw new Error('当前周期尚未建立在 LoveGo Cloud');
     r.cloud_cycle_id=cyc.id;
     const role=String(S.who&&S.who.role||'').toUpperCase();
-    const isMgmtRole=['OWNER','TOP_MGMT','MGMT','ADMIN'].includes(role);
+    const isMgmtRole=['OWNER','TOP_MGMT','MGMT','ADMIN'].includes(role) && !r.assignment_id;  /* v99：有派工的管理层走老师那条 */
     if(isMgmtRole){
       const payload={cycle_id:cyc.id,student_id:r.student_id,class_id:r.class_id,department:r.department,taxonomy_version:r.taxonomy_version,status:submitted?'completed':'draft',domains:r.domains||{},daily_life:r.daily_life||{},strength_refs:r.strength_refs||[],growth_refs:r.growth_refs||[],strength_note:r.strength_note||null,growth_note:r.growth_note||null,strength_growth_overlap_note:r.strength_growth_overlap_note||null,summary:r.summary||null,abilities:(r.abilities&&typeof r.abilities==='object')?r.abilities:{},brightest:r.brightest||null,entered_by_role:role};
       const q=await sb.rpc('lovego_upsert_management_review',{p:payload}); if(q.error)throw q.error;
@@ -3336,10 +3346,11 @@ body:not([data-lg95]) .lg95-gst{display:none}
   const GAK_ALL=['transition','bath','lunch','homework','learning','nap'];
   window.lgGakStages=function(){
     try{
-      if(typeof isAdmin==='function'&&isAdmin()) return GAK_ALL.slice();
       const sid=S.ui.studentId, tid=S.who&&S.who.id;
       const a=(S.cloudAssignments||[]).find(x=>x.student_id===sid&&x.teacher_id===tid&&!x.archived_at&&['active','pending','completed'].includes(x.status));
-      return (a&&Array.isArray(a.stages))?a.stages.slice():[];
+      if(a) return Array.isArray(a.stages)?a.stages.slice():[];   /* v99：被派到的管理层也照派工 */
+      if(typeof isAdmin==='function'&&isAdmin()) return GAK_ALL.slice();
+      return [];
     }catch(_){ return []; }
   };
   function gakNote(){
