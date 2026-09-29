@@ -224,7 +224,7 @@ window.esc=esc;
 <script>
 /* v94（28-09-2026）：日常成长 ＋ 学科能力 ＋ 总结；派老师加「每位老师教哪几科」（见文件最下方 v94 段；不设负责老师）。
    v93（28-09-2026）：Owner 决定换回整张表 —— 一年填一次、凭一直以来的观察、每个领域都要填。内容与 v91 完全相同，只改版本号；v92「一期多笔」停用。 */
-const APP_VERSION=97,KEY='lovego';
+const APP_VERSION=98,KEY='lovego';
 const SUPABASE_URL='https://qnpvqsvvsgsantekgfbz.supabase.co';
 const SUPABASE_KEY='sb_publishable_v3Y3BD3XiPz33t-hfdX58g_BaFIkjPF';
 const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true}});
@@ -497,7 +497,7 @@ function renderProgress(){
     const st=S.students.find(x=>x.id===sid)||{};
     const as=current.filter(a=>a.student_id===sid).sort((a,b)=>a.slot_no-b.slot_no);
     const submitted=as.filter(a=>{const r=Object.values(S.reviews).find(x=>x.assignment_id===a.id&&x.counts_for_cycle!==false);return r?.status==='completed'&&!!r?.submitted_at}).length;
-    const ex=getAssignmentException(sid), assignmentValid=(as.length>=({SRK:4,GAK:4,ATC:6,SRT:2}[String(as[0]?.department||'').toUpperCase()]||4))||(ex?.approved&&ex.approved_count===as.length&&as.length>0); /* v94：部门人数 Owner 28-09 11:46 */
+    const ex=getAssignmentException(sid), assignmentValid=(as.length>=({SRK:6,GAK:10,ATC:8,SRT:2}[String(as[0]?.department||'').toUpperCase()]||4))||(ex?.approved&&ex.approved_count===as.length&&as.length>0); /* v94：部门人数 Owner 28-09 11:46 */
     const ready=assignmentValid&&as.length>0&&submitted===as.length;
     const enr=S.enroll.find(e=>e.student_id===sid&&e.is_active!==false), cls=S.classes.find(c=>c.id===(enr?.class_id||as[0]?.class_id));
     return {sid,st,as,submitted,ready,assignmentValid,cls};
@@ -1913,7 +1913,7 @@ try{var _vb=document.getElementById("verBadge");if(_vb&&typeof APP_VERSION!=="un
    本段自给自足：自己读资料、自己画，不依赖旧的 assign 页（那一页调用的 renderAssignments 不存在）。 */
 (function(){
   /* Owner 28-09：每生老师人数 SRK 4 · GAK 4 · ATC 6 · SRT 2（原 4 / 2 / 4 / 1）；也是一班最多可派的人数。资料库 lovego_dept_teacher_need() 同一组数字 */
-  const NEED={SRK:4,GAK:8,ATC:6,SRT:2};  /* v97 Owner 28-09 19:3x：GAK 8 位 */
+  const NEED={SRK:6,GAK:10,ATC:8,SRT:2};  /* v98 Owner 29-09 11:08：SRK 6 · GAK 10 · ATC 8 · SRT 2 */
   const ORDER=['SRK','GAK','ATC','SRT'];
   const D={dept:'SRK',rows:[],teachers:{},loaded:false,busy:false,err:'',ho:{cid:null,from:'',to:'',reason:''}};
   const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
