@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>MiscGo v10</title>
+<title>MiscGo v11</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
@@ -560,7 +560,7 @@ body.teacher-mode .teacher-hide{display:none !important;}
    \u6539\u7248\u89c4\u5219\uff1a\u53ea\u7528\u6574\u6570\uff0c\u4e14\u4e09\u5904\u5fc5\u987b\u540c\u65f6\u6539 \u2014\u2014
    \u2460 <title>  \u2461 \u4e3b\u9875\u9876\u680f\u7684\u7248\u672c\u5fbd\u7ae0  \u2462 \u4e0b\u9762\u8fd9\u4e2a\u5e38\u6570
    \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550 */
-const APP_VERSION = 10;
+const APP_VERSION = 11;
 
 const B='\u2980';
 const H=(n,e='')=>`*${B}${B}${B}${B} ${n} ${B}${B}${B}${B}*`+(e?` ${e}`:'');
@@ -3525,6 +3525,7 @@ function jumpToNextIncomplete(){
 }
 // From inside the Record Modal — closes + opens next incomplete
 function saveAndNext(curId){
+  if(mgEditGuard(()=>saveAndNext(curId)))return;   // v11
   // Force commit any unsaved remarks textarea (blur triggers onchange)
   const ta=document.querySelector('#modal-bg textarea');
   if(ta){ta.blur();}
@@ -4058,7 +4059,7 @@ function openRec(id){
     row+=`</div></div>`;
     return row;
   }).join('')}</div>`:''}
-    <div style="margin-top:14px;"><div style="font-size:11px;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">WhatsApp Message</div><div class="raw-view">${esc(r.raw)}</div></div>`,
+    <div style="margin-top:14px;" id="mg-raw-wrap" data-id="${r.id}"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;"><span style="font-size:11px;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.05em;">WhatsApp Message</span><button class="btn btn-sm" id="mg-raw-editbtn" onclick="mgStartRawEdit('${r.id}')">✏️ Edit</button></div><div class="raw-view">${esc(r.raw)}</div><div id="mg-raw-bar"></div></div>`,
     `${window._canDeleteRecords?`<button class="btn btn-red btn-sm" onclick="delRec('${id}')">🗑 Delete</button>`:''}<button class="btn btn-sm" onclick="closeModal()">Close</button><button class="btn btn-sm" style="background:#1a3a5c;color:#fff;border:none;" onclick="saveAndNext('${id}')">⚡ Next Unhandled →</button>`
   );
   }catch(err){toast('Error: '+err.message,true);console.error('openRec error:',err);}
@@ -4536,11 +4537,99 @@ function addStuSub(){const n=document.getElementById('sn').value.trim().toUpperC
 
 // ══ MODAL ══
 function openModal(title,body,foot=''){
-  closeModal();const ov=document.createElement('div');ov.className='overlay';ov.id='modal-ov';
+  _closeModalRaw();const ov=document.createElement('div');ov.className='overlay';ov.id='modal-ov';
   ov.innerHTML=`<div class="modal"><div class="mhdr"><span class="mttl">${title}</span><button onclick="closeModal()" style="background:none;border:none;font-size:22px;color:var(--mut);cursor:pointer;line-height:1;margin-left:8px;">×</button></div><div class="mbody">${body}</div>${foot?`<div class="mfoot">${foot}</div>`:''}</div>`;
   ov.addEventListener('click',e=>{if(e.target===ov)closeModal();});document.body.appendChild(ov);
 }
-function closeModal(){document.getElementById('modal-ov')?.remove();}
+function _closeModalRaw(){document.getElementById('modal-ov')?.remove();}
+function closeModal(){ if(mgEditGuard(_closeModalRaw))return; _closeModalRaw(); }
+// ── v11：管理层在纪录视窗里改 WhatsApp 讯息（Owner：改完一定要重送，开头加 EDITED）──
+const MG_EDIT_TAG='✏️ *EDITED*\n';
+function mgStartRawEdit(id){
+  const r=S.records.find(x=>x.id===id); if(!r)return;
+  const wrap=document.getElementById('mg-raw-wrap'); if(!wrap)return;
+  const body=(r.raw||'').startsWith(MG_EDIT_TAG)?r.raw.slice(MG_EDIT_TAG.length):(r.raw||'');
+  const view=wrap.querySelector('.raw-view'); if(view)view.style.display='none';
+  const eb=document.getElementById('mg-raw-editbtn'); if(eb)eb.style.display='none';
+  let box=document.getElementById('mg-raw-edit');
+  if(!box){
+    box=document.createElement('div'); box.id='mg-raw-edit';
+    box.innerHTML='<textarea id="mg-raw-ta" rows="12" style="width:100%;font-family:\'DM Mono\',monospace;font-size:12px;line-height:1.6;padding:10px;border:1px solid #93c5fd;border-radius:6px;box-sizing:border-box"></textarea>'
+      +'<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px">'
+      +'<button class="btn btn-sm" onclick="mgCancelRawEdit()">Cancel</button>'
+      +'<button class="btn btn-sm" style="background:#1a3a5c;color:#fff;border:none" onclick="mgSaveRawEdit(\''+id+'\')">Save</button></div>';
+    view.after(box);
+  }
+  box.style.display='';
+  const ta=document.getElementById('mg-raw-ta'); ta.value=body; ta.focus();
+}
+function mgCancelRawEdit(){
+  const box=document.getElementById('mg-raw-edit'); if(box)box.style.display='none';
+  const wrap=document.getElementById('mg-raw-wrap'); if(!wrap)return;
+  const view=wrap.querySelector('.raw-view'); if(view)view.style.display='';
+  const eb=document.getElementById('mg-raw-editbtn'); if(eb)eb.style.display='';
+}
+function mgSiblingsOf(r,raw){   // 一份报告写了几位孩子 = 几笔，内容一样，一起改
+  return S.records.filter(x=>x!==r&&x.type===r.type&&x.raw===raw&&Math.abs((x.createdAt||0)-(r.createdAt||0))<5000);
+}
+function mgSaveRawEdit(id){
+  const r=S.records.find(x=>x.id===id); if(!r)return;
+  const ta=document.getElementById('mg-raw-ta'); if(!ta)return;
+  const body=ta.value.replace(/\s+$/,'');
+  const oldRaw=r.raw||'';
+  const oldBody=oldRaw.startsWith(MG_EDIT_TAG)?oldRaw.slice(MG_EDIT_TAG.length):oldRaw;
+  if(!body.trim()){toast('The message cannot be empty.',true);return;}
+  if(body===oldBody.replace(/\s+$/,'')){mgCancelRawEdit();toast('No changes.');return;}
+  const newRaw=MG_EDIT_TAG+body;
+  const group=[r,...mgSiblingsOf(r,oldRaw)];
+  group.forEach(x=>{
+    x.raw=newRaw; x.waSent=false; x.waSentAt=null; x.editedAt=Date.now(); x.edits=(x.edits||0)+1;
+    updateSupabase(x,{details:newRaw,wa_sent:false,wa_sent_at:null});
+  });
+  save();
+  window._mgEditUnsent=id;
+  const wrap=document.getElementById('mg-raw-wrap');
+  if(wrap){const v=wrap.querySelector('.raw-view'); if(v)v.textContent=newRaw;}
+  mgCancelRawEdit();
+  mgPaintRawBar(id);
+  try{ if(document.getElementById('mp-records').classList.contains('on'))renderRecordsTable(); renderDash(); }catch(_){}
+  toast('✓ Updated. Now send it to WhatsApp.');
+}
+function mgPaintRawBar(id){
+  const bar=document.getElementById('mg-raw-bar'); if(!bar)return;
+  if(window._mgEditUnsent===id){
+    bar.innerHTML='<div style="margin-top:8px;background:#FEF2F2;border:1px solid #FCA5A5;border-radius:8px;padding:10px;display:flex;align-items:center;justify-content:space-between;gap:8px">'
+      +'<span style="font-size:12.5px;color:#991B1B;font-weight:600">Changed — not sent to WhatsApp yet</span>'
+      +'<button class="btn btn-sm" style="background:#25D366;color:#fff;border:none;font-weight:700" onclick="mgSendEdited(\''+id+'\')">Send to WhatsApp</button></div>';
+  }else bar.innerHTML='';
+}
+function mgSendEdited(id){
+  const r=S.records.find(x=>x.id===id); if(!r)return;
+  const at=new Date().toISOString();
+  [r,...mgSiblingsOf(r,r.raw)].forEach(x=>{ x.waSent=true; x.waSentAt=Date.now(); updateSupabase(x,{wa_sent:true,wa_sent_at:at}); });
+  save();
+  window._mgEditUnsent=null;
+  const bar=document.getElementById('mg-raw-bar');
+  if(bar)bar.innerHTML='<div style="margin-top:8px;font-size:12.5px;color:#166534;font-weight:600">✓ Sent to WhatsApp</div>';
+  openWhatsApp(r.raw);
+}
+function mgEditGuard(go){
+  const id=window._mgEditUnsent;
+  if(!id||!document.getElementById('mg-raw-wrap'))return false;
+  const old=document.getElementById('mg-notsent'); if(old)old.remove();
+  const ov=document.createElement('div'); ov.id='mg-notsent';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:100000;display:flex;align-items:center;justify-content:center;padding:20px';
+  ov.innerHTML='<div style="background:#fff;border-radius:16px;max-width:360px;width:100%;padding:22px 20px;font-family:inherit">'
+    +'<div style="font-size:17px;font-weight:700;color:#1a3a5c;margin-bottom:8px">Not sent to WhatsApp yet</div>'
+    +'<div style="font-size:14px;color:#475569;line-height:1.5;margin-bottom:18px">You changed this report. Please send the updated one.</div>'
+    +'<button id="mg-ns-send" style="width:100%;padding:12px;border:0;border-radius:10px;background:#25D366;color:#fff;font-size:15px;font-weight:700;margin-bottom:8px">Send to WhatsApp</button>'
+    +'<button id="mg-ns-leave" style="width:100%;padding:11px;border:1px solid #cbd5e1;border-radius:10px;background:#fff;color:#475569;font-size:14px">Leave without sending</button></div>';
+  document.body.appendChild(ov);
+  ov.querySelector('#mg-ns-send').onclick=()=>{ov.remove();mgSendEdited(id);};
+  ov.querySelector('#mg-ns-leave').onclick=()=>{ov.remove();window._mgEditUnsent=null;go();};
+  ov.addEventListener('click',e=>{if(e.target===ov)ov.remove();});
+  return true;
+}
 
 // ══ MGMT NAV ══
 const MP={dashboard:0,mreport:1,drafts:2,log:3,records:4,students:5,history:6,schedules:7,settings:8};
