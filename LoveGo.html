@@ -163,7 +163,7 @@ window.esc=esc;
 @media(max-width:700px){.lg-roster-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.lg-roster-board{padding:14px}}
 
 </style></head><body>
-<div class="gate" id="gate" style="display:none"><div class="gatebox"><div style="font-size:42px">💗</div><h2 id="gateTitle">正在确认你的登入…</h2><p id="gateMsg">LoveGo 会读取你的 Academee 身份与权限。</p><div id="gateAct"></div></div></div><div id="app"><header class="topbar"><button class="home" onclick="location.href='../index.html'">←</button><div class="brand">💗 LoveGo <span class="ver" id="verBadge">v101</span></div><button class="ntab on" data-p="collect" onclick="go('collect')">收集</button><button class="ntab" data-p="progress" onclick="go('progress')">进度</button><button class="ntab" id="manageTab" data-p="manage" onclick="go('manage')" style="display:none">设定</button><div class="navr"><span class="saved" id="saved"></span><button class="sync" id="sync">● 已保存</button><button class="navbtn" onclick="exportData()">↓ Export</button><label class="navbtn">↑ Import<input type="file" hidden accept=".json" onchange="importData(event)"></label><button class="logout" onclick="logout()">登出</button></div></header>
+<div class="gate" id="gate" style="display:none"><div class="gatebox"><div style="font-size:42px">💗</div><h2 id="gateTitle">正在确认你的登入…</h2><p id="gateMsg">LoveGo 会读取你的 Academee 身份与权限。</p><div id="gateAct"></div></div></div><div id="app"><header class="topbar"><button class="home" onclick="location.href='../index.html'">←</button><div class="brand">💗 LoveGo <span class="ver" id="verBadge">v102</span></div><button class="ntab on" data-p="collect" onclick="go('collect')">收集</button><button class="ntab" data-p="progress" onclick="go('progress')">进度</button><button class="ntab" id="manageTab" data-p="manage" onclick="go('manage')" style="display:none">设定</button><div class="navr"><span class="saved" id="saved"></span><button class="sync" id="sync">● 已保存</button><button class="navbtn" onclick="exportData()">↓ Export</button><label class="navbtn">↑ Import<input type="file" hidden accept=".json" onchange="importData(event)"></label><button class="logout" onclick="logout()">登出</button></div></header>
 <main class="shell">
 <section class="screen on" id="s-collect">
   <div class="hero">
@@ -224,7 +224,7 @@ window.esc=esc;
 <script>
 /* v94（28-09-2026）：日常成长 ＋ 学科能力 ＋ 总结；派老师加「每位老师教哪几科」（见文件最下方 v94 段；不设负责老师）。
    v93（28-09-2026）：Owner 决定换回整张表 —— 一年填一次、凭一直以来的观察、每个领域都要填。内容与 v91 完全相同，只改版本号；v92「一期多笔」停用。 */
-const APP_VERSION=101,KEY='lovego';
+const APP_VERSION=102,KEY='lovego';
 const SUPABASE_URL='https://qnpvqsvvsgsantekgfbz.supabase.co';
 const SUPABASE_KEY='sb_publishable_v3Y3BD3XiPz33t-hfdX58g_BaFIkjPF';
 const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true}});
@@ -338,7 +338,10 @@ function currentReviewForStudent(sid){
   if(mine)return S.reviews['ASSIGNMENT:'+mine.id]||Object.values(S.reviews).find(r=>r.assignment_id===mine.id);
   return null;
 }
-function domains(){return DEPT_TAXONOMY[S.ui.dept]||[]}
+/* v102（Owner 28-09 / 03-10）：GAK 只有 BB、JR 有午睡；IN、SR 没有 → G6「休息与睡眠常规」不出现、不算必填。
+   班段照班名（Owner 09-09：BB·JR＝3-4，IN·SR＝5-6），跟「睡觉」环节同一套判断。认不出班名就照旧全部显示。 */
+function lgGakClassBand(){try{const c=(S.classes||[]).find(x=>x.id===S.ui.classId);const n=String((c&&(c.class_name||c.display_name))||'').toUpperCase();if(/(^|[^A-Z])(BB|JR)([^A-Z]|$)/.test(n))return '3-4';if(/(^|[^A-Z])(IN|SR)([^A-Z]|$)/.test(n))return '5-6';}catch(_){}return null}
+function domains(){const L=DEPT_TAXONOMY[S.ui.dept]||[];if(String(S.ui.dept||'').toUpperCase()==='GAK'&&lgGakClassBand()==='5-6')return L.filter(d=>d.code!=='G6');return L}
 function renderCollect(){
   document.getElementById('cycleGrid').innerHTML=CYCLES.length?CYCLES.map(x=>`<button class="pick ${S.ui.cycle===x.id?'on':''}" onclick="S.ui.cycle='${x.id}';save();renderCollect()"><b>${x.name}</b><div class="meta">${x.active?'Active cycle':''}</div></button>`).join(''):'<div class="meta">目前还没有建立 LoveGo Review Cycle。</div>';
   if(!S.ui.cycle){
