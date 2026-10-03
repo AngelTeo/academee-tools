@@ -163,7 +163,7 @@ window.esc=esc;
 @media(max-width:700px){.lg-roster-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.lg-roster-board{padding:14px}}
 
 </style></head><body>
-<div class="gate" id="gate" style="display:none"><div class="gatebox"><div style="font-size:42px">💗</div><h2 id="gateTitle">正在确认你的登入…</h2><p id="gateMsg">LoveGo 会读取你的 Academee 身份与权限。</p><div id="gateAct"></div></div></div><div id="app"><header class="topbar"><button class="home" onclick="location.href='../index.html'">←</button><div class="brand">💗 LoveGo <span class="ver" id="verBadge">v94</span></div><button class="ntab on" data-p="collect" onclick="go('collect')">收集</button><button class="ntab" data-p="progress" onclick="go('progress')">进度</button><button class="ntab" id="manageTab" data-p="manage" onclick="go('manage')" style="display:none">设定</button><div class="navr"><span class="saved" id="saved"></span><button class="sync" id="sync">● 已保存</button><button class="navbtn" onclick="exportData()">↓ Export</button><label class="navbtn">↑ Import<input type="file" hidden accept=".json" onchange="importData(event)"></label><button class="logout" onclick="logout()">登出</button></div></header>
+<div class="gate" id="gate" style="display:none"><div class="gatebox"><div style="font-size:42px">💗</div><h2 id="gateTitle">正在确认你的登入…</h2><p id="gateMsg">LoveGo 会读取你的 Academee 身份与权限。</p><div id="gateAct"></div></div></div><div id="app"><header class="topbar"><button class="home" onclick="location.href='../index.html'">←</button><div class="brand">💗 LoveGo <span class="ver" id="verBadge">v101</span></div><button class="ntab on" data-p="collect" onclick="go('collect')">收集</button><button class="ntab" data-p="progress" onclick="go('progress')">进度</button><button class="ntab" id="manageTab" data-p="manage" onclick="go('manage')" style="display:none">设定</button><div class="navr"><span class="saved" id="saved"></span><button class="sync" id="sync">● 已保存</button><button class="navbtn" onclick="exportData()">↓ Export</button><label class="navbtn">↑ Import<input type="file" hidden accept=".json" onchange="importData(event)"></label><button class="logout" onclick="logout()">登出</button></div></header>
 <main class="shell">
 <section class="screen on" id="s-collect">
   <div class="hero">
@@ -224,7 +224,7 @@ window.esc=esc;
 <script>
 /* v94（28-09-2026）：日常成长 ＋ 学科能力 ＋ 总结；派老师加「每位老师教哪几科」（见文件最下方 v94 段；不设负责老师）。
    v93（28-09-2026）：Owner 决定换回整张表 —— 一年填一次、凭一直以来的观察、每个领域都要填。内容与 v91 完全相同，只改版本号；v92「一期多笔」停用。 */
-const APP_VERSION=100,KEY='lovego';
+const APP_VERSION=101,KEY='lovego';
 const SUPABASE_URL='https://qnpvqsvvsgsantekgfbz.supabase.co';
 const SUPABASE_KEY='sb_publishable_v3Y3BD3XiPz33t-hfdX58g_BaFIkjPF';
 const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true}});
@@ -253,7 +253,9 @@ try{(function(){
   history.replaceState=function(st,t,u){ return rs(st,t,clean(u)); };
   history.pushState=function(st,t,u){ return ps(st,t,clean(u)); };
   ['lovego-v53-srk-registry','lovego-v56-srk-od1','lovego-v54-srk-adapter','lovego-v55-srk-cloud-guard',
-   'lovego-v57-srk-semantic','lovego-v58-srk-runtime-qc','lovego-v59-srk-submit-bridge','lovego-v60-srk-e2e'].forEach(function(id){
+   'lovego-v57-srk-semantic','lovego-v58-srk-runtime-qc','lovego-v59-srk-submit-bridge','lovego-v60-srk-e2e',
+   /* v101：证据模组已由 LOVEGO_FROZEN 钉选清单载入；占位挡掉 srk-end-to-end-guard 用相对路径重复载入（academee-tools/ 底下 404） */
+   'lovego-v61-srk-evidence-plug'].forEach(function(id){
     if(document.getElementById(id)) return; var el=document.createElement('script'); el.type='text/plain'; el.id=id; (document.head||document.documentElement).appendChild(el); });
 })();}catch(_){}
 (()=>{const modules=['lovego/runtime/dashboard.js','lovego/runtime/student-override.js','lovego/runtime/reporting-context.js','lovego/runtime/ptmgo-gate.js','lovego/runtime/work-queue.js','lovego/runtime/teacher-scope.js','lovego/runtime/srk-legacy-reconciliation.js','lovego/runtime/srk-evidence-contract.js','lovego/runtime/srk-ux-hardening.js','lovego/runtime/evidence-plug-base.js','lovego/runtime/srk-canonical-routing.js','lovego/runtime/integrity-guard.js','lovego/runtime/srk-stage-context.js','lovego/runtime/srk-evidence-registry.js','lovego/runtime/srk-cloud-guard.js','lovego/runtime/srk-od1-guard.js','lovego/runtime/srk-semantic-guard.js','lovego/srk-runtime-qc.js','lovego/runtime/srk-submit-bridge.js','lovego/runtime/srk-end-to-end-guard.js','lovego-ptm-evidence.js'];modules.forEach(p=>{const s=document.createElement('script');s.src=LOVEGO_FROZEN+p;s.async=false;s.dataset.lovegoCanonical='1';s.onerror=()=>lovegoModuleError(p);document.head.appendChild(s);});window.LOVEGO_CANONICAL_RUNTIME=Object.freeze({version:'FINAL-SINGLE-ENTRY-2026.09.13',modules:[...modules]});})();
