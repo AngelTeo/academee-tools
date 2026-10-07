@@ -1,4 +1,4 @@
-<!doctype html><html lang="zh" translate="no" class="notranslate"><head><meta charset="utf-8"><meta name="google" content="notranslate"><!-- v104（Owner 05-10）：老师用 Chrome「翻译此网页」时，LoveGo 每 0.5–1.2 秒重画的中文会被 Google 翻译慢一拍再翻成英文 → 画面中英一直跳。请浏览器不要翻这页；要英文就按右上角「中文 · EN」（画面绘制前就换好，不会跳）。 --><meta name="viewport" content="width=device-width,initial-scale=1"><title>LoveGo</title>
+<!doctype html><html lang="zh"><head><meta charset="utf-8"><script>/* v105（Owner 07-10）：中文模式照 v104 挡浏览器翻译；切到 EN 才让浏览器翻（老师要翻成马来文）。 */(function(){var en=false;try{en=localStorage.getItem("lovego_lang")==="en"}catch(_){}var h=document.documentElement;if(en){h.lang="en";return}window.__LG_NOTR_AT_LOAD=1;h.setAttribute("translate","no");h.classList.add("notranslate");var m=document.createElement("meta");m.name="google";m.content="notranslate";m.id="lg-notr-meta";document.head.appendChild(m)})();</script><!-- v104（Owner 05-10）：老师用 Chrome「翻译此网页」时，LoveGo 每 0.5–1.2 秒重画的中文会被 Google 翻译慢一拍再翻成英文 → 画面中英一直跳。请浏览器不要翻这页；要英文就按右上角「中文 · EN」（画面绘制前就换好，不会跳）。 --><meta name="viewport" content="width=device-width,initial-scale=1"><title>LoveGo</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" onerror="window.__SUPA_FAIL=1;console.error('[LoveGo] supabase-js failed to load')"></script><script>
 const LOVEGO_TEACHER_FLOW_V33=['学生','长期观察','生活片段','提交'];
 (function(){try{var _si=Storage.prototype.setItem;Storage.prototype.setItem=function(k,v){try{return _si.call(this,k,v);}catch(e){if(e&&(e.name==='QuotaExceededError'||e.code===22||e.code===1014||/quota/i.test(String(e.message||'')))){window.__LOVEGO_QUOTA_FULL=1;console.warn('[LoveGo] localStorage quota full; skipped persist for',k);return;}throw e;}};}catch(_){}})();
@@ -224,7 +224,7 @@ window.esc=esc;
 <script>
 /* v94（28-09-2026）：日常成长 ＋ 学科能力 ＋ 总结；派老师加「每位老师教哪几科」（见文件最下方 v94 段；不设负责老师）。
    v93（28-09-2026）：Owner 决定换回整张表 —— 一年填一次、凭一直以来的观察、每个领域都要填。内容与 v91 完全相同，只改版本号；v92「一期多笔」停用。 */
-const APP_VERSION=104,KEY='lovego';
+const APP_VERSION=105,KEY='lovego';
 const SUPABASE_URL='https://qnpvqsvvsgsantekgfbz.supabase.co';
 const SUPABASE_KEY='sb_publishable_v3Y3BD3XiPz33t-hfdX58g_BaFIkjPF';
 const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true}});
@@ -3532,7 +3532,28 @@ body[data-lang="en"] .lg94-en{display:none}
     cacheE.clear(); document.documentElement.lang=LANG==='en'?'en':'zh';
     mo.disconnect(); walk(document.body); mo.observe(document.body,{subtree:true,childList:true,characterData:true,attributes:true,attributeFilter:ATTRS});
     paintToggle(); document.body.dataset.lang=LANG;
+    lgTranslateGuard();
   };
+  /* v105：中文 → 挡浏览器翻译；EN → 放行（老师可再用浏览器翻成马来文） */
+  function lgTranslateGuard(){
+    const h=document.documentElement; let m=document.getElementById('lg-notr-meta');
+    if(LANG==='en'){
+      h.removeAttribute('translate'); h.classList.remove('notranslate'); if(m) m.remove();
+      if(window.__LG_NOTR_AT_LOAD) lgBmHint();
+    }else{
+      h.setAttribute('translate','no'); h.classList.add('notranslate');
+      if(!m){ m=document.createElement('meta'); m.name='google'; m.content='notranslate'; m.id='lg-notr-meta'; document.head.appendChild(m); }
+    }
+  }
+  function lgBmHint(){
+    let e=document.getElementById('lg105-bm'); if(e) return;
+    e=document.createElement('div'); e.id='lg105-bm'; e.setAttribute('data-lg-notr','1');
+    e.style.cssText='position:fixed;left:12px;right:12px;bottom:16px;z-index:9999;background:#2b2118;color:#fff;border-radius:14px;padding:12px 44px 12px 14px;font:14px/1.45 system-ui,sans-serif;box-shadow:0 6px 24px rgba(0,0,0,.25)';
+    e.innerHTML='<b>Bahasa Melayu?</b> Refresh this page once, then use your browser\'s <b>Translate</b>.<br>Muat semula halaman ini sekali, kemudian guna <b>Terjemah</b> pada pelayar.'
+      +'<button type="button" aria-label="close" style="position:absolute;top:6px;right:8px;border:0;background:none;color:#fff;font-size:20px;line-height:1;padding:6px;cursor:pointer">×</button>';
+    e.querySelector('button').onclick=()=>e.remove();
+    document.body.appendChild(e); setTimeout(()=>{ if(e.isConnected) e.remove(); },15000);
+  }
 
   /* ── 老师只看得到要用的：备份按钮只给管理层 ── */
   function roleFlag(){ try{ document.body.dataset.admin=(typeof isAdmin==='function'&&isAdmin())?'1':'0'; }catch(_){} }
