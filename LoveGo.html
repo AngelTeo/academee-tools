@@ -224,7 +224,7 @@ window.esc=esc;
 <script>
 /* v94（28-09-2026）：日常成长 ＋ 学科能力 ＋ 总结；派老师加「每位老师教哪几科」（见文件最下方 v94 段；不设负责老师）。
    v93（28-09-2026）：Owner 决定换回整张表 —— 一年填一次、凭一直以来的观察、每个领域都要填。内容与 v91 完全相同，只改版本号；v92「一期多笔」停用。 */
-const APP_VERSION=105,KEY='lovego';
+const APP_VERSION=106,KEY='lovego';
 const SUPABASE_URL='https://qnpvqsvvsgsantekgfbz.supabase.co';
 const SUPABASE_KEY='sb_publishable_v3Y3BD3XiPz33t-hfdX58g_BaFIkjPF';
 const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true}});
@@ -2795,8 +2795,12 @@ body.lg-teacher .navr .navbtn{display:none!important}
   function levelsOf(it,a){ if(it.fix) return FIX[it.fix]; return rubricLevels(it.rub,a); }
   function visibleKG(it,a,t){ return it.tiers.includes(t) && a!=null && a>=it.min && (it.max==null||a<=it.max) && (!it.rub||!!rubricLevels(it.rub,a)); }
   function myAssignment(){
-    try{ const sid=S.ui.studentId, tid=S.who&&S.who.id;
-      return (S.cloudAssignments||[]).find(x=>x.student_id===sid&&x.teacher_id===tid&&!x.archived_at&&['active','pending','completed'].includes(x.status))||null; }catch(_){ return null; }
+    /* v106（08-10）：同一位老师、同一个孩子在两个部门都有派工（例：SRK＋SRT）时，以前会抓到别的部门那份 → 学科题出错或「没有要填的」。
+       改成先认这一班，再认这个部门，最后才退回旧做法。 */
+    try{ const sid=S.ui.studentId, tid=S.who&&S.who.id, cid=S.ui.classId, d=String(dept()||'').toUpperCase();
+      const ok=x=>x&&x.student_id===sid&&x.teacher_id===tid&&!x.archived_at&&['active','pending','completed'].includes(x.status);
+      const L=S.cloudAssignments||[];
+      return L.find(x=>ok(x)&&cid&&x.class_id===cid)||L.find(x=>ok(x)&&d&&String(x.department||'').toUpperCase()===d)||L.find(ok)||null; }catch(_){ return null; }
   }
   /* 管理层（包括被派到的管理层）写的评语，资料库一律记成「管理层」那一份：科目全部列出、学科能力选填 */
   /* v99（Owner 29-09：管理层也可以是老师）：被派到这位孩子的管理层 → 照老师算（科目照派工、必填、交出算数） */
