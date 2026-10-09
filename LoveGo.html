@@ -224,7 +224,7 @@ window.esc=esc;
 <script>
 /* v94（28-09-2026）：日常成长 ＋ 学科能力 ＋ 总结；派老师加「每位老师教哪几科」（见文件最下方 v94 段；不设负责老师）。
    v93（28-09-2026）：Owner 决定换回整张表 —— 一年填一次、凭一直以来的观察、每个领域都要填。内容与 v91 完全相同，只改版本号；v92「一期多笔」停用。 */
-const APP_VERSION=109,KEY='lovego';
+const APP_VERSION=110,KEY='lovego';
 const SUPABASE_URL='https://qnpvqsvvsgsantekgfbz.supabase.co';
 const SUPABASE_KEY='sb_publishable_v3Y3BD3XiPz33t-hfdX58g_BaFIkjPF';
 const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true}});
@@ -2829,10 +2829,11 @@ body.lg-teacher .navr .navbtn{display:none!important}
   }
   /* 这一份要填的题 */
   function plan(){
-    const d=dept(), a=age(), t=tier();
+    const d=dept(), t=tier(); let a=age();
     const out={p3:[],acad:[],acadRequired:!mgmt(),tooYoung:false,subjects:mySubjects(),age:a,tier:t,ageGuessed:ageGuessed()};
     if(isKG()){
-      if(a!=null&&a<3){ out.tooYoung=true; return out; }
+      /* v110（09-10 Owner）：2 岁的孩子也要评 —— 照 3 岁的题目和四级原文（以前是整块「这一块不用填」） */
+      if(a!=null&&a<3){ a=3; out.age=3; out.youngAs3=true; }
       out.p3=P3.filter(it=>a!=null&&a>=it.min&&a<=it.max).map(it=>Object.assign({},it,{levels:levelsOf(it,a)}));
       out.acad=KG.filter(it=>out.subjects.includes(it.subject)&&visibleKG(it,a,t)).map(it=>Object.assign({},it,{title:(t==='BB'&&it.bbTitle)||it.title,levels:levelsOf(it,a)}));
     } else if(d==='ATC'){
