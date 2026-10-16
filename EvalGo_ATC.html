@@ -508,7 +508,7 @@ details.p1x summary{cursor:pointer;display:flex;gap:8px;align-items:center;flex-
    权限码：RPT-EvalGo-ATC
    ══════════════════════════════════════════════════════════════════ */
 
-const APP_VERSION = 71;
+const APP_VERSION = 72;
 
 /* ══ v46 · 旧版本守门 ══════════════════════════════════
    MiscGo 那边抓到实例：网址对、程式旧（手机快取把旧 HTML 钉住）。
@@ -3760,7 +3760,7 @@ function secScoreOf(sec, wiList){
        一个分数还没声明的项目会**静静地给满分**。fail-closed 必须在前面。 */
     const m=qMarkOf(sec,u.q,u.sub);
     if(m==null) return null;                  /* 这一格还没声明分数 → 整个项目算不出 */
-    const w=(wiList||[]).find(x=>+x.q===u.q && ((x.qsub||null)===(u.sub||null)));
+    const w=wiUnitRec(wiList,u.q,u.sub);     /* v72：旧式 qsub 不再被当成答对 */
     if(!w || w.code==='star') continue;       /* 没点 = 答对 */
     lost+=m;                                  /* 裁决 3：漏答与做错同样扣满 */
   }
@@ -3768,6 +3768,41 @@ function secScoreOf(sec, wiList){
 }
 function allUnits(){ const o=[]; qSections().forEach(sec=>{ qUnits(sec).forEach(u=>o.push(u)); }); return o; }
 function totalUnits(){ return allUnits().length; }
+/* ══ v72 · Owner 2026-10-16：旧式「错在哪个小题」纪录被当成答对 ══
+   老师在【没声明小题】的题点了 (a)(d) → 存成 q=13、qsub='a,d'。
+   v71 以前每一格找纪录用「qsub 完全相同」→ 找不到 → 当答对。
+   实例：ATC2 科学 Legacy ANDREI SIA 画面 39/50，C 部分 4 题都标了「不会」。
+   v72 起「这一格是哪一笔纪录」只有这一支，算分、答对率、主题、报告层全部走这里：
+     ① 没声明小题的题 → 这题任何一笔（不管 qsub）都算；有一笔不是 ★ 就整题错
+     ② 有声明小题 → qsub='a,b,c,d' 的一笔，a、b、c、d 各算一次
+     ③ 小题自己有纪录就用自己的；没有，才退回这题的整题纪录（qsub 空）
+     ④ 一格只算一次 —— 同一格两笔，不会算成错两次 */
+const WI_SEV=['dk','sos','nr','cl','blank'];
+function wiPick(list){
+  if(!list||!list.length) return null;
+  const bad=list.filter(w=>w.code!=='star');
+  if(!bad.length) return list[0];
+  return bad.slice().sort((a,b)=>WI_SEV.indexOf(a.code)-WI_SEV.indexOf(b.code))[0];
+}
+function wiUnitRec(wis,q,sub){
+  const onQ=(wis||[]).filter(w=>+w.q===+q);
+  if(!onQ.length) return null;
+  if(sub==null) return wiPick(onQ);
+  const own=onQ.filter(w=>String(w.qsub||'').split(',').indexOf(String(sub))>=0);
+  if(own.length) return wiPick(own);
+  return wiPick(onQ.filter(w=>!w.qsub));
+}
+/* 每一格一笔：[{sec,q,sub,w}] —— secs 由呼叫端先拿掉「没参与」的项目 */
+function wiEff(secs,wis){
+  const out=[];
+  (secs||[]).forEach(sec=>{
+    if(QTYPES.indexOf(sec.type||'MCQ')<0 || !hasRange(sec)) return;
+    const mine=(wis||[]).filter(w=>+w.q>=+sec.qf && +w.q<=+sec.qt);
+    qUnits(sec).forEach(u=>{ const w=wiUnitRec(mine,u.q,u.sub); if(w) out.push({sec,q:u.q,sub:u.sub,w}); });
+  });
+  return out;
+}
+
 function wiKey(sid,q,sub){ return EXK()+'|'+sid+'|'+S.subject+'|'+uKey(q,sub)+piSuffix(); }
 function wiGet(sid,q,sub){ return S.wi[wiKey(sid,q,sub)]||null; }
 function wiOf(sid){
@@ -3816,7 +3851,9 @@ function wiDiag(sid,q,v,sub){
 }
 function markCounts(sid){
   const o={star:0,dk:0,cl:0,nr:0,sos:0,blank:0};
-  wiOf(sid).forEach(w=>{ if(o[w.code]!=null) o[w.code]++; });
+  const paRec0=S.f2[f2Key(sid)]||null;
+  /* v72：照格子算（一格一笔），不照纪录笔数 */
+  wiEff(qSections().filter(x=>!paIs(paRec0,x)), wiOf(sid)).forEach(e=>{ if(o[e.w.code]!=null) o[e.w.code]++; });
   o.wrong  = o.dk+o.cl+o.nr+o.sos+o.blank;   /* 漏答本来就没得分，算错 */
   o.marked = o.wrong+o.star;
   /* v33：老师看到几颗按钮，分母就是几 —— 第 6 题拆成 6a/6b/6c 就是 3 格。
@@ -3845,7 +3882,8 @@ function topicDiag(sid){
   const paRec=S.f2[f2Key(sid)]||null;
   qSections().forEach(x=>{ if(paIs(paRec,x)) return;   /* v71 */
     touch(x.topic||x.code).total += qUnits(x).length; });
-  wiOf(sid).forEach(w=>{ const t=touch(w.topic||w.sec_code||'—');
+  /* v72：照格子算，主题名跟分母同一个来源（项目本身） */
+  wiEff(qSections().filter(x=>!paIs(paRec,x)), wiOf(sid)).forEach(e=>{ const w=e.w, t=touch(e.sec.topic||e.sec.code);
     if(w.code==='star') t.star++; else { t.wrong++; if(t[w.code]!=null) t[w.code]++; } });
   const chk=!!(S.f2[f2Key(sid)]||{}).paper_checked;
   return Object.keys(per).map(k=>{const x=per[k];
@@ -4060,7 +4098,8 @@ function paintPick(sid){
            :`<button class="chip chip-muted" onclick="qPick('${sid}','${PICKQ}','__close')">收起</button>`}</div>
 
     ${(!u.sub&&cur)?`<div class="qpick-t" style="margin-top:10px;font-weight:400;opacity:.85">
-      错在哪个小题？(a)(b)(c)… 可多选 · <b>没有小题就不用点</b></div>
+      错在哪个小题？(a)(b)(c)… 可多选 · <b>没有小题就不用点</b><br>
+      <span style="color:var(--warn)">这一题没有声明小题，<b>整题算错</b>（这里点的只是记录错在哪）。要按小题给分，请先到 ① 考卷项目「改分数」声明小题。</span></div>
     <div class="chips-row">${SUBQ_OLD.map(x=>`<button class="chip ${qsubHas(cur,x)?'sel':'chip-muted'}"
       onclick="qSub('${sid}',${u.q},'${x}')">(${x})</button>`).join('')}</div>`:''}`;
   grid.insertAdjacentElement('afterend', d);
@@ -5787,7 +5826,8 @@ async function delPaper(pid){
       const parts=['考前观察','考卷分析','逐题','写作'].filter(l=>c[l]).map(l=>l+' '+c[l]+' 笔');
       alert(`「${name}」底下已经有学生资料：${parts.join('、')}。\n\n`
         +'有学生资料的卷不能在这里整份删 —— 会连别位老师填的资料一起不见，而且救不回来。\n\n'
-        +'如果只是不想用这份卷，留着不填就好，不影响其他卷。\n'
+        +'⚠ 留着不填，这一科的学生会进不了家长报告（这一科每一份卷都要填完或标缺席）。\n'
+        +'不想用这份卷，请告诉负责系统的人收起来。\n'
         +'真的要删，请截图这个讯息，交给负责系统的人处理。');
       return;
     }
@@ -5847,7 +5887,13 @@ async function newPaperInner(){
   const n=cloudPs.reduce((a,p,i)=>{
     const m=/^考卷\s*(\d+)$/.exec(String(p.label||'').trim());
     return Math.max(a, m?+m[1]:0, +p.display_no||0, i+1); },0)+1;
-  if(!confirm(`要在 ${S.cls} · ${S.subject} 建立「考卷 ${n}」吗？\n\n建立后，就可以在第 ① 步登记这份卷的项目。`)) return;
+  /* v72：09-10 盘点 —— 同一份卷被开两次、三次是进不了报告的头号原因。已经有卷，先讲清楚再让她建 */
+  const dupMsg = cloudPs.length
+    ? `⚠ ${S.cls} · ${S.subject} 已经有 ${cloudPs.length} 份卷：${cloudPs.map(p=>'「'+(p.label||'')+'」').join('、')}\n\n`
+      +'同一份考卷只要开一次。是「另一份不同的考卷」才建新的；\n'
+      +'一科有几份卷，每位学生每一份都要填完（或标缺席），不然进不了家长报告。\n\n'
+    : '';
+  if(!confirm(dupMsg+`要在 ${S.cls} · ${S.subject} 建立「考卷 ${n}」吗？\n\n建立后，就可以在第 ① 步登记这份卷的项目。`)) return;
   let pid=null;
   try{
     const cu=uid();
@@ -6439,7 +6485,7 @@ function renderReportBody(){
           <div class="stat-sub">${!ps?'未填':(ps.got==null?'算不出':ps.got+' / '+ps.max+(ps.covered===ps.total?'':' *'))}</div></div>`; })()}
         <div class="stat-card"><div class="stat-n">${rate==null?'—':rate+'%'}</div>
           <div class="stat-l">${essaySections().length?'逐题答对率（不含作文）':'答对率'}</div>
-          <div class="stat-sub">${ms.total?ms.right+' / '+ms.total+' 题':'未填'}</div></div>
+          <div class="stat-sub">${ms.total?ms.right+' / '+ms.total+' 格':'未填'}</div></div>
         <div class="stat-card"><div class="stat-n" style="font-size:15px">${mi?esc(mi.lab):'—'}</div>
           <div class="stat-l">主问题 · 老师端参考</div><div class="stat-sub">${mi?mi.n+' 题':''}</div></div>
         <div class="stat-card"><div class="stat-n" style="font-size:15px">${fo?fo.lab:'—'}</div>
@@ -6959,7 +7005,7 @@ function exportCSV(){
   Object.values(S.f1).forEach(r=>{const st=stuOf(r.sid)||{};
     L1.push(['考前观察',r.exam,r.by,r.subject,r.cls,r.year,r.sid,st.en,r.bahagian,r.obs_date]
       .concat(DIMS.map(d=>r[d.id]||'')).concat([r.issue||'',YN(r.synced)]).map(csvCell).join(','));});
-  const L2=[H0.concat(['考卷日期','总题数'])
+  const L2=[H0.concat(['考卷日期','总格数（小题各算一格）'])
     .concat(MARKS.map(m=>m.zh||m.lab))
     .concat(['得分','满分','已算分的项目','全部项目',
              '逐题答对率（不含作文）','掌握程度 TP','状态','已核对整份','核对时间',
@@ -7613,11 +7659,13 @@ function totalQFor(subject,year,pi){
 function recStats(p){
   const c={star:0,dk:0,cl:0,nr:0,sos:0,blank:0};
   const pi=p?recPiOf(p):null;
-  if(p&&p.sid) Object.keys(S.wi).forEach(k=>{const w=S.wi[k];
-    if(w.sid===p.sid&&w.subject===p.subject&&w.exam===p.exam&&c[w.code]!=null&&keyInPaper(k,pi)) c[w.code]++; });
+  /* v72：报告层改成跟老师画面同一套 —— 一格一笔、分母是格数（小题各算一格）。
+     v71 这里分子是「纪录笔数」、分母是「题数」：有小题的卷答对率会掉到 0%（ATC1 科学）。 */
+  const secsP=p?secsOfPaper(p.subject,p.year,pi).filter(s=>!paIs(p,s)):[];
+  if(p&&p.sid) wiEff(secsP, wiForRec(p,pi)).forEach(e=>{ if(c[e.w.code]!=null) c[e.w.code]++; });
   const wrong=c.dk+c.cl+c.nr+c.sos+c.blank;
-  const total=Math.max(0,((p?totalQFor(p.subject,p.year,pi):0)||0)
-    -(p?paQCount(p,secsOfPaper(p.subject,p.year,pi)):0));   /* v71：没参与的题不进分母 */
+  const total=secsP.filter(s=>QTYPES.indexOf(s.type||'MCQ')>=0 && hasRange(s))
+    .reduce((a,s)=>a+qUnits(s).length,0);   /* v72：格数；没参与的项目已先拿掉（v71） */
   const checked=!!(p&&p.paper_checked);
   /* ⚠️ 未核对整份 → 没点的题是 UNKNOWN，答对数与答对率不存在 */
   const right=checked?Math.max(0,total-wrong):null;
