@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>PTMGo — SRK 家长日 v9</title>
+<title>PTMGo — SRK 家长日 v10</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -153,7 +153,7 @@ table.t5 td,table.t5 th{padding:6px 8px;font-size:12px}
 </head>
 <body>
 <div class="top">
-  <div class="brand"><span class="logo">PTMGo</span><span class="pill">2026 PTM · SRK / GAK</span><span class="pill" style="background:#F9CB42;color:var(--pri2);font-weight:700">v9</span></div>
+  <div class="brand"><span class="logo">PTMGo</span><span class="pill">2026 PTM · SRK / GAK</span><span class="pill" style="background:#F9CB42;color:var(--pri2);font-weight:700">v10</span></div>
   <nav id="nav">
     <button data-p="home" class="on" onclick="goPage('home')">Home</button>
     <button data-p="classes" onclick="goPage('classes')">Classes</button>
@@ -192,7 +192,7 @@ table.t5 td,table.t5 th{padding:6px 8px;font-size:12px}
 </div>
 <div class="toast" id="toast"></div>
 <script>
-const APP_VERSION = 9;
+const APP_VERSION = 10;
 const SB_URL = 'https://qnpvqsvvsgsantekgfbz.supabase.co';
 const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFucHZxc3Z2c2dzYW50ZWtnZmJ6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYxNzg4MzIsImV4cCI6MjA5MTc1NDgzMn0.8rfv0BQpWNNSD8yrhHNwCOkcG9q5_uMD7B7z_Y324a0';
 const ACADEMIC_YEAR = 2026;
@@ -266,13 +266,18 @@ async function doLogin(){
   document.getElementById('login-card').style.display='none';
   toast('✓ 已登入'); S.ui.page='home'; await reloadAll();
 }
-async function fetchAll(q){ /* 每次 1000 列，读到完 */
+async function fetchAll(q, label){ /* 每次 1000 列，读到完 */
   let out=[], from=0;
-  for(;;){ const { data, error } = await q().range(from, from+999); if(error) throw error; out=out.concat(data||[]); if(!data||data.length<1000) break; from+=1000; }
+  for(;;){ const { data, error } = await q().range(from, from+999); if(error) throw error; out=out.concat(data||[]); if(label) step(label+'（已读 '+out.length+' 列）'); if(!data||data.length<1000) break; from+=1000; }
   return out;
 }
+let STEP={name:'',at:0,timer:null};
+function step(name){ STEP.name=name; STEP.at=Date.now(); paintStep(); }
+function paintStep(){ const el=document.getElementById('page-home'); if(!el||!STEP.timer) return; const sec=Math.round((Date.now()-STEP.at)/1000);
+  el.innerHTML='<div class="empty">读取资料库中… <b>'+esc(STEP.name)+'</b>'+(sec>=5?'（'+sec+' 秒）':'')+'</div>'+(sec>=40?'<div class="banner r">这一步超过 40 秒没有反应。请截图给 Claude，再按 <button class="btn sm" onclick="location.reload()">重新整理</button></div>':''); }
 async function reloadAll(){
   if(S.ui.page==='home') document.getElementById('page-home').innerHTML='<div class="empty">读取资料库中…</div>';
+  STEP.timer=setInterval(paintStep,1000); step('1/9 学生名单');
   try{
     const [mem, cls, rp] = await Promise.all([
       fetchAll(()=>sb.from('hub_student_memberships').select('student_id,class_code,status,end_date').eq('dept','SRK').eq('status','Enrolled').is('end_date',null)),
@@ -280,6 +285,7 @@ async function reloadAll(){
       sb.from('report_period').select('id,code,academic_year,is_open,stage').eq('academic_year',ACADEMIC_YEAR)
     ]);
     const ids=[...new Set(mem.map(m=>m.student_id))];
+    step('2/9 学生资料');
     const stus = await fetchAll(()=>sb.from('hub_students').select('id,name,name_cn,gender,birth_year,status,legacy_uuid').in('id',ids));
     const active = stus.filter(s=>s.status==='Active');
     const memBy={}; mem.forEach(m=>{ if(!memBy[m.student_id] || /^SRK_(BB|JR|IN|SR)_/.test(m.class_code)) memBy[m.student_id]=m.class_code; });
@@ -292,26 +298,31 @@ async function reloadAll(){
     S.period = (rp.data||[])[0] || null;
     const legacyList = S.students.map(s=>s.legacy).filter(Boolean);
     /* LoveGo：只读出口视图 */
+    step('3/9 LoveGo 老师评语');
     S.lg = await fetchAll(()=>sb.from('v_lovego_ptm_review_v1')
       .select('student_id,class_id,dept,teacher_id,teacher_name,contributor_type,code,value_num,text_value,label_snapshot,extra,status,review_id')
-      .in('dept',['SRK','GAK']).in('student_id', S.students.map(s=>s.id)));
+      .in('dept',['SRK','GAK']).in('student_id', S.students.map(s=>s.id))
+      .order('review_id').order('code').order('text_value',{nullsFirst:true}).order('value_num',{nullsFirst:true}), '3/9 LoveGo 老师评语');   /* v10：分页一定要固定顺序，不然会漏或重复 */
     /* 派工：谁被派到这位孩子 */
+    step('4/9 派工');
     const cyc = await sb.from('lovego_cycle').select('id,report_period_id').eq('report_period_id', S.period ? S.period.id : '00000000-0000-0000-0000-000000000000');
     const cycleId = (cyc.data||[])[0] ? cyc.data[0].id : null;
     S.asg = cycleId ? await fetchAll(()=>sb.from('lovego_assignment').select('student_id,department,teacher_id,subjects,status,archived_at')
       .eq('cycle_id',cycleId).is('archived_at',null).in('department',['SRK','GAK']).in('student_id',legacyList)) : [];
     /* 老师名字 */
+    step('5/9 老师名字');
     const tids=[...new Set(S.asg.map(a=>a.teacher_id).concat(S.lg.map(r=>r.teacher_id)).filter(Boolean))];
     S.lg.forEach(r=>{ if(r.teacher_id && r.teacher_name) S.names[r.teacher_id]=r.teacher_name; });
     await Promise.all(tids.filter(t=>!S.names[t]).map(async t=>{ const { data } = await sb.rpc('lovego_person_name',{p_user:t}); S.names[t]=data||t.slice(0,8); }));
-    await loadMgmt(); await loadDrafts(); await loadSaved();
+    step('6/9 管理层名单'); await loadMgmt(); step('7/9 页 4 草稿'); await loadDrafts(); step('8/9 存过的资料'); await loadSaved();
     S.loadedAt=(typeof SNAP_AT!=='undefined' && SNAP_AT.indexOf('__')<0) ? SNAP_AT : nowStr();  /* v6：快照版显示资料的时间 */
+    step('9/9 计算'); clearInterval(STEP.timer); STEP.timer=null;
     { const ses=await sb.auth.getSession(); setWho(ses.data&&ses.data.session?ses.data.session.user.email:''); }
     computeAll(); goPage(S.ui.page||'home');
     toast('✓ 资料库读好了');
   }catch(e){
-    console.error(e);
-    document.getElementById('page-home').innerHTML='<div class="banner r">读资料库失败：'+esc(e.message||e)+'</div>';
+    console.error(e); clearInterval(STEP.timer); STEP.timer=null;
+    document.getElementById('page-home').innerHTML='<div class="banner r">读资料库失败（'+esc(STEP.name)+'）：'+esc(e.message||e)+'</div>';
   }
 }
 
