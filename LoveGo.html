@@ -224,7 +224,7 @@ window.esc=esc;
 <script>
 /* v94（28-09-2026）：日常成长 ＋ 学科能力 ＋ 总结；派老师加「每位老师教哪几科」（见文件最下方 v94 段；不设负责老师）。
    v93（28-09-2026）：Owner 决定换回整张表 —— 一年填一次、凭一直以来的观察、每个领域都要填。内容与 v91 完全相同，只改版本号；v92「一期多笔」停用。 */
-const APP_VERSION=111,KEY='lovego';
+const APP_VERSION=112,KEY='lovego';
 const SUPABASE_URL='https://qnpvqsvvsgsantekgfbz.supabase.co';
 const SUPABASE_KEY='sb_publishable_v3Y3BD3XiPz33t-hfdX58g_BaFIkjPF';
 const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true}});
@@ -477,6 +477,7 @@ function togglePriority(kind,domainCode,indicatorCode,index){
   r[kind+'_refs']=arr;save();renderPriorities();
 }
 function validateReviewV33(r){
+  if(window.lgStageOnly&&lgStageOnly()) return {ok:true,missing:[],daily:true}; /* v112 */
   const missing=domains().filter(d=>{const x=r.domains?.[d.code]||{};return !x.insufficient_observation && !(Array.isArray(x.obs)&&x.obs.length)});
   const daily=['routine','social','emotion','change'].some(k=>String((r.daily_life||{})[k]||'').trim()); /* v90：补充答案不算生活片段 */
   return {ok:!missing.length&&daily,missing,daily};
@@ -2873,6 +2874,7 @@ body.lg-teacher .navr .navbtn{display:none!important}
     st.p.p3.forEach(it=>{ if(valOf(r,it.code)==null) miss.push({kind:'p3',code:it.code,title:it.title}); });
     if(st.aReq) st.p.acad.forEach(it=>{ if(valOf(r,it.code)==null) miss.push({kind:'acad',code:it.code,title:subjName(it.subject)+' '+it.title}); });
     st.sItems.forEach(([k,ok])=>{ if(!ok) miss.push({kind:'sum',code:k}); });
+    if(window.lgStageOnly&&lgStageOnly()) return miss.filter(x=>x.kind==='supp'); /* v112 */
     return miss;
   }
   window.lg94Missing=missingList;
@@ -3390,7 +3392,41 @@ body:not([data-lg95]) .lg95-gst{display:none}
     if(!n){ n=document.createElement('div'); n.id='lg95-gak-note'; n.className='lg94-note'; n.textContent='管理层还没有派你负责哪几个环节，所以这里只有共同的观察项目。请找管理层在「派老师」页设定。'; body.insertBefore(n,body.firstChild); }
   }
   /* v96：不再显示「管理层还没有派你…」（Owner 28-09：不讲设定） */
+
+  /* ── v112 · 环节老师只填自己的环节（Owner 21-10：SHU＝午餐；SQ＝转换＋沐浴＋睡觉；MAI 照旧）──
+     GAK、被派到、派工没有科目、环节里没有「上课」→ 只要把自己环节的题填完就能交。
+     日常观察 G1–G10、15 格、总结都还在画面上，可以填，但不挡交出。管理层（没派到）不受影响。 */
+  window.lgStageOnly=function(){
+    try{
+      if(String(S.ui&&S.ui.dept||'').toUpperCase()!=='GAK') return false;
+      if(typeof isAdmin==='function'&&isAdmin()&&!(window.lgAssignedHere&&lgAssignedHere(S.ui.studentId))) return false;
+      const sid=S.ui.studentId, tid=S.who&&S.who.id;
+      const a=(S.cloudAssignments||[]).find(x=>x.student_id===sid&&x.teacher_id===tid&&!x.archived_at&&['active','pending','completed'].includes(x.status));
+      if(!a) return false;
+      const st=Array.isArray(a.stages)?a.stages:[], sb=Array.isArray(a.subjects)?a.subjects:[];
+      return st.length>0&&!st.includes('learning')&&sb.length===0;
+    }catch(_){ return false; }
+  };
+  function soPaint(){
+    const on=!!(window.lgStageOnly&&lgStageOnly()&&$('s-review')&&$('s-review').classList.contains('on'));
+    if(on) document.body.dataset.lg112so='1'; else delete document.body.dataset.lg112so;
+    const body=$('lg-fillbody'); let n=$('lg112-note');
+    if(!on||!body){ if(n) n.remove(); return; }
+    if(!n){ n=document.createElement('div'); n.id='lg112-note'; n.className='lg112-note'; body.insertBefore(n,body.firstChild); }
+    const zh='你负责的环节题目填好，就可以按「完成这一位」。其它项目可以不填。';
+    const en='Fill in the questions for your routine(s), then tap Complete. Everything else is optional.';
+    const t=(document.body.dataset.lang==='en')?en:zh; if(n.textContent!==t) n.textContent=t;
+  }
+  setInterval(soPaint,500);
 })();
+</script>
+<style id="lg112-css">
+body[data-lg112so] .lg94-req,body[data-lg112so] #lg-daily-req:not(.ok){display:none!important}
+body[data-lg112so] #lg-miss-banner{display:none!important}
+.lg112-note{margin:0 0 12px;padding:10px 12px;background:#e6f2ec;border:1px solid #bfe0cf;border-radius:10px;font-size:14px;font-weight:700;line-height:1.5;color:#1e5c3f}
+</style>
+<script>
+(function(){})();
 
 </script>
 <style id="lg96-css">
