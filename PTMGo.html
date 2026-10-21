@@ -1578,7 +1578,7 @@ U.go=function(view){U.view=view;U.detail=null; if(view==='settings'){goPage('dat
 U.open=function(id,mode){var s=child(id);if(!s)return;U.detail=s.id;U.view=mode||'profile';S.ui.child=s.id;S.ui.cls=s.cls;S.ui.tab=mode==='report'?'p4':mode==='evidence'?'p23':mode==='meeting'?'talk':'prep';loadExtra(s.id);U.render();window.scrollTo(0,0);};
 U.focus=function(which){U.filter=which;U.view='prepare';U.render();};
 U.selectClass=function(v){U.clazz=v;U.render();};
-U.search=function(v){U.keyword=v;U.render();};
+U.search=function(v){var pos=document.activeElement&&document.activeElement.selectionStart;U.keyword=v;U.render();var inp=root.querySelector('.uxsearch input');if(inp){inp.focus();try{inp.setSelectionRange(pos,pos);}catch(e){}}};
 U.recheck=function(){return S.students.filter(function(s){return U.clazz==='All'||s.cls===U.clazz;}).filter(function(s){var q=U.keyword.trim().toLowerCase();return !q||s.name.toLowerCase().includes(q)||String(s.name_cn||'').toLowerCase().includes(q);});};
 function searchbar(){return '<div class="uxsearch"><select aria-label="Class filter" onchange="PTMGoUX.selectClass(this.value)"><option value="All">All classes</option>'+S.classes.map(function(k){return '<option value="'+esc(k)+'"'+(U.clazz===k?' selected':'')+'>'+esc(clsName(k))+'</option>';}).join('')+'</select><input aria-label="Search students" placeholder="Search student name (English / 中文)" value="'+esc(U.keyword)+'" oninput="PTMGoUX.search(this.value)"/></div>';}
 function pickOpen(s,txt,mode){return button(txt,"PTMGoUX.open('"+eid(s.id)+"','"+mode+"')",true);}
@@ -1593,7 +1593,7 @@ function prepare(){
  ].map(function(o){return '<button class="uxstat '+(U.filter===o[0]?'current ':'')+o[3]+'" onclick="PTMGoUX.focus(\''+o[0]+'\')"><b>'+o[1]+'</b><span>'+o[2]+'</span></button>';}).join('')+'</div>';
  h+='<div class="uxgrid"><section class="uxpanel"><h2>What needs attention?</h2><p class="uxfine">A student may appear in more than one group. A category is not automatically a Confirm blocker.</p>';
  groups.forEach(function(g){var a=students.filter(function(s){return issues(s).some(function(i){return i[3]===g[0]})});h+='<div class="uxrow"><div><h3>'+esc(g[1])+' '+tag(a.length,a.length?'warn':'')+'</h3><p>'+esc(g[2])+'</p></div>'+button('View students →',"PTMGoUX.focus('"+g[0]+"')",false,!a.length)+'</div>';});
- h+='</section><section class="uxpanel"><h2>'+(U.filter==='all'?'Your action list':U.filter==='action'?'Students needing action':U.filter==='confirmed'?'Confirmed reports':U.filter==='checked'?'Completed print QA':esc((groups.find(function(x){return x[0]===U.filter})||['','Action list'])[1]))+'</h2><div class="uxlist">';
+ h+='</section><div class="uxpanel" style="margin-top:15px"><h2>Report production · Print → Copy → Check</h2><p class="uxfine">Existing confirmed-report printing remains available. Print only after confirmation; the original copy/check controls remain on each Parent Report.</p>'+S.classes.map(function(k){var n=S.students.filter(function(s){return s.cls===k&&isLocked(s.id)}).length;return button(esc(clsName(k))+' · Print confirmed ('+n+')',"printClass('"+k+"')",false,!n);}).join(' ')+'</div><section class="uxpanel"><h2>'+(U.filter==='all'?'Your action list':U.filter==='action'?'Students needing action':U.filter==='confirmed'?'Confirmed reports':U.filter==='checked'?'Completed print QA':esc((groups.find(function(x){return x[0]===U.filter})||['','Action list'])[1]))+'</h2><div class="uxlist">';
  var shortlist=students.filter(function(s){if(U.filter==='all')return issues(s).length>0;if(U.filter==='action')return issues(s).length>0;if(U.filter==='confirmed')return isLocked(s.id);if(U.filter==='checked')return isLocked(s.id)&&copyLast(s.id).checked;return issues(s).some(function(i){return i[3]===U.filter})}).slice(0,50);
  shortlist.forEach(function(s){var i=issues(s),id=eid(s.id),reason=U.filter==='all'||U.filter==='action'?i[0]:i.find(function(x){return x[3]===U.filter})||i[0],mode=U.filter==='production'?'report':U.filter==='review'?'evidence':'profile';h+='<div class="uxrow"><div><h3>'+esc(s.name)+' <span class="uxmuted">'+esc(s.name_cn||'')+'</span></h3><p>'+esc(clsName(s.cls))+' · '+esc(reason?reason[0]:'Ready')+'</p></div>'+button('Open →',"PTMGoUX.open('"+id+"','"+mode+"')",true)+'</div>';});
  h+=!shortlist.length?'<div class="uxmuted">No students in this selection.</div>':'';h+='</div></section></div>';
@@ -1638,7 +1638,7 @@ function evidence(s){var c=S.computed[s.id],h=detailHeader(s,'profile');
 function report(s){var c=S.computed[s.id],h=detailHeader(s,'profile');h+='<section class="uxpanel"><h2>Parent report · Page 4 & production checks</h2><p class="uxfine">Original confirmation, frozen report, print → copied → checked and Reopen controls are preserved. Backend gates remain authoritative.</p>'+tabP4(s,c)+'</section><details class="uxdetails"><summary>Inspect Page 2–3 / 35 indicators</summary><div class="uxdetailinner">'+tabP23(s,c)+'</div></details>';return h;}
 function today(){
  var ss=U.recheck(),order={'谈话中':0,'到了':1,'还没到':2,'谈完':3,'没来':4,'改期':5};
- ss.sort(function(a,b){return (order[flowOf(a.id)[2]]||2)-(order[flowOf(b.id)[2]]||2)});
+ ss.sort(function(a,b){return (order[flowOf(a.id)[2]]??2)-(order[flowOf(b.id)[2]]??2)});
  var count=function(x){return ss.filter(function(s){return flowOf(s.id)[2]===x}).length;};
  var h=intro('03 / PTM TODAY','Talk with confidence','One meeting screen. Start with the child, listen to the parent, capture requests, and finish.')+searchbar();
  h+='<div class="uxstats">'+[['还没到','Waiting'],['到了','Arrived'],['谈话中','Talking'],['谈完','Done']].map(function(x){return '<div class="uxstat"><b>'+count(x[0])+'</b><span>'+x[1]+'</span></div>';}).join('')+'</div>';
@@ -1650,14 +1650,14 @@ function today(){
 U.flow=function(id,how){
  var s=child(id);if(!s)return;var state=meetState(s.id);
  var staff=document.getElementById('ux-staff'),table=document.getElementById('ux-table');
- if(staff)state.staff=staff.value;if(table)state.table=table.value.trim();
+ var nextStaff=staff?staff.value:state.staff||'',nextTable=table?table.value.trim():state.table||'';
  S.ui.cls=s.cls;S.ui.q='';
  prevDesk();
  var t=document.getElementById('dk-t-'+s.id),m=document.getElementById('dk-s-'+s.id);
- if(t)t.value=state.table||'';if(m)m.value=state.staff||'';
+ if(t)t.value=nextTable;if(m)m.value=nextStaff;
  setFlow(s.id,how);window.setTimeout(U.render,500);
 };
-U.finish=function(id){var s=child(id),m=meetState(s.id);if(!m.saved){toast('Save the parent conversation notes before finishing');return;}if(!(m.who||[]).length){toast('Record who attended before finishing');return;}U.flow(id,'谈完');};
+U.finish=function(id){var s=child(id),m=meetState(s.id);if(flowOf(s.id)[2]!=='谈话中'){toast('Start the meeting before finishing');return;}if(!m.saved){toast('Save the parent conversation notes before finishing');return;}if(!(m.who||[]).length){toast('Record who attended before finishing');return;}U.flow(id,'谈完');};
 U.absent=function(id,what){var s=child(id),r=document.getElementById('ux-reason');if(!r||!r.value.trim()){toast('Enter a reason for No-show / Rescheduled');return;}S.ui.cls=s.cls;S.ui.q='';prevDesk();var v=document.getElementById('dk-r-'+s.id);if(v)v.value=r.value;setAbsent(s.id,what);window.setTimeout(U.render,500);};
 function meeting(s){
  var c=S.computed[s.id],m=meetState(s.id),f=flowOf(s.id),names=mgmtNames(),id=eid(s.id);
@@ -1687,14 +1687,14 @@ U.status=function(id,val){var r=S.local.req.find(function(x){return String(x.id)
 U.render=function(){
  var logged=S.students&&S.students.length;
  var h=nav();
- if(!logged){h+=intro('WELCOME','PTMGo','Sign in with your authorised platform account to see student data.')+button('Open sign in',"PTMGoUX.go('settings')",true);U.view='settings';document.body.classList.add('ux-settings');}
- else if(U.view==='prepare')h+=prepare();
+ if(!logged){var lc=document.getElementById('login-card');var needsLogin=lc&&lc.style.display!=='none';h+=intro('WELCOME',needsLogin?'Sign in to PTMGo':'Loading student information…',needsLogin?'Use your authorised platform account.':'The original data connection is loading.')+(needsLogin?button('Open sign in',"PTMGoUX.go('settings')",true):'');if(needsLogin){U.view='settings';U.afterLogin=true;}document.body.classList.toggle('ux-settings',!!needsLogin);}else if(U.afterLogin){U.afterLogin=false;U.view='prepare';h=nav();}
+ if(logged&&U.view==='prepare')h+=prepare();
  else if(U.view==='students')h+=studentsScreen();
  else if(U.view==='today')h+=today();
  else if(U.view==='follow')h+=follow();
  else if(['profile','evidence','report','meeting'].includes(U.view)){var s=S.byId[U.detail];h+=s?(U.view==='profile'?profile(s):U.view==='evidence'?evidence(s):U.view==='report'?report(s):meeting(s)):'<div class="ux-alert bad">Student not found</div>';}
  else if(U.view==='settings')h+=intro('ADMIN','Settings & diagnostics','The original imports, system gates and administrative controls remain below.');
- root.innerHTML=h+'<div class="uxfooter">PTMGo UX workbench · Existing backend rules and report production preserved · Review build</div>';
+ root.innerHTML=h+'<div class="uxfooter">PTMGo UX workbench · Original rule and database operations preserved · Review build</div>';
  document.body.classList.toggle('ux-settings',U.view==='settings');
 };
 renderCurrent=function(){if(S.ui.page==='data')renderManage();U.render();};
