@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>MiscGo v11</title>
+<title>MiscGo v12</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
@@ -490,6 +490,7 @@ body.teacher-mode .teacher-hide{display:none !important;}
     <span class="m-brand">📋 MiscGo <span class="m-ver" id="m-ver"></span></span>
     <button class="m-tab on" onclick="mGoPage('dashboard')">Dashboard</button>
     <button class="m-tab" onclick="mGoPage('mreport')">✏️ Report</button>
+    <button class="m-tab" id="mtab-att" onclick="mGoPage('attendance')" style="display:none">🗓 Attendance</button>
     <button class="m-tab" onclick="mGoPage('drafts')">📤 Outbox</button>
     <button class="m-tab" onclick="mGoPage('log')">📥 Log</button>
     <button class="m-tab" onclick="mGoPage('records')">Records</button>
@@ -507,6 +508,7 @@ body.teacher-mode .teacher-hide{display:none !important;}
   <div style="flex:1;overflow-y:auto;">
     <div class="m-page on" id="mp-dashboard"><div id="dash-content"></div></div>
     <div class="m-page" id="mp-mreport"><div id="mreport-content"></div></div>
+    <div class="m-page" id="mp-attendance"><div id="att-content"></div></div>
     <div class="m-page" id="mp-drafts"><div id="drafts-content"></div></div>
     <div class="m-page" id="mp-log"><div id="log-content"></div></div>
     <div class="m-page" id="mp-records"><div id="rec-content"></div></div>
@@ -560,7 +562,10 @@ body.teacher-mode .teacher-hide{display:none !important;}
    \u6539\u7248\u89c4\u5219\uff1a\u53ea\u7528\u6574\u6570\uff0c\u4e14\u4e09\u5904\u5fc5\u987b\u540c\u65f6\u6539 \u2014\u2014
    \u2460 <title>  \u2461 \u4e3b\u9875\u9876\u680f\u7684\u7248\u672c\u5fbd\u7ae0  \u2462 \u4e0b\u9762\u8fd9\u4e2a\u5e38\u6570
    \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550 */
-const APP_VERSION = 11;
+const APP_VERSION = 12;   /* v12 · Step 1：新分页 Attendance → Student absence（写资料库 attendance_notice，AttendanceGo 点名页看得到）；旧的本机请假草稿逐笔转换 */
+/* v12 · 受控试行开关：A7 补测通过前，Attendance 分页只给 OWNER 帐号（ChatGPT / Owner：A7 PASS 前不开放给全体行政）。
+   A7 PASS 后改成 false（只改这一行）＝ 所有能登记学生请假的行政 / 管理层都看得到。资料库权限不受这个开关影响。 */
+const ATT_TRIAL_OWNER_ONLY = true;
 
 const B='\u2980';
 const H=(n,e='')=>`*${B}${B}${B}${B} ${n} ${B}${B}${B}${B}*`+(e?` ${e}`:'');
@@ -1770,8 +1775,15 @@ async function loadPermissions(){
       if(!r.error && row && row.can_approve===true){ canApproveRecords=true; break; }
     }catch(e){ console.warn('can_access failed for',c,e); }
   }
+  /* v12 · 学生请假：跟资料库函式看同一个权限代号 */
+  let canNotice=false;
+  try{
+    const r=await _sb.rpc('can_access',{p_system:'OPR-AttendanceNotice'});
+    const row=Array.isArray(r.data)?r.data[0]:r.data;
+    canNotice=!r.error && !!(row && row.can_edit===true) && (!ATT_TRIAL_OWNER_ONLY || role==='OWNER');
+  }catch(e){ console.warn('can_access OPR-AttendanceNotice failed',e); }
   window.PERM={ userId:user?user.id:null, initials, role, canSeeAnyMisc, canSeeParentGo,
-                miscCodes:myMiscCodes, canApproveRecords };
+                miscCodes:myMiscCodes, canApproveRecords, canNotice };
   window._canDeleteRecords=canApproveRecords;
 
   /* ══ v2：角色改读 users_meta.role，不再用别的系统的权限反推 ══
@@ -1798,7 +1810,7 @@ async function loadPermissions(){
 const MG_PERM_KEY='mg_perm_v1';
 function mgReadPerm(uid){try{const c=JSON.parse(localStorage.getItem(MG_PERM_KEY)||'null');return (c&&c.userId===uid)?c:null;}catch(_){return null;}}
 function mgWritePerm(){try{localStorage.setItem(MG_PERM_KEY,JSON.stringify(Object.assign({},window.PERM,{isTeacher:window._isTeacher,canSeeSettings:window._canSeeSettings})));}catch(_){}}
-function mgPermSig(p){return JSON.stringify([p.canSeeAnyMisc,p.isTeacher,p.canSeeSettings,p.canApproveRecords,(p.miscCodes||[]).join(',')]);}
+function mgPermSig(p){return JSON.stringify([p.canSeeAnyMisc,p.isTeacher,p.canSeeSettings,p.canApproveRecords,(p.miscCodes||[]).join(','),!!p.canNotice]);}   /* v12 · 加 canNotice */
 setTimeout(()=>{const e=document.getElementById('mg-entry-login');const scr=document.getElementById('s-entry');
   if(e&&scr&&scr.classList.contains('on'))e.style.display='inline-block';},8000);
 async function bootstrapAuth(){
@@ -1882,6 +1894,11 @@ function applyTeacherModeUI(){
     // 设定页走自己的闸门：MGMT 是管理层（看得到业务），但看不到设定页。
     if(/mGoPage\('settings'\)/.test(onclickAttr)){
       tab.style.display = window._canSeeSettings ? '' : 'none';
+      return;
+    }
+    /* v12 · Attendance 分页只给能登记学生请假的人 */
+    if(/mGoPage\('attendance'\)/.test(onclickAttr)){
+      tab.style.display = (window.PERM&&window.PERM.canNotice) ? '' : 'none';
       return;
     }
     const isRestricted=/mGoPage\('(dashboard|drafts|log|students)'\)/.test(onclickAttr);
@@ -2105,6 +2122,7 @@ async function syncAllFromSupabase(){
 }
 
 function getCatForType(type){
+  if(type==='ATT_ABSENCE') return 'Attendance';   /* v12 */
   for(const f of FORMATS){if(f.id===type)return f.cat||'Daily';}
   return 'Daily';
 }
@@ -4263,7 +4281,7 @@ function jumpToParentGo(recId){
   }
   // Build URL params — ParentGo reads these on load
   const student=(r.students||[])[0]||'';
-  const fmt=(FORMATS.find(f=>f.id===r.type)||{}).label||r.type;
+  const fmt=(FORMATS.find(f=>f.id===r.type)||{}).label||(r.type==='ATT_ABSENCE'?'Student absence':r.type);
   const summary=`${fmt}: ${(r.summary||'').slice(0,80)}`;
   const p=new URLSearchParams();
   if(supabaseId)p.set('misc_id',String(supabaseId));
@@ -4280,7 +4298,7 @@ function confirmClose(recId){
   const r=S.records.find(x=>x.id===recId);
   if(!r)return;
   const stuLabel=(r.students||[]).join(', ')||'(no student)';
-  const fmtLabel=(FORMATS.find(f=>f.id===r.type)||{}).label||r.type;
+  const fmtLabel=(FORMATS.find(f=>f.id===r.type)||{}).label||(r.type==='ATT_ABSENCE'?'Student absence':r.type);
   const curIni=getIni();
   const iniRow=curIni?'':`
     <div style="margin-bottom:12px;">
@@ -4632,11 +4650,16 @@ function mgEditGuard(go){
 }
 
 // ══ MGMT NAV ══
-const MP={dashboard:0,mreport:1,drafts:2,log:3,records:4,students:5,history:6,schedules:7,settings:8};
+const MP={dashboard:0,mreport:1,attendance:2,drafts:3,log:4,records:5,students:6,history:7,schedules:8,settings:9};   /* v12 · 加 Attendance */
 function mGoPage(p){
   // Block access to restricted tabs if teacher
   // 设定页：只有 OWNER / TOP_MGMT / ADMIN。守卫写在最前面，直接呼叫函式也挡得住。
   if(p==='settings' && window._canSeeSettings!==true){
+    toast('You do not have permission for this.',true);
+    p='records';
+  }
+  /* v12 · Attendance：只有能登记学生请假的人（OPR-AttendanceNotice 可编辑） */
+  if(p==='attendance' && !(window.PERM&&window.PERM.canNotice)){
     toast('You do not have permission for this.',true);
     p='records';
   }
@@ -4650,6 +4673,7 @@ function mGoPage(p){
   if(p==='dashboard')renderDash();
   else if(p==='mreport')renderMgmtReport();
   else if(p==='drafts')renderDrafts();
+  else if(p==='attendance')attRender();   /* v12 */
   else if(p==='log')renderLog();
   else if(p==='records'){document.getElementById('rec-content').innerHTML='<div id="rec-wrap"></div>';renderRecordsTable();}
   else if(p==='students'){document.getElementById('stu-topbar').innerHTML='';renderStudents();}
@@ -4961,7 +4985,9 @@ function renderDrafts(cat){
           ${cnt===0?'<div class="draft-empty">No entries yet — tap Add Entry to start accumulating</div>':
             `<div id="del-${key}">${renderDraftEntries(key,entries)}</div>`}
           <div class="draft-actions">
-            <button class="btn btn-sm" onclick="openAddDraft('${key}')">+ Add Entry</button>
+            ${['SRK_ABS','ATC_ABS','SRT_ABS'].includes(key)
+              ?`<div style="font-size:11.5px;color:var(--mut);flex-basis:100%;margin-bottom:4px;">New student absences go to the 🗓 Attendance tab (teachers see them in AttendanceGo). Old entries here can still be sent or converted there.</div>`
+              :`<button class="btn btn-sm" onclick="openAddDraft('${key}')">+ Add Entry</button>`}
             ${cnt>0?`<button class="btn btn-sm btn-grn" onclick="genDraft('${key}')">Generate Message</button>`:''}
             ${cnt>0?`<button class="btn btn-sm" onclick="clearDraft('${key}')" style="color:var(--red);">Clear All</button>`:''}
           </div>
@@ -6231,6 +6257,555 @@ function bulkFinish(){
     document.addEventListener(evt,autoInit,true); // capture phase = runs first
   });
 })();
+
+/* ══════════════════════════════════════════════════════════════════════════
+   v12 · Attendance → Student absence（Step 1，MiscGo × AttendanceGo）
+   - 只有行政 / 管理层（OPR-AttendanceNotice 可编辑）看得到这一页。
+   - 存档 = 资料库函式 notice_submit（一批一个 submission_id，每位孩子每个部门一个 client_uid）。
+     这些 id 在送出「之前」就存进本机待送清单 → 断网、逾时、重按都沿用同一组 id，不会多一笔。
+   - 存好之后：notice_record_write（每位孩子一份原文，文字由资料库产生）→ delivery_prepare
+     （整批一则 WhatsApp，文字由资料库产生）→ 打开 WhatsApp / 复制 → 行政按「I've sent it」才算送出。
+   - 作废 = notice_void（要原因）；AttendanceGo 下次读取就不再显示；已点的名不动。
+   - 旧的本机请假草稿（SRK / ATC / SRT Absent）不自动转换、不自动删除：逐笔 Convert / Keep / Discard。
+   ══════════════════════════════════════════════════════════════════════════ */
+const ATT_Q_KEY='mg_att_queue_v1';     // 送出中的批次（只有 id 与内容，不是正本）
+const ATT_FORM_KEY='mg_att_form_v1';   // 还没送出的表单（每改一格就存）
+const ATT_REASONS=[['mc','MC (sick)'],['holiday','Holiday'],['school_event','School event'],['family_matter','Family matter'],['notified_no_reason','Notified, no reason'],['other','Other']];
+const ATT_REASON_LABEL={mc:'MC',holiday:'Holiday',school_event:'School event',family_matter:'Family matter',notified_no_reason:'Notified, no reason',other:'Other'};
+const ATT_SESS_LABEL={'1':'H/W only','2':'Lesson only','1,2':'H/W + Lesson'};
+const ATT_OLD_KEYS=['SRK_ABS','ATC_ABS','SRT_ABS'];
+const ATT_ERR={
+  OVERLAP:'This child already has an absence for these dates and class. Cancel the old one first, or change the dates.',
+  NOT_ENROLLED:'This child is not enrolled in that class any more. Untick it and try again.',
+  TOO_OLD:'You can only register up to 7 days back.',
+  CHECK_FAILED:'Some details are not allowed (dates, sessions or reason). Please check the form.',
+  DUPLICATE_IN_BATCH:'The same child and class appear twice in this form.',
+  MIXED_KIND:'Please save one type of notice at a time.',
+  SUBMISSION_CONFLICT:'This form was already saved with different details. Please start a new form.',
+  BAD_INPUT:'Some details are missing. Please check the form.',
+  MISSING_DATE:'Please choose the dates.',
+  NOT_AUTHORIZED:'Your account cannot register student absences.',
+  REASON_REQUIRED:'Please write why it is cancelled.',
+  NOT_FOUND:'This absence could not be found. Refresh the list.'
+};
+let ATT={list:null,listErr:'',deliv:{},mem:{},form:null,busy:false,open:false,qmem:{},unsaved:null,storageBad:false,closeWarn:false};
+
+function attUid(){
+  if(window.crypto&&crypto.randomUUID) return crypto.randomUUID();
+  const b=new Uint8Array(16); crypto.getRandomValues(b); b[6]=(b[6]&15)|64; b[8]=(b[8]&63)|128;
+  const h=[...b].map(x=>x.toString(16).padStart(2,'0')).join('');
+  return h.slice(0,8)+'-'+h.slice(8,12)+'-'+h.slice(12,16)+'-'+h.slice(16,20)+'-'+h.slice(20);
+}
+function attToday(){ return new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Kuala_Lumpur'}).format(new Date()); }
+function attAddDays(iso,n){ const d=new Date(iso+'T12:00:00Z'); d.setUTCDate(d.getUTCDate()+n); return d.toISOString().slice(0,10); }
+function attDays(a,b){ return Math.round((new Date(b+'T12:00:00Z')-new Date(a+'T12:00:00Z'))/86400000); }
+function attDmy(iso){ if(!iso) return ''; const p=iso.split('-'); return p[2]+'-'+p[1]+'-'+p[0]; }
+function attDates(f,t){ return f===t?(attDmy(f)+' ('+dayN(f)+')'):(attDmy(f)+' to '+attDmy(t)+' ('+(attDays(f,t)+1)+' days)'); }
+/* R1（ChatGPT QA P0-1）：本机待送清单一定要「写进去、读回来一样」才算存好。
+   - attSaveQ / attQPut / attQDel 回传 true / false，呼叫的地方照结果决定能不能往下走
+   - 这一页开着期间另有一份记忆体副本（ATT.qmem）：中途本机写不进去时，后续步骤仍沿用同一组 id，不会产生新身份、不会重复送出 */
+function attStoreRead(){ try{ const v=JSON.parse(localStorage.getItem(ATT_Q_KEY)||'[]'); return Array.isArray(v)?v:[]; }catch(e){ return []; } }
+function attLoadQ(){
+  const q=attStoreRead();
+  Object.values(ATT.qmem).forEach(m=>{ const i=q.findIndex(x=>x.submission_id===m.submission_id); if(i>=0) q[i]=m; else q.push(m); });
+  return q;
+}
+function attSaveQ(q){
+  try{
+    const txt=JSON.stringify(q);
+    localStorage.setItem(ATT_Q_KEY,txt);
+    if(localStorage.getItem(ATT_Q_KEY)!==txt) throw new Error('read-back mismatch');
+    ATT.storageBad=false; return true;
+  }catch(e){ console.warn('[att] local queue not saved',e); ATT.storageBad=true; return false; }
+}
+function attQGet(id){ return ATT.qmem[id]||attStoreRead().find(x=>x.submission_id===id)||null; }
+function attQPut(sub){
+  ATT.qmem[sub.submission_id]=sub;
+  const q=attStoreRead(); const i=q.findIndex(x=>x.submission_id===sub.submission_id); if(i>=0) q[i]=sub; else q.push(sub);
+  const ok=attSaveQ(q); if(!ok) sub._notSaved=true; else delete sub._notSaved;
+  return ok;
+}
+function attQDel(id){ delete ATT.qmem[id]; return attSaveQ(attStoreRead().filter(x=>x.submission_id!==id)); }
+const ATT_STORE_MSG='This device could not keep a safe copy (storage is full or blocked), so nothing was sent. Free some space on this device or leave private browsing, then tap Save again.';
+const ATT_STAGE_MSG='This device could not save its progress. Please finish sending now and do not close this page.';
+function attStuBySid(sid){ return (S.students||[]).find(s=>s.sid===sid)||null; }
+function attStuName(sid){ const s=attStuBySid(sid); return s?s.name:sid; }
+
+/* 呼叫资料库函式：15 秒逾时；分清楚「连不上」（可以重试，沿用同一组 id）与「系统说不行」 */
+async function attRpc(fn,args){
+  try{
+    const r=await Promise.race([_sb.rpc(fn,args),new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),15000))]);
+    if(r.error){
+      const msg=String(r.error.message||''); const code=String(r.error.code||'');
+      if(code==='42501'||/NOT_AUTHORIZED/.test(msg)) return {kind:'denied',code:'NOT_AUTHORIZED'};
+      if(!code||/fetch|network|Failed|timeout/i.test(msg)) return {kind:'offline'};
+      return {kind:'error',code:code,message:msg};
+    }
+    const d=r.data;
+    if(d&&typeof d==='object'&&!Array.isArray(d)&&d.ok===false) return {kind:'rejected',code:d.code||'ERROR',data:d};
+    return {kind:'ok',data:d};
+  }catch(e){ return {kind:'offline'}; }
+}
+function attErrText(res){
+  if(res.kind==='offline') return 'Could not reach the system (no internet?). Nothing is lost — tap Retry.';
+  if(res.kind==='denied') return ATT_ERR.NOT_AUTHORIZED;
+  const c=res.code||''; return ATT_ERR[c]||('The system did not accept this ('+c+').');
+}
+
+/* ── 页面 ─────────────────────────────────────────────────────────────── */
+async function attRender(){
+  const el=document.getElementById('att-content'); if(!el) return;
+  if(!(window.PERM&&window.PERM.canNotice)){ el.innerHTML='<div class="card" style="margin:16px 14px;color:var(--mut)">Only office and management staff can register student absences.</div>'; return; }
+  el.innerHTML=attPageHtml();
+  attLoadList();
+}
+function attPageHtml(){
+  let h='<div style="padding:16px 14px 28px;">';
+  h+='<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px;"><div style="font-size:16px;font-weight:700;color:var(--navy);">🗓 Attendance</div>'
+    +'<button class="btn btn-grn" onclick="attOpenForm()">+ Student absence</button></div>';
+  h+='<div style="font-size:12px;color:var(--mut);margin-bottom:14px;">Parent says a child will not come. Teachers see it on the AttendanceGo marking page.</div>';
+  if(ATT.storageBad) h+='<div class="card" style="border-color:#f59e0b;background:#fef3c7;color:#92400e;font-size:12.5px;">⚠ This device could not save to its storage. Unsent absences may be lost if you close this page.</div>';
+  h+=attOldDraftsHtml();
+  h+=attQueueHtml();
+  h+='<div style="font-size:11px;font-weight:700;color:#2563eb;text-transform:uppercase;letter-spacing:.08em;padding:12px 0 8px;border-bottom:.5px solid var(--bdr);margin-bottom:10px;">Student absences (last 7 days and coming)</div>';
+  h+='<div id="att-list"><div style="color:var(--mut);font-size:13px;padding:8px 0">Loading…</div></div>';
+  return h+'</div>';
+}
+
+/* 旧的本机草稿（只存在这台装置） */
+function attOldDrafts(){
+  const out=[];
+  ATT_OLD_KEYS.forEach(k=>(S.drafts[k]||[]).forEach((e,i)=>{ if(!e.converted_at) out.push({k,i,e}); }));
+  return out;
+}
+function attOldDraftsHtml(){
+  const list=attOldDrafts(); if(!list.length||ATT.hideOld) return '';
+  let h='<div class="card" style="border-color:#f59e0b;background:#fffbeb;">'
+    +'<div style="font-weight:700;color:#92400e;font-size:13px;margin-bottom:4px;">'+list.length+' old absence draft'+(list.length>1?'s are':' is')+' saved only on this device</div>'
+    +'<div style="font-size:12px;color:#92400e;margin-bottom:8px;">Teachers cannot see these. Convert each one into a student absence, keep it for later, or discard it.</div>';
+  list.forEach(({k,i,e})=>{
+    h+='<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:6px 0;border-top:.5px solid #fde68a;font-size:12.5px;">'
+      +'<div style="flex:1;min-width:160px;"><b>'+esc(e.name||'(no name)')+'</b> · '+k.replace('_ABS','')+(e.date?' · '+attDmy(e.date):'')+(e.reason?'<div style="color:var(--mut)">'+esc(e.reason)+'</div>':'')+'</div>'
+      +'<button class="btn btn-sm btn-grn" onclick="attConvertOld(\''+k+'\','+i+')">Convert</button>'
+      +'<button class="btn btn-sm" onclick="attKeepOld()">Keep</button>'
+      +'<button class="btn btn-sm" style="color:var(--red)" onclick="attDiscardOld(\''+k+'\','+i+')">Discard</button></div>';
+  });
+  return h+'</div>';
+}
+function attKeepOld(){ ATT.hideOld=true; attRender(); toast('Kept on this device — you will be reminded next time'); }
+function attDiscardOld(k,i){
+  const e=(S.drafts[k]||[])[i]; if(!e) return;
+  if(!confirm('Discard the old draft for '+(e.name||'this child')+'?\n\nIt is only on this device and was never sent to the system.')) return;
+  if(!confirm('Are you sure? This cannot be undone.')) return;
+  S.drafts[k].splice(i,1); save(); attRender(); toast('Old draft discarded');
+}
+function attConvertOld(k,i){
+  const e=(S.drafts[k]||[])[i]; if(!e) return;
+  const name=(e.name||'').trim().toUpperCase();
+  const stu=(S.students||[]).find(s=>s.sid&&s.name.toUpperCase()===name);
+  const d=e.date||attToday();
+  const f={from:d,to:d,kids:[],reason:'other',reason_text:(e.reason||'').trim(),remark:(e.range?('MC: '+e.range):''),old:{k,i,sig:JSON.stringify(e)}};
+  if(stu) f.kids.push({sid:stu.sid,depts:{}});
+  attOpenForm(f);
+  if(!stu) toast('Could not match "'+(e.name||'')+'" to a student — please pick the child',true);
+}
+
+/* 送出中的批次（这台装置） */
+function attQueueHtml(){
+  const q=attLoadQ().filter(x=>x.stage!=='done');
+  if(!q.length) return '';
+  let h='<div class="card" style="border-color:#93c5fd;background:#eff6ff;">';
+  h+='<div style="font-weight:700;color:#1e40af;font-size:13px;margin-bottom:6px;">Not finished on this device</div>';
+  q.forEach(x=>{
+    const names=[...new Set(x.rows.map(r=>attStuName(r.student_id)))].join(', ');
+    const what=x.stage==='submit'?'Not saved yet — teachers cannot see it'
+      :x.stage==='record'?'Saved. Message text not ready yet'
+      :x.stage==='message'?'Saved. Message to teachers not sent yet'
+      :'Saved';
+    h+='<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:6px 0;border-top:.5px solid #bfdbfe;font-size:12.5px;">'
+      +'<div style="flex:1;min-width:160px;"><b>'+esc(names)+'</b> · '+attDates(x.rows[0].date_from,x.rows[0].date_to)
+      +'<div style="color:'+(x.stage==='submit'?'var(--red)':'#1e40af')+'">'+what+(x.err?' · '+esc(x.err):'')+'</div></div>'
+      +(x.stage==='submit'?'<button class="btn btn-sm btn-grn" onclick="attResume(\''+x.submission_id+'\')">Retry</button>'
+        :'<button class="btn btn-sm btn-grn" onclick="attResume(\''+x.submission_id+'\')">Send message</button>')
+      +(x.stage==='submit'?'<button class="btn btn-sm" style="color:var(--red)" onclick="attDropQ(\''+x.submission_id+'\')">Discard</button>':'')
+      +'</div>';
+  });
+  return h+'</div>';
+}
+function attDropQ(id){
+  const x=attQGet(id); if(!x) return;
+  if(x.stage!=='submit') return;
+  if(!confirm('Discard this unsaved absence? It never reached the system.')) return;
+  attQDel(id); attRender();
+}
+
+/* ── 已登记清单（资料库） ─────────────────────────────────────────────── */
+async function attLoadList(){
+  const box=()=>document.getElementById('att-list');
+  const since=attAddDays(attToday(),-7);
+  try{
+    const r=await Promise.race([
+      _sb.from('attendance_notice').select('id,submission_id,student_id,dept,class_code,date_from,date_to,sessions,reason_code,reason_text,remark,status,void_reason,voided_at,record_id,created_at')
+        .eq('kind','absence').gte('date_to',since).order('date_from',{ascending:false}).order('created_at',{ascending:false}).limit(300),
+      new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),15000))]);
+    if(r.error) throw r.error;
+    ATT.list=r.data||[]; ATT.listErr='';
+    const subs=[...new Set(ATT.list.map(n=>n.submission_id))];
+    ATT.deliv={};
+    if(subs.length){
+      const d=await _sb.from('attendance_message_delivery').select('id,submission_id,state,stale_at,created_at').in('submission_id',subs).order('created_at',{ascending:true});
+      if(!d.error)(d.data||[]).forEach(x=>{ (ATT.deliv[x.submission_id]=ATT.deliv[x.submission_id]||[]).push(x); });
+    }
+    const rids=[...new Set(ATT.list.map(n=>n.record_id).filter(Boolean))];
+    if(rids.length) ATT.closeWarn=!(await attCloseRecords(rids));
+  }catch(e){ ATT.list=null; ATT.listErr='Could not load the list (no internet?).'; }
+  if(box()) box().innerHTML=attListHtml();
+}
+function attMsgState(subId){
+  const ds=ATT.deliv[subId]||[];
+  if(ds.some(d=>d.state==='MANUALLY_CONFIRMED_SENT')) return {sent:true,txt:'Message sent to teachers ✓'};
+  if(ds.some(d=>d.state==='OPENED_WHATSAPP'&&!d.stale_at)) return {sent:false,txt:'WhatsApp opened — not confirmed as sent'};
+  return {sent:false,txt:'Message to teachers not sent'};
+}
+/* 把 Step 1 写的原文（ATT_ABSENCE）设成 closed；回传有没有真的做到 */
+async function attCloseRecords(ids){
+  try{
+    const r=await _sb.from('records').update({status:'closed'}).in('id',ids).eq('report_type','ATT_ABSENCE').neq('status','closed').select('id');
+    if(r.error) return false;
+    const left=await _sb.from('records').select('id').in('id',ids).eq('report_type','ATT_ABSENCE').neq('status','closed');
+    return !left.error && !(left.data||[]).length;
+  }catch(e){ return false; }
+}
+function attListHtml(){
+  const warn=ATT.closeWarn?'<div style="font-size:11.5px;color:#92400e;background:#fef3c7;border-radius:8px;padding:6px 10px;margin-bottom:8px;">Some message texts could not be tidied up yet — they may show as open in Records. This list will try again next time.</div>':'';
+  return warn+attListHtmlInner();
+}
+function attListHtmlInner(){
+  if(ATT.listErr) return '<div class="card" style="color:var(--red);font-size:13px">'+ATT.listErr+' <button class="btn btn-sm" onclick="attLoadList()">Retry</button></div>';
+  const L=ATT.list||[];
+  if(!L.length) return '<div style="color:var(--mut);font-size:13px;padding:8px 0">No student absences registered.</div>';
+  let h='';
+  L.forEach(n=>{
+    const act=n.status==='active';
+    const ms=attMsgState(n.submission_id);
+    const sess=n.dept==='ATC'?' · '+(ATT_SESS_LABEL[(n.sessions||[]).join(',')]||''):'';
+    const reason=(ATT_REASON_LABEL[n.reason_code]||n.reason_code)+(n.reason_code==='other'&&n.reason_text?': '+esc(n.reason_text):'');
+    h+='<div class="card" style="padding:10px 12px;'+(act?'':'opacity:.6;')+'">'
+      +'<div style="display:flex;align-items:flex-start;gap:8px;">'
+      +'<div style="flex:1;min-width:0;"><div style="font-weight:700;font-size:13.5px;">'+esc(attStuName(n.student_id))+'</div>'
+      +'<div style="font-size:12.5px;color:var(--txt2);">'+n.dept+' '+esc(n.class_code||'')+sess+' · '+attDates(n.date_from,n.date_to)+'</div>'
+      +'<div style="font-size:12.5px;">'+reason+(n.remark?' · <span style="color:var(--mut)">'+esc(n.remark)+'</span>':'')+'</div>'
+      +(act?'<div style="font-size:11.5px;color:'+(ms.sent?'var(--g)':'#b45309')+';margin-top:2px;">'+ms.txt+'</div>'
+           :'<div style="font-size:11.5px;color:var(--red);margin-top:2px;">Cancelled'+(n.void_reason?': '+esc(n.void_reason):'')+(ms.sent?' · teachers were told before — please tell them it is cancelled':'')+'</div>')
+      +'</div>'
+      +'<div style="display:flex;flex-direction:column;gap:6px;">'
+      +(act&&!ms.sent?'<button class="btn btn-sm btn-grn" onclick="attSendFromList(\''+n.submission_id+'\')">Send message</button>':'')
+      +(act?'<button class="btn btn-sm" style="color:var(--red)" onclick="attVoidAsk(\''+n.id+'\')">Cancel absence</button>':'')
+      +'</div></div></div>';
+  });
+  return h;
+}
+
+/* ── 作废 ─────────────────────────────────────────────────────────────── */
+function attVoidAsk(id){
+  const n=(ATT.list||[]).find(x=>x.id===id); if(!n) return;
+  openModal('Cancel absence',
+    '<div style="font-size:13px;margin-bottom:10px;"><b>'+esc(attStuName(n.student_id))+'</b> · '+n.dept+' · '+attDates(n.date_from,n.date_to)+'</div>'
+    +'<div style="font-size:12px;color:var(--mut);margin-bottom:8px;">Teachers will no longer see this notice. Attendance already marked is not changed.</div>'
+    +'<label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;">Why is it cancelled? <span style="color:var(--red)">*</span></label>'
+    +'<input id="att-void-why" type="text" placeholder="e.g. Parent says the child is coming after all" style="width:100%;border:.5px solid var(--bdr);border-radius:var(--rs);padding:11px 12px;font-size:14px;font-family:inherit;box-sizing:border-box;">',
+    '<button class="btn" onclick="closeModal()">Back</button><button class="btn btn-red" id="att-void-go" onclick="attVoidGo(\''+id+'\')">Cancel absence</button>');
+}
+async function attVoidGo(id){
+  const why=(document.getElementById('att-void-why')||{}).value||'';
+  if(!why.trim()){ toast('Please write why it is cancelled',true); return; }
+  const b=document.getElementById('att-void-go'); if(b){ b.disabled=true; b.textContent='Cancelling…'; }
+  const n=(ATT.list||[]).find(x=>x.id===id);
+  const res=await attRpc('notice_void',{p_id:id,p_reason:why.trim()});
+  if(res.kind!=='ok'){ if(b){ b.disabled=false; b.textContent='Cancel absence'; } toast(attErrText(res),true); return; }
+  _closeModalRaw();
+  const told=n&&attMsgState(n.submission_id).sent;
+  toast(told?'Cancelled. Teachers were told before — please tell the group it is cancelled.':'Cancelled. Teachers will no longer see it.');
+  attLoadList();
+}
+
+/* ── 表单 ─────────────────────────────────────────────────────────────── */
+function attBlankForm(){ const t=attToday(); return {from:t,to:t,kids:[],reason:'',reason_text:'',remark:''}; }
+function attSaveForm(){ try{ localStorage.setItem(ATT_FORM_KEY,JSON.stringify(ATT.form)); }catch(e){} }
+function attOpenForm(prefill){
+  if(prefill) ATT.form=prefill;
+  else{ let f=null; try{ f=JSON.parse(localStorage.getItem(ATT_FORM_KEY)||'null'); }catch(e){} ATT.form=f||attBlankForm(); }
+  ATT.err=''; attSaveForm(); attDrawForm(); attLoadMem();
+}
+function attCloseForm(){ _closeModalRaw(); }
+function attDiscardForm(){
+  if(ATT.form&&ATT.form.kids.length&&!confirm('Clear this form?')) return;
+  ATT.form=attBlankForm(); try{ localStorage.removeItem(ATT_FORM_KEY); }catch(e){}
+  _closeModalRaw();
+}
+/* 孩子在哪些部门、哪一班（只看 Enrolled，跟资料库检查的同一个规则） */
+async function attLoadMem(){
+  const need=(ATT.form?ATT.form.kids:[]).map(k=>k.sid).filter(sid=>!ATT.mem[sid]);
+  if(need.length){
+    const r=await _sb.from('hub_student_memberships').select('student_id,dept,class_code,status,start_date,end_date').in('student_id',need).eq('status','Enrolled');
+    if(r.error){ ATT.err='Could not load the children\'s classes (no internet?).'; attDrawForm(); return; }
+    need.forEach(sid=>{ ATT.mem[sid]=[]; });
+    const pick={};
+    (r.data||[]).forEach(m=>{ const k=m.student_id+'|'+m.dept; if(!pick[k]||(m.start_date||'')>(pick[k].start_date||'')) pick[k]=m; });
+    Object.values(pick).forEach(m=>ATT.mem[m.student_id].push({dept:m.dept,cls:m.class_code}));
+    Object.keys(ATT.mem).forEach(sid=>ATT.mem[sid].sort((a,b)=>['SRK','GAK','ATC','SRT'].indexOf(a.dept)-['SRK','GAK','ATC','SRT'].indexOf(b.dept)));
+  }
+  if(!ATT.form) return;
+  ATT.form.kids.forEach(k=>attDefaultDepts(k));   // 班级已经载过的孩子也要预设勾选
+  attSaveForm(); attDrawForm();
+}
+/* 预设勾「那天有课的部门」（Owner C2）；行政在 Review 一定要看过才能存 */
+function attHasClassOn(dept,cls,iso){
+  const dow=new Date(iso+'T12:00:00').getDay();
+  if(dept==='SRT'){ const DAYS=['SUN','MON','TUE','WED','THU','FRI','SAT']; const p=String(cls||'').replace(/^SRT[-_]/,'').split(/[._]/); return p.includes(DAYS[dow]); }
+  return dow>=1&&dow<=5;
+}
+function attDefaultDepts(k){
+  if(k._defaulted) return;
+  const mems=ATT.mem[k.sid]; if(!mems) return;
+  mems.forEach(m=>{ if(k.depts[m.dept]===undefined&&attHasClassOn(m.dept,m.cls,ATT.form.from)) k.depts[m.dept]=(m.dept==='ATC'?'1,2':'0'); });
+  k._defaulted=true;
+}
+function attDrawForm(){
+  const f=ATT.form; const today=attToday(); const minD=attAddDays(today,-7);
+  let b='';
+  if(ATT.err) b+='<div style="background:#fee2e2;color:var(--red);border-radius:8px;padding:8px 10px;font-size:12.5px;margin-bottom:10px;">'+esc(ATT.err)+'</div>';
+  // 1 日期
+  b+='<div class="frow"><label>1 · Which days?</label><div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">'
+    +'<span style="font-size:12px;color:var(--mut)">From</span><input type="date" id="att-from" min="'+minD+'" value="'+f.from+'" onchange="attSetDate(\'from\',this.value)" style="border:.5px solid var(--bdr);border-radius:var(--rs);padding:8px;font-family:inherit;font-size:14px;">'
+    +'<span style="font-size:12px;color:var(--mut)">To</span><input type="date" id="att-to" min="'+f.from+'" value="'+f.to+'" onchange="attSetDate(\'to\',this.value)" style="border:.5px solid var(--bdr);border-radius:var(--rs);padding:8px;font-family:inherit;font-size:14px;">'
+    +'</div><div style="font-size:11.5px;color:var(--mut);margin-top:4px;">'+attDates(f.from,f.to)+' · up to 7 days back, at most 31 days. Longer leave: use the Student page (Pause).</div></div>';
+  // 2 孩子 + 部门
+  b+='<div class="frow"><label>2 · Which child?</label>'
+    +'<input id="att-find" list="att-stu-list" placeholder="Type a name…" autocomplete="off" onchange="attAddKid(this.value)" oninput="this.value=this.value.toUpperCase()" style="width:100%;border:.5px solid var(--bdr);border-radius:var(--rs);padding:10px 12px;font-family:inherit;font-size:14px;box-sizing:border-box;text-transform:uppercase;">'
+    +'<datalist id="att-stu-list">'+(S.students||[]).filter(s=>s.sid).map(s=>'<option value="'+esc(s.name)+'">').join('')+'</datalist>';
+  f.kids.forEach((k,ki)=>{
+    const mems=ATT.mem[k.sid];
+    b+='<div style="border:.5px solid var(--bdr);border-radius:10px;padding:8px 10px;margin-top:8px;">'
+      +'<div style="display:flex;align-items:center;"><b style="flex:1;font-size:13.5px;">'+esc(attStuName(k.sid))+'</b><button class="btn btn-sm" onclick="attRemoveKid('+ki+')">Remove</button></div>';
+    if(!mems) b+='<div style="font-size:12px;color:var(--mut)">Loading classes…</div>';
+    else if(!mems.length) b+='<div style="font-size:12px;color:var(--red)">Not enrolled in any class.</div>';
+    else{
+      b+='<div style="font-size:11.5px;color:var(--mut);margin:4px 0;">Tick the class(es) the child will miss:</div>';
+      mems.forEach(m=>{
+        const on=k.depts[m.dept]!==undefined;
+        b+='<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:3px 0;">'
+          +'<label style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:500;margin:0;"><input type="checkbox" '+(on?'checked':'')+' onchange="attToggleDept('+ki+',\''+m.dept+'\',this.checked)"> '+m.dept+' · '+esc(m.cls||'')+'</label>';
+        if(m.dept==='ATC'&&on){
+          b+='<select onchange="attSetSess('+ki+',this.value)" style="border:.5px solid var(--bdr);border-radius:8px;padding:5px;font-family:inherit;font-size:12.5px;">'
+            +['1,2','1','2'].map(v=>'<option value="'+v+'" '+(k.depts.ATC===v?'selected':'')+'>'+ATT_SESS_LABEL[v]+'</option>').join('')+'</select>';
+        }
+        b+='</div>';
+      });
+    }
+    b+='</div>';
+  });
+  b+='</div>';
+  // 3 原因
+  b+='<div class="frow"><label>3 · Reason the parent gave</label><div style="display:flex;flex-wrap:wrap;gap:6px;">'
+    +ATT_REASONS.map(([v,t])=>'<button type="button" class="btn" style="'+(f.reason===v?'background:var(--navy);color:#fff;border-color:var(--navy);':'')+'" onclick="attSetReason(\''+v+'\')">'+t+'</button>').join('')+'</div>'
+    +(f.reason==='other'?'<input id="att-why" value="'+esc(f.reason_text||'').replace(/"/g,'&quot;')+'" placeholder="Write the reason" oninput="attSetText(\'reason_text\',this.value)" style="width:100%;margin-top:8px;border:.5px solid var(--bdr);border-radius:var(--rs);padding:10px 12px;font-family:inherit;font-size:14px;box-sizing:border-box;">':'')
+    +'</div>';
+  // 4 备注
+  b+='<div class="frow"><label>4 · Note for teachers (optional)</label><input id="att-remark" value="'+esc(f.remark||'').replace(/"/g,'&quot;')+'" placeholder="e.g. Will bring MC letter" oninput="attSetText(\'remark\',this.value)" style="width:100%;border:.5px solid var(--bdr);border-radius:var(--rs);padding:10px 12px;font-family:inherit;font-size:14px;box-sizing:border-box;"></div>';
+  openModal('Student absence',b,
+    '<button class="btn" onclick="attDiscardForm()">Clear</button><button class="btn" onclick="attCloseForm()">Later</button><button class="btn btn-grn" onclick="attReview()">Review</button>');
+}
+function attSetDate(which,v){
+  const f=ATT.form; if(!v) return;
+  f[which]=v; if(which==='from'&&(f.to<v||!f.to)) f.to=v;
+  f.kids.forEach(k=>{ k._defaulted=false; k.depts={}; attDefaultDepts(k); });
+  attSaveForm(); attDrawForm();
+}
+function attAddKid(name){
+  const n=(name||'').trim().toUpperCase(); if(!n) return;
+  const s=(S.students||[]).find(x=>x.sid&&x.name.toUpperCase()===n);
+  if(!s){ toast('Pick a name from the list',true); return; }
+  if(ATT.form.kids.some(k=>k.sid===s.sid)){ toast('Already added'); return; }
+  ATT.form.kids.push({sid:s.sid,depts:{}}); attSaveForm(); attDrawForm(); attLoadMem();
+}
+function attRemoveKid(i){ ATT.form.kids.splice(i,1); attSaveForm(); attDrawForm(); }
+function attToggleDept(i,dept,on){ const k=ATT.form.kids[i]; if(on) k.depts[dept]=(dept==='ATC'?'1,2':'0'); else delete k.depts[dept]; attSaveForm(); attDrawForm(); }
+function attSetSess(i,v){ ATT.form.kids[i].depts.ATC=v; attSaveForm(); }
+function attSetReason(v){ ATT.form.reason=v; attSaveForm(); attDrawForm(); }
+function attSetText(k,v){ ATT.form[k]=v; attSaveForm(); }
+
+/* 检查（与资料库同一套规则，资料库还会再检查一次） */
+function attValidate(f){
+  const today=attToday();
+  if(!f.from||!f.to) return 'Please choose the dates.';
+  if(f.to<f.from) return 'The last day is before the first day.';
+  if(f.from<attAddDays(today,-7)) return ATT_ERR.TOO_OLD;
+  if(attDays(f.from,f.to)>30) return 'At most 31 days. For longer leave use the Student page (Pause).';
+  if(!f.kids.length) return 'Please add at least one child.';
+  for(const k of f.kids){ if(!Object.keys(k.depts).length) return 'Tick at least one class for '+attStuName(k.sid)+'.'; }
+  if(!f.reason) return 'Please choose the reason.';
+  if(f.reason==='other'&&!(f.reason_text||'').trim()) return 'Please write the reason.';
+  return '';
+}
+function attRows(f){
+  const rows=[];
+  f.kids.forEach(k=>Object.keys(k.depts).sort().forEach(d=>{
+    rows.push({client_uid:attUid(),kind:'absence',student_id:k.sid,dept:d,date_from:f.from,date_to:f.to,
+      sessions:d==='ATC'?k.depts[d].split(',').map(Number):[0],
+      reason_code:f.reason,reason_text:f.reason==='other'?(f.reason_text||'').trim():null,remark:(f.remark||'').trim()||null});
+  }));
+  return rows;
+}
+function attReview(){
+  const f=ATT.form; const e=attValidate(f);
+  if(e){ ATT.err=e; attDrawForm(); return; }
+  ATT.err='';
+  let b='<div style="font-size:12.5px;color:var(--mut);margin-bottom:8px;">Please check the classes before saving. Teachers will see this on the marking page.</div>';
+  f.kids.forEach(k=>{
+    const mems=ATT.mem[k.sid]||[];
+    b+='<div class="card" style="padding:8px 10px;"><b>'+esc(attStuName(k.sid))+'</b>'
+      +Object.keys(k.depts).sort().map(d=>{ const m=mems.find(x=>x.dept===d)||{}; return '<div style="font-size:13px;">'+d+' · '+esc(m.cls||'')+(d==='ATC'?' · '+ATT_SESS_LABEL[k.depts[d]]:' · Full day')+'</div>'; }).join('')+'</div>';
+  });
+  b+='<div style="font-size:13px;margin-top:6px;"><b>Days:</b> '+attDates(f.from,f.to)+'</div>'
+    +'<div style="font-size:13px;"><b>Reason:</b> '+ATT_REASON_LABEL[f.reason]+(f.reason==='other'?': '+esc(f.reason_text):'')+'</div>'
+    +(f.remark?'<div style="font-size:13px;"><b>Note:</b> '+esc(f.remark)+'</div>':'');
+  b='<div id="att-review-err" style="display:none;background:#fee2e2;color:var(--red);border-radius:8px;padding:8px 10px;font-size:12.5px;margin-bottom:10px;"></div>'+b;
+  openModal('Check before saving',b,'<button class="btn" onclick="attDrawForm()">Back</button><button class="btn btn-grn" id="att-save" onclick="attSubmit()">Save absence</button>');
+}
+
+/* ── 存档：先在本机记下 id，再送资料库 ────────────────────────────────── */
+async function attSubmit(){
+  if(ATT.busy) return;
+  const f=ATT.form; const e=attValidate(f); if(e){ ATT.err=e; attDrawForm(); return; }
+  ATT.busy=true; const btn=document.getElementById('att-save'); if(btn){ btn.disabled=true; btn.textContent='Saving…'; }
+  const sig=JSON.stringify(f);
+  let sub;
+  if(ATT.unsaved&&ATT.unsaved.formSig===sig) sub=ATT.unsaved;   // 上次本机没存进去、内容没改 → 沿用同一组 id
+  else{
+    const rows=attRows(f);
+    const rec={}; [...new Set(rows.map(r=>r.student_id))].forEach(sid=>rec[sid]=attUid());
+    sub={submission_id:attUid(),created:Date.now(),rows,record_uids:rec,delivery_uid:attUid(),stage:'submit',old:f.old||null,err:'',
+         form:JSON.parse(sig),formSig:sig};
+  }
+  // 先记下来：断网 / 关页面都不会丢，重送沿用同一组 id。记不下来 → 不送、不清表单
+  if(!attQPut(sub)){
+    delete ATT.qmem[sub.submission_id];
+    ATT.unsaved=sub; ATT.busy=false;
+    if(btn){ btn.disabled=false; btn.textContent='Save absence'; }
+    const box=document.getElementById('att-review-err');
+    if(box){ box.textContent=ATT_STORE_MSG; box.style.display='block'; } else toast(ATT_STORE_MSG,true);
+    return;
+  }
+  ATT.unsaved=null;
+  // 内容已经在待送清单里 → 表单清空；下一张表单不会带着这批孩子（系统不收时会把内容放回表单）
+  ATT.form=attBlankForm(); try{ localStorage.removeItem(ATT_FORM_KEY); }catch(e){}
+  await attRun(sub.submission_id,true);
+  ATT.busy=false;
+}
+async function attResume(id){ if(ATT.busy) return; ATT.busy=true; await attRun(id,false); ATT.busy=false; }
+
+async function attRun(id,fromForm){
+  let sub=attQGet(id); if(!sub) return;
+  // ① 通知
+  if(sub.stage==='submit'){
+    const res=await attRpc('notice_submit',{p_submission_id:sub.submission_id,p_rows:sub.rows});
+    if(res.kind==='offline'){ sub.err='No internet — tap Retry'; attQPut(sub); if(fromForm){ _closeModalRaw(); } toast('Could not reach the system. It is kept on this device — tap Retry when online.',true); attRender(); return; }
+    if(res.kind!=='ok'){
+      // 系统没收：这一批不存在于资料库 → 从待送清单拿掉，表单留着让行政改
+      attQDel(id);
+      const who=res.data&&res.data.student_id?(' ('+attStuName(res.data.student_id)+(res.data.dept?' · '+res.data.dept:'')+')'):'';
+      ATT.form=sub.form||attBlankForm(); attSaveForm();          // 内容放回表单，让行政改
+      ATT.err=attErrText(res)+who;
+      if(!fromForm) attRender();
+      attDrawForm();
+      return;
+    }
+    sub.notices=(res.data.rows||[]).map(r=>({id:r.id,student_id:r.student_id,dept:r.dept}));
+    sub.stage='record'; sub.err=''; if(!attQPut(sub)) toast(ATT_STAGE_MSG,true);
+    if(sub.old){ const e=(S.drafts[sub.old.k]||[])[sub.old.i]; if(e&&JSON.stringify(Object.assign({},e,{converted_at:undefined}))===sub.old.sig){ e.converted_at=Date.now(); save(); } }
+  }
+  // ② 每位孩子一份原文（文字由资料库产生）
+  if(sub.stage==='record'){
+    const kids=Object.keys(sub.record_uids||{});    // 只替还没有原文的孩子写（别台装置已写过的不重写）
+    const p=kids.map(sid=>({client_uid:sub.record_uids[sid],student_id:sid,report_type:'ATT_ABSENCE',report_date:sub.rows[0].date_from,
+      depts:[...new Set(sub.rows.filter(r=>r.student_id===sid).map(r=>r.dept))].sort()}));
+    const res=await attRpc('notice_record_write',{p_submission_id:sub.submission_id,p_rows:p});
+    if(res.kind==='offline'){ sub.err='Saved. Message not ready — tap Send message when online'; const kept=attQPut(sub); _closeModalRaw(); toast(kept?'Saved. Teachers can see it. The message will be ready when you are online.':'Saved. Teachers can see it. This device could not keep a note — when online, tap Send message on the absence in the list.',!kept); attRender(); return; }
+    if(res.kind!=='ok'){ sub.err='Saved, but the message could not be prepared ('+(res.code||'')+')'; sub.stage='done'; attQPut(sub); _closeModalRaw(); toast('Saved. Teachers can see it. The WhatsApp message could not be prepared — please tell the group yourself.',true); attRender(); return; }
+    const ids=(res.data.rows||[]).map(r=>r.record_id).filter(Boolean);
+    sub.record_ids=ids; sub.stage='message'; sub.err=''; if(!attQPut(sub)) toast(ATT_STAGE_MSG,true);
+    // 这类纪录只是通知（跟 Change of Time 一样），不是要处理的个案 → 关起来，不进待办清单
+    // R1（P1）：确认资料库真的关了；没关成 → 清单显示「待整理」，下次打开清单会再试
+    if(ids.length){ const ok=await attCloseRecords(ids); if(!ok) ATT.closeWarn=true; }
+  }
+  // ③ WhatsApp 讯息（整批一则，文字由资料库产生）
+  if(sub.stage==='message'){
+    const res=await attRpc('delivery_prepare',{p_client_uid:sub.delivery_uid,p_source:'notice_submission',p_submission_id:sub.submission_id,p_list_date:null,p_depts:null,p_content:null});
+    if(res.kind==='offline'){ sub.err='Saved. Message not ready — tap Send message when online'; const kept=attQPut(sub); _closeModalRaw(); toast(kept?'Saved. Teachers can see it. Tap Send message when you are online.':'Saved. Teachers can see it. This device could not keep a note — when online, tap Send message on the absence in the list.',!kept); attRender(); return; }
+    if(res.kind!=='ok'){ sub.err='Saved. Message not available ('+(res.code||'')+')'; sub.stage='done'; attQPut(sub); _closeModalRaw(); toast('Saved. Teachers can see it. The message is no longer available (something was changed or cancelled).',true); attRender(); return; }
+    sub.delivery={id:res.data.id,state:res.data.state,fingerprint:res.data.fingerprint,content:res.data.content}; sub.err=''; if(!attQPut(sub)) toast(ATT_STAGE_MSG,true);
+    if(res.data.state==='MANUALLY_CONFIRMED_SENT'||res.data.state==='CANCELLED'){ sub.stage='done'; attQPut(sub); attRender(); return; }
+    attSendPanel(sub.submission_id);
+  }
+}
+
+/* ── 送 WhatsApp：打开 / 复制 → 行政按 I've sent it 才算 ──────────────── */
+function attSendPanel(id){
+  const sub=attQGet(id); if(!sub||!sub.delivery) return;
+  const opened=sub.delivery.state==='OPENED_WHATSAPP';
+  openModal('Tell the teachers',
+    (sub._notSaved?'<div style="background:#fef3c7;color:#92400e;border-radius:8px;padding:8px 10px;font-size:12px;margin-bottom:8px;">⚠ '+ATT_STAGE_MSG+'</div>':'')
+    +'<div style="font-size:12.5px;color:var(--g);font-weight:600;margin-bottom:6px;">✓ Saved. Teachers can already see it on the marking page.</div>'
+    +'<div style="font-size:12px;color:var(--mut);margin-bottom:6px;">Send this message to the teachers\' group:</div>'
+    +'<pre style="white-space:pre-wrap;font-family:inherit;font-size:13px;background:var(--sur2);border:.5px solid var(--bdr);border-radius:8px;padding:10px;max-height:40vh;overflow:auto;margin:0 0 8px;">'+esc(sub.delivery.content||'')+'</pre>'
+    +'<div style="display:flex;gap:8px;flex-wrap:wrap;">'
+    +'<button class="btn btn-grn" onclick="attOpenWA(\''+id+'\',\'whatsapp_link\')">Open WhatsApp</button>'
+    +'<button class="btn" onclick="attOpenWA(\''+id+'\',\'copied\')">Copy text</button></div>'
+    +'<div id="att-sent-hint" style="font-size:11.5px;color:var(--mut);margin-top:8px;">'+(opened?'After you have sent it in WhatsApp, tap “I\'ve sent it”.':'Open WhatsApp or copy the text first.')+'</div>',
+    '<button class="btn" onclick="attCancelMsg(\''+id+'\')" style="color:var(--red)">Don\'t send</button><button class="btn" onclick="_closeModalRaw();attRender()">Not now</button>'
+    +'<button class="btn btn-grn" id="att-sent-btn" '+(opened?'':'disabled style="opacity:.45"')+' onclick="attConfirmSent(\''+id+'\')">I\'ve sent it</button>');
+}
+async function attOpenWA(id,method){
+  const sub=attQGet(id); if(!sub||!sub.delivery) return;
+  const res=await attRpc('delivery_mark_opened',{p_id:sub.delivery.id,p_method:method});
+  if(res.kind!=='ok'){ toast(attErrText(res),true); return; }
+  sub.delivery.state='OPENED_WHATSAPP'; attQPut(sub);
+  if(method==='copied'){ try{ await navigator.clipboard.writeText(sub.delivery.content); toast('Copied — paste it in the teachers\' group'); }catch(e){ toast('Could not copy — select the text and copy it',true); } }
+  const btn=document.getElementById('att-sent-btn'); if(btn){ btn.disabled=false; btn.style.opacity='1'; }
+  const hint=document.getElementById('att-sent-hint'); if(hint) hint.textContent='After you have sent it in WhatsApp, tap “I\'ve sent it”.';
+  if(method==='whatsapp_link') openWhatsApp(sub.delivery.content);
+}
+async function attConfirmSent(id){
+  const sub=attQGet(id); if(!sub||!sub.delivery) return;
+  const res=await attRpc('delivery_confirm_sent',{p_id:sub.delivery.id,p_fingerprint:sub.delivery.fingerprint});
+  if(res.kind==='ok'){ sub.stage='done'; sub.delivery.state='MANUALLY_CONFIRMED_SENT'; attQPut(sub); _closeModalRaw(); toast('✓ Marked as sent (confirmed by you)'); attRender(); return; }
+  if(res.kind==='rejected'&&res.code==='STALE'){ sub.stage='done'; sub.err='Message out of date — something was cancelled after it was prepared'; attQPut(sub); _closeModalRaw(); toast('This message is out of date (an absence was changed or cancelled). Please tell the teachers\' group yourself.',true); attRender(); return; }
+  toast(attErrText(res),true);
+}
+async function attCancelMsg(id){
+  const sub=attQGet(id); if(!sub||!sub.delivery) return;
+  if(!confirm('Do not send this message to the teachers\' group?\n\nThe absence stays saved — teachers still see it on the marking page.')) return;
+  const res=await attRpc('delivery_cancel',{p_id:sub.delivery.id});
+  if(res.kind!=='ok'){ toast(attErrText(res),true); return; }
+  sub.stage='done'; sub.delivery.state='CANCELLED'; attQPut(sub); _closeModalRaw(); toast('Message not sent. The absence stays saved.'); attRender();
+}
+/* 清单上「Send message」：这台装置有那一批就接着做；没有（别台装置登记的）就补一组新的 id */
+async function attSendFromList(subId){
+  if(ATT.busy) return;
+  let sub=attQGet(subId);
+  if(!sub){
+    const ns=(ATT.list||[]).filter(n=>n.submission_id===subId&&n.status==='active'); if(!ns.length) return;
+    const rec={}; [...new Set(ns.filter(n=>!n.record_id).map(n=>n.student_id))].forEach(sid=>{ if(!ns.some(m=>m.student_id===sid&&m.record_id)) rec[sid]=attUid(); });
+    const allRec=!Object.keys(rec).length;
+    sub={submission_id:subId,created:Date.now(),rows:ns.map(n=>({student_id:n.student_id,dept:n.dept,date_from:n.date_from,date_to:n.date_to})),
+         record_uids:rec,delivery_uid:attUid(),stage:allRec?'message':'record',err:'',fromList:true};
+    attQPut(sub);
+  }
+  if(sub.stage==='done'){ sub.stage='message'; sub.delivery_uid=attUid(); attQPut(sub); }
+  ATT.busy=true; await attRun(subId,false); ATT.busy=false;
+}
+
 </script>
 
 <!-- ══ Student Picker Modal ══ -->
