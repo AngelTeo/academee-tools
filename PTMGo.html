@@ -1476,5 +1476,234 @@ function errZh(m){ m=String(m||'');
 
 (async()=>{ const cache=await loadEvalCache(); if(cache){ try{ S.evalFile=JSON.parse(cache.text); S.evalMeta=cache.meta; }catch(e){} } await init(); })();
 </script>
+
+<!-- PTMGo UX Workbench — non-production review branch. Existing engine, gates, RPC, reports and evidence preserved. -->
+<style id="ux-redesign-style">
+body.ux-on{background:#f5f7f6;color:#203431}
+body.ux-on>.top{display:none!important}
+body.ux-on .wrap{max-width:1500px;padding:0 28px 54px}
+body.ux-on .wrap>.page{display:none!important}
+body.ux-on.ux-settings .wrap>#page-data{display:block!important;padding-top:12px}
+#ux-root{display:block;font-family:'Noto Sans SC',system-ui,sans-serif}
+.uxbar{background:#153b37;color:white;margin:0 -28px 25px;padding:16px 28px;display:flex;align-items:center;gap:24px;position:sticky;top:0;z-index:80;box-shadow:0 5px 20px #0e29251c}
+.uxbrand{min-width:145px}.uxbrand strong{font-size:22px;font-family:'Noto Serif SC',serif}.uxbrand small{display:block;color:#b4d3c6;font-size:11px;letter-spacing:1px}
+.uxnav{display:flex;gap:5px;flex:1;flex-wrap:wrap}
+.uxnav button,.uxsettings{padding:11px 15px;border:none;border-radius:10px;color:#cfe3db;background:transparent;cursor:pointer;font:inherit;font-size:13px;font-weight:700}
+.uxnav button.active{color:#153b37;background:#f5f7f6}
+.uxnav button:hover,.uxsettings:hover{background:#24534a;color:white}
+.uxsettings{border:1px solid #567970;white-space:nowrap}
+.uxlabel{display:inline-flex;align-items:center;gap:6px;background:#e7f0ec;color:#2e6356;border:1px solid #cbdfd7;border-radius:100px;padding:4px 10px;font-size:11px;font-weight:800;letter-spacing:.3px}
+.uxmuted{color:#677774}.uxeyebrow{font-size:11px;text-transform:uppercase;font-weight:800;letter-spacing:1.7px;color:#64867c;margin:0 0 5px}
+.uxheading{display:flex;justify-content:space-between;align-items:flex-end;gap:15px;flex-wrap:wrap;margin-bottom:22px}
+.uxheading h1{font-size:29px;margin:0 0 5px}
+.uxheading p{margin:0;color:#6b7a76}
+.uxpanel{background:white;border:1px solid #e1e9e6;border-radius:17px;padding:22px;box-shadow:0 2px 6px #193f3508}
+.uxstats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:22px}
+.uxstat{border:1px solid #e1e9e6;background:white;border-radius:15px;padding:17px;cursor:pointer;text-align:left;min-height:105px}
+.uxstat b{font-size:31px;display:block;color:#173f3a}.uxstat span{font-size:12px;color:#667873}
+.uxstat.current{outline:2px solid #297365;background:#edf7f3}.uxstat.bad b{color:#a64132}
+.uxgrid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.uxstack{display:grid;gap:12px}
+.uxrow{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:14px 0;border-bottom:1px solid #eef1ef}
+.uxrow:last-child{border:0}
+.uxrow h3{font-size:15px;margin:0 0 3px}.uxrow p{font-size:12px;color:#70817b;margin:0}
+.uxbutton{border:1px solid #cadcd5;background:white;color:#21584c;cursor:pointer;border-radius:9px;font:inherit;font-size:13px;font-weight:700;padding:10px 14px;min-height:39px}
+.uxbutton:hover{background:#eff7f4}.uxbutton.primary{color:white;background:#1f685b;border-color:#1f685b}.uxbutton.primary:hover{background:#155044}
+.uxbutton:disabled{opacity:.5;cursor:not-allowed}
+.uxpill{display:inline-block;border-radius:6px;background:#e6f2eb;color:#245949;padding:4px 8px;font-size:12px;font-weight:700}
+.uxpill.warn{background:#fff1d7;color:#8d5e12}.uxpill.bad{background:#f9e4df;color:#a84234}
+.uxsearch{display:flex;gap:10px;margin:0 0 16px;align-items:center;flex-wrap:wrap}.uxsearch input,.uxsearch select{min-width:180px;max-width:100%;padding:10px;border:1px solid #d9e2de;border-radius:9px;background:white;font:inherit}
+.uxlist{display:grid;gap:9px}
+.uxitem{border:1px solid #e1eae5;background:#fff;border-radius:12px;padding:14px 17px;display:flex;align-items:center;justify-content:space-between;gap:14px}
+.uxitem strong{font-size:15px}.uxitem small{display:block;color:#72827b;margin-top:3px}
+.uxnext{color:#225a4f;font-weight:700;font-size:13px}
+.uxback{border:0;background:transparent;color:#37776b;font:inherit;padding:4px 0;margin-bottom:13px;cursor:pointer}
+.uxprofile{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(280px,.7fr);gap:16px}
+.uxcard-list{display:grid;gap:8px}.uxfinding{border-radius:11px;background:#f5f8f6;border-left:4px solid #2c7c64;padding:11px 14px}
+.uxfinding.warning{border-left-color:#cc9346}.uxfinding.attention{border-left-color:#b6594c}
+.uxfinding small{color:#6d8176;font-size:11px;display:block;margin-top:4px}
+.uxactions{display:flex;gap:8px;flex-wrap:wrap;margin-top:15px}
+.uxfine{font-size:12px;color:#667971}
+.uxmeeting{max-width:1100px;margin:auto}.uxmeeting .phone{width:100%;max-width:none;border:none;border-radius:0;padding:0;background:transparent;gap:9px}
+.uxmeeting .phone>.sec{font-size:16px;margin-top:16px;padding-top:13px;border-top:1px solid #e5ebe8}
+.uxmeeting .phone>.sec:first-of-type{border-top:none}
+.uxmeeting .phone .quote{background:#f4f7f5}
+.uxmeeting .phone input,.uxmeeting .phone textarea{background:#fff}
+.uxmeeting-row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.uxmeeting-row select,.uxmeeting-row input{padding:11px;border:1px solid #cfddd6;border-radius:9px;width:100%}
+.uxdetails{border:1px solid #e0e8e4;border-radius:13px;margin-top:14px;background:#fff;overflow:hidden}
+.uxdetails>summary{padding:15px 18px;cursor:pointer;font-weight:700;color:#205648}
+.uxdetails>.uxdetailinner{padding:15px;border-top:1px solid #e7eeeb}
+.ux-alert{padding:13px 16px;border-radius:11px;background:#fff4d9;color:#805b18;margin-bottom:16px;font-size:13px}
+.ux-alert.bad{background:#fbe8e3;color:#914131}
+.uxfooter{font-size:11px;color:#7c8e87;margin-top:28px;text-align:center}
+@media(max-width:950px){.uxgrid,.uxprofile,.uxmeeting-row{grid-template-columns:1fr}.uxstats{grid-template-columns:repeat(2,minmax(0,1fr))}.uxbar{flex-wrap:wrap}.uxnav{order:3;flex-basis:100%}}
+@media(max-width:600px){body.ux-on .wrap{padding:0 12px 35px}.uxbar{margin:0 -12px 18px;padding:12px}.uxnav button{padding:8px;font-size:11px}.uxpanel{padding:14px}.uxitem{flex-wrap:wrap}.uxstat b{font-size:25px}}
+</style>
+<script id="ux-redesign-script">
+(function(){
+'use strict';
+var U={view:'prepare',detail:null,filter:'all',keyword:'',clazz:'All',owner:'All'};
+window.PTMGoUX=U;
+var root=document.createElement('div');root.id='ux-root';
+document.querySelector('.wrap').insertBefore(root,document.querySelector('.wrap').firstChild);
+document.body.classList.add('ux-on');
+var prevCurrent=renderCurrent, prevChild=renderChild, prevDesk=renderDesk, prevFollow=renderFollow;
+function eid(id){return encodeURIComponent(String(id)).replace(/'/g,'%27');}
+function child(id){return S.byId[decodeURIComponent(id)];}
+function button(txt,fn,pri,disabled){return '<button class="uxbutton'+(pri?' primary':'')+'"'+(disabled?' disabled':'')+' onclick="'+fn+'">'+txt+'</button>';}
+function tag(text,t){return '<span class="uxpill '+(t||'')+'">'+esc(text)+'</span>';}
+function st(s){return kidState(s,S.computed[s.id]);}
+function issues(s){
+ var c=S.computed[s.id], out=[], ev=evalStatus(s);
+ if(!c.teachers.length)out.push(['No assigned teacher','Staff assignment needed','bad','teacher']);
+ if(c.teachers.length&&c.lgDone<c.teachers.length)out.push(['Teacher input outstanding',(c.teachers.length-c.lgDone)+' submissions outstanding','bad','teacher']);
+ if(!S.evalFile)out.push(['Tests not loaded','Load the verified test file in Settings','bad','tests']);
+ else if(ev.miss||ev.draft||ev.pend)out.push(['Tests need attention','Missing '+(ev.miss||0)+' · Draft '+(ev.draft||0)+' · Unmarked '+(ev.pend||0),'bad','tests']);
+ if(c.miss||c.pend)out.push(['Not all assessment cells are ready',(c.miss||0)+' missing · '+(c.pend||0)+' pending','bad','review']);
+ if(flagsLeft(s,c)||noTestLeft(s,c))out.push(['Management decision required',flagsLeft(s,c)+' flagged · '+noTestLeft(s,c)+' no-test levels','warn','review']);
+ var p=p4Stage(s,c);
+ if(!isLocked(s.id)&&p[2]!=='ok')out.push(['Parent report not confirmed',p[0],'warn','report']);
+ if(isLocked(s.id)&&frozenDrift(s,c))out.push(['Review updated evidence',frozenDrift(s,c)+' changed cells after confirmation','warn','review']);
+ if(isLocked(s.id)&&!copyLast(s.id).checked)out.push(['Print / copy / check outstanding',copyStatus(s.id).replace(/<[^>]*>/g,''),'warn','production']);
+ return out;
+}
+function actualLevel(s,key,o){var f=isLocked(s.id)?frozenLevel(s.id,key):undefined,dec=(S.local.dec[s.id]||{})[key];return f!==undefined?f:dec&&dec.act==='Change'?dec.to:o.level;}
+function intro(v,title,sub,extra){return '<div class="uxheading"><div><div class="uxeyebrow">'+v+'</div><h1>'+title+'</h1><p>'+sub+'</p></div>'+(extra||'')+'</div>';}
+function nav(){
+ var ns=[['prepare','PREPARE'],['students','STUDENTS'],['today','PTM TODAY'],['follow','FOLLOW-UP']];
+ return '<div class="uxbar"><div class="uxbrand"><strong>PTMGo</strong><small>PARENT MEETING WORKBENCH</small></div><div class="uxnav">'+ns.map(function(x){return '<button class="'+(U.view===x[0]||(['profile','report','evidence'].includes(U.view)&&x[0]==='students')||(U.view==='meeting'&&x[0]==='today')?'active':'')+'" onclick="PTMGoUX.go(\''+x[0]+'\')">'+x[1]+'</button>';}).join('')+'</div><button class="uxsettings" onclick="PTMGoUX.go(\'settings\')">⚙ Settings</button></div>';
+}
+U.go=function(view){U.view=view;U.detail=null; if(view==='settings'){goPage('data');}else{if(S.ui.page==='data')goPage('progress');U.render();}window.scrollTo(0,0);};
+U.open=function(id,mode){var s=child(id);if(!s)return;U.detail=s.id;U.view=mode||'profile';S.ui.child=s.id;S.ui.cls=s.cls;S.ui.tab=mode==='report'?'p4':mode==='evidence'?'p23':mode==='meeting'?'talk':'prep';loadExtra(s.id);U.render();window.scrollTo(0,0);};
+U.focus=function(which){U.filter=which;U.view='prepare';U.render();};
+U.selectClass=function(v){U.clazz=v;U.render();};
+U.search=function(v){U.keyword=v;U.render();};
+U.recheck=function(){return S.students.filter(function(s){return U.clazz==='All'||s.cls===U.clazz;}).filter(function(s){var q=U.keyword.trim().toLowerCase();return !q||s.name.toLowerCase().includes(q)||String(s.name_cn||'').toLowerCase().includes(q);});};
+function searchbar(){return '<div class="uxsearch"><select aria-label="Class filter" onchange="PTMGoUX.selectClass(this.value)"><option value="All">All classes</option>'+S.classes.map(function(k){return '<option value="'+esc(k)+'"'+(U.clazz===k?' selected':'')+'>'+esc(clsName(k))+'</option>';}).join('')+'</select><input aria-label="Search students" placeholder="Search student name (English / 中文)" value="'+esc(U.keyword)+'" oninput="PTMGoUX.search(this.value)"/></div>';}
+function pickOpen(s,txt,mode){return button(txt,"PTMGoUX.open('"+eid(s.id)+"','"+mode+"')",true);}
+function prepare(){
+ var students=U.recheck(), incomplete=students.filter(function(s){return !isLocked(s.id)}), confirmed=students.filter(function(s){return isLocked(s.id)}), checked=confirmed.filter(function(s){return !!copyLast(s.id).checked});
+ var groups=[['teacher','Teacher input','Teachers still need to submit'],['tests','Tests','Missing, draft or unmarked tests'],['review','Management review','Resolve flags and missing levels'],['report','Parent report','Draft and confirmation'],['production','Print / copy / check','Confirmed reports still needing QA']];
+ var open=students.filter(function(s){return issues(s).length>0;});
+ var h=intro('01 / PREPARE','Are we ready for PTM?','Start with people who need action — not technical gates. Counts are from existing records.',tag(S.live?'Connected system':'Snapshot · view only','warn'))+searchbar();
+ if(!S.evalFile)h+='<div class="ux-alert bad">Test evidence is not loaded. Readiness counts below are incomplete. '+button('Load test file',"PTMGoUX.go('settings')")+'</div>';
+ h+='<div class="uxstats">'+[
+ ['all',students.length,'Children in view',''],['action',open.length,'Need an action','bad'],['confirmed',confirmed.length,'Reports confirmed',''],['checked',checked.length,'Print QA checked','']
+ ].map(function(o){return '<button class="uxstat '+(U.filter===o[0]?'current ':'')+o[3]+'" onclick="PTMGoUX.focus(\''+o[0]+'\')"><b>'+o[1]+'</b><span>'+o[2]+'</span></button>';}).join('')+'</div>';
+ h+='<div class="uxgrid"><section class="uxpanel"><h2>What needs attention?</h2><p class="uxfine">A student may appear in more than one group. A category is not automatically a Confirm blocker.</p>';
+ groups.forEach(function(g){var a=students.filter(function(s){return issues(s).some(function(i){return i[3]===g[0]})});h+='<div class="uxrow"><div><h3>'+esc(g[1])+' '+tag(a.length,a.length?'warn':'')+'</h3><p>'+esc(g[2])+'</p></div>'+button('View students →',"PTMGoUX.focus('"+g[0]+"')",false,!a.length)+'</div>';});
+ h+='</section><section class="uxpanel"><h2>'+(U.filter==='all'?'Your action list':U.filter==='action'?'Students needing action':U.filter==='confirmed'?'Confirmed reports':U.filter==='checked'?'Completed print QA':esc((groups.find(function(x){return x[0]===U.filter})||['','Action list'])[1]))+'</h2><div class="uxlist">';
+ var shortlist=students.filter(function(s){if(U.filter==='all')return issues(s).length>0;if(U.filter==='action')return issues(s).length>0;if(U.filter==='confirmed')return isLocked(s.id);if(U.filter==='checked')return isLocked(s.id)&&copyLast(s.id).checked;return issues(s).some(function(i){return i[3]===U.filter})}).slice(0,50);
+ shortlist.forEach(function(s){var i=issues(s),id=eid(s.id),reason=U.filter==='all'||U.filter==='action'?i[0]:i.find(function(x){return x[3]===U.filter})||i[0],mode=U.filter==='production'?'report':U.filter==='review'?'evidence':'profile';h+='<div class="uxrow"><div><h3>'+esc(s.name)+' <span class="uxmuted">'+esc(s.name_cn||'')+'</span></h3><p>'+esc(clsName(s.cls))+' · '+esc(reason?reason[0]:'Ready')+'</p></div>'+button('Open →',"PTMGoUX.open('"+id+"','"+mode+"')",true)+'</div>';});
+ h+=!shortlist.length?'<div class="uxmuted">No students in this selection.</div>':'';h+='</div></section></div>';
+ return h;
+}
+function studentsScreen(){var h=intro('02 / STUDENTS','Understand each child','Conclusions from existing assessments first; evidence and detailed 35 cells remain accessible.')+searchbar()+'<div class="uxlist">';
+ U.recheck().forEach(function(s){var i=issues(s),state=st(s);h+='<div class="uxitem"><div><strong>'+esc(s.name)+' <span class="uxmuted">'+esc(s.name_cn||'')+'</span></strong><small>'+esc(clsName(s.cls))+' · '+esc(state[0])+'</small></div><div class="uxnext">'+esc(i[0]?i[0][0]:'No action flagged')+'</div>'+pickOpen(s,'View profile →','profile')+'</div>';});
+ return h+'</div>';
+}
+function getFinding(s,c){
+ var results={strength:[],develop:[],attention:[],unrated:[]};
+ Object.entries(allCells(c)).forEach(function(e){var o=e[1],level=actualLevel(s,e[0],o),row={label:o.label,code:e[0],level:level,flag:o.flag};
+ if(level==='SECURE')results.strength.push(row);
+ else if(level==='DEVELOPING')results.develop.push(row);
+ else if(level==='BUILDING'||level==='WITH_SUPPORT')results.attention.push(row);
+ else results.unrated.push(row);
+ });return results;
+}
+function listFind(rows,cls,max){return '<div class="uxcard-list">'+rows.slice(0,max||4).map(function(x){return '<div class="uxfinding '+cls+'"><b>'+esc(x.label)+'</b> '+tag(LV_NAME(x.level)||x.level,cls==='attention'?'warn':'')+'<small>Rule-based indicator · '+esc(x.code)+'</small></div>';}).join('')+'</div>';}
+function detailHeader(s,type){return '<button class="uxback" onclick="PTMGoUX.go(\''+(type==='meeting'?'today':'students')+'\')">← Back</button>'+intro(type==='meeting'?'03 / PTM TODAY':'02 / STUDENTS',esc(s.name)+' · '+esc(s.name_cn||''),esc(clsName(s.cls))+' · '+esc(st(s)[0]),tag(isLocked(s.id)?'Confirmed report':'Unconfirmed / draft',isLocked(s.id)?'':'warn'));}
+function profile(s){
+ var c=S.computed[s.id], f=getFinding(s,c),i=issues(s),t=talkContent(s,c);
+ var h=detailHeader(s,'profile');
+ h+='<div class="uxprofile"><div class="uxstack"><section class="uxpanel"><h2>Child at a glance</h2><p class="uxfine">Indicator-level summary from approved rules. Not an AI diagnosis or an overall score. Open evidence for sources.</p>';
+ h+='<h3>Strengths · '+f.strength.length+'</h3>'+listFind(f.strength,'',3);
+ h+='<h3>Developing · '+f.develop.length+'</h3>'+listFind(f.develop,'warning',3);
+ h+='<h3>Needs support · '+f.attention.length+'</h3>'+listFind(f.attention,'attention',3);
+ if(f.unrated.length)h+='<div class="ux-alert">Some indicators are not rated or are pending ('+f.unrated.length+'). Missing data never counts as a weak result.</div>';
+ h+='<div class="uxactions">'+button('View detailed evidence',"PTMGoUX.open('"+eid(s.id)+"','evidence')")+button('Parent report & QA',"PTMGoUX.open('"+eid(s.id)+"','report')")+button('Open PTM meeting',"PTMGoUX.open('"+eid(s.id)+"','meeting')",true)+'</div></section>';
+ h+='<section class="uxpanel"><h2>Teacher observations</h2><div class="uxlabel">Evidence · original teacher words</div>';
+ h+=t.bright.length?t.bright.slice(0,3).map(function(x){return '<div class="uxfinding" style="margin-top:10px">'+esc(x.text_value)+'</div>';}).join(''):'<p class="uxfine">No verified highlight available in loaded evidence.</p>';
+ h+='</section></div><aside class="uxstack"><section class="uxpanel"><h2>What needs to happen?</h2>';
+ h+=i.length?i.map(function(x){return '<div class="uxrow"><div><b>'+esc(x[0])+'</b><p>'+esc(x[1])+'</p></div></div>';}).join(''):'<p class="uxfine">No action flagged by this view; final Confirm eligibility is checked by the existing backend.</p>';
+ h+='<div class="uxactions">'+button('Resolve / review',"PTMGoUX.open('"+eid(s.id)+"','evidence')",true)+'</div></section><section class="uxpanel"><h2>Data source</h2><p class="uxfine">Learning indicators: approved PTMGo rules. Observations: teacher evidence. Confirm and printing remain controlled by existing backend.</p><p class="uxfine">Data loaded: '+esc(S.loadedAt||'unknown')+'</p></section></aside></div>';
+ return h;
+}
+function evidence(s){var c=S.computed[s.id],h=detailHeader(s,'profile');
+ h+='<section class="uxpanel"><h2>Evidence review · 35 cells and decisions</h2><p class="uxfine">This is the original management review workflow; Keep / Change rules and reasons are unchanged.</p>'+tabP23(s,c)+'</section>';
+ h+='<details class="uxdetails"><summary>Supporting insight, observations, attendance and parent history</summary><div class="uxdetailinner">'+tabPrep(s,c)+'</div></details>';
+ h+='<div class="uxactions">'+button('Parent report',"PTMGoUX.open('"+eid(s.id)+"','report')",true)+button('Back to profile',"PTMGoUX.open('"+eid(s.id)+"','profile')")+'</div>';return h;
+}
+function report(s){var c=S.computed[s.id],h=detailHeader(s,'profile');h+='<section class="uxpanel"><h2>Parent report · Page 4 & production checks</h2><p class="uxfine">Original confirmation, frozen report, print → copied → checked and Reopen controls are preserved. Backend gates remain authoritative.</p>'+tabP4(s,c)+'</section><details class="uxdetails"><summary>Inspect Page 2–3 / 35 indicators</summary><div class="uxdetailinner">'+tabP23(s,c)+'</div></details>';return h;}
+function today(){
+ var ss=U.recheck(),order={'谈话中':0,'到了':1,'还没到':2,'谈完':3,'没来':4,'改期':5};
+ ss.sort(function(a,b){return (order[flowOf(a.id)[2]]||2)-(order[flowOf(b.id)[2]]||2)});
+ var count=function(x){return ss.filter(function(s){return flowOf(s.id)[2]===x}).length;};
+ var h=intro('03 / PTM TODAY','Talk with confidence','One meeting screen. Start with the child, listen to the parent, capture requests, and finish.')+searchbar();
+ h+='<div class="uxstats">'+[['还没到','Waiting'],['到了','Arrived'],['谈话中','Talking'],['谈完','Done']].map(function(x){return '<div class="uxstat"><b>'+count(x[0])+'</b><span>'+x[1]+'</span></div>';}).join('')+'</div>';
+ if(!S.live)h+='<div class="ux-alert">Snapshot mode: meeting updates are not saved.</div>';
+ h+='<div class="uxpanel"><div class="uxlist">';
+ ss.forEach(function(s){var m=meetState(s.id),f=flowOf(s.id);h+='<div class="uxitem"><div><strong>'+esc(s.name)+' '+esc(s.name_cn||'')+'</strong><small>'+esc(clsName(s.cls))+' · '+esc(f[0])+(m.table?' · Table '+esc(m.table):'')+'</small></div><div>'+tag(isLocked(s.id)?'Report confirmed':'Report unconfirmed',isLocked(s.id)?'':'warn')+'</div>'+button('Open meeting →',"PTMGoUX.open('"+eid(s.id)+"','meeting')",true)+'</div>';});
+ return h+'</div></div>';
+}
+U.flow=function(id,how){
+ var s=child(id);if(!s)return;var state=meetState(s.id);
+ var staff=document.getElementById('ux-staff'),table=document.getElementById('ux-table');
+ if(staff)state.staff=staff.value;if(table)state.table=table.value.trim();
+ S.ui.cls=s.cls;S.ui.q='';
+ prevDesk();
+ var t=document.getElementById('dk-t-'+s.id),m=document.getElementById('dk-s-'+s.id);
+ if(t)t.value=state.table||'';if(m)m.value=state.staff||'';
+ setFlow(s.id,how);window.setTimeout(U.render,500);
+};
+U.finish=function(id){var s=child(id),m=meetState(s.id);if(!m.saved){toast('Save the parent conversation notes before finishing');return;}if(!(m.who||[]).length){toast('Record who attended before finishing');return;}U.flow(id,'谈完');};
+U.absent=function(id,what){var s=child(id),r=document.getElementById('ux-reason');if(!r||!r.value.trim()){toast('Enter a reason for No-show / Rescheduled');return;}S.ui.cls=s.cls;S.ui.q='';prevDesk();var v=document.getElementById('dk-r-'+s.id);if(v)v.value=r.value;setAbsent(s.id,what);window.setTimeout(U.render,500);};
+function meeting(s){
+ var c=S.computed[s.id],m=meetState(s.id),f=flowOf(s.id),names=mgmtNames(),id=eid(s.id);
+ var h=detailHeader(s,'meeting')+'<div class="uxmeeting">';
+ if(!isLocked(s.id))h+='<div class="ux-alert bad">Parent report is not confirmed. This meeting content is draft and must not be treated as an approved parent report.</div>';
+ h+='<section class="uxpanel"><div class="uxheading"><div><h2>Meeting status</h2><p>Current: '+esc(f[0])+'</p></div>'+tag(m.saved?'Notes saved '+m.saved:'Save notes before finishing',m.saved?'':'warn')+'</div>';
+ h+='<div class="uxmeeting-row"><div><label>Table number</label><input id="ux-table" value="'+esc(m.table||'')+'" placeholder="Table"></div><div><label>Management / meeting staff</label><select id="ux-staff"><option value="">Select staff</option>'+names.map(function(n){return '<option'+(m.staff===n?' selected':'')+'>'+esc(n)+'</option>';}).join('')+'</select></div></div>';
+ h+='<div class="uxactions">'+button('Parent arrived',"PTMGoUX.flow('"+id+"','到了')")+button('Start PTM',"PTMGoUX.flow('"+id+"','谈话中')",true)+'</div>';
+ h+='</section><section class="uxpanel" style="margin-top:14px"><h2>One meeting screen</h2><p class="uxfine">Highlight → learning → unfinished concerns → sensitive talking points → parent feedback → follow-up. Original evidence and recording controls appear below.</p>'+tabTalk(s,c);
+ h+='<div class="uxactions">'+button('FINISH PTM',"PTMGoUX.finish('"+id+"')",true)+button('Open evidence',"PTMGoUX.open('"+id+"','evidence')")+'</div></section>';
+ h+='<details class="uxdetails"><summary>No-show / Reschedule (reason required)</summary><div class="uxdetailinner"><label>Reason</label><input id="ux-reason" placeholder="Reason"><div class="uxactions">'+button('No-show',"PTMGoUX.absent('"+id+"','没来')")+button('Rescheduled',"PTMGoUX.absent('"+id+"','改期')")+'</div></div></details>';
+ h+='</div>';return h;
+}
+function follow(){
+ var all=S.local.req||[],open=all.filter(function(r){return r.status!=='done'}),late=open.filter(function(r){return r.due&&r.due<todayLocal()}),doing=all.filter(function(r){return r.status==='doing'}),done=all.filter(function(r){return r.status==='done'});
+ var h=intro('04 / FOLLOW-UP','What still needs action?','Every parent request has an owner, a due date and a completion note.');
+ h+='<div class="uxstats">'+[[open.length,'Still open'],[late.length,'Overdue'],[doing.length,'In progress'],[done.length,'Completed']].map(function(x){return '<div class="uxstat"><b>'+x[0]+'</b><span>'+x[1]+'</span></div>';}).join('')+'</div>';
+ var missed=S.students.filter(function(s){return ['没来','改期'].includes((S.local.meet[s.id]||{}).status)});
+ if(missed.length)h+='<section class="uxpanel" style="margin-bottom:15px"><h2>Meet again · '+missed.length+'</h2>'+missed.map(function(s){return '<div class="uxrow"><div><b>'+esc(s.name)+'</b><p>'+esc(clsName(s.cls))+' · '+esc(flowOf(s.id)[0])+'</p></div>'+pickOpen(s,'Open meeting','meeting')+'</div>';}).join('')+'</section>';
+ h+='<section class="uxpanel"><h2>Parent requests</h2><div class="uxlist">';
+ all.slice().sort(function(a,b){return (a.status==='done')-(b.status==='done')||String(a.due||'9').localeCompare(String(b.due||'9'))}).forEach(function(r){var s=S.byId[r.sid]||{},over=r.status!=='done'&&r.due&&r.due<todayLocal(),id=encodeURIComponent(String(r.id)).replace(/'/g,'%27');
+ h+='<div class="uxitem"><div style="flex:1"><strong>'+esc(s.name||'Student')+' — '+esc(r.text)+'</strong><small>'+esc(r.owner||'Unassigned')+' · Due: '+esc(r.due||'Not set')+' '+(over?' · OVERDUE':'')+'</small><label class="uxfine">Completion note</label><input style="width:100%;max-width:420px" placeholder="What was completed?" value="'+esc(r.note||'')+'" oninput="PTMGoUX.note(\''+id+'\',this.value)"></div><select aria-label="Task status" onchange="PTMGoUX.status(\''+id+'\',this.value)"><option value="open"'+(r.status==='open'?' selected':'')+'>Open</option><option value="doing"'+(r.status==='doing'?' selected':'')+'>In progress</option><option value="done"'+(r.status==='done'?' selected':'')+'>Done</option></select></div>';});
+ h+=all.length?'':'<div class="uxmuted">No requests yet. Create a request from PTM TODAY.</div>';return h+'</div></section>';
+}
+U.note=function(id,val){var r=S.local.req.find(function(x){return String(x.id)===decodeURIComponent(id)});if(r)setReq(r.id,'note',val);};
+U.status=function(id,val){var r=S.local.req.find(function(x){return String(x.id)===decodeURIComponent(id)});if(r)setReq(r.id,'status',val);window.setTimeout(U.render,500);};
+U.render=function(){
+ var logged=S.students&&S.students.length;
+ var h=nav();
+ if(!logged){h+=intro('WELCOME','PTMGo','Sign in with your authorised platform account to see student data.')+button('Open sign in',"PTMGoUX.go('settings')",true);U.view='settings';document.body.classList.add('ux-settings');}
+ else if(U.view==='prepare')h+=prepare();
+ else if(U.view==='students')h+=studentsScreen();
+ else if(U.view==='today')h+=today();
+ else if(U.view==='follow')h+=follow();
+ else if(['profile','evidence','report','meeting'].includes(U.view)){var s=S.byId[U.detail];h+=s?(U.view==='profile'?profile(s):U.view==='evidence'?evidence(s):U.view==='report'?report(s):meeting(s)):'<div class="ux-alert bad">Student not found</div>';}
+ else if(U.view==='settings')h+=intro('ADMIN','Settings & diagnostics','The original imports, system gates and administrative controls remain below.');
+ root.innerHTML=h+'<div class="uxfooter">PTMGo UX workbench · Existing backend rules and report production preserved · Review build</div>';
+ document.body.classList.toggle('ux-settings',U.view==='settings');
+};
+renderCurrent=function(){if(S.ui.page==='data')renderManage();U.render();};
+renderChild=function(){U.render();};
+renderDesk=function(){U.render();};
+renderFollow=function(){U.render();};
+window.setTimeout(U.render,0);
+})();
+</script>
+
 </body>
 </html>
