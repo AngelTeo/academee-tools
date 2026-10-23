@@ -562,7 +562,8 @@ body.teacher-mode .teacher-hide{display:none !important;}
    \u6539\u7248\u89c4\u5219\uff1a\u53ea\u7528\u6574\u6570\uff0c\u4e14\u4e09\u5904\u5fc5\u987b\u540c\u65f6\u6539 \u2014\u2014
    \u2460 <title>  \u2461 \u4e3b\u9875\u9876\u680f\u7684\u7248\u672c\u5fbd\u7ae0  \u2462 \u4e0b\u9762\u8fd9\u4e2a\u5e38\u6570
    \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550 */
-const APP_VERSION = 14;   /* v14 · Forgot Items：打了字没按 Add 也会收进去；没选东西的孩子会提醒，不再整个消失（LL 10-23 回报） */
+const APP_VERSION = 15;   /* v15 · Forgot Items：自己打的物品也列出来（绿色，可按掉）、每个孩子上方显示 Forgot: …、每个孩子一格 Remark（Owner 10-23）
+/* v14 · Forgot Items：打了字没按 Add 也会收进去；没选东西的孩子会提醒，不再整个消失（LL 10-23 回报） */
 /* v12 · Step 1：新分页 Attendance → Student absence（写资料库 attendance_notice，AttendanceGo 点名页看得到）；旧的本机请假草稿逐笔转换 */
 /* v12 · 受控试行开关：A7 补测通过前，Attendance 分页只给 OWNER 帐号（ChatGPT / Owner：A7 PASS 前不开放给全体行政）。
    A7 PASS 后改成 false（只改这一行）＝ 所有能登记学生请假的行政 / 管理层都看得到。资料库权限不受这个开关影响。 */
@@ -1119,6 +1120,7 @@ const FORMATS=[
     const cleanI=item.replace(/\s[\u{1F000}-\u{1FFFF}]+/gu,'').trim();
     m+=`\nNO ${cleanI}`;
    });
+   const rk=((v.remarks||{})[stu]||'').trim(); if(rk) m+=`\nRemark: ${rk}`;   /* v15 */
   });
   return m;
  }
@@ -2435,7 +2437,7 @@ function openForm(id,caller){
   window._editingRec=null;   // v10：开新报告一定不是编辑旧的
   curFmt=FORMATS.find(f=>f.id===id);if(!curFmt)return;
   formCaller=caller||'teacher';
-  multiState={};forgotState={students:[],items:{}};
+  multiState={};forgotState={students:[],items:{},remarks:{}};
   const cm=CATS[curFmt.cat];
   document.getElementById('fh-title').textContent=curFmt.label;
   document.getElementById('fh-cat').textContent=curFmt.cat+' — '+curFmt.desc;
@@ -2556,9 +2558,15 @@ function renderForgotBlock(){
 function renderFSList(items){
   const prog=document.getElementById('f_prog')?.value||'SRK';
   if(!items||!items.length)items=FORGOT_ITEMS[prog]||FORGOT_ITEMS['SRK']||[];
-  return forgotState.students.map((stu,i)=>`<div class="stu-item-card">
+  const clean=x=>String(x).replace(/\s[\u{1F000}-\u{1FFFF}\u2600-\u27BF\uFE0F]+/gu,'').trim();
+  forgotState.remarks=forgotState.remarks||{};
+  return forgotState.students.map((stu,i)=>{
+    const got=forgotState.items[stu]||[];
+    const custom=got.filter(x=>!items.includes(x));   /* v15 · 自己打的物品 */
+    return `<div class="stu-item-card">
     <div class="sin"><div class="sname">${esc(stu)}</div><button class="sdel" onclick="removeFS(${i})">×</button></div>
-    <div class="items-grid">${items.map(item=>`<button class="item-toggle ${(forgotState.items[stu]||[]).includes(item)?'on':''}" onclick="toggleFI('${esc(stu)}','${esc(item)}')">${item}</button>`).join('')}</div>
+    <div id="fs-got-${i}" style="font-size:12px;margin:-2px 0 8px;${got.length?'color:#065f46;font-weight:600':'color:var(--mut)'}">${got.length?'✓ Forgot: '+esc(got.map(clean).join(', ')):'Nothing picked yet — tap an item or type one below'}</div>
+    <div class="items-grid">${items.map(item=>`<button class="item-toggle ${got.includes(item)?'on':''}" onclick="toggleFI('${esc(stu)}','${esc(item)}')">${item}</button>`).join('')}${custom.map(x=>`<button class="item-toggle on" title="Tap to remove" onclick="rmCustomFI(${i},${got.indexOf(x)})">${esc(x)} ✕</button>`).join('')}</div>
     <div style="display:flex;gap:6px;margin-top:8px;">
       <input type="text" placeholder="Other item…" id="custom-item-${i}"
         style="flex:1;border:.5px solid var(--bdr);border-radius:var(--rs);padding:8px 10px;font-family:'DM Sans',sans-serif;font-size:13px;outline:none;"
@@ -2566,16 +2574,31 @@ function renderFSList(items){
       <button onclick="addCustomFI('${esc(stu)}',${i})"
         style="background:var(--g);color:#fff;border:none;border-radius:var(--rs);padding:8px 12px;font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;">Add</button>
     </div>
-  </div>`).join('');
+    <input type="text" placeholder="Remark (optional)…" id="fs-remark-${i}" value="${esc(forgotState.remarks[stu]||'')}"
+      oninput="forgotState.remarks=forgotState.remarks||{};forgotState.remarks[forgotState.students[${i}]]=this.value"
+      style="width:100%;box-sizing:border-box;margin-top:8px;border:.5px solid var(--bdr);border-radius:var(--rs);padding:8px 10px;font-family:'DM Sans',sans-serif;font-size:13px;outline:none;">
+  </div>`;}).join('');
+}
+/* v15 · 重画名单时，别的孩子「Other item」打到一半的字不要被清掉 */
+function fsRedraw(){
+  const keep=forgotState.students.map((stu,i)=>(document.getElementById('custom-item-'+i)||{}).value||'');
+  const l=document.getElementById('fs-list'); if(!l) return;
+  l.innerHTML=renderFSList();
+  keep.forEach((v,i)=>{ const el=document.getElementById('custom-item-'+i); if(el&&v&&!el.value) el.value=v; });
+}
+function rmCustomFI(i,j){
+  const stu=forgotState.students[i]; const arr=forgotState.items[stu]||[];
+  if(j>=0&&j<arr.length) arr.splice(j,1);
+  fsRedraw();
 }
 function addCustomFI(stu,idx){
   const inp=document.getElementById('custom-item-'+idx);
   if(!inp)return;
   const v=inp.value.trim();if(!v)return;
   if(!forgotState.items[stu])forgotState.items[stu]=[];
-  forgotState.items[stu].push(v);
+  if(!forgotState.items[stu].includes(v)) forgotState.items[stu].push(v);
   inp.value='';
-  document.getElementById('fs-list').innerHTML=renderFSList();
+  fsRedraw();   /* v15 */
 }
 function addFS(){
   const inp=document.getElementById('stu-nn');
@@ -2593,7 +2616,7 @@ function addFS(){
   reRenderForgotBlock();
 }
 function removeFS(idx){
-  const n=forgotState.students[idx];forgotState.students.splice(idx,1);delete forgotState.items[n];
+  const n=forgotState.students[idx];forgotState.students.splice(idx,1);delete forgotState.items[n];if(forgotState.remarks)delete forgotState.remarks[n];
   if(!forgotState.students.length)forgotState.prog='';
   reRenderForgotBlock();
 }
@@ -2606,7 +2629,7 @@ function toggleFI(stu,item){
   if(!forgotState.items[stu])forgotState.items[stu]=[];
   const arr=forgotState.items[stu];const i=arr.indexOf(item);
   if(i>=0)arr.splice(i,1);else arr.push(item);
-  document.getElementById('fs-list').innerHTML=renderFSList();
+  fsRedraw();   /* v15 */
 }
 function collectVals(){
   const v={};
@@ -2617,6 +2640,7 @@ function collectVals(){
     const m={};
     forgotState.students.forEach(stu=>(forgotState.items[stu]||[]).forEach(item=>{if(!m[item])m[item]=[];m[item].push(stu);}));
     v.forgot=m;v.prog=document.getElementById('f_prog')?.value||'SRK';
+    v.remarks={}; forgotState.students.forEach(stu=>{ const r=String((forgotState.remarks||{})[stu]||'').trim(); if(r) v.remarks[stu]=r; });   /* v15 */
    }
    else if(f.type==='yn')v[f.id]=getYN(f.id);
    else{const el=document.getElementById('f_'+f.id);v[f.id]=el?el.value:'';}
