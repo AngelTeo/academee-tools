@@ -215,22 +215,66 @@ function go(p){
 
 // ============ dashboard ============
 function renderDash(){
-  const rentTot=rentUnits.reduce((a,r)=>a+(+r.monthly_rent||0),0);
-  const payTot=payroll.reduce((a,r)=>a+r.gross,0);
-  const utilMo=utilAccts.reduce((a,x)=>a+(+utilRead[x.id+'|'+MO]||0),0);
-  const taxMo=taxItems.filter(t=>!t.odd_only || MO%2===1).reduce((a,t)=>a+(+t.instalment||0),0);
-  let h=`<h2>概览</h2><div class="sub">${MNS[MO-1]} ${YR} · 单位 RM · 数据存 Academee-HR 云端</div>`;
-  h+=`<div class="grid4">
-    <div class="stat"><div class="l">薪资 Gross/月 (读 HR)</div><div class="v">${payroll._denied?'—':fmt(payTot)}</div></div>
-    <div class="stat"><div class="l">租金/月</div><div class="v">${fmt(rentTot)}</div></div>
-    <div class="stat"><div class="l">本月税务 CP</div><div class="v">${fmt(taxMo)}</div></div>
-    <div class="stat"><div class="l">本月水电已录</div><div class="v">${fmt(utilMo)}</div></div>
-  </div>`;
-  if(payroll._denied) h+=`<div class="banner">你这个账号没有 OWNER/ADMIN 权限,看不到薪资(这是正常的权限保护)。租金/税务/水电仍可查看与输入。</div>`;
-  h+=`<div class="card"><div class="ct">说明</div>
-    <div class="note">· 薪资：<b>只读</b> HR 现有 <code>hr_salary</code>,不在此输入。<br>
-    · 租金 / 税务 / 水电：行政在此直接输入,存云端(需 ADMIN 权限写入)。<br>
-    · EPF/SOCSO/EIS 以标准率估算,精确值以 HR 系统为准。</div></div>`;
+  const today=new Date(), dom=today.getDate();
+  const isCur=(YR===today.getFullYear() && MO===(today.getMonth()+1));
+  const RENT_DUE=10, TAX_DUE=15;
+  let rPaid=0,rUnpaidAmt=0,rUnpaidN=0;
+  rentUnits.forEach(r=>{ if(rentPaid[r.id+'|'+MO])rPaid++; else{rUnpaidN++; rUnpaidAmt+=(+r.monthly_rent||0);} });
+  const taxDue=taxItems.filter(t=>!t.odd_only||MO%2===1);
+  let tPaid=0,tUnpaidAmt=0,tUnpaidN=0;
+  taxDue.forEach(t=>{ if(taxPaid[t.id+'|'+MO])tPaid++; else{tUnpaidN++; tUnpaidAmt+=(+t.instalment||0);} });
+  let uRec=0,uMiss=0;
+  utilAccts.forEach(a=>{ if(utilRead[a.id+'|'+MO]!=null)uRec++; else uMiss++; });
+  const rOver=isCur&&dom>RENT_DUE&&rUnpaidN>0;
+  const tOver=isCur&&dom>TAX_DUE&&tUnpaidN>0;
+  const todoN=(rUnpaidN>0?1:0)+(tUnpaidN>0?1:0)+(uMiss>0?1:0);
+  const overN=(rOver?1:0)+(tOver?1:0);
+
+  let h=`<h2>本月待办 · ${MNS[MO-1]} ${YR}</h2>
+    <div class="sub">${todoN===0?'✅ 本月都处理好了':('还有 <b>'+todoN+'</b> 项待办'+(overN?('，<span style="color:var(--red);font-weight:700">'+overN+' 项已逾期</span>'):''))}</div>`;
+
+  function card(c){
+    const col=c.over?'var(--red)':(c.done?'var(--grn)':'var(--amb)');
+    const bg =c.over?'#fdecec':(c.done?'var(--grnbg)':'var(--ambbg)');
+    let badge;
+    if(c.done) badge='<span style="color:var(--grn);font-weight:700">✓ 本月全部完成</span>';
+    else if(c.over) badge='<span style="color:var(--red);font-weight:700">🔴 已逾期 '+c.overDays+' 天</span>';
+    else badge='<span style="color:var(--amb);font-weight:700">待处理'+(c.daysLeft!=null?('（还有 '+c.daysLeft+' 天到期）'):'')+'</span>';
+    return `<div class="card" style="border-left:5px solid ${col};background:${bg};display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+      <div style="flex:1;min-width:190px">
+        <div style="font-size:15px;font-weight:800">${c.title}</div>
+        <div style="font-size:11.5px;color:var(--mut);margin:2px 0">${c.due}</div>
+        <div style="font-size:13px;margin-top:4px">${c.status}</div>
+        <div style="margin-top:5px">${badge}</div>
+      </div>
+      <button onclick="go('${c.page}')" style="background:${col};color:#fff;border:none;border-radius:9px;padding:11px 18px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap">${c.btn} →</button>
+    </div>`;
+  }
+
+  h+=card({title:'🏠 租金',due:'截止 每月 10 号',
+    status:`已付 ${rPaid}/${rentUnits.length} 单元`+(rUnpaidN>0?` · 未付 ${rUnpaidN} 笔 RM ${fmt(rUnpaidAmt)}`:''),
+    done:rUnpaidN===0, over:rOver, overDays:dom-RENT_DUE, daysLeft:(isCur&&dom<=RENT_DUE)?(RENT_DUE-dom):null,
+    page:'rent', btn:'去付租金'});
+  h+=card({title:'📄 税务 CP',due:'截止 每月 15 号'+(MO%2===0?'（本月无 CP500）':''),
+    status:`本月应缴 ${taxDue.length} 笔 · 已付 ${tPaid}/${taxDue.length}`+(tUnpaidN>0?` · 未付 RM ${fmt(tUnpaidAmt)}`:''),
+    done:tUnpaidN===0, over:tOver, overDays:dom-TAX_DUE, daysLeft:(isCur&&dom<=TAX_DUE)?(TAX_DUE-dom):null,
+    page:'tax', btn:'去缴税'});
+  h+=card({title:'⚡ 水电（录本月账单）',due:'收到账单就录',
+    status:`已录 ${uRec}/${utilAccts.length} 账户`+(uMiss>0?` · 还没录 ${uMiss} 个`:''),
+    done:uMiss===0, over:false, overDays:0, daysLeft:null,
+    page:'util', btn:'去录水电'});
+
+  const salGross=payroll._denied?null:payroll.reduce((a,r)=>a+r.gross,0);
+  const utilMoSum=utilAccts.reduce((a,x)=>a+(+utilRead[x.id+'|'+MO]||0),0);
+  const rentSum=rentUnits.reduce((a,r)=>a+(+r.monthly_rent||0),0);
+  const taxSum=taxDue.reduce((a,t)=>a+(+t.instalment||0),0);
+  h+=`<div class="card"><div class="ct">本月出账小结（RM）</div>
+    <table><tr><th class="l">项目</th><th>金额/月</th></tr>
+    <tr><td class="l">租金</td><td>${fmt(rentSum)}</td></tr>
+    <tr><td class="l">税务 CP（本月应缴）</td><td>${fmt(taxSum)}</td></tr>
+    <tr><td class="l">水电（本月已录）</td><td>${fmt(utilMoSum)}</td></tr>
+    ${salGross!=null?`<tr><td class="l">薪资 Gross（读 HR）</td><td>${fmt(salGross)}</td></tr>`:'<tr><td class="l mut" colspan="2">薪资需 OWNER/ADMIN 登录才显示</td></tr>'}
+    </table></div>`;
   document.getElementById('content').innerHTML=h;
 }
 
