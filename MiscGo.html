@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>MiscGo v12</title>
+<title>MiscGo v13</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
@@ -562,12 +562,13 @@ body.teacher-mode .teacher-hide{display:none !important;}
    \u6539\u7248\u89c4\u5219\uff1a\u53ea\u7528\u6574\u6570\uff0c\u4e14\u4e09\u5904\u5fc5\u987b\u540c\u65f6\u6539 \u2014\u2014
    \u2460 <title>  \u2461 \u4e3b\u9875\u9876\u680f\u7684\u7248\u672c\u5fbd\u7ae0  \u2462 \u4e0b\u9762\u8fd9\u4e2a\u5e38\u6570
    \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550 */
-const APP_VERSION = 15;   /* v15 · Forgot Items：自己打的物品也列出来（绿色，可按掉）、每个孩子上方显示 Forgot: …、每个孩子一格 Remark（Owner 10-23）
+const APP_VERSION = 16;   /* v16 · 全套：v13 内容合入 v15 · 行政登记学生出缺席一律去 AttendanceGo：Attendance 分页、Report 的 Change of Time / Change in Pick Up、Outbox 的 SRK / ATC / SRT Absent、Class Replacement、Change Slot 改成「去 AttendanceGo」；老师照旧 */
+// v12 ·    /* v15 · Forgot Items：自己打的物品也列出来（绿色，可按掉）、每个孩子上方显示 Forgot: …、每个孩子一格 Remark（Owner 10-23）
 /* v14 · Forgot Items：打了字没按 Add 也会收进去；没选东西的孩子会提醒，不再整个消失（LL 10-23 回报） */
 /* v12 · Step 1：新分页 Attendance → Student absence（写资料库 attendance_notice，AttendanceGo 点名页看得到）；旧的本机请假草稿逐笔转换 */
 /* v12 · 受控试行开关：A7 补测通过前，Attendance 分页只给 OWNER 帐号（ChatGPT / Owner：A7 PASS 前不开放给全体行政）。
    A7 PASS 后改成 false（只改这一行）＝ 所有能登记学生请假的行政 / 管理层都看得到。资料库权限不受这个开关影响。 */
-const ATT_TRIAL_OWNER_ONLY = true;
+const ATT_TRIAL_OWNER_ONLY = false;
 
 const B='\u2980';
 const H=(n,e='')=>`*${B}${B}${B}${B} ${n} ${B}${B}${B}${B}*`+(e?` ${e}`:'');
@@ -2433,7 +2434,36 @@ function goTeacher(){
 }
 
 // ══ FORM ══
+
+/* ═══ v13 · 学生出缺席已搬去 AttendanceGo（架构 v3，Owner 10-21 / 10-22）══════════════
+   只影响能登记家长通知的行政 / 管理层（PERM.canNotice，跟 v12 同一个试行开关 ATT_TRIAL_OWNER_ONLY）；
+   老师看到的 MiscGo 完全照旧。本机旧草稿、没送完的请假照样看得到、送得完，只是不能再开新的。 */
+const ATTGO_URL='https://angelteo.github.io/OPR/AttendanceGo.html';
+const MOVED_FORMS={
+  SRK_ABS:['Student absence','Notices → + Absence','notices'], ATC_ABS:['Student absence','Notices → + Absence','notices'], SRT_ABS:['Student absence','Notices → + Absence','notices'],
+  CHANGE_TIME:['Change of time','Notices → + Leave early / + Arrive late / + Late pick-up','notices'],
+  PICKUP:['Change in pick-up','Notices → + Pick-up change','notices'],
+  REPLACEMENT:['SRT replacement class','Manage → SRT · Replacement / Temp slot → + Add (the message is sent from Notices → Messages to the groups)','manage'],
+  CHANGE_SLOT:['SRT slot change','One time: Manage → + Add (Temp slot). For good: Student page → Change Class. Messages are sent from AttendanceGo Notices → Messages to the groups','manage']
+};
+function movedToAttGo(id){ return !!MOVED_FORMS[id] && !!(window.PERM&&window.PERM.canNotice); }
+function attGoOpen(page){ window.open(ATTGO_URL+'#'+(page||'notices'),'_blank'); }
+function showMovedToAttGo(id){
+  const m=MOVED_FORMS[id]; if(!m) return;
+  let ov=document.getElementById('moved-ov'); if(ov) ov.remove();
+  ov=document.createElement('div'); ov.id='moved-ov';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px';
+  ov.innerHTML='<div style="background:var(--sur);border-radius:14px;max-width:420px;width:100%;padding:18px 16px">'
+    +'<div style="font-size:15px;font-weight:700;color:var(--navy);margin-bottom:6px">'+m[0]+' is now in AttendanceGo</div>'
+    +'<div style="font-size:13px;color:var(--txt2);margin-bottom:6px">Enter it once in AttendanceGo. Teachers see it on their marking page at once, and the WhatsApp message is made for you there.</div>'
+    +'<div style="font-size:12.5px;background:var(--sur2);border-radius:8px;padding:8px 10px;margin-bottom:12px">Where: <b>'+m[1]+'</b></div>'
+    +'<div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn" onclick="document.getElementById(\'moved-ov\').remove()">Close</button>'
+    +'<button class="btn btn-grn" onclick="attGoOpen(\''+m[2]+'\');document.getElementById(\'moved-ov\').remove()">Open AttendanceGo</button></div></div>';
+  ov.addEventListener('click',e=>{ if(e.target===ov) ov.remove(); });
+  document.body.appendChild(ov);
+}
 function openForm(id,caller){
+  if(movedToAttGo(id)){ showMovedToAttGo(id); return; }   /* v13 */
   window._editingRec=null;   // v10：开新报告一定不是编辑旧的
   curFmt=FORMATS.find(f=>f.id===id);if(!curFmt)return;
   formCaller=caller||'teacher';
@@ -5011,6 +5041,7 @@ function renderDrafts(cat){
   tabs+=`</div>`;
 
   let h=tabs;
+  if(window.PERM&&window.PERM.canNotice) h+=`<div class="card" style="background:#eff6ff;border-color:#93c5fd;font-size:12.5px;color:#1e40af">Student absence, SRT replacement class and slot change are now done in <b>AttendanceGo</b> (the message is made there too). Old drafts on this phone stay here until you clear them. <button class="btn" style="margin-left:6px" onclick="attGoOpen('notices')">Open AttendanceGo</button></div>`;   /* v13 */
 
   filtered.forEach(({cat,keys})=>{
     const cm=CATS[cat]||{icon:'•',color:'#666'};
@@ -6410,7 +6441,8 @@ async function attRender(){
 function attPageHtml(){
   let h='<div style="padding:16px 14px 28px;">';
   h+='<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px;"><div style="font-size:16px;font-weight:700;color:var(--navy);">🗓 Attendance</div>'
-    +'<button class="btn btn-grn" onclick="attOpenForm()">+ Student absence</button></div>';
+    +'<button class="btn btn-grn" onclick="attGoOpen(\'notices\')">Open AttendanceGo</button></div>'
+    +'<div class="card" style="background:#eff6ff;border-color:#93c5fd;font-size:12.5px;color:#1e40af;margin:8px 0">Student absence is now entered in <b>AttendanceGo → Notices</b>. This page only shows what was entered here before, and lets you finish anything not sent yet.</div>';   /* v13 */
   h+='<div style="font-size:12px;color:var(--mut);margin-bottom:14px;">Parent says a child will not come. Teachers see it on the AttendanceGo marking page.</div>';
   if(ATT.storageBad) h+='<div class="card" style="border-color:#f59e0b;background:#fef3c7;color:#92400e;font-size:12.5px;">⚠ This device could not save to its storage. Unsent absences may be lost if you close this page.</div>';
   h+=attOldDraftsHtml();
