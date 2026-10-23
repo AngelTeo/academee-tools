@@ -81,6 +81,7 @@ tr.tot td{font-weight:700;background:#f9f8f4;border-top:1.5px solid #333}
     <input id="l-pass" type="password" autocomplete="current-password" placeholder="••••••••">
     <button id="l-btn" onclick="doLogin()">登录</button>
     <div class="lerr" id="l-err"></div>
+    <div style="text-align:center;margin-top:12px"><a href="#" onclick="resetPw();return false" style="font-size:11px;color:var(--mut)">忘记密码?寄重设信到我邮箱</a></div>
   </div>
 </div>
 
@@ -110,11 +111,11 @@ const SB_URL='https://didjdgdwsecyeimwfbjs.supabase.co';
 const SB_KEY='sb_publishable_krIO4bvaGmNbjZni_o7Gcg_5hL5N5eK';
 const sb = window.supabase.createClient(SB_URL, SB_KEY, {auth:{persistSession:true,autoRefreshToken:true}});
 
-const CNAME={aca:'Academee',exc:'Excel Edu',sf:'Star Five',cm:'Code Moji'};
-const CCOL={aca:'#1f6feb',exc:'#8957e5',sf:'#2da44e',cm:'#bf8700'};
-const CO_ORDER=['aca','exc','sf','cm'];
+const CNAME={ACA:'Academee',EX:'Excel Edu',S5:'Star Five',CIY:'Code Moji'};
+const CCOL={ACA:'#1f6feb',EX:'#8957e5',S5:'#2da44e',CIY:'#bf8700'};
+const CO_ORDER=['ACA','EX','S5','CIY'];
 const MNS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-const NAME2CO=[[/academee/i,'aca'],[/excel/i,'exc'],[/star\s*five/i,'sf'],[/code\s*moji/i,'cm']];
+const NAME2CO=[[/academee/i,'ACA'],[/excel/i,'EX'],[/star\s*five/i,'S5'],[/code\s*moji/i,'CIY']];
 
 let YR=2026, MO=10;              // 当前年月 (mo 1-12)
 let EMP2CO={};                   // employer_id -> co
@@ -124,7 +125,7 @@ let rentPaid={}, taxPaid={}, utilRead={};  // keyed by id|yr|mo
 
 function toast(m,err){const t=document.getElementById('toast');t.textContent=m;t.className='toast show'+(err?' err':'');clearTimeout(window._t);window._t=setTimeout(()=>t.className='toast',2200);}
 function fmt(n){n=Math.round(n||0);const s=Math.abs(n).toLocaleString('en-US');return n<0?'('+s+')':s;}
-function co_of(name){for(const [re,co] of NAME2CO)if(re.test(name||''))return co;return 'aca';}
+function co_of(name){for(const [re,co] of NAME2CO)if(re.test(name||''))return co;return 'ACA';}
 
 // ============ auth ============
 async function doLogin(){
@@ -138,6 +139,14 @@ async function doLogin(){
   await boot();
 }
 async function doLogout(){ await sb.auth.signOut(); location.reload(); }
+async function resetPw(){
+  const email=document.getElementById('l-email').value.trim();
+  const err=document.getElementById('l-err');
+  if(!email){ err.textContent='请先填你的 Email'; return; }
+  const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:location.href});
+  err.style.color='var(--grn)';
+  err.textContent=error?('寄失败：'+error.message):('重设信已寄到 '+email+'，查收邮箱');
+}
 
 async function boot(){
   const {data:{session}} = await sb.auth.getSession();
@@ -169,7 +178,7 @@ async function loadAll(){
       if(emp.status && /void|left|resign|inactive/i.test(emp.status))return;
       const allow=(r.fixed_allow||0)+(r.perf_allow||0)+(r.meal||0)+(r.mobile||0)+(r.parking||0)+(r.svc_excellence||0)+(r.ot_pay||0)+(r.project_base||0);
       payroll.push({
-        co:EMP2CO[r.employer_id]||'aca',
+        co:EMP2CO[r.employer_id]||'ACA',
         name:emp.full_name||'(unnamed)',
         job:emp.job_title||'',
         isDir:/director/i.test(emp.job_title||'')||/director/i.test(emp.employment_type||''),
