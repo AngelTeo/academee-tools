@@ -562,7 +562,8 @@ body.teacher-mode .teacher-hide{display:none !important;}
    \u6539\u7248\u89c4\u5219\uff1a\u53ea\u7528\u6574\u6570\uff0c\u4e14\u4e09\u5904\u5fc5\u987b\u540c\u65f6\u6539 \u2014\u2014
    \u2460 <title>  \u2461 \u4e3b\u9875\u9876\u680f\u7684\u7248\u672c\u5fbd\u7ae0  \u2462 \u4e0b\u9762\u8fd9\u4e2a\u5e38\u6570
    \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550 */
-const APP_VERSION = 12;   /* v12 · Step 1：新分页 Attendance → Student absence（写资料库 attendance_notice，AttendanceGo 点名页看得到）；旧的本机请假草稿逐笔转换 */
+const APP_VERSION = 14;   /* v14 · Forgot Items：打了字没按 Add 也会收进去；没选东西的孩子会提醒，不再整个消失（LL 10-23 回报） */
+/* v12 · Step 1：新分页 Attendance → Student absence（写资料库 attendance_notice，AttendanceGo 点名页看得到）；旧的本机请假草稿逐笔转换 */
 /* v12 · 受控试行开关：A7 补测通过前，Attendance 分页只给 OWNER 帐号（ChatGPT / Owner：A7 PASS 前不开放给全体行政）。
    A7 PASS 后改成 false（只改这一行）＝ 所有能登记学生请假的行政 / 管理层都看得到。资料库权限不受这个开关影响。 */
 const ATT_TRIAL_OWNER_ONLY = true;
@@ -2821,7 +2822,29 @@ function saveDirectly(){
   toast('✓ Saved to system'+(students.length?' · '+students.join(', '):''));
 }
 
+/* v14 · Forgot Items（LL 10-23 回报）：
+   以前「Other item…」打了字没按旁边的 Add，或孩子一样都没选，按 Generate 时那个孩子整个消失，
+   要按 Edit 重来。现在：按 Generate 前先把打了字的东西收进去；还是有孩子没东西 → 提醒、不出讯息。 */
+function forgotFlush(){
+  if(!curFmt||!curFmt.fields.some(f=>f.type==='forgot')) return true;
+  const typed=forgotState.students.map((stu,i)=>[stu,(document.getElementById('custom-item-'+i)||{}).value||'']);
+  let changed=false;
+  typed.forEach(([stu,val])=>{ const t=String(val).trim(); if(!t) return;
+    if(!forgotState.items[stu]) forgotState.items[stu]=[];
+    if(!forgotState.items[stu].includes(t)) forgotState.items[stu].push(t);
+    changed=true; });
+  const nn=document.getElementById('stu-nn');
+  if(nn&&nn.value.trim()&&!forgotState.students.includes(nn.value.trim().toUpperCase())){ addFS(); changed=true; }
+  else if(changed){ const l=document.getElementById('fs-list'); if(l) l.innerHTML=renderFSList(); }
+  if(!forgotState.students.length){ toast('Add a student first',true); return false; }
+  const empty=forgotState.students.filter(stu=>!(forgotState.items[stu]||[]).length);
+  if(empty.length){ toast('Tap what '+empty[0]+' forgot (or remove with ×)',true);
+    const i=forgotState.students.indexOf(empty[0]); const el=document.getElementById('custom-item-'+i); if(el){ el.scrollIntoView({block:'center'}); el.focus(); }
+    return false; }
+  return true;
+}
 function generateAndSave(){
+  if(!forgotFlush()) return;   /* v14 */
   const ini=getIni();const v=collectVals();
   // Validate
   for(const f of curFmt.fields){
@@ -2904,6 +2927,7 @@ function generateAndSave(){
 }
 
 function generate(){
+  if(!forgotFlush()) return;   /* v14 */
   const ini=getIni();const v=collectVals();
   for(const f of curFmt.fields){
    if(f.req&&f.type!=='multi'&&f.type!=='section'&&f.type!=='forgot'){if(!v[f.id]||!String(v[f.id]).trim()){toast('Required: '+f.label,true);return;}}
