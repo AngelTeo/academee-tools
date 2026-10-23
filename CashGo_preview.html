@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CashGo v24 预览(样本)</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{
+  --nav:#17213a;--navtxt:#e8edf6;--gold:#d8a53a;--acc:#2f6fed;
+  --bg:#f4f3ef;--sur:#fff;--bdr:#e2ded5;--txt:#1a1a1a;--mut:#8a8a8a;
+  --grn:#1f8a5b;--grnbg:#e5f5ec;--red:#b3362f;--amb:#9a6a12;--ambbg:#fdf6e7;
+  --yellow:#FFF7D6;--yellowbd:#E6C74D;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',Arial,'Microsoft YaHei',sans-serif;background:var(--bg);color:var(--txt);font-size:13px;line-height:1.5}
+/* nav */
+.nav{background:var(--nav);color:var(--navtxt);display:flex;align-items:center;gap:4px;padding:0 14px;height:52px;position:sticky;top:0;z-index:50;flex-wrap:wrap}
+.brand{font-weight:800;font-size:17px;margin-right:12px}
+.brand b{color:var(--gold)}
+.nt{background:none;border:none;color:#aeb7c9;padding:8px 12px;font-size:12.5px;cursor:pointer;border-bottom:2.5px solid transparent;font-family:inherit}
+.nt.on{color:#fff;border-bottom-color:var(--gold);font-weight:600}
+.nav .right{margin-left:auto;display:flex;align-items:center;gap:10px;font-size:11.5px;color:#aeb7c9}
+.btn{border:.5px solid var(--bdr);background:var(--sur);border-radius:7px;padding:5px 12px;cursor:pointer;font-size:12px;font-family:inherit;color:var(--acc)}
+.btn.sm{padding:3px 9px;font-size:11px}
+.wrap{max-width:1120px;margin:0 auto;padding:16px}
+h2{font-size:17px;font-weight:800;margin-bottom:2px}
+.sub{font-size:11px;color:var(--mut);margin-bottom:14px}
+.card{background:var(--sur);border:.5px solid var(--bdr);border-radius:10px;padding:14px;margin-bottom:12px}
+.ct{font-size:13px;font-weight:700;margin-bottom:10px}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{background:#f6f5f1;padding:7px 8px;text-align:right;font-weight:600;border-bottom:1px solid var(--bdr);white-space:nowrap;font-size:11px}
+th.l{text-align:left}
+td{padding:5px 8px;text-align:right;border-bottom:.5px solid #eee;white-space:nowrap}
+td.l{text-align:left}
+tr.tot td{font-weight:700;background:#f9f8f4;border-top:1.5px solid #333}
+.co-hdr{color:#fff;padding:7px 12px;border-radius:7px 7px 0 0;font-weight:700;font-size:12.5px;display:flex;align-items:center;gap:10px}
+.inp{width:80px;border:1px solid var(--yellowbd);background:var(--yellow);border-radius:5px;padding:3px 6px;text-align:right;font-family:inherit;font-size:12px}
+.inp:focus{outline:2px solid var(--acc);background:#fff}
+.inp.l{text-align:left}
+.chk{width:15px;height:15px;accent-color:var(--grn);cursor:pointer}
+.pill{display:inline-block;font-size:9.5px;padding:1px 7px;border-radius:8px;font-weight:700}
+.pill.g{background:var(--grnbg);color:var(--grn)}
+.grid4{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:12px}
+.stat{background:var(--sur);border:.5px solid var(--bdr);border-radius:10px;padding:12px}
+.stat .l{font-size:10.5px;color:var(--mut);margin-bottom:3px}
+.stat .v{font-size:20px;font-weight:800}
+.mut{color:var(--mut)}
+.note{font-size:11px;color:var(--mut);margin-top:8px}
+.ym{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.ym select{padding:4px 8px;border:1px solid var(--bdr);border-radius:6px;font-family:inherit}
+.scroll{overflow-x:auto}
+/* login */
+#login{position:fixed;inset:0;background:var(--nav);display:flex;align-items:center;justify-content:center;z-index:100}
+.lbox{background:#fff;border-radius:14px;padding:30px 28px;width:340px;box-shadow:0 10px 40px rgba(0,0,0,.3)}
+.lbox h1{font-size:22px;font-weight:800;margin-bottom:4px}
+.lbox h1 b{color:var(--gold)}
+.lbox p{font-size:11.5px;color:var(--mut);margin-bottom:18px}
+.lbox label{font-size:11px;color:var(--mut);display:block;margin:10px 0 3px}
+.lbox input{width:100%;border:1px solid var(--bdr);border-radius:7px;padding:9px 11px;font-size:13px;font-family:inherit}
+.lbox button{width:100%;margin-top:18px;background:var(--acc);color:#fff;border:none;border-radius:8px;padding:11px;font-size:14px;font-weight:600;cursor:pointer}
+.lbox button:disabled{opacity:.5}
+.lerr{color:var(--red);font-size:11.5px;margin-top:10px;min-height:14px}
+#app{display:none}
+.toast{position:fixed;bottom:16px;right:16px;background:#222;color:#fff;padding:9px 16px;border-radius:8px;font-size:12px;opacity:0;transition:.3s;pointer-events:none;z-index:90}
+.toast.show{opacity:1}
+.toast.err{background:var(--red)}
+.banner{background:var(--ambbg);border:.5px solid #eccf8f;border-radius:8px;padding:8px 12px;font-size:11.5px;color:var(--amb);margin-bottom:12px}
+</style>
+</head>
+<body>
+
+<!-- ===== LOGIN ===== -->
+<div id="login">
+  <div class="lbox">
+    <h1>Cash<b>Go</b></h1>
+    <p>Academee HR / Finance · 请用你的 HR 账号登录</p>
+    <label>Email</label>
+    <input id="l-email" type="email" autocomplete="username" placeholder="you@academee...">
+    <label>Password</label>
+    <input id="l-pass" type="password" autocomplete="current-password" placeholder="••••••••">
+    <button id="l-btn" onclick="doLogin()">登录</button>
+    <div class="lerr" id="l-err"></div>
+    <div style="text-align:center;margin-top:12px"><a href="#" onclick="resetPw();return false" style="font-size:11px;color:var(--mut)">忘记密码?寄重设信到我邮箱</a></div>
+  </div>
+</div>
+
+<!-- ===== APP ===== -->
+<div id="app">
+  <div class="nav">
+    <span class="brand">Cash<b>Go</b></span>
+    <button class="nt on" data-p="dash" onclick="go('dash')">概览</button>
+    <button class="nt" data-p="payroll" onclick="go('payroll')">薪资(只读)</button>
+    <button class="nt" data-p="rent" onclick="go('rent')">租金</button>
+    <button class="nt" data-p="tax" onclick="go('tax')">税务 CP</button>
+    <button class="nt" data-p="util" onclick="go('util')">水电</button>
+    <span class="right">
+      <span id="who"></span>
+      <button class="btn sm" onclick="doLogout()">登出</button>
+    </span>
+  </div>
+  <div class="wrap" id="content"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ============ config ============
+const APP_VERSION=24;
+const SB_URL='https://didjdgdwsecyeimwfbjs.supabase.co';
+const SB_KEY='sb_publishable_krIO4bvaGmNbjZni_o7Gcg_5hL5N5eK';
+function _mkB(data){const b={};['select','insert','update','upsert','delete','eq','is','order','single','limit'].forEach(m=>b[m]=()=>b);b.then=(res)=>res({data:data||[],error:null});return b;}
+const sb={from:()=>_mkB([]),auth:{getSession:()=>Promise.resolve({data:{session:null}}),signOut:()=>Promise.resolve({})}};
+
+const CNAME={ACA:'Academee',EX:'Excel Edu',S5:'Star Five',CIY:'Code Moji'};
+const CCOL={ACA:'#1f6feb',EX:'#8957e5',S5:'#2da44e',CIY:'#bf8700'};
+const CO_ORDER=['ACA','EX','S5','CIY'];
+const MNS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const NAME2CO=[[/academee/i,'ACA'],[/excel/i,'EX'],[/star\s*five/i,'S5'],[/code\s*moji/i,'CIY']];
+
+let YR=2026, MO=10;              // 当前年月 (mo 1-12)
+let EMP2CO={};                   // employer_id -> co
+let payroll=[];                  // {co,name,job,isDir,basic,allow,gross}
+let rentUnits=[], taxItems=[], utilAccts=[];
+let rentPaid={}, taxPaid={}, utilRead={};  // keyed by id|yr|mo
+
+function toast(m,err){const t=document.getElementById('toast');t.textContent=m;t.className='toast show'+(err?' err':'');clearTimeout(window._t);window._t=setTimeout(()=>t.className='toast',2200);}
+function fmt(n){n=Math.round(n||0);const s=Math.abs(n).toLocaleString('en-US');return n<0?'('+s+')':s;}
+function co_of(name){for(const [re,co] of NAME2CO)if(re.test(name||''))return co;return 'ACA';}
+
+// ============ auth ============
+async function doLogin(){
+  const email=document.getElementById('l-email').value.trim();
+  const pass=document.getElementById('l-pass').value;
+  const btn=document.getElementById('l-btn'), err=document.getElementById('l-err');
+  err.textContent=''; btn.disabled=true; btn.textContent='登录中…';
+  const {error}=await sb.auth.signInWithPassword({email,password:pass});
+  btn.disabled=false; btn.textContent='登录';
+  if(error){err.textContent='登录失败：'+error.message;return;}
+  await boot();
+}
+async function doLogout(){ await sb.auth.signOut(); location.reload(); }
+async function resetPw(){
+  const email=document.getElementById('l-email').value.trim();
+  const err=document.getElementById('l-err');
+  if(!email){ err.textContent='请先填你的 Email'; return; }
+  const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:location.href});
+  err.style.color='var(--grn)';
+  err.textContent=error?('寄失败：'+error.message):('重设信已寄到 '+email+'，查收邮箱');
+}
+
+async function boot(){
+  const {data:{session}} = await sb.auth.getSession();
+  if(!session){ document.getElementById('login').style.display='flex'; document.getElementById('app').style.display='none'; return; }
+  document.getElementById('login').style.display='none';
+  document.getElementById('app').style.display='block';
+  document.getElementById('who').textContent=session.user.email;
+  await loadAll();
+  go('dash');
+}
+
+// ============ load ============
+async function loadAll(){
+  // employers -> co map
+  const {data:emps}=await sb.from('hr_employer').select('id,registered_name');
+  EMP2CO={}; (emps||[]).forEach(e=>EMP2CO[e.id]=co_of(e.registered_name));
+
+  // payroll (read-only from hr_salary); RLS: OWNER/ADMIN only
+  const {data:sal,error:se}=await sb.from('hr_salary')
+    .select('employee_id,employer_id,effective_from,basic,fixed_allow,perf_allow,ot_pay,svc_excellence,project_base,meal,mobile,parking,gross,hr_employee(full_name,job_title,employment_type,status)')
+    .is('voided_at',null)
+    .order('effective_from',{ascending:false});
+  payroll=[];
+  if(!se && sal){
+    const seen=new Set();
+    sal.forEach(r=>{
+      if(seen.has(r.employee_id))return; seen.add(r.employee_id); // latest per employee
+      const emp=r.hr_employee||{};
+      if(emp.status && /void|left|resign|inactive/i.test(emp.status))return;
+      const allow=(r.fixed_allow||0)+(r.perf_allow||0)+(r.meal||0)+(r.mobile||0)+(r.parking||0)+(r.svc_excellence||0)+(r.ot_pay||0)+(r.project_base||0);
+      payroll.push({
+        co:EMP2CO[r.employer_id]||'ACA',
+        name:emp.full_name||'(unnamed)',
+        job:emp.job_title||'',
+        isDir:/director/i.test(emp.job_title||'')||/director/i.test(emp.employment_type||''),
+        basic:r.basic||0, allow, gross:r.gross||((r.basic||0)+allow)
+      });
+    });
+  }
+  payroll._denied = !!se; // RLS blocked = not OWNER/ADMIN
+
+  // rent / tax / util masters
+  const [{data:ru},{data:tx},{data:ua}] = await Promise.all([
+    sb.from('cashgo_rent_unit').select('*').eq('active',true).order('sort'),
+    sb.from('cashgo_tax_cp').select('*').eq('active',true).order('sort'),
+    sb.from('cashgo_util_account').select('*').eq('active',true).order('sort'),
+  ]);
+  rentUnits=ru||[]; taxItems=tx||[]; utilAccts=ua||[];
+
+  // monthly data for current YR
+  const [{data:rp},{data:tp},{data:ur}] = await Promise.all([
+    sb.from('cashgo_rent_paid').select('unit_id,yr,mo,paid').eq('yr',YR),
+    sb.from('cashgo_tax_paid').select('cp_id,yr,mo,paid').eq('yr',YR),
+    sb.from('cashgo_util_reading').select('account_id,yr,mo,amount').eq('yr',YR),
+  ]);
+  rentPaid={}; (rp||[]).forEach(x=>rentPaid[x.unit_id+'|'+x.mo]=x.paid);
+  taxPaid={};  (tp||[]).forEach(x=>taxPaid[x.cp_id+'|'+x.mo]=x.paid);
+  utilRead={}; (ur||[]).forEach(x=>utilRead[x.account_id+'|'+x.mo]=x.amount);
+}
+
+// ============ nav ============
+function go(p){
+  document.querySelectorAll('.nt').forEach(b=>b.classList.toggle('on',b.dataset.p===p));
+  ({dash:renderDash,payroll:renderPayroll,rent:renderRent,tax:renderTax,util:renderUtil}[p])();
+}
+
+// ============ dashboard ============
+function renderDash(){
+  const rentTot=rentUnits.reduce((a,r)=>a+(+r.monthly_rent||0),0);
+  const payTot=payroll.reduce((a,r)=>a+r.gross,0);
+  const utilMo=utilAccts.reduce((a,x)=>a+(+utilRead[x.id+'|'+MO]||0),0);
+  const taxMo=taxItems.filter(t=>!t.odd_only || MO%2===1).reduce((a,t)=>a+(+t.instalment||0),0);
+  let h=`<h2>概览</h2><div class="sub">${MNS[MO-1]} ${YR} · 单位 RM · 数据存 Academee-HR 云端</div>`;
+  h+=`<div class="grid4">
+    <div class="stat"><div class="l">薪资 Gross/月 (读 HR)</div><div class="v">${payroll._denied?'—':fmt(payTot)}</div></div>
+    <div class="stat"><div class="l">租金/月</div><div class="v">${fmt(rentTot)}</div></div>
+    <div class="stat"><div class="l">本月税务 CP</div><div class="v">${fmt(taxMo)}</div></div>
+    <div class="stat"><div class="l">本月水电已录</div><div class="v">${fmt(utilMo)}</div></div>
+  </div>`;
+  if(payroll._denied) h+=`<div class="banner">你这个账号没有 OWNER/ADMIN 权限,看不到薪资(这是正常的权限保护)。租金/税务/水电仍可查看与输入。</div>`;
+  h+=`<div class="card"><div class="ct">说明</div>
+    <div class="note">· 薪资：<b>只读</b> HR 现有 <code>hr_salary</code>,不在此输入。<br>
+    · 租金 / 税务 / 水电：行政在此直接输入,存云端(需 ADMIN 权限写入)。<br>
+    · EPF/SOCSO/EIS 以标准率估算,精确值以 HR 系统为准。</div></div>`;
+  document.getElementById('content').innerHTML=h;
+}
+
+// ============ payroll (read only) ============
+function renderPayroll(){
+  let h=`<h2>薪资 <span class="pill g">只读 · 来源 hr_salary</span></h2><div class="sub">来自 HR 云端单一正本;EPF 以 19%(董事)/13% 估算,SOCSO/EIS 请看 HR</div>`;
+  if(payroll._denied){ h+=`<div class="banner">没有 OWNER/ADMIN 权限,无法显示薪资。</div>`; document.getElementById('content').innerHTML=h; return; }
+  CO_ORDER.forEach(co=>{
+    const rows=payroll.filter(p=>p.co===co); if(!rows.length)return;
+    const gTot=rows.reduce((a,r)=>a+r.gross,0);
+    const epfTot=rows.reduce((a,r)=>a+Math.round(r.gross*(r.isDir?0.19:0.13)),0);
+    h+=`<div class="card" style="padding:0;overflow:hidden">
+      <div class="co-hdr" style="background:${CCOL[co]}">${CNAME[co]}
+        <span style="margin-left:auto;font-weight:400;font-size:11px">Gross RM ${fmt(gTot)} · EPF(est) RM ${fmt(epfTot)} · 共 ${rows.length} 人</span></div>
+      <div class="scroll"><table>
+      <thead><tr><th class="l">姓名</th><th class="l">职位</th><th>Basic</th><th>津贴</th><th>Gross</th><th>EPF(est)</th><th>雇主成本(est)</th></tr></thead><tbody>`;
+    rows.forEach(r=>{
+      const epf=Math.round(r.gross*(r.isDir?0.19:0.13));
+      h+=`<tr><td class="l">${r.name}${r.isDir?' <span class="pill g">Dir</span>':''}</td>
+        <td class="l mut" style="font-size:11px">${r.job||'—'}</td>
+        <td>${fmt(r.basic)}</td><td>${fmt(r.allow)}</td><td style="font-weight:600">${fmt(r.gross)}</td>
+        <td class="mut">${fmt(epf)}</td><td style="font-weight:600">${fmt(r.gross+epf)}</td></tr>`;
+    });
+    h+=`<tr class="tot"><td class="l">合计</td><td></td><td></td><td></td><td>${fmt(gTot)}</td><td>${fmt(epfTot)}</td><td>${fmt(gTot+epfTot)}</td></tr>`;
+    h+=`</tbody></table></div></div>`;
+  });
+  document.getElementById('content').innerHTML=h;
+}
+
+// ============ rent ============
+function renderRent(){
+  const tot=rentUnits.reduce((a,r)=>a+(+r.monthly_rent||0),0);
+  let h=`<h2>租金</h2><div class="sub">房东 CN Tang · 月总 RM ${fmt(tot)} · 年 RM ${fmt(tot*12)}</div>`;
+  h+=yearPicker();
+  h+=`<div class="card"><div class="scroll"><table>
+    <thead><tr><th class="l">公司</th><th class="l">单元</th><th class="l">收款人</th><th>月租</th>
+    ${MNS.map(m=>`<th>${m}</th>`).join('')}</tr></thead><tbody>`;
+  rentUnits.forEach(r=>{
+    h+=`<tr><td class="l" style="color:${CCOL[r.company]};font-weight:600">${CNAME[r.company]||r.company}</td>
+      <td class="l">${r.unit}</td><td class="l mut" style="font-size:11px">${r.payee||''}</td>
+      <td><input class="inp" type="number" value="${+r.monthly_rent}" onchange="updRentAmt('${r.id}',this.value)"></td>`;
+    for(let m=1;m<=12;m++){
+      const paid=!!rentPaid[r.id+'|'+m];
+      h+=`<td><input type="checkbox" class="chk" ${paid?'checked':''} onchange="tickRent('${r.id}',${m},this.checked)"></td>`;
+    }
+    h+=`</tr>`;
+  });
+  h+=`<tr class="tot"><td class="l" colspan="3">月总</td><td>${fmt(tot)}</td>${MNS.map(()=>`<td>${fmt(tot)}</td>`).join('')}</tr>`;
+  h+=`</tbody></table></div><div class="note">改月租或打勾即存云端。</div></div>`;
+  document.getElementById('content').innerHTML=h;
+}
+async function updRentAmt(id,v){
+  const {error}=await sb.from('cashgo_rent_unit').update({monthly_rent:+v||0,updated_at:new Date().toISOString()}).eq('id',id);
+  if(error)return toast('没权限写入(需 ADMIN)',1);
+  const u=rentUnits.find(x=>x.id===id); if(u)u.monthly_rent=+v||0; toast('已存'); renderRent();
+}
+async function tickRent(id,mo,paid){
+  const {error}=await sb.from('cashgo_rent_paid').upsert({unit_id:id,yr:YR,mo,paid,updated_at:new Date().toISOString()},{onConflict:'unit_id,yr,mo'});
+  if(error)return toast('没权限写入(需 ADMIN)',1);
+  rentPaid[id+'|'+mo]=paid; toast('已存');
+}
+
+// ============ tax ============
+function renderTax(){
+  let h=`<h2>税务 CP</h2><div class="sub">CP204(公司)· CP500(个人,单月)· 每月 15 号前</div>`;
+  h+=`<div class="grid4">`;
+  taxItems.forEach(t=>{
+    const annual=(+t.instalment||0)*(t.odd_only?6:12);
+    h+=`<div class="stat" style="border-top:2.5px solid ${t.cp_type==='CP204'?'var(--acc)':'var(--amb)'}">
+      <div class="l">${t.label}</div>
+      <div class="v" style="font-size:16px">RM <input class="inp" style="width:72px;font-size:15px" type="number" value="${+t.instalment}" onchange="updTax('${t.id}','instalment',this.value)"></div>
+      <div class="note">年 RM ${fmt(annual)} · Ref <input class="inp l" style="width:120px;font-size:10px;font-family:monospace" value="${t.ref_no||''}" onchange="updTax('${t.id}','ref_no',this.value)"></div>
+    </div>`;
+  });
+  h+=`</div>`;
+  h+=yearPicker();
+  h+=`<div class="card"><div class="scroll"><table>
+    <thead><tr><th class="l">名目</th><th class="l">类型</th>${MNS.map(m=>`<th>${m}</th>`).join('')}</tr></thead><tbody>`;
+  taxItems.forEach(t=>{
+    h+=`<tr><td class="l"><b>${t.label}</b></td><td class="l"><span class="pill g">${t.cp_type}</span></td>`;
+    for(let m=1;m<=12;m++){
+      const skip=t.odd_only && m%2===0;
+      if(skip){ h+=`<td class="mut">—</td>`; continue; }
+      const paid=!!taxPaid[t.id+'|'+m];
+      h+=`<td><input type="checkbox" class="chk" ${paid?'checked':''} onchange="tickTax('${t.id}',${m},this.checked)"></td>`;
+    }
+    h+=`</tr>`;
+  });
+  h+=`</tbody></table></div><div class="note">改金额/Ref/打勾即存云端。</div></div>`;
+  document.getElementById('content').innerHTML=h;
+}
+async function updTax(id,field,v){
+  const val=field==='instalment'?(+v||0):v;
+  const {error}=await sb.from('cashgo_tax_cp').update({[field]:val,updated_at:new Date().toISOString()}).eq('id',id);
+  if(error)return toast('没权限写入(需 ADMIN)',1);
+  const t=taxItems.find(x=>x.id===id); if(t)t[field]=val; toast('已存'); renderTax();
+}
+async function tickTax(id,mo,paid){
+  const {error}=await sb.from('cashgo_tax_paid').upsert({cp_id:id,yr:YR,mo,paid,updated_at:new Date().toISOString()},{onConflict:'cp_id,yr,mo'});
+  if(error)return toast('没权限写入(需 ADMIN)',1);
+  taxPaid[id+'|'+mo]=paid; toast('已存');
+}
+
+// ============ util ============
+function renderUtil(){
+  let h=`<h2>水电</h2><div class="sub">TNB 电 · SAJ 水 · 逐月录实际金额</div>`;
+  h+=yearPicker();
+  h+=`<div class="card"><div class="scroll"><table>
+    <thead><tr><th class="l">公司</th><th class="l">类型</th><th class="l">单元</th>${MNS.map(m=>`<th>${m}</th>`).join('')}<th>年计</th></tr></thead><tbody>`;
+  utilAccts.forEach(a=>{
+    let yrTot=0;
+    let row=`<tr><td class="l" style="color:${CCOL[a.company]};font-weight:600">${CNAME[a.company]||a.company}</td>
+      <td class="l">${a.provider}</td><td class="l mut" style="font-size:11px">${a.unit||''}</td>`;
+    for(let m=1;m<=12;m++){
+      const v=utilRead[a.id+'|'+m]; yrTot+=(+v||0);
+      row+=`<td><input class="inp" style="width:62px" type="number" value="${v!=null?v:''}" onchange="updUtil('${a.id}',${m},this.value)"></td>`;
+    }
+    row+=`<td style="font-weight:600">${fmt(yrTot)}</td></tr>`;
+    h+=row;
+  });
+  // 月合计
+  h+=`<tr class="tot"><td class="l" colspan="3">月合计</td>`;
+  for(let m=1;m<=12;m++){const s=utilAccts.reduce((a,x)=>a+(+utilRead[x.id+'|'+m]||0),0);h+=`<td>${fmt(s)}</td>`;}
+  h+=`<td>${fmt(utilAccts.reduce((a,x)=>{let t=0;for(let m=1;m<=12;m++)t+=(+utilRead[x.id+'|'+m]||0);return a+t;},0))}</td></tr>`;
+  h+=`</tbody></table></div><div class="note">输入金额即存云端(空白=未录)。</div></div>`;
+  document.getElementById('content').innerHTML=h;
+}
+async function updUtil(id,mo,v){
+  if(v===''){ // 清空 = 删这格
+    const {error}=await sb.from('cashgo_util_reading').delete().eq('account_id',id).eq('yr',YR).eq('mo',mo);
+    if(error)return toast('没权限写入(需 ADMIN)',1);
+    delete utilRead[id+'|'+mo]; toast('已清'); return;
+  }
+  const {error}=await sb.from('cashgo_util_reading').upsert({account_id:id,yr:YR,mo,amount:+v||0,updated_at:new Date().toISOString()},{onConflict:'account_id,yr,mo'});
+  if(error)return toast('没权限写入(需 ADMIN)',1);
+  utilRead[id+'|'+mo]=+v||0; toast('已存'); renderUtil();
+}
+
+// ============ year picker ============
+function yearPicker(){
+  let opts=''; for(let y=2025;y<=2028;y++)opts+=`<option value="${y}" ${y===YR?'selected':''}>${y}</option>`;
+  return `<div class="ym"><span class="mut">年度:</span><select onchange="changeYear(this.value)">${opts}</select></div>`;
+}
+async function changeYear(y){
+  YR=+y;
+  const [{data:rp},{data:tp},{data:ur}] = await Promise.all([
+    sb.from('cashgo_rent_paid').select('unit_id,mo,paid').eq('yr',YR),
+    sb.from('cashgo_tax_paid').select('cp_id,mo,paid').eq('yr',YR),
+    sb.from('cashgo_util_reading').select('account_id,mo,amount').eq('yr',YR),
+  ]);
+  rentPaid={}; (rp||[]).forEach(x=>rentPaid[x.unit_id+'|'+x.mo]=x.paid);
+  taxPaid={};  (tp||[]).forEach(x=>taxPaid[x.cp_id+'|'+x.mo]=x.paid);
+  utilRead={}; (ur||[]).forEach(x=>utilRead[x.account_id+'|'+x.mo]=x.amount);
+  const cur=document.querySelector('.nt.on')?.dataset.p||'rent'; go(cur);
+}
+
+// ============ init ============
+
+function loadSample(){
+  payroll=[
+    {co:'ACA',name:'员工 A1 (样本)',job:'Director',isDir:true,basic:10000,allow:0,gross:10000},
+    {co:'ACA',name:'员工 A2 (样本)',job:'Teacher',isDir:false,basic:2500,allow:300,gross:2800},
+    {co:'EX', name:'员工 E1 (样本)',job:'Teacher',isDir:false,basic:3000,allow:300,gross:3300},
+    {co:'EX', name:'员工 E2 (样本)',job:'Admin',isDir:false,basic:2200,allow:0,gross:2200},
+    {co:'S5', name:'员工 S1 (样本)',job:'Teacher',isDir:false,basic:2800,allow:0,gross:2800},
+    {co:'CIY',name:'员工 C1 (样本)',job:'Coach',isDir:false,basic:2600,allow:0,gross:2600},
+  ]; payroll._denied=false;
+  rentUnits=[
+    {id:'r1',company:'EX', unit:'No.82-44 Tkt 1',payee:'CN Tang',monthly_rent:1848},
+    {id:'r2',company:'S5', unit:'No.82-44 Tkt 2',payee:'CN Tang',monthly_rent:1618},
+    {id:'r3',company:'S5', unit:'No.82-45 Tkt 2',payee:'CN Tang',monthly_rent:1734},
+    {id:'r4',company:'S5', unit:'No.82-46 Tkt 2',payee:'CN Tang',monthly_rent:859},
+    {id:'r5',company:'CIY',unit:'No.82-46 Tkt 1',payee:'CN Tang',monthly_rent:950},
+    {id:'r6',company:'CIY',unit:'No.82-47 Tkt 1',payee:'CN Tang',monthly_rent:891},
+    {id:'r7',company:'ACA',unit:'No.82-46 Tkt 1',payee:'Code Moji (sublease)',monthly_rent:935},
+    {id:'r8',company:'ACA',unit:'No.82-47 Tkt 1',payee:'Code Moji (sublease)',monthly_rent:880},
+  ];
+  taxItems=[
+    {id:'t1',label:'Academee CP204',cp_type:'CP204',ref_no:'SAMPLE-204A',instalment:2125,odd_only:false},
+    {id:'t2',label:'Excel Edu CP204',cp_type:'CP204',ref_no:'SAMPLE-204E',instalment:2550,odd_only:false},
+    {id:'t3',label:'TBF CP500',cp_type:'CP500',ref_no:'SAMPLE-500T',instalment:4179,odd_only:true},
+    {id:'t4',label:'LZF CP500',cp_type:'CP500',ref_no:'SAMPLE-500L',instalment:3761,odd_only:true},
+  ];
+  utilAccts=[
+    {id:'u1',company:'EX', provider:'TNB',unit:'82-44',meter_ref:'tnb_ex_44'},
+    {id:'u2',company:'EX', provider:'SAJ',unit:'82-44',meter_ref:'saj_ex_44'},
+    {id:'u3',company:'S5', provider:'TNB',unit:'82-44',meter_ref:'tnb_s5_44'},
+    {id:'u4',company:'S5', provider:'SAJ',unit:'82-44',meter_ref:'saj_s5_44'},
+    {id:'u5',company:'CIY',provider:'TNB',unit:'82-47',meter_ref:'tnb_ciy_47'},
+  ];
+  rentPaid={'r1|1':true,'r1|2':true,'r2|1':true};
+  taxPaid={'t1|1':true,'t2|1':true};
+  utilRead={'u1|1':1962,'u1|2':1768,'u1|3':1869,'u3|1':2011};
+}
+
+(function(){
+  const now=new Date(); YR=now.getFullYear(); MO=now.getMonth()+1;
+  if(YR<2025||YR>2028)YR=2026;
+  loadSample();
+  document.getElementById('login').style.display='none';
+  document.getElementById('app').style.display='block';
+  document.getElementById('who').textContent='预览(样本数据)';
+  const app=document.getElementById('app'), ct=document.getElementById('content');
+  const b=document.createElement('div'); b.className='banner'; b.style.margin='12px 16px 0';
+  b.innerHTML='🔎 预览版 · 样本假数据 · 免登录 · 改动<b>不保存</b> —— 仅供判断界面与流程；真实数据请用登录版 CashGo.html。';
+  app.insertBefore(b,ct);
+  go('dash');
+})();
+</script>
+</body>
+</html>
