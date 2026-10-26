@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Marketing CRM System v30</title>
+<title>Marketing CRM System v31</title>
 <style>
 :root{--acc:#185FA5;--acc2:#0f4a8c;--grn:#0F6E56;--grn2:#085041;--red:#A32D2D;--amb:#854F0B;--pur:#5a3e99;--sur:#fff;--sur2:#f5f4f0;--sur3:#eceae4;--bdr:#e0ddd6;--txt:#1a1a1a;--mut:#888;--hint:#bbb;--r:10px;--rs:7px;--sh:0 1px 4px rgba(0,0,0,.07);--shm:0 8px 32px rgba(0,0,0,.18);}
 *{box-sizing:border-box;margin:0;padding:0;font-family:'Segoe UI',Arial,sans-serif;}
@@ -652,7 +652,7 @@ tr:last-child td{border-bottom:none;}
 </head>
 <body>
 <div class="nav">
-  <button class="nav-home" onclick="location.href='../index.html'" title="回平台">←</button><div class="nav-brand">📱 Marketing CRM <span class="vbadge">v30</span></div>
+  <button class="nav-home" onclick="location.href='../index.html'" title="回平台">←</button><div class="nav-brand">📱 Marketing CRM <span class="vbadge">v31</span></div>
   <button class="ntab on" data-p="dashboard" onclick="goPage('dashboard')">🏠 Today</button>
   <button class="ntab more13" data-p="followup" onclick="goPage('followup')">📅 Follow-up</button>
   <button class="ntab" data-p="calendar" onclick="goPage('calendar')">📅 Calendar</button>
@@ -1146,9 +1146,9 @@ function heroSearch(){
   box.innerHTML=results.map(l=>{
     const ll=getLastLog(l);
     return `<div class="sri" onclick="openProfile('${l.id}');document.getElementById('hero-results').style.display='none'">
-      <div class="sri-av">${initials(l.name)}</div>
+      <div class="sri-av">${initials(displayName(l)||l.phone||'?')}</div>
       <div class="sri-body">
-        <div class="sri-name">${l.name} ${l.flagged?'🚩':''} ${l.crossSell?'💡':''}</div>
+        <div class="sri-name">${esc(displayName(l)||fmtPhone(l.phone))} ${l.flagged?'🚩':''} ${l.crossSell?'💡':''}</div>
         <div class="sri-detail"><span class="ph">${l.phone}</span> · ${stagePill(l.stage)} · ${progBadge(l.prog)}</div>
         ${ll?`<div class="sri-detail">Last: ${daysAgo(getLastContact(l))} — ${(ll.outcome||ll.notes||'').slice(0,50)}</div>`:''} 
       </div>
@@ -1567,10 +1567,10 @@ function renderProfile(){
   ov.innerHTML=`<div class="profile-sheet">
     <div class="profile-hdr">
       <div class="profile-hdr-top">
-        <div class="profile-avatar">${initials(l.name)}</div>
+        <div class="profile-avatar">${initials(displayName(l)||l.phone||'?')}</div>
         <div class="profile-info">
           <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap">
-            <div class="profile-name">${l.name}</div>
+            <div class="profile-name">${esc(displayName(l)||fmtPhone(l.phone)||'(no name)')}</div>
             ${l.flagged?'<span>🚩</span>':''} ${l.crossSell?'<span title="Cross-sell">💡</span>':''} 
           </div>
           <div class="profile-phone">${l.phone}</div>
@@ -3542,7 +3542,7 @@ function toggleLeadTag(id,tagId){
   setTimeout(()=>switchPTabById('pane-edit'),50);
 }
 
-const APP_VERSION=30;
+const APP_VERSION=31;
 // ---------- WhatsApp 范本（通顺英文） ----------
 function getWaTemplates(l){
   const prog = l.prog || (progsOf(l)[0] || ''), cn = S.courses[prog] || {};
@@ -3779,7 +3779,7 @@ function drawCard(){
     : ev ? '<b>' + (ev.type === 'trial' ? 'Trial' : 'Visit') + '</b> · ' + fmtShort(ev.date) + (ev.time ? ' ' + ev.time : '')
     : (ACTIVE.includes(l.stage) ? '<span class="red">No next step yet — choose a result below</span>' : (l.stage === 'enrolled' ? 'Care complete' : '—'));
   let h = '<div class="pc"><div class="pc-head"><div><div class="pc-ph">' + esc(l.phone || '(no phone)') + '</div>'
-    + '<div class="pc-sub">' + (l.name ? esc(l.name) + ' · ' : '') + stagePill(l.stage) + heatChip(heatOf(l)) + (l.src ? '<span class="tag">' + esc(l.src) + '</span>' : '') + '</div></div>'
+    + '<div class="pc-sub">' + (l.name && !isPhoneLike(l.name) && !isJunk(l.name) ? esc(l.name) + ' · ' : '') + stagePill(l.stage) + heatChip(heatOf(l)) + (l.src ? '<span class="tag">' + esc(l.src) + '</span>' : '') + '</div></div>'
     + '<button class="pc-x" onclick="closeCard()">×</button></div>';
   if (fix.length) h += '<div class="pc-fix" id="pc-fix"><div>✏️ Missing: <b>' + fix.join(', ') + '</b> <button onclick="fixOpen()">Fill in</button></div></div>';
   h += '<div class="pc-kids">' + (realKids(l).length ? realKids(l).map(c => '<div class="pc-kid">👧 <b>' + esc(c.name) + '</b>' + (c.birthYear ? ' · born ' + esc(c.birthYear) + ' (' + (new Date().getFullYear() - c.birthYear) + ' yrs)' : '') + (c.prog ? ' ' + progBadge(c.prog) : '') + '</div>').join('') : '<div class="pc-kid mut">No child name yet</div>')
@@ -5031,7 +5031,7 @@ renderSettings = function(){
   h += '<div class="card13 danger"><div class="c13-h">⚠️ Danger zone</div><button class="ghost" style="color:#B91C1C" onclick="clearAllEvents();renderSettings()">Delete ALL bookings</button></div></div>';
   document.getElementById('settings-content').innerHTML = h;
 };
-const UI_V_ALL = 30;
+const UI_V_ALL = 31;
 
 // ===================== v28（2026-10-26）· Calendar 清单检视：全部预约一条 list =====================
 let calView = 'month';
