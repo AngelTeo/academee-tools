@@ -1868,7 +1868,7 @@ function board(){
  const stages=[['not','Not arrived'],['wait','Waiting'],['talk','Talking'],['done','Done']];
  let h=intro('03 / PTM TODAY','PTM Today','Live states from the existing meeting records · use approved backend actions')+filterBar();
  h+='<div class="ux-alert">Queue number and reliable arrival / in / out durations are not recorded in the current v11 schema. They are deliberately not fabricated. Room assignment uses the existing table field.</div>';
- h+='<div class="uxpanel" style="margin-bottom:13px"><strong>Room assignments</strong> <span class="uxfine-note">Select the assigned management member before moving a waiting family.</span><div class="uxactions">'+['A','B'].map(room=>'<label class="uxfine-note">Room '+room+' <select id="ux-manager-'+room+'"><option value="">Select staff</option>'+mgmtNames().map(n=>'<option value="'+esc(n)+'">'+esc(n)+'</option>').join('')+'</select></label>').join('')+'</div></div>';
+ h+='<div class="uxpanel" style="margin-bottom:13px"><strong>Room assignments</strong> <span class="uxfine-note">Select the assigned management member before moving a waiting family.</span><div class="uxactions">'+['A','B'].map(room=>'<label class="uxfine-note">Room '+room+' <select id="ux-manager-'+room+'" onchange="PTMGoUX.boardStaff=PTMGoUX.boardStaff||{};PTMGoUX.boardStaff[this.id.slice(-1)]=this.value"><option value="">Select staff</option>'+mgmtNames().map(n=>'<option value="'+esc(n)+'"'+(U.boardStaff?.[room]===n?' selected':'')+'>'+esc(n)+'</option>').join('')+'</select></label>').join('')+'</div></div>';
  h+='<div class="uxboard">';
  for(const [key,title] of stages){const rows=groups[key];h+='<section class="uxboardcol '+({wait:'waiting',talk:'talking',done:'done'})[key]+'"><div class="uxboardhead">'+title+' <span>'+rows.length+'</span></div>';
  for(const s of rows){const m=meetState(s.id),id=encodeURIComponent(s.id);h+='<div class="uxboardcard"><strong>'+kid(s)+'</strong><small>'+cls(s)+'</small>';
@@ -1886,9 +1886,10 @@ function board(){
 
 U.assignRoom=async function(id,room){
  const sid=decodeURIComponent(id),s=S.byId[sid],staffElement=document.getElementById('ux-manager-'+room);
- const staff=staffElement?.value||'';
+ const staff=staffElement?.value||U.boardStaff?.[room]||'';
  if(!s){toast('Student record not found');return;}
  if(!staff){toast('Select management staff for Room '+room+' first');return;}
+ if(S.students.some(other=>other.id!==sid&&flowOf(other.id)[2]==='谈话中'&&meetState(other.id).table==='Room '+room)){toast('Room '+room+' is occupied. Finish the current meeting first.');return;}
  if(!S.live){toast('Snapshot: room assignment not saved');return;}
  try{
   await rpc('ptmgo_set_flow',{p_period:S.period.id,p_student:sid,p_group:GROUP,p_flow:'谈话中',p_table:'Room '+room,p_staff:staff});
