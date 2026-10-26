@@ -1758,7 +1758,7 @@ const fmt=t=>String(t==null?'':t);
 const b=(text,fn,primary=false,disabled=false)=>'<button class="uxbutton'+(primary?' primary':'')+'" onclick="'+fn+'"'+(disabled?' disabled':'')+'>'+text+'</button>';
 const label=(t,color='')=>'<span class="uxpill '+color+'">'+esc(t)+'</span>';
 const kid=s=>'<b>'+esc(s.name)+'</b> <span class="uxmuted">'+esc(s.name_cn||'')+'</span>';
-const cls=s=>esc(clsName(s.cls));
+const cls=s=>s&&s.cls?esc(clsName(s.cls)):'—';
 const subject=k=>(EV_SUBJ.find(x=>x[0]===k)||[k,k])[1];
 function issueTags(s){
  const c=S.computed[s.id],ev=evalStatus(s),x=[];
