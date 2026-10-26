@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Marketing CRM System v31</title>
+<title>Marketing CRM System v33</title>
 <style>
 :root{--acc:#185FA5;--acc2:#0f4a8c;--grn:#0F6E56;--grn2:#085041;--red:#A32D2D;--amb:#854F0B;--pur:#5a3e99;--sur:#fff;--sur2:#f5f4f0;--sur3:#eceae4;--bdr:#e0ddd6;--txt:#1a1a1a;--mut:#888;--hint:#bbb;--r:10px;--rs:7px;--sh:0 1px 4px rgba(0,0,0,.07);--shm:0 8px 32px rgba(0,0,0,.18);}
 *{box-sizing:border-box;margin:0;padding:0;font-family:'Segoe UI',Arial,sans-serif;}
@@ -626,6 +626,10 @@ tr:last-child td{border-bottom:none;}
 .dupw-p{font-size:11px;color:#9A7B4F;margin-top:1px}
 .dupw-why{background:#FDE9C8;color:#92400E;border-radius:4px;padding:0 5px;font-size:10px;font-weight:700;margin-left:4px}
 .dupw-row button{flex-shrink:0;border:none;background:#F59E0B;color:#fff;border-radius:8px;padding:6px 12px;font-weight:700;cursor:pointer;font-size:12px;font-family:inherit}
+
+/* v33 · Group notice「已通知的未来预约」灰显区 */
+.an-done{opacity:.72}
+.an-done .an-r{color:var(--mut)}
 /* ===== v28 · Calendar 清单检视 ===== */
 .calview-tg{display:inline-flex;gap:0;margin-left:10px;border:1px solid #E5E7EB;border-radius:10px;overflow:hidden;vertical-align:middle}
 .calview-tg button{border:none;background:#fff;color:#6B7280;font-size:12px;font-weight:700;padding:6px 12px;cursor:pointer;font-family:inherit;min-height:36px}
@@ -652,7 +656,7 @@ tr:last-child td{border-bottom:none;}
 </head>
 <body>
 <div class="nav">
-  <button class="nav-home" onclick="location.href='../index.html'" title="回平台">←</button><div class="nav-brand">📱 Marketing CRM <span class="vbadge">v31</span></div>
+  <button class="nav-home" onclick="location.href='../index.html'" title="回平台">←</button><div class="nav-brand">📱 Marketing CRM <span class="vbadge">v33</span></div>
   <button class="ntab on" data-p="dashboard" onclick="goPage('dashboard')">🏠 Today</button>
   <button class="ntab more13" data-p="followup" onclick="goPage('followup')">📅 Follow-up</button>
   <button class="ntab" data-p="calendar" onclick="goPage('calendar')">📅 Calendar</button>
@@ -3542,7 +3546,7 @@ function toggleLeadTag(id,tagId){
   setTimeout(()=>switchPTabById('pane-edit'),50);
 }
 
-const APP_VERSION=31;
+const APP_VERSION=33;
 // ---------- WhatsApp 范本（通顺英文） ----------
 function getWaTemplates(l){
   const prog = l.prog || (progsOf(l)[0] || ''), cn = S.courses[prog] || {};
@@ -3550,7 +3554,7 @@ function getWaTemplates(l){
   const cname = (!badName && cn.name) || prog || 'our programme', cdesc = (!badName && cn.desc) ? cn.desc + '\n\n' : '', cfee = cn.fee ? 'Fee: ' + cn.fee + '\n\n' : '';
   const child = 'your child', T = [];
   if (['enquiry','wa_sent'].includes(l.stage)) T.push({ label: '🔵 First follow-up', text: 'Hi! Thank you for your interest in ' + cname + ' 😊\n\n' + cdesc + cfee + 'Would you like to visit our centre? Which day is convenient for you? 🙏' });
-  if (['wa_sent','called','no_reply'].includes(l.stage)) T.push({ label: '🟡 Second follow-up', text: 'Hi! This is Angel from Academee 😊\n\nJust following up about ' + child + ' joining ' + cname + '. Have you had a chance to think it over?\n\nFeel free to ask me anything!' });
+  if (['wa_sent','called','no_reply'].includes(l.stage)) T.push({ label: '🟡 Second follow-up', text: 'Hi! This is Angel from Smart Reader Kids, Muar 😊\n\nJust following up about ' + child + ' joining ' + cname + '. Have you had a chance to think it over?\n\nFeel free to ask me anything!' });
   if (['called','trial','wa_sent'].includes(l.stage)) T.push({ label: '🟣 Trial invitation', text: 'Hi! We would like to invite ' + child + ' to a FREE trial class 🎉\n\nIt is a great way to experience ' + cname + ', with no obligation.\n\nWhich day this week or next week suits you? 😊' });
   if (l.stage === 'trial') T.push({ label: '🟠 After the trial', text: 'Hi! Thank you for bringing ' + child + ' for the trial 😊\n\nHow did ' + child + ' find the class? If you would like to enrol, this month we have a special offer for new students 🎁' });
   if (l.crossSell && l.crossNote) T.push({ label: '💡 Another programme', text: 'Hi! Following up from our earlier chat about ' + cname + ' 😊\n\nWe also have another programme that may suit ' + child + '. Would you have a few minutes for a quick chat?' });
@@ -3558,7 +3562,7 @@ function getWaTemplates(l){
   if (['lost','no_reply'].includes(l.stage)) T.push({ label: '🔄 Re-engage', text: 'Hi! It has been a while 😊\n\nWe spoke earlier about ' + cname + '. We have some new arrangements — would you like to hear about them?' });
   const ap = (S.promos || []).filter(p => p.active);
   if (ap.length) T.push({ label: '🎯 Current promotion', text: 'Hi! Sharing our current offer 😊\n\n' + ap.map(p => '• ' + p.name + (p.desc ? ' - ' + p.desc : '')).join('\n') + '\n\nInterested to find out more? Places are limited 🙏' });
-  if (!T.length) T.push({ label: '💬 Hello', text: 'Hi! This is Angel from Academee 😊' });
+  if (!T.length) T.push({ label: '💬 Hello', text: 'Hi! This is Angel from Smart Reader Kids, Muar 😊' });
   return T;
 }
 
@@ -3617,7 +3621,7 @@ function waText(l, kind){
     first: 'Hi! Thank you for your interest in ' + pn + ' 😊\n\nMay I know ' + (k ? k + "'s" : 'your child\'s') + ' age? I would love to share how our classes work and invite you to visit our centre. Which day suits you? 🙏',
     follow: 'Hi! Just checking in about ' + kid + ' and ' + pn + ' 😊\n\nDo you have any questions I can help with? We would love to have you visit us.',
     info: 'Hi! As promised, here is more about ' + pn + ' 😊\n\n(Add the programme details / fee here)\n\nFeel free to ask me anything. Would you like to come and see the class?',
-    remind: 'Hi! A friendly reminder of ' + kid + "'s " + (evTxt || 'appointment') + ' at Academee 😊\n\nSee you then! Let me know if you need to change the time.',
+    remind: 'Hi! A friendly reminder of ' + kid + "'s " + (evTxt || 'appointment') + ' at Smart Reader Kids, Muar 😊\n\nSee you then! Let me know if you need to change the time.',
     after: 'Hi! Thank you for bringing ' + kid + ' for the trial class 😊\n\nHow did ' + kid + ' find it? We would love to hear your thoughts.',
     care7: 'Hi! It has been a week since ' + kid + ' started ' + pn + ' 😊\n\nHow is ' + kid + ' settling in? If there is anything we can do better, just let me know.',
     care30: 'Hi! ' + kid + ' has been with us for a month now 😊\n\nWe are happy to share how ' + kid + ' is doing. Any feedback for us?',
@@ -4603,7 +4607,7 @@ function evWhen(e){ return new Date(e.date + 'T12:00:00').toLocaleDateString('en
 function evStat(e){ return e.status === 'attended' ? '✅' : e.status === 'no_show' ? '❌' : e.status === 'cancelled' ? '🚫' : (e.date < today() ? '❓' : '🕒'); }
 function waTo(phone, txt){ const n = waNum(phone); if (!n) { toast('No phone number'); return; } window.open('https://wa.me/' + n + '?text=' + encodeURIComponent(txt), '_blank'); }
 function msgParent(e){ const l = evLead(e), k = evKidName(e, l) || 'your child', addr = (S.settings.centreAddr || '').trim();
-  return 'Hi! This is Academee 😊\n\nConfirming ' + k + "'s " + (e.type === 'trial' ? 'FREE trial class' : 'visit') + (e.prog ? ' (' + progName(e.prog) + ')' : '') + ':\n📅 ' + evWhen(e) + (addr ? '\n📍 ' + addr : '') + '\n\nSee you then! Let us know if you need to change the time 🙏'; }
+  return 'Hi! This is Smart Reader Kids, Muar 😊\n\nConfirming ' + k + "'s " + (e.type === 'trial' ? 'FREE trial class' : 'visit') + (e.prog ? ' (' + progName(e.prog) + ')' : '') + ':\n📅 ' + evWhen(e) + (addr ? '\n📍 ' + addr : '') + '\n\nSee you then! Let us know if you need to change the time 🙏'; }
 function msgTeacher(e){ const l = evLead(e);
   return (e.type === 'trial' ? '🎓 New trial' : '🏫 New visit') + '\n' + '👧 ' + (evKidName(e, l) || '-') + (e.childAge ? ' (' + e.childAge + ' yrs)' : '') + '\n📚 ' + (e.prog || '-') + (e.level ? ' · ' + e.level : '') + '\n📅 ' + evWhen(e) + '\n📞 Parent: ' + ((l && l.phone) || e.leadPhone || '-') + (e.notes ? '\n📝 ' + e.notes : ''); }
 function waParent(id){ const e = (S.events || []).find(x => x.id === id); if (!e) return; const l = evLead(e); waTo((l && l.phone) || e.leadPhone, msgParent(e)); if (l) { if (!l.logs) l.logs = []; l.logs.push({ id: 'l' + Date.now(), type: 'wa', date: today(), notes: 'Sent ' + e.type + ' confirmation (' + evWhen(e) + ')', outcome: 'Confirmation sent', r: 'confirm' }); save(); } e.sentP = today(); save(); }
@@ -4725,13 +4729,16 @@ renderSettings = function(){ _renderSettings19(); const c = document.getElementB
 // 试课（还没通知的）+ 新报名（还没通知的）→ 一则讯息 → 复制或打开 WhatsApp 自己选群组送出 → 标记已通知，不会重复
 function annTrials(){ const t = today(); return (S.events || []).filter(e => e.status === 'scheduled' && e.date >= t && !e.ann).sort((a, b) => (a.date + (a.time || a.slotLabel || '')).localeCompare(b.date + (b.time || b.slotLabel || ''))); }
 function annEnrols(){ const t = today(); return S.leads.filter(l => l.stage === 'enrolled' && !l.annEnrol && (l.logs || []).some(g => (g.r === 'enrol' || /enrol/i.test(g.outcome || '')) && dd(t, g.date) <= 30)); }
+// v33：已通知过、但还在未来的预约（给「已通知」区，可勾选重新发）
+function annTrialsDone(){ const t = today(); return (S.events || []).filter(e => e.status === 'scheduled' && e.date >= t && e.ann).sort((a, b) => (a.date + (a.time || a.slotLabel || '')).localeCompare(b.date + (b.time || b.slotLabel || ''))); }
 function annCount(){ return annTrials().length + annEnrols().length; }
 let annSel = null;
 function kidAgeTxt(e, l){ if (e && e.childAge) return e.childAge; const k = l && realKids(l)[0]; return k && k.birthYear ? String(new Date().getFullYear() - k.birthYear) : ''; }
 function annMsg(){
-  const T = annTrials().filter(e => annSel.has('e' + e.id)), N = annEnrols().filter(l => annSel.has('l' + l.id));
+  const allT = annTrials().concat(annTrialsDone());
+  const T = allT.filter(e => annSel.has('e' + e.id)), N = annEnrols().filter(l => annSel.has('l' + l.id));
   const d = new Date().toLocaleDateString('en-MY', { weekday: 'short', day: 'numeric', month: 'short' });
-  let m = '📢 *Academee Update* · ' + d + '\n';
+  let m = '📢 *Smart Reader Kids, Muar Update* · ' + d + '\n';
   const sec = (arr, title) => { if (!arr.length) return; m += '\n' + title + ' (' + arr.length + ')*\n'; let last = '';
     arr.forEach((e, i) => { const l = evLead(e), day = new Date(e.date + 'T12:00:00').toLocaleDateString('en-MY', { weekday: 'short', day: 'numeric', month: 'short' });
       if (day !== last) { m += '\n🗓 *' + day + '*\n'; last = day; }
@@ -4747,14 +4754,16 @@ function annMsg(){
   return { m, T, N };
 }
 function openNotice(){
-  const T = annTrials(), N = annEnrols();
+  const T = annTrials(), N = annEnrols(), D = annTrialsDone();
   if (!annSel) annSel = new Set(T.filter(e => dd(e.date, today()) <= 7).map(e => 'e' + e.id).concat(N.map(l => 'l' + l.id)));
   const row = (key, html) => '<label class="an-r"><input type="checkbox" ' + (annSel.has(key) ? 'checked' : '') + ' onchange="this.checked?annSel.add(\'' + key + '\'):annSel.delete(\'' + key + '\');annPrev()"> ' + html + '</label>';
+  const evRow = (e, done) => { const l = evLead(e); return row('e' + e.id, '<b>' + esc(fmtShort(e.date)) + '</b> ' + (e.type === 'trial' ? '🎓' : '🏫') + ' ' + esc(evKidName(e, l) || fmtPhone(e.leadPhone)) + ' <span class="mut">' + esc(e.prog || '') + ' ' + esc(e.slotLabel || e.time || '') + (done ? ' · ✅ announced' : '') + '</span>'); };
   sheet('<div class="sh-h"><b>📢 Group notice to teachers</b><button class="pc-x" onclick="shClose()">×</button></div>'
     + (!T.length && !N.length ? '<div class="stp-done">Nothing new to announce 👍</div>' : '')
-    + (T.length ? '<label>🎓 Trials / visits not announced yet</label>' + T.map(e => { const l = evLead(e); return row('e' + e.id, '<b>' + esc(fmtShort(e.date)) + '</b> ' + esc(evKidName(e, l) || fmtPhone(e.leadPhone)) + ' <span class="mut">' + esc(e.prog || '') + ' ' + esc(e.slotLabel || e.time || '') + '</span>'); }).join('') : '')
+    + (T.length ? '<label>🎓 Trials / visits not announced yet</label>' + T.map(e => evRow(e, false)).join('') : '')
     + (N.length ? '<label>🎉 New enrolments not announced yet</label>' + N.map(l => row('l' + l.id, '<b>' + esc(displayName(l) || fmtPhone(l.phone)) + '</b> <span class="mut">' + esc(l.prog || '') + (l.enrolDate ? ' · starts ' + fmtShort(l.enrolDate) : '') + '</span>')).join('') : '')
-    + ((T.length || N.length) ? '<label>Message</label><pre id="an-p" class="an-p"></pre><div class="g2"><button class="sh-save" style="background:#F3F4F6;color:#1F2937" onclick="annCopy()">📋 Copy</button><button class="sh-save" style="background:#25D366" onclick="annSend()">💬 WhatsApp → choose group</button></div><div class="mut sm" style="margin-top:8px">After sending, these students are marked as announced.</div>' : ''));
+    + (D.length ? '<label style="color:var(--mut)">✅ Already announced · upcoming (tick to send again)</label><div class="an-done">' + D.map(e => evRow(e, true)).join('') + '</div>' : '')
+    + ((T.length || N.length || D.length) ? '<label>Message</label><pre id="an-p" class="an-p"></pre><div class="g2"><button class="sh-save" style="background:#F3F4F6;color:#1F2937" onclick="annCopy()">📋 Copy</button><button class="sh-save" style="background:#25D366" onclick="annSend()">💬 WhatsApp → choose group</button></div><div class="mut sm" style="margin-top:8px">After sending, these students are marked as announced.</div>' : ''));
   annPrev();
 }
 function annPrev(){ const p = document.getElementById('an-p'); if (!p) return; const r = annMsg(); p.textContent = (r.T.length || r.N.length) ? r.m : 'Tick at least one student.'; }
@@ -5031,7 +5040,7 @@ renderSettings = function(){
   h += '<div class="card13 danger"><div class="c13-h">⚠️ Danger zone</div><button class="ghost" style="color:#B91C1C" onclick="clearAllEvents();renderSettings()">Delete ALL bookings</button></div></div>';
   document.getElementById('settings-content').innerHTML = h;
 };
-const UI_V_ALL = 31;
+const UI_V_ALL = 33;
 
 // ===================== v28（2026-10-26）· Calendar 清单检视：全部预约一条 list =====================
 let calView = 'month';
