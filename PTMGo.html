@@ -1844,7 +1844,7 @@ function studentDetail(s){
   h+='<details class="uxdetails"><summary>Teacher highlights · original words</summary><div class="uxdetailinner">'+(t.bright.length?t.bright.map(x=>'<div class="uxfinding">'+esc(x.text_value)+'</div>').join(''):'No highlight recorded')+'</div></details>';
   h+='<div class="uxactions">'+b('Report Card',"PTMGoUX.studentGo('report')",true)+b('Management review',"PTMGoUX.studentGo('review')")+b('360° evidence',"PTMGoUX.studentGo('360')")+'</div>';
  } else if(U.studentTab==='report'){
-  h+='<h2>Four-page Parent Report · existing production pathway</h2><div class="ux-alert">The original report confirmation and copy checking rules remain authoritative. The mock page images are visual references only, not a replacement for the approved printed layout.</div>';
+  h+='<h2>Parent Report · approved source + production workflow</h2><div class="ux-alert">The original report confirmation and copy checking rules remain authoritative. The mock shows all four pages. The connected implementation still uses the approved print output; inline four-page preview is not yet integrated or verified.</div>';
   h+='<div class="uxactions">'+b('Print confirmed copy sheet',"printOne('"+s.id+"')",true,!isLocked(s.id))+b('Review Page 2–3',"PTMGoUX.studentGo('review')")+'</div>';
   h+=tabP4(s,c); if(isLocked(s.id))h+=copyBox(s);
  }else if(U.studentTab==='review'){
@@ -1868,12 +1868,13 @@ function board(){
  const stages=[['not','Not arrived'],['wait','Waiting'],['talk','Talking'],['done','Done']];
  let h=intro('03 / PTM TODAY','PTM Today','Live states from the existing meeting records · use approved backend actions')+filterBar();
  h+='<div class="ux-alert">Queue number and reliable arrival / in / out durations are not recorded in the current v11 schema. They are deliberately not fabricated. Room assignment uses the existing table field.</div>';
+ h+='<div class="uxpanel" style="margin-bottom:13px"><strong>Room assignments</strong> <span class="uxfine-note">Select the assigned management member before moving a waiting family.</span><div class="uxactions">'+['A','B'].map(room=>'<label class="uxfine-note">Room '+room+' <select id="ux-manager-'+room+'"><option value="">Select staff</option>'+mgmtNames().map(n=>'<option value="'+esc(n)+'">'+esc(n)+'</option>').join('')+'</select></label>').join('')+'</div></div>';
  h+='<div class="uxboard">';
  for(const [key,title] of stages){const rows=groups[key];h+='<section class="uxboardcol '+({wait:'waiting',talk:'talking',done:'done'})[key]+'"><div class="uxboardhead">'+title+' <span>'+rows.length+'</span></div>';
  for(const s of rows){const m=meetState(s.id),id=encodeURIComponent(s.id);h+='<div class="uxboardcard"><strong>'+kid(s)+'</strong><small>'+cls(s)+'</small>';
  if(m.table)h+='<p class="uxfine-note">Room / Table: '+esc(m.table)+(m.staff?' · '+esc(m.staff):'')+'</p>';
  if(key==='not')h+=b('Parents arrived',"PTMGoUX.flow('"+id+"','到了')",true);
- if(key==='wait')h+=b('Open meeting',"PTMGoUX.open('"+id+"','meeting')",true);
+ if(key==='wait'){h+='<div class="uxactions" style="gap:5px">'+b('→ Room A',"PTMGoUX.assignRoom('"+id+"','A')")+b('→ Room B',"PTMGoUX.assignRoom('"+id+"','B')")+'</div>';h+=b('Open meeting',"PTMGoUX.open('"+id+"','meeting')",true);}
  if(key==='talk')h+=b('Open meeting',"PTMGoUX.open('"+id+"','meeting')",true);
  if(key==='done')h+=b('View notes',"PTMGoUX.open('"+id+"','meeting')");
  h+='</div>';}
@@ -1882,6 +1883,18 @@ function board(){
  if(groups.exception.length)h+='<section class="uxpanel" style="margin-top:14px"><h2>No-show / Rescheduled · '+groups.exception.length+'</h2>'+groups.exception.map(s=>'<div class="uxrow"><div>'+kid(s)+'<p>'+cls(s)+' · '+esc(flowOf(s.id)[0])+'</p></div>'+b('Open',"PTMGoUX.open('"+encodeURIComponent(s.id)+"','meeting')")+'</div>').join('')+'</section>';
  return h;
 }
+
+U.assignRoom=async function(id,room){
+ const sid=decodeURIComponent(id),s=S.byId[sid],staffElement=document.getElementById('ux-manager-'+room);
+ const staff=staffElement?.value||'';
+ if(!s){toast('Student record not found');return;}
+ if(!staff){toast('Select management staff for Room '+room+' first');return;}
+ if(!S.live){toast('Snapshot: room assignment not saved');return;}
+ try{
+  await rpc('ptmgo_set_flow',{p_period:S.period.id,p_student:sid,p_group:GROUP,p_flow:'谈话中',p_table:'Room '+room,p_staff:staff});
+  Object.assign(meetState(sid),{flow:'谈话中',status:'来了',table:'Room '+room,staff,reason:''});U.render();
+ }catch(err){errShow('Could not assign room: '+String(err.message||err));}
+};
 function after(){
  const req=S.local.req||[],s=S.students||[],miss=s.filter(x=>['没来','改期'].includes(meetState(x.id).status));
  const active=req.filter(x=>x.status!=='done'),over=active.filter(x=>x.due&&x.due<todayLocal()),doing=req.filter(x=>x.status==='doing'),done=req.filter(x=>x.status==='done');
