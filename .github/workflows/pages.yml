@@ -1,0 +1,66 @@
+name: Pages + version manifest
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      source_sha: ${{ steps.ref.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Store source SHA
+        id: ref
+        run: echo "sha=$GITHUB_SHA" >> "$GITHUB_OUTPUT"
+      - uses: actions/configure-pages@v5
+      - uses: actions/jekyll-build-pages@v1
+        with:
+          source: ./
+          destination: ./_site
+      - name: Generate versions.json from built website
+        run: |
+          sudo chown -R "$(id -u):$(id -g)" _site
+          python3 .github/scripts/gen_versions.py _site
+          cat _site/versions.json
+          echo 'Published HTML SHA-256 list:'
+          find _site -type f -name '*.html' -print0 | sort -z | xargs -0 sha256sum
+      - name: Upload complete site with manifest
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./_site
+
+  deploy:
+    concurrency:
+      group: pages-deploy
+      cancel-in-progress: false
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Reject obsolete build before deploy
+        id: latest
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          latest="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')"
+          if [ "$latest" = "$GITHUB_SHA" ]; then
+            echo "current=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "current=false" >> "$GITHUB_OUTPUT"
+            echo "Skipping obsolete deployment: $GITHUB_SHA != $latest"
+          fi
+      - uses: actions/deploy-pages@v4
+        id: deployment
+        if: steps.latest.outputs.current == 'true'
