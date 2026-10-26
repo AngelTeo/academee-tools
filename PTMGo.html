@@ -1742,6 +1742,10 @@ body.ux-on .wrap{max-width:1440px}
 #ux-root .uxmeeting .phone{background:white}
 @media(max-width:1100px){#ux-root .uxboard{grid-template-columns:repeat(2,minmax(0,1fr))}#ux-root .uxwork{grid-template-columns:1fr}}
 @media(max-width:620px){#ux-root .uxboard{grid-template-columns:1fr}#ux-root .uxreviewtabs button{padding:9px 10px;font-size:12px}}
+
+body.ux-on.ux-print #ux-root{display:none!important}
+body.ux-on.ux-print .wrap>#page-print{display:block!important}
+@media print{body.ux-on #ux-root{display:none!important}body.ux-on .wrap>#page-print{display:block!important}}
 </style>
 <script id="ux-testrun-align-js">
 (function(){
@@ -1920,6 +1924,7 @@ U.render=function(){
  else if(U.view==='meeting'){const s=S.byId[U.detail];h+=s?meeting(s):'<div class="ux-alert">Student not found</div>';}
  else if(U.view==='follow')h+=after();
  else if(U.view==='settings')h+=intro('ADMIN','Settings / Diagnostics','Original system gates, identity and imports remain in the protected settings below.');
+ document.body.classList.toggle('ux-print',S.ui.page==='print');
  root.innerHTML=h+'<div class="uxfooter">Based on Owner-approved PTMGo TestRun · Original rules and database operations retained · Draft code, not released</div>';
  document.body.classList.toggle('ux-settings',U.view==='settings'||!logged);
 };
