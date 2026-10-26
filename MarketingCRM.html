@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Marketing CRM System v33</title>
+<title>Marketing CRM System v34</title>
 <style>
 :root{--acc:#185FA5;--acc2:#0f4a8c;--grn:#0F6E56;--grn2:#085041;--red:#A32D2D;--amb:#854F0B;--pur:#5a3e99;--sur:#fff;--sur2:#f5f4f0;--sur3:#eceae4;--bdr:#e0ddd6;--txt:#1a1a1a;--mut:#888;--hint:#bbb;--r:10px;--rs:7px;--sh:0 1px 4px rgba(0,0,0,.07);--shm:0 8px 32px rgba(0,0,0,.18);}
 *{box-sizing:border-box;margin:0;padding:0;font-family:'Segoe UI',Arial,sans-serif;}
@@ -656,7 +656,7 @@ tr:last-child td{border-bottom:none;}
 </head>
 <body>
 <div class="nav">
-  <button class="nav-home" onclick="location.href='../index.html'" title="回平台">←</button><div class="nav-brand">📱 Marketing CRM <span class="vbadge">v33</span></div>
+  <button class="nav-home" onclick="location.href='../index.html'" title="回平台">←</button><div class="nav-brand">📱 Marketing CRM <span class="vbadge">v34</span></div>
   <button class="ntab on" data-p="dashboard" onclick="goPage('dashboard')">🏠 Today</button>
   <button class="ntab more13" data-p="followup" onclick="goPage('followup')">📅 Follow-up</button>
   <button class="ntab" data-p="calendar" onclick="goPage('calendar')">📅 Calendar</button>
@@ -3546,7 +3546,7 @@ function toggleLeadTag(id,tagId){
   setTimeout(()=>switchPTabById('pane-edit'),50);
 }
 
-const APP_VERSION=33;
+const APP_VERSION=34;
 // ---------- WhatsApp 范本（通顺英文） ----------
 function getWaTemplates(l){
   const prog = l.prog || (progsOf(l)[0] || ''), cn = S.courses[prog] || {};
@@ -5040,7 +5040,7 @@ renderSettings = function(){
   h += '<div class="card13 danger"><div class="c13-h">⚠️ Danger zone</div><button class="ghost" style="color:#B91C1C" onclick="clearAllEvents();renderSettings()">Delete ALL bookings</button></div></div>';
   document.getElementById('settings-content').innerHTML = h;
 };
-const UI_V_ALL = 33;
+const UI_V_ALL = 34;
 
 // ===================== v28（2026-10-26）· Calendar 清单检视：全部预约一条 list =====================
 let calView = 'month';
@@ -5121,6 +5121,44 @@ openAddLead = function(){
   const r = _openAddLead30.apply(this, arguments);
   setTimeout(() => { const kn = document.getElementById('nw-kn'); if (kn && !kn._dupBound) { kn._dupBound = 1; kn.addEventListener('input', nwDup); } }, 60);
   return r;
+};
+
+// ===================== v34（2026-10-26）· owner 一次性「名字整理」：把卡在 childName 栏的真名补进孩子栏 =====================
+// 哪些家长：有 childName(真名、非标签非电话)，但 children 里没有任何真名孩子 → 画面只显示电话
+function trappedNameLeads(){
+  return (S.leads || []).filter(l => {
+    const cn = (l.childName || '').trim();
+    if (!cn || isJunk(cn) || isPhoneLike(cn)) return false;
+    const hasRealKid = (l.children || []).some(c => c.name && !isJunk(c.name) && !isPhoneLike(c.name));
+    return !hasRealKid;
+  });
+}
+function restoreTrappedOpen(){
+  const list = trappedNameLeads();
+  if (!list.length) { toast('No names to restore 👍'); return; }
+  sheet('<div class="sh-h"><b>🔤 名字整理 · Restore names</b><button class="pc-x" onclick="shClose()">×</button></div>'
+    + '<div class="mut sm" style="margin:4px 0 10px">这些家长的孩子名字卡在旧栏位、画面只显示电话。补进孩子栏后，全画面就会显示真名。标签不会动。</div>'
+    + '<div class="an-done" style="max-height:320px;overflow:auto">' + list.slice(0, 80).map(l => '<div class="an-r">' + esc(fmtPhone(l.phone)) + ' → <b>' + esc(l.childName) + '</b></div>').join('') + (list.length > 80 ? '<div class="mut sm" style="padding:6px">+' + (list.length - 80) + ' more</div>' : '') + '</div>'
+    + '<button class="sh-save" onclick="doRestoreTrapped()">恢复 ' + list.length + ' 个名字</button>');
+}
+function doRestoreTrapped(){
+  if (!(typeof ME !== 'undefined' && ME && ME.role === 'owner')) { toast('Only the owner can run this'); return; }
+  const list = trappedNameLeads(); let n = 0;
+  list.forEach(l => { if (!Array.isArray(l.children)) l.children = []; l.children.push({ id: 'c' + Date.now() + Math.random().toString(36).slice(2, 6), name: l.childName.trim(), birthYear: '', prog: l.prog || '', school: '', stage: 'considering' }); n++; });
+  save(); shClose(); toast('✅ 已恢复 ' + n + ' 个名字'); renderDash();
+}
+// 管理页：owner 才看得到，且有要恢复的才显示
+const _renderSettings34 = renderSettings;
+renderSettings = function(){
+  _renderSettings34();
+  try {
+    if (!(typeof ME !== 'undefined' && ME && ME.role === 'owner')) return;
+    const n = trappedNameLeads().length; if (!n) return;
+    const c = document.querySelector('#settings-content .h13'); if (!c) return;
+    const d = document.createElement('div'); d.className = 'card13';
+    d.innerHTML = '<div class="c13-h">🔤 名字整理 · Tidy names</div><div class="mut sm" style="margin-bottom:8px">有 <b>' + n + '</b> 位家长的孩子名字卡在旧栏位、画面只显示电话。按一下补回来，全画面就显示真名（标签不动）。</div><button class="ghost" onclick="restoreTrappedOpen()">检查并恢复 ' + n + ' 个名字 →</button>';
+    c.appendChild(d);
+  } catch (e) {}
 };
 
 
