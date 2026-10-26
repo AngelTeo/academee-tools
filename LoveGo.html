@@ -224,7 +224,7 @@ window.esc=esc;
 <script>
 /* v94（28-09-2026）：日常成长 ＋ 学科能力 ＋ 总结；派老师加「每位老师教哪几科」（见文件最下方 v94 段；不设负责老师）。
    v93（28-09-2026）：Owner 决定换回整张表 —— 一年填一次、凭一直以来的观察、每个领域都要填。内容与 v91 完全相同，只改版本号；v92「一期多笔」停用。 */
-const APP_VERSION=112,KEY='lovego';
+const APP_VERSION=113,KEY='lovego';
 const SUPABASE_URL='https://qnpvqsvvsgsantekgfbz.supabase.co';
 const SUPABASE_KEY='sb_publishable_v3Y3BD3XiPz33t-hfdX58g_BaFIkjPF';
 const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true}});
@@ -2874,7 +2874,7 @@ body.lg-teacher .navr .navbtn{display:none!important}
     st.p.p3.forEach(it=>{ if(valOf(r,it.code)==null) miss.push({kind:'p3',code:it.code,title:it.title}); });
     if(st.aReq) st.p.acad.forEach(it=>{ if(valOf(r,it.code)==null) miss.push({kind:'acad',code:it.code,title:subjName(it.subject)+' '+it.title}); });
     st.sItems.forEach(([k,ok])=>{ if(!ok) miss.push({kind:'sum',code:k}); });
-    if(window.lgStageOnly&&lgStageOnly()) return miss.filter(x=>x.kind==='supp'); /* v112 */
+    if(window.lgStageOnly&&lgStageOnly()){ const m2=miss.filter(x=>x.kind==='supp'); if(!st.sup.total) m2.push({kind:'supp',code:'SUPP0',n:1}); return m2; } /* v112＋v113：环节题一题都没有也不准交 */
     return miss;
   }
   window.lg94Missing=missingList;
@@ -3426,7 +3426,49 @@ body[data-lg112so] #lg-miss-banner{display:none!important}
 .lg112-note{margin:0 0 12px;padding:10px 12px;background:#e6f2ec;border:1px solid #bfe0cf;border-radius:10px;font-size:14px;font-weight:700;line-height:1.5;color:#1e5c3f}
 </style>
 <script>
-(function(){})();
+/* ══════ v113 · 换班不带着上一位孩子（Owner 26-10：SQ 反映 ADAM HARRIS「写好打开不见」）══════
+   病因：管理层可以看所有班。在一位孩子的页面还开着时换到别的班，系统用「上一位孩子 ＋ 新的班」开了一份空白的管理层草稿并上云，
+        老师以为自己写的不见了（资料其实在原本那一班）。21-10 实查这种空白草稿 21 份（AT、SQ、JN、MAI）。
+   改法：① 选部门 / 时段 / 班级时，把上一位孩子清掉；② 填写页如果孩子不在这一班、又不是派给我的 → 回名单；
+        ③ 云端：没有派工的那份（管理层）如果孩子不在那一班 → 不上云。派给老师的评语完全不受影响。 */
+(function(){
+  function inClass(sid,cid){ try{ return (S.enroll||[]).some(e=>e.student_id===sid&&e.class_id===cid&&e.is_active!==false); }catch(_){ return true; } }
+  function wrapPick(){
+    let ok=true;
+    ['lgPickDept','lgPickTime','lgPickClass'].forEach(n=>{
+      const f=window[n]; if(typeof f!=='function'){ ok=false; return; } if(f.__v113) return;
+      const w=function(){ try{ S.ui.studentId=null; }catch(_){} return f.apply(this,arguments); }; w.__v113=true; window[n]=w;
+    });
+    return ok;
+  }
+  (function boot(){ if(!wrapPick()) setTimeout(boot,300); })();
+  function wrapCloud(){
+    const base=window.cloudUpsertReview; if(typeof base!=='function') return false; if(base.__v113) return true;
+    const w=async function(r,submitted){
+      if(r&&!r.assignment_id&&r.student_id&&r.class_id&&!inClass(r.student_id,r.class_id)){
+        if(submitted) throw new Error(T('这位孩子不在这一班，请回名单重新点他','This child is not in this class. Go back to the list and tap the child again.'));
+        try{ delete r._dirty; }catch(_){}
+        return {submitted_at:null,locked_at:null,skipped:true};
+      }
+      return base.apply(this,arguments);
+    };
+    w.__v113=true; window.cloudUpsertReview=w; return true;
+  }
+  (function boot2(){ if(!wrapCloud()) setTimeout(boot2,300); })();
+  setInterval(function(){
+    try{
+      const on=document.getElementById('s-review')&&document.getElementById('s-review').classList.contains('on');
+      const sid=S.ui&&S.ui.studentId, cid=S.ui&&S.ui.classId;
+      if(!on||!sid||!cid) return;
+      if(window.lgAssignedHere&&lgAssignedHere(sid)) return;
+      if(inClass(sid,cid)) return;
+      S.ui.studentId=null;
+      if(typeof window.lgBackToRoster==='function') lgBackToRoster(); else if(typeof go==='function') go('collect');
+      try{ toast(T('请从名单重新点孩子','Please tap the child again from the list')); }catch(_){}
+    }catch(_){}
+  },700);
+  function T(zh,en){ try{ return document.body.dataset.lang==='en'?en:zh; }catch(_){ return zh; } }
+})();
 
 </script>
 <style id="lg96-css">
