@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Marketing CRM System v27</title>
+<title>Marketing CRM System v28</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
 <style>
 :root{--acc:#185FA5;--acc2:#0f4a8c;--grn:#0F6E56;--grn2:#085041;--red:#A32D2D;--amb:#854F0B;--pur:#5a3e99;--sur:#fff;--sur2:#f5f4f0;--sur3:#eceae4;--bdr:#e0ddd6;--txt:#1a1a1a;--mut:#888;--hint:#bbb;--r:10px;--rs:7px;--sh:0 1px 4px rgba(0,0,0,.07);--shm:0 8px 32px rgba(0,0,0,.18);}
@@ -616,11 +616,33 @@ tr:last-child td{border-bottom:none;}
 /* v26 · Calendar 日详情「Nothing booked」下方的 ＋Trial / ＋Visit 改成跟上方一样的实心按钮 */
 .day-empty{padding:16px 4px;}
 .day-add{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;}
+/* ===== v28 · Calendar 清单检视 ===== */
+.calview-tg{display:inline-flex;gap:0;margin-left:10px;border:1px solid #E5E7EB;border-radius:10px;overflow:hidden;vertical-align:middle}
+.calview-tg button{border:none;background:#fff;color:#6B7280;font-size:12px;font-weight:700;padding:6px 12px;cursor:pointer;font-family:inherit;min-height:36px}
+.calview-tg button.on{background:#C04E28;color:#fff}
+
+.bk-list{margin-top:8px}
+.bk-mh{font-size:12px;font-weight:800;color:#6B7280;text-transform:uppercase;letter-spacing:.04em;margin:16px 2px 8px}
+.bk-row{display:flex;align-items:center;gap:12px;background:#fff;border:1px solid #EEECE6;border-radius:12px;padding:10px 14px;margin-bottom:8px;cursor:pointer;transition:box-shadow .15s}
+.bk-row:hover{box-shadow:0 2px 8px rgba(0,0,0,.07)}
+.bk-row.today{border-color:#C04E28;box-shadow:0 0 0 1px #C04E28 inset}
+.bk-row.canc{opacity:.5}
+.bk-row.canc .bk-m b{text-decoration:line-through}
+.bk-date{display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:46px;line-height:1.1}
+.bk-date b{font-size:18px;font-weight:800;color:#1F2937}
+.bk-date span{font-size:10px;color:#9CA3AF;text-transform:uppercase}
+.bk-date i{font-size:10px;color:#C4C0B6;font-style:normal}
+.bk-ic{width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+.bk-ic.tr{background:#F3EEFB}
+.bk-ic.vi{background:#E8F0FE}
+.bk-m{flex:1;min-width:0}
+.bk-m b{font-size:14px}
+.bk-s{flex-shrink:0;white-space:nowrap}
 </style>
 </head>
 <body>
 <div class="nav">
-  <button class="nav-home" onclick="location.href='../index.html'" title="回平台">←</button><div class="nav-brand">📱 Marketing CRM <span class="vbadge">v27</span></div>
+  <button class="nav-home" onclick="location.href='../index.html'" title="回平台">←</button><div class="nav-brand">📱 Marketing CRM <span class="vbadge">v28</span></div>
   <button class="ntab on" data-p="dashboard" onclick="goPage('dashboard')">🏠 Today</button>
   <button class="ntab more13" data-p="followup" onclick="goPage('followup')">📅 Follow-up</button>
   <button class="ntab" data-p="calendar" onclick="goPage('calendar')">📅 Calendar</button>
@@ -3510,7 +3532,7 @@ function toggleLeadTag(id,tagId){
   setTimeout(()=>switchPTabById('pane-edit'),50);
 }
 
-const APP_VERSION=27;
+const APP_VERSION=28;
 // ---------- WhatsApp 范本（通顺英文） ----------
 function getWaTemplates(l){
   const prog = l.prog || (progsOf(l)[0] || ''), cn = S.courses[prog] || {};
@@ -4999,7 +5021,46 @@ renderSettings = function(){
   h += '<div class="card13 danger"><div class="c13-h">⚠️ Danger zone</div><button class="ghost" style="color:#B91C1C" onclick="clearAllEvents();renderSettings()">Delete ALL bookings</button></div></div>';
   document.getElementById('settings-content').innerHTML = h;
 };
-const UI_V_ALL = 27;
+const UI_V_ALL = 28;
+
+// ===================== v28（2026-10-26）· Calendar 清单检视：全部预约一条 list =====================
+let calView = 'month';
+function setCalView(v){ calView = v; renderCalendar(); window.scrollTo(0, 0); }
+function calViewTg(){
+  return '<span class="calview-tg">'
+    + '<button class="' + (calView !== 'list' ? 'on' : '') + '" onclick="setCalView(\'month\')">📅 Month</button>'
+    + '<button class="' + (calView === 'list' ? 'on' : '') + '" onclick="setCalView(\'list\')">📋 List</button></span>';
+}
+const _renderCal_month = renderCalendar;
+renderCalendar = function(){
+  if (calView !== 'list'){
+    _renderCal_month();
+    const m = document.querySelector('#calendar-content .cal-top .cal-m');
+    if (m && !m.querySelector('.calview-tg')) m.insertAdjacentHTML('beforeend', calViewTg());
+    return;
+  }
+  const t = today();
+  const evs = (S.events || []).slice().sort((a, b) => (a.date + (a.time || '')).localeCompare(b.date + (b.time || '')));
+  let h = '<div class="h13 cal13"><div class="cal-top"><div class="cal-m"><b>All bookings</b> <span class="mut">' + evs.length + '</span>' + calViewTg() + '</div>'
+    + '<div class="cal-act"><button class="go ann" onclick="openNotice()">📢 Group notice' + (annCount() ? ' <b>' + annCount() + '</b>' : '') + '</button></div></div>';
+  if (!evs.length){ h += '<div class="day-empty"><span class="mut">No bookings yet</span></div></div>'; document.getElementById('calendar-content').innerHTML = h; return; }
+  h += '<div class="bk-list">';
+  let curM = '';
+  evs.forEach(e => {
+    const mk = (e.date || '').slice(0, 7);
+    if (mk !== curM){ curM = mk; const n = evs.filter(x => (x.date || '').slice(0, 7) === mk).length;
+      h += '<div class="bk-mh">' + new Date(mk + '-01T12:00:00').toLocaleDateString('en-MY', { month: 'long', year: 'numeric' }) + ' <span class="mut">· ' + n + '</span></div>'; }
+    const l = evLead(e), canc = e.status === 'cancelled', d = new Date(e.date + 'T12:00:00');
+    h += '<div class="bk-row' + (canc ? ' canc' : '') + (e.date === t ? ' today' : '') + '"' + (l ? ' onclick="openCard(\'' + l.id + '\')"' : '') + '>'
+      + '<div class="bk-date"><b>' + d.getDate() + '</b><span>' + d.toLocaleDateString('en-MY', { month: 'short' }) + '</span><i>' + d.toLocaleDateString('en-MY', { weekday: 'short' }) + '</i></div>'
+      + '<div class="bk-ic ' + (e.type === 'trial' ? 'tr' : 'vi') + '">' + (e.type === 'trial' ? '🎓' : '🏫') + '</div>'
+      + '<div class="bk-m"><b>' + esc(evKidName(e, l) || fmtPhone(e.leadPhone) || '—') + '</b> ' + progChip(e.prog)
+      + '<div class="mut sm">' + esc([(e.time || '') + (e.slotLabel ? ' ' + e.slotLabel : ''), e.type === 'trial' ? 'Trial' : 'Visit'].filter(s => String(s).trim()).join(' · ')) + '</div></div>'
+      + '<div class="bk-s">' + (canc ? '<span class="tg tg-red">Cancelled</span>' : evStat(e)) + '</div></div>';
+  });
+  h += '</div></div>';
+  document.getElementById('calendar-content').innerHTML = h;
+};
 
 
 // ===================== v23（2026-10-26）· 云端版：大家共用一份资料 =====================
