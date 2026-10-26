@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Marketing CRM System v24</title>
+<title>Marketing CRM System v25</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
 <style>
 :root{--acc:#185FA5;--acc2:#0f4a8c;--grn:#0F6E56;--grn2:#085041;--red:#A32D2D;--amb:#854F0B;--pur:#5a3e99;--sur:#fff;--sur2:#f5f4f0;--sur3:#eceae4;--bdr:#e0ddd6;--txt:#1a1a1a;--mut:#888;--hint:#bbb;--r:10px;--rs:7px;--sh:0 1px 4px rgba(0,0,0,.07);--shm:0 8px 32px rgba(0,0,0,.18);}
@@ -608,11 +608,15 @@ tr:last-child td{border-bottom:none;}
 
 /* 云端徽章（同步徽章，标准元件 6）配 layer 色 */
 .cpill{border:1px solid rgba(255,255,255,.28);}
+
+/* v25 · 内容宽度对齐平台标准（EvalGo / System_Template = 1200px），左右边距与别的系统一致 */
+.page{max-width:1200px;}
+.h13{max-width:1200px;}
 </style>
 </head>
 <body>
 <div class="nav">
-  <button class="nav-home" onclick="location.href='../index.html'" title="回平台">←</button><div class="nav-brand">📱 Marketing CRM <span class="vbadge">v24</span></div>
+  <button class="nav-home" onclick="location.href='../index.html'" title="回平台">←</button><div class="nav-brand">📱 Marketing CRM <span class="vbadge">v25</span></div>
   <button class="ntab on" data-p="dashboard" onclick="goPage('dashboard')">🏠 Today</button>
   <button class="ntab more13" data-p="followup" onclick="goPage('followup')">📅 Follow-up</button>
   <button class="ntab" data-p="calendar" onclick="goPage('calendar')">📅 Calendar</button>
@@ -3502,7 +3506,7 @@ function toggleLeadTag(id,tagId){
   setTimeout(()=>switchPTabById('pane-edit'),50);
 }
 
-const APP_VERSION=24;
+const APP_VERSION=25;
 // ---------- WhatsApp 范本（通顺英文） ----------
 function getWaTemplates(l){
   const prog = l.prog || (progsOf(l)[0] || ''), cn = S.courses[prog] || {};
@@ -4991,7 +4995,7 @@ renderSettings = function(){
   h += '<div class="card13 danger"><div class="c13-h">⚠️ Danger zone</div><button class="ghost" style="color:#B91C1C" onclick="clearAllEvents();renderSettings()">Delete ALL bookings</button></div></div>';
   document.getElementById('settings-content').innerHTML = h;
 };
-const UI_V_ALL = 24;
+const UI_V_ALL = 25;
 
 
 // ===================== v23（2026-10-26）· 云端版：大家共用一份资料 =====================
