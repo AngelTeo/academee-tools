@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Marketing CRM System v25</title>
+<title>Marketing CRM System v26</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
 <style>
 :root{--acc:#185FA5;--acc2:#0f4a8c;--grn:#0F6E56;--grn2:#085041;--red:#A32D2D;--amb:#854F0B;--pur:#5a3e99;--sur:#fff;--sur2:#f5f4f0;--sur3:#eceae4;--bdr:#e0ddd6;--txt:#1a1a1a;--mut:#888;--hint:#bbb;--r:10px;--rs:7px;--sh:0 1px 4px rgba(0,0,0,.07);--shm:0 8px 32px rgba(0,0,0,.18);}
@@ -612,11 +612,15 @@ tr:last-child td{border-bottom:none;}
 /* v25 · 内容宽度对齐平台标准（EvalGo / System_Template = 1200px），左右边距与别的系统一致 */
 .page{max-width:1200px;}
 .h13{max-width:1200px;}
+
+/* v26 · Calendar 日详情「Nothing booked」下方的 ＋Trial / ＋Visit 改成跟上方一样的实心按钮 */
+.day-empty{padding:16px 4px;}
+.day-add{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;}
 </style>
 </head>
 <body>
 <div class="nav">
-  <button class="nav-home" onclick="location.href='../index.html'" title="回平台">←</button><div class="nav-brand">📱 Marketing CRM <span class="vbadge">v25</span></div>
+  <button class="nav-home" onclick="location.href='../index.html'" title="回平台">←</button><div class="nav-brand">📱 Marketing CRM <span class="vbadge">v26</span></div>
   <button class="ntab on" data-p="dashboard" onclick="goPage('dashboard')">🏠 Today</button>
   <button class="ntab more13" data-p="followup" onclick="goPage('followup')">📅 Follow-up</button>
   <button class="ntab" data-p="calendar" onclick="goPage('calendar')">📅 Calendar</button>
@@ -3506,7 +3510,7 @@ function toggleLeadTag(id,tagId){
   setTimeout(()=>switchPTabById('pane-edit'),50);
 }
 
-const APP_VERSION=25;
+const APP_VERSION=26;
 // ---------- WhatsApp 范本（通顺英文） ----------
 function getWaTemplates(l){
   const prog = l.prog || (progsOf(l)[0] || ''), cn = S.courses[prog] || {};
@@ -4658,7 +4662,7 @@ renderCalendar = function(){
   const progsDay = [...new Set(es.filter(e => e.status === 'scheduled' && e.prog).map(e => e.prog))];
   h += '<div class="cal-day"><div class="cal-dh"><b>' + new Date(calSel + 'T12:00:00').toLocaleDateString('en-MY', { weekday: 'long', day: 'numeric', month: 'long' }) + '</b>' + (calSel === t ? ' <span class="tg tg-grn">Today</span>' : '')
     + ''
-  if (!es.length) h += '<div class="mut" style="padding:14px 4px">Nothing booked. <a href="#" onclick="bookPick(\'trial\',calSel);return false">＋ Trial</a> · <a href="#" onclick="bookPick(\'visit\',calSel);return false">＋ Visit</a></div>';
+  if (!es.length) h += '<div class="day-empty"><span class="mut">Nothing booked yet</span><div class="day-add"><button class="go" onclick="bookPick(\'trial\',calSel)">＋ Trial</button><button class="go alt" onclick="bookPick(\'visit\',calSel)">＋ Visit</button></div></div>';
   es.forEach(e => { const l = evLead(e), open = calChat[e.id];
     h += '<div class="cev"><div class="cev-top"><div class="cev-i ' + (e.type === 'trial' ? 'tr' : 'vi') + '">' + (e.type === 'trial' ? '🎓' : '🏫') + '</div><div class="cev-m"><b>' + esc(evKidName(e, l) || '—') + '</b>' + (e.childAge ? ' <span class="mut">' + esc(e.childAge) + ' yrs</span>' : '') + ' ' + progChip(e.prog)
       + '<div class="mut sm">' + esc([(e.time || '') + (e.slotLabel ? ' ' + e.slotLabel : ''), fmtPhone((l && l.phone) || e.leadPhone)].filter(s => s.trim()).join(' · ')) + (e.sentP ? ' · 💬✓' : '') + (e.sentT ? ' · 👩‍🏫✓' : '') + '</div></div><div class="cev-s">' + evStat(e) + '</div></div>'
@@ -4995,7 +4999,7 @@ renderSettings = function(){
   h += '<div class="card13 danger"><div class="c13-h">⚠️ Danger zone</div><button class="ghost" style="color:#B91C1C" onclick="clearAllEvents();renderSettings()">Delete ALL bookings</button></div></div>';
   document.getElementById('settings-content').innerHTML = h;
 };
-const UI_V_ALL = 25;
+const UI_V_ALL = 26;
 
 
 // ===================== v23（2026-10-26）· 云端版：大家共用一份资料 =====================
