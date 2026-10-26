@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Marketing CRM System v23</title>
+<title>Marketing CRM System v24</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
 <style>
 :root{--acc:#185FA5;--acc2:#0f4a8c;--grn:#0F6E56;--grn2:#085041;--red:#A32D2D;--amb:#854F0B;--pur:#5a3e99;--sur:#fff;--sur2:#f5f4f0;--sur3:#eceae4;--bdr:#e0ddd6;--txt:#1a1a1a;--mut:#888;--hint:#bbb;--r:10px;--rs:7px;--sh:0 1px 4px rgba(0,0,0,.07);--shm:0 8px 32px rgba(0,0,0,.18);}
@@ -586,11 +586,33 @@ tr:last-child td{border-bottom:none;}
 .cl-box button:disabled{opacity:.6}.cl-err{background:#FFECEC;color:#B91C1C;border-radius:12px;padding:9px 12px;margin-bottom:12px;font-size:13px}.cl-f{color:#9CA3AF;font-size:12px;margin-top:12px}
 .cpill{border-radius:20px;padding:5px 10px;font-size:11px;font-weight:800;cursor:pointer;white-space:nowrap;align-self:center}
 .cpill.ok{background:rgba(16,163,127,.2);color:#A7F3D0}.cpill.saving,.cpill.load{background:rgba(255,255,255,.12);color:#fff}.cpill.off,.cpill.err{background:#F59E0B;color:#1F2937}
+/* ===== v24 · Universal Standard v9 对齐（保留 friendly）===== */
+/* Layer = BIZ 商务橘 */
+:root{--layer:#C04E28;}
+
+/* 顶栏用 layer 色（标准 §4-26 铁则四）*/
+.nav{background:var(--layer);box-shadow:0 2px 8px rgba(0,0,0,.15);}
+.nav-brand{border-right:1px solid rgba(255,255,255,.22);}
+
+/* ① ← 回平台 */
+.nav-home{background:none;border:none;color:rgba(255,255,255,.72);font-size:16px;
+  cursor:pointer;padding:0 12px 0 0;flex-shrink:0;min-height:44px;line-height:1;font-family:inherit;}
+.nav-home:hover{color:#fff;}
+
+/* 版本徽章：#F9CB42 底 + layer 字（标准格式）*/
+.nav-brand .vbadge{background:#F9CB42;color:var(--layer);border-radius:4px;
+  padding:1px 6px;font-size:10px;font-weight:800;margin-left:6px;vertical-align:middle;letter-spacing:.02em;}
+
+/* 点击区 ≥44px（标准 §2-7 / §4-26 铁则四）*/
+.nav .ntab,.nav .morebtn,.nav .cpill,.nav .nav-home{min-height:44px;display:inline-flex;align-items:center;}
+
+/* 云端徽章（同步徽章，标准元件 6）配 layer 色 */
+.cpill{border:1px solid rgba(255,255,255,.28);}
 </style>
 </head>
 <body>
 <div class="nav">
-  <div class="nav-brand">📱 Marketing CRM <span style="background:#F9CB42;color:#1a1a1a;border-radius:4px;padding:1px 6px;font-size:10px;font-weight:800;margin-left:4px">v23 ☁</span></div>
+  <button class="nav-home" onclick="location.href='../index.html'" title="回平台">←</button><div class="nav-brand">📱 Marketing CRM <span class="vbadge">v24</span></div>
   <button class="ntab on" data-p="dashboard" onclick="goPage('dashboard')">🏠 Today</button>
   <button class="ntab more13" data-p="followup" onclick="goPage('followup')">📅 Follow-up</button>
   <button class="ntab" data-p="calendar" onclick="goPage('calendar')">📅 Calendar</button>
@@ -600,7 +622,7 @@ tr:last-child td{border-bottom:none;}
   <button class="ntab more13" data-p="promos" onclick="goPage('promos')">🎯 Promos</button>
   <button class="ntab more13" data-p="courses" onclick="goPage('courses')">📚 Courses</button>
   <button class="ntab" data-p="insights" onclick="goPage('insights')">📊 Insights</button>
-  <button class="ntab" data-p="settings" onclick="goPage('settings')">⚙️ Settings</button>
+  <button class="ntab" data-p="settings" onclick="goPage('settings')">⚙️ 管理</button>
   <button class="morebtn" onclick="this.closest('.nav').classList.toggle('showmore');this.textContent=this.closest('.nav').classList.contains('showmore')?'Less ‹':'More ›'">More ›</button>
   <div style="margin-left:auto;display:flex;gap:6px;padding:0 8px;flex-shrink:0">
     <button onclick="exportData()" style="border:.5px solid rgba(255,255,255,.3);background:rgba(255,255,255,.1);color:#fff;border-radius:6px;padding:5px 12px;font-size:11px;cursor:pointer;font-family:inherit;font-weight:600;display:flex;align-items:center;gap:5px">
@@ -3480,7 +3502,7 @@ function toggleLeadTag(id,tagId){
   setTimeout(()=>switchPTabById('pane-edit'),50);
 }
 
-const APP_VERSION=23;
+const APP_VERSION=24;
 // ---------- WhatsApp 范本（通顺英文） ----------
 function getWaTemplates(l){
   const prog = l.prog || (progsOf(l)[0] || ''), cn = S.courses[prog] || {};
@@ -4955,7 +4977,7 @@ waText = function(l, kind){
 renderSettings = function(){
   const sf = S.settings.stageFollowUp = S.settings.stageFollowUp || {};
   const num = (k, lab, v) => '<div class="set-r"><div>' + lab + '</div><input type="number" min="1" max="90" value="' + v + '" onchange="' + k + '=+this.value||' + v + ';save();toast(\'✅ Saved\')"> <span class="mut">days</span></div>';
-  let h = '<div class="h13"><div class="ins-top"><div><div class="hi">⚙️ Settings</div><div class="dt">Marketing CRM v' + UI_V_ALL + '</div></div></div>';
+  let h = '<div class="h13"><div class="ins-top"><div><div class="hi">⚙️ 管理</div><div class="dt">Marketing CRM v' + UI_V_ALL + '</div></div></div>';
   h += '<div class="card13"><div class="c13-h">⏱ Follow-up timing</div>'
     + num('S.settings.stageFollowUp.wa_sent', 'No reply to WhatsApp → message again after', sf.wa_sent || 3)
     + num('S.settings.stageFollowUp.enquiry', 'New enquiry → follow up after', sf.enquiry || 3)
@@ -4969,7 +4991,7 @@ renderSettings = function(){
   h += '<div class="card13 danger"><div class="c13-h">⚠️ Danger zone</div><button class="ghost" style="color:#B91C1C" onclick="clearAllEvents();renderSettings()">Delete ALL bookings</button></div></div>';
   document.getElementById('settings-content').innerHTML = h;
 };
-const UI_V_ALL = 21;
+const UI_V_ALL = 24;
 
 
 // ===================== v23（2026-10-26）· 云端版：大家共用一份资料 =====================
@@ -5001,7 +5023,7 @@ async function pageAll(table, cols){ let out = [], from = 0; for (;;) { const ro
 function cloudPill(st, msg){
   cloudState = st; let p = document.getElementById('cloud-pill');
   if (!p) { const nav = document.querySelector('.nav'); if (!nav) return; p = document.createElement('div'); p.id = 'cloud-pill'; p.onclick = () => { cloudPull(true); cloudPush(); }; const ex = [...nav.querySelectorAll('button')].find(b => /Export/.test(b.textContent)); (ex ? ex.parentNode : nav).prepend(p); }
-  p.className = 'cpill ' + st; p.textContent = { ok: '☁ Saved', saving: '☁ Saving…', off: '⚠ Offline — retrying', load: '☁ Loading…', err: '⚠ Not saved' }[st] || '☁'; p.title = msg || ((ME && ME.name ? ME.name + ' · ' : '') + (SESS && SESS.email || ''));
+  p.className = 'cpill ' + st; p.textContent = { ok: '☁ 已存 ' + new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }), saving: '☁ 存档中…', off: '⚠ 离线 — 重试中', load: '☁ 载入中…', err: '⚠ 未存档' }[st] || '☁'; p.title = msg || ((ME && ME.name ? ME.name + ' · ' : '') + (SESS && SESS.email || ''));
 }
 
 // ---------- 登入画面 ----------
