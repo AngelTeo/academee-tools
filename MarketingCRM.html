@@ -3,8 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Marketing CRM System v29</title>
-<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<title>Marketing CRM System v30</title>
 <style>
 :root{--acc:#185FA5;--acc2:#0f4a8c;--grn:#0F6E56;--grn2:#085041;--red:#A32D2D;--amb:#854F0B;--pur:#5a3e99;--sur:#fff;--sur2:#f5f4f0;--sur3:#eceae4;--bdr:#e0ddd6;--txt:#1a1a1a;--mut:#888;--hint:#bbb;--r:10px;--rs:7px;--sh:0 1px 4px rgba(0,0,0,.07);--shm:0 8px 32px rgba(0,0,0,.18);}
 *{box-sizing:border-box;margin:0;padding:0;font-family:'Segoe UI',Arial,sans-serif;}
@@ -616,6 +615,17 @@ tr:last-child td{border-bottom:none;}
 /* v26 · Calendar 日详情「Nothing booked」下方的 ＋Trial / ＋Visit 改成跟上方一样的实心按钮 */
 .day-empty{padding:16px 4px;}
 .day-add{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;}
+
+/* v30 · 字体改 Segoe UI（保留 friendly 排版，拿掉在 Windows 上会糊的 Nunito）*/
+#cloud-login,.h13,.fcard,.pc13,.sh,.cl-box{font-family:'Segoe UI',Arial,sans-serif;}
+
+/* v30 · 新增查重提示框（多笔）*/
+.dupw-t{font-size:11px;font-weight:800;color:#92400E;text-transform:uppercase;letter-spacing:.03em;margin-bottom:6px}
+.dupw-row{display:flex;align-items:center;gap:10px;background:#fff;border:1px solid #FDE9C8;border-radius:10px;padding:8px 10px;margin-top:6px}
+.dupw-m{flex:1;min-width:0;font-size:13px}
+.dupw-p{font-size:11px;color:#9A7B4F;margin-top:1px}
+.dupw-why{background:#FDE9C8;color:#92400E;border-radius:4px;padding:0 5px;font-size:10px;font-weight:700;margin-left:4px}
+.dupw-row button{flex-shrink:0;border:none;background:#F59E0B;color:#fff;border-radius:8px;padding:6px 12px;font-weight:700;cursor:pointer;font-size:12px;font-family:inherit}
 /* ===== v28 · Calendar 清单检视 ===== */
 .calview-tg{display:inline-flex;gap:0;margin-left:10px;border:1px solid #E5E7EB;border-radius:10px;overflow:hidden;vertical-align:middle}
 .calview-tg button{border:none;background:#fff;color:#6B7280;font-size:12px;font-weight:700;padding:6px 12px;cursor:pointer;font-family:inherit;min-height:36px}
@@ -642,7 +652,7 @@ tr:last-child td{border-bottom:none;}
 </head>
 <body>
 <div class="nav">
-  <button class="nav-home" onclick="location.href='../index.html'" title="回平台">←</button><div class="nav-brand">📱 Marketing CRM <span class="vbadge">v29</span></div>
+  <button class="nav-home" onclick="location.href='../index.html'" title="回平台">←</button><div class="nav-brand">📱 Marketing CRM <span class="vbadge">v30</span></div>
   <button class="ntab on" data-p="dashboard" onclick="goPage('dashboard')">🏠 Today</button>
   <button class="ntab more13" data-p="followup" onclick="goPage('followup')">📅 Follow-up</button>
   <button class="ntab" data-p="calendar" onclick="goPage('calendar')">📅 Calendar</button>
@@ -3532,7 +3542,7 @@ function toggleLeadTag(id,tagId){
   setTimeout(()=>switchPTabById('pane-edit'),50);
 }
 
-const APP_VERSION=29;
+const APP_VERSION=30;
 // ---------- WhatsApp 范本（通顺英文） ----------
 function getWaTemplates(l){
   const prog = l.prog || (progsOf(l)[0] || ''), cn = S.courses[prog] || {};
@@ -5021,7 +5031,7 @@ renderSettings = function(){
   h += '<div class="card13 danger"><div class="c13-h">⚠️ Danger zone</div><button class="ghost" style="color:#B91C1C" onclick="clearAllEvents();renderSettings()">Delete ALL bookings</button></div></div>';
   document.getElementById('settings-content').innerHTML = h;
 };
-const UI_V_ALL = 29;
+const UI_V_ALL = 30;
 
 // ===================== v28（2026-10-26）· Calendar 清单检视：全部预约一条 list =====================
 let calView = 'month';
@@ -5060,6 +5070,48 @@ renderCalendar = function(){
   });
   h += '</div></div>';
   document.getElementById('calendar-content').innerHTML = h;
+};
+
+// ===================== v30（2026-10-26）· 新增时自动比对已有名单（电话 + 家长名 + 孩子名）=====================
+// 找出可能重复的已有家长：完全相同的电话、或家长名/孩子名有相符
+function dupMatches(ph, nm, excludeId){
+  const d = (ph || '').replace(/\D/g, ''); const q = (nm || '').trim().toLowerCase();
+  const out = [], seen = {};
+  (S.leads || []).forEach(l => {
+    if (!l || l.id === excludeId || l.invalid) return;
+    const lp = (l.phone || '').replace(/\D/g, '');
+    let hit = false, why = '';
+    if (d.length >= 7 && lp && lp === d) { hit = true; why = 'same phone'; }
+    if (!hit && q.length >= 2) {
+      const dn = (displayName(l) || '').toLowerCase();
+      const rawn = (l.name || '').toLowerCase();
+      const kidHit = (l.children || []).some(c => (c.name || '').toLowerCase().includes(q));
+      if ((dn && dn.includes(q)) || (!isPhoneLike(l.name) && rawn && rawn.includes(q))) { hit = true; why = 'same name'; }
+      else if (kidHit) { hit = true; why = 'same child'; }
+    }
+    if (hit && !seen[l.id]) { seen[l.id] = 1; out.push({ l, why }); }
+  });
+  return out.slice(0, 6);
+}
+function dupBoxHtml(matches){
+  if (!matches.length) return '';
+  return '<div class="dupw"><div class="dupw-t">⚠️ 可能已经记录过 · Already in records?</div>'
+    + matches.map(({ l, why }) => '<div class="dupw-row"><div class="dupw-m"><b>' + (esc(displayName(l)) || esc(fmtPhone(l.phone))) + '</b> '
+      + progsOf(l).map(progChip).join('') + '<div class="dupw-p">' + esc(fmtPhone(l.phone)) + (l.children && l.children.length ? ' · ' + esc((l.children.map(c => c.name).filter(Boolean)[0]) || '') : '') + ' <span class="dupw-why">' + why + '</span></div></div>'
+      + '<button onclick="shClose();openCard(\'' + l.id + '\')">Open →</button></div>').join('')
+    + '</div>';
+}
+// 覆盖新增家长的查重：电话 + 孩子名一起比
+nwDup = function(){
+  const box = document.getElementById('nw-dup'); if (!box) return;
+  box.innerHTML = dupBoxHtml(dupMatches(fv('nw-ph'), fv('nw-kn')));
+};
+// 新增表单渲染后，孩子名字栏也要触发查重
+const _openAddLead30 = openAddLead;
+openAddLead = function(){
+  const r = _openAddLead30.apply(this, arguments);
+  setTimeout(() => { const kn = document.getElementById('nw-kn'); if (kn && !kn._dupBound) { kn._dupBound = 1; kn.addEventListener('input', nwDup); } }, 60);
+  return r;
 };
 
 
