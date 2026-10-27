@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Marketing CRM System v34</title>
+<title>Marketing CRM System v35</title>
 <style>
 :root{--acc:#185FA5;--acc2:#0f4a8c;--grn:#0F6E56;--grn2:#085041;--red:#A32D2D;--amb:#854F0B;--pur:#5a3e99;--sur:#fff;--sur2:#f5f4f0;--sur3:#eceae4;--bdr:#e0ddd6;--txt:#1a1a1a;--mut:#888;--hint:#bbb;--r:10px;--rs:7px;--sh:0 1px 4px rgba(0,0,0,.07);--shm:0 8px 32px rgba(0,0,0,.18);}
 *{box-sizing:border-box;margin:0;padding:0;font-family:'Segoe UI',Arial,sans-serif;}
@@ -630,6 +630,13 @@ tr:last-child td{border-bottom:none;}
 /* v33 · Group notice「已通知的未来预约」灰显区 */
 .an-done{opacity:.72}
 .an-done .an-r{color:var(--mut)}
+
+/* v35 · 版本自动提醒条（英文，底部，不挡顶栏）*/
+#verbar{position:fixed;left:0;right:0;bottom:0;z-index:99999;background:var(--layer);color:#fff;
+  display:flex;align-items:center;justify-content:center;gap:14px;padding:11px 16px;
+  font-family:'Segoe UI',Arial,sans-serif;font-size:14px;font-weight:600;box-shadow:0 -2px 12px rgba(0,0,0,.22)}
+#verbar button{background:#F9CB42;color:#5A2410;border:none;border-radius:8px;padding:8px 18px;
+  font-weight:800;cursor:pointer;font-family:inherit;font-size:14px;flex-shrink:0}
 /* ===== v28 · Calendar 清单检视 ===== */
 .calview-tg{display:inline-flex;gap:0;margin-left:10px;border:1px solid #E5E7EB;border-radius:10px;overflow:hidden;vertical-align:middle}
 .calview-tg button{border:none;background:#fff;color:#6B7280;font-size:12px;font-weight:700;padding:6px 12px;cursor:pointer;font-family:inherit;min-height:36px}
@@ -656,7 +663,7 @@ tr:last-child td{border-bottom:none;}
 </head>
 <body>
 <div class="nav">
-  <button class="nav-home" onclick="location.href='../index.html'" title="回平台">←</button><div class="nav-brand">📱 Marketing CRM <span class="vbadge">v34</span></div>
+  <button class="nav-home" onclick="location.href='../index.html'" title="回平台">←</button><div class="nav-brand">📱 Marketing CRM <span class="vbadge">v35</span></div>
   <button class="ntab on" data-p="dashboard" onclick="goPage('dashboard')">🏠 Today</button>
   <button class="ntab more13" data-p="followup" onclick="goPage('followup')">📅 Follow-up</button>
   <button class="ntab" data-p="calendar" onclick="goPage('calendar')">📅 Calendar</button>
@@ -3546,7 +3553,7 @@ function toggleLeadTag(id,tagId){
   setTimeout(()=>switchPTabById('pane-edit'),50);
 }
 
-const APP_VERSION=34;
+const APP_VERSION=35;
 // ---------- WhatsApp 范本（通顺英文） ----------
 function getWaTemplates(l){
   const prog = l.prog || (progsOf(l)[0] || ''), cn = S.courses[prog] || {};
@@ -5160,6 +5167,36 @@ renderSettings = function(){
     c.appendChild(d);
   } catch (e) {}
 };
+
+// ===================== v35（2026-10-27）· 版本自动提醒：有新版时，旧页面自己跳「请刷新」（英文，给马来老师）=====================
+// 作法：每隔几分钟 / 回到分页时，抓一次线上这支 html（加 cache-bust、no-store），读里面的 APP_VERSION，
+// 比自己新 → 底部跳一条英文提示条，点一下就用 cache-bust 重新载入最新版。不碰云端同步、不动资料。
+(function(){
+  var CHECK_MS = 3 * 60 * 1000;   // 每 3 分钟查一次
+  var nagged = false;
+  function showBar(v){
+    if (document.getElementById('verbar')) return;
+    var b = document.createElement('div');
+    b.id = 'verbar';
+    b.innerHTML = '<span>🔄 A newer version (v' + v + ') is ready.</span>'
+      + '<button type="button" onclick="location.href=location.pathname+\'?v=\'+Date.now()">Refresh now</button>';
+    document.body.appendChild(b);
+  }
+  function check(){
+    try {
+      fetch(location.pathname + '?v=' + Date.now(), { cache: 'no-store' })
+        .then(function(r){ return r.ok ? r.text() : ''; })
+        .then(function(t){
+          var m = t.match(/const APP_VERSION=(\d+)/);
+          if (m && +m[1] > APP_VERSION && !nagged){ nagged = true; showBar(+m[1]); }
+        })
+        .catch(function(){});
+    } catch (e) {}
+  }
+  setTimeout(check, 8000);                     // 开页后不久查一次
+  setInterval(check, CHECK_MS);                // 之后定期查
+  window.addEventListener('focus', check);     // 回到这个分页时也查
+})();
 
 
 // ===================== v23（2026-10-26）· 云端版：大家共用一份资料 =====================
