@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Marketing CRM System v35</title>
+<title>Marketing CRM System v36</title>
 <style>
 :root{--acc:#185FA5;--acc2:#0f4a8c;--grn:#0F6E56;--grn2:#085041;--red:#A32D2D;--amb:#854F0B;--pur:#5a3e99;--sur:#fff;--sur2:#f5f4f0;--sur3:#eceae4;--bdr:#e0ddd6;--txt:#1a1a1a;--mut:#888;--hint:#bbb;--r:10px;--rs:7px;--sh:0 1px 4px rgba(0,0,0,.07);--shm:0 8px 32px rgba(0,0,0,.18);}
 *{box-sizing:border-box;margin:0;padding:0;font-family:'Segoe UI',Arial,sans-serif;}
@@ -637,6 +637,13 @@ tr:last-child td{border-bottom:none;}
   font-family:'Segoe UI',Arial,sans-serif;font-size:14px;font-weight:600;box-shadow:0 -2px 12px rgba(0,0,0,.22)}
 #verbar button{background:#F9CB42;color:#5A2410;border:none;border-radius:8px;padding:8px 18px;
   font-weight:800;cursor:pointer;font-family:inherit;font-size:14px;flex-shrink:0}
+
+/* v36 · Students 报名日「待补」区 */
+.sdfill .lst-h{color:var(--layer)}
+.sdrow{display:flex;align-items:center;gap:10px;padding:8px 2px;border-top:1px solid #F1F1F1}
+.sdrow .lr-m{flex:1;min-width:0}
+.sddate{flex-shrink:0;border:1px solid #E5E7EB;border-radius:8px;padding:7px 10px;
+  font-family:inherit;font-size:13px;min-height:38px;background:#FFF7F2;color:#5A2410}
 /* ===== v28 · Calendar 清单检视 ===== */
 .calview-tg{display:inline-flex;gap:0;margin-left:10px;border:1px solid #E5E7EB;border-radius:10px;overflow:hidden;vertical-align:middle}
 .calview-tg button{border:none;background:#fff;color:#6B7280;font-size:12px;font-weight:700;padding:6px 12px;cursor:pointer;font-family:inherit;min-height:36px}
@@ -663,7 +670,7 @@ tr:last-child td{border-bottom:none;}
 </head>
 <body>
 <div class="nav">
-  <button class="nav-home" onclick="location.href='../index.html'" title="回平台">←</button><div class="nav-brand">📱 Marketing CRM <span class="vbadge">v35</span></div>
+  <button class="nav-home" onclick="location.href='../index.html'" title="回平台">←</button><div class="nav-brand">📱 Marketing CRM <span class="vbadge">v36</span></div>
   <button class="ntab on" data-p="dashboard" onclick="goPage('dashboard')">🏠 Today</button>
   <button class="ntab more13" data-p="followup" onclick="goPage('followup')">📅 Follow-up</button>
   <button class="ntab" data-p="calendar" onclick="goPage('calendar')">📅 Calendar</button>
@@ -3553,7 +3560,7 @@ function toggleLeadTag(id,tagId){
   setTimeout(()=>switchPTabById('pane-edit'),50);
 }
 
-const APP_VERSION=35;
+const APP_VERSION=36;
 // ---------- WhatsApp 范本（通顺英文） ----------
 function getWaTemplates(l){
   const prog = l.prog || (progsOf(l)[0] || ''), cn = S.courses[prog] || {};
@@ -5197,6 +5204,74 @@ renderSettings = function(){
   setInterval(check, CHECK_MS);                // 之后定期查
   window.addEventListener('focus', check);     // 回到这个分页时也查
 })();
+
+// ===================== v36（2026-10-27）· 🎒 Students 报名清单：部门检视 + 月份检视(按真报名日) + 报名日一键补填 + 汇出 =====================
+// 病因：Students 页本来只按部门分组，没法按「报名月份」看（十月几个、各部门几个）。
+// 旧资料 32 个报名家庭里只有 4 个填了 enrolDate → 月份检视用「真报名日」，没填的进「待补」区，给一个日期框一键补。
+let stuView = 'dept';   // 'dept' | 'month'
+let stuDept = '';       // '' 或 SRK/GAK/ATC/SRT/CIY
+
+function stuEnrolled(){ return S.leads.filter(l => l.stage === 'enrolled'); }
+function setStuView(v){ stuView = v; renderStudents(); window.scrollTo(0, 0); }
+function stuSetDate(id, v){ const l = S.leads.find(x => x.id === id); if (!l) return; l.enrolDate = (v || '').trim(); save(); toast(v ? '✅ Enrolment date saved' : 'Cleared'); renderStudents(); }
+function monthLabel(m){ try { return new Date(m + '-01T12:00:00').toLocaleDateString('en-MY', { month: 'short', year: 'numeric' }); } catch (e) { return m; } }
+
+function stuCsv(){
+  const E = stuEnrolled();
+  const rows = [['Phone', 'Child / family', 'Department', 'Enrolment date', 'Enrolment month', 'First enquiry (createdAt)']].concat(
+    E.map(l => [l.phone, displayName(l) || fmtPhone(l.phone), progsOf(l)[0] || '', l.enrolDate || '', (l.enrolDate || '').slice(0, 7), l.createdAt || '']));
+  const csv = '﻿' + rows.map(r => r.map(v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"').join(',')).join('\r\n');
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })); a.download = 'Enrolments_' + today() + '.csv'; a.click();
+}
+
+renderStudents = function(){
+  const y = new Date().getFullYear(), t = today();
+  const allE = stuEnrolled();
+  let E = stuDept ? allE.filter(l => (progsOf(l)[0] || 'Other') === stuDept) : allE;
+  const noDateAll = allE.filter(l => !(l.enrolDate || '').trim()).length;
+
+  // ——（沿用 v21）升班提示 + 关怀状态 ——
+  const hint = l => { const k = realKids(l), out = []; k.forEach(c => { const a = c.birthYear ? y - c.birthYear : null; if (a !== null && a >= 6 && ['SRK', 'GAK'].includes(c.prog || l.prog)) out.push((c.name.split(/\s+/)[0]) + ' ' + a + ' yrs → ATC next year'); if (a !== null && a >= 5 && (c.prog || l.prog) !== 'SRT') out.push('SRT English'); }); if ((l.tags || []).includes('siblings')) out.push('sibling'); return [...new Set(out)]; };
+  const care = l => l.care === 'done' ? '<span class="tg tg-grn">✓ care done</span>' : l.followUpDate && /Care/.test(l.nextAction || '') ? '<span class="tg ' + (l.followUpDate <= t ? 'tg-red' : 'tg-blu') + '">' + (l.care === 'm1' ? 'Month 1' : 'Week 1') + ' · ' + fmtShort(l.followUpDate) + '</span>' : '';
+  const row = l => { const hs = hint(l); return '<div class="lrow" onclick="openCard(\'' + l.id + '\')">' + avatar(l) + '<div class="lr-m"><div class="lr-n">' + (esc(displayName(l)) || esc(fmtPhone(l.phone))) + (l.enrolDate ? ' <span class="mut sm">since ' + fmtShort(l.enrolDate) + '</span>' : '') + '</div><div class="lr-p">' + (displayName(l) ? esc(fmtPhone(l.phone)) : '') + (hs.length ? ' · 💡 ' + esc(hs.join(' · ')) : '') + '</div></div>' + care(l) + '</div>'; };
+
+  let h = '<div class="h13"><div class="ins-top"><div><div class="hi">🎒 Students</div><div class="dt">' + allE.length + ' enrolled families · keep them happy, ask for referrals</div></div>'
+    + '<div class="cal-act"><button class="go alt" onclick="stuCsv()">⬇ Excel (CSV)</button></div></div>';
+  // 检视切换 + 部门筛选
+  h += '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:4px 0 12px">'
+    + '<span class="calview-tg"><button class="' + (stuView === 'dept' ? 'on' : '') + '" onclick="setStuView(\'dept\')">🏫 By department</button>'
+    + '<button class="' + (stuView === 'month' ? 'on' : '') + '" onclick="setStuView(\'month\')">🗓 By month</button></span>'
+    + '<select onchange="stuDept=this.value;renderStudents()"><option value="">All departments</option>' + PROGS.map(p => '<option ' + (stuDept === p ? 'selected' : '') + '>' + p + '</option>').join('') + '</select>'
+    + (stuDept ? '<button class="ghost" onclick="stuDept=\'\';renderStudents()">Clear</button>' : '') + '</div>';
+
+  if (stuView === 'dept') {
+    h += '<div class="kpis">' + [['Care due', E.filter(l => l.followUpDate && l.followUpDate <= t && /Care/.test(l.nextAction || '')).length], ['Cross-sell ideas', E.filter(l => hint(l).length || l.crossSell).length], ['Enrolled this month', E.filter(l => (l.enrolDate || '').slice(0, 7) === t.slice(0, 7)).length]].map(([tt, v]) => '<div class="kpi"><div class="kpi-v">' + v + '</div><div class="kpi-l">' + tt + '</div></div>').join('') + '</div>';
+    const by = {}; E.forEach(l => { const p = progsOf(l)[0] || 'Other'; (by[p] = by[p] || []).push(l); });
+    Object.entries(by).sort((a, b) => b[1].length - a[1].length).forEach(([p, arr]) => {
+      h += '<div class="lst"><div class="lst-h">' + progChip(p) + ' ' + arr.length + '</div>' + arr.map(row).join('') + '</div>';
+    });
+    if (!E.length) h += '<div class="stp-done">No enrolled families here</div>';
+  } else {
+    const withDate = E.filter(l => (l.enrolDate || '').trim()), without = E.filter(l => !(l.enrolDate || '').trim());
+    h += '<div class="kpis">' + [['Enrolled', E.length], ['This month', withDate.filter(l => (l.enrolDate).slice(0, 7) === t.slice(0, 7)).length], ['Date to fill', without.length]].map(([tt, v]) => '<div class="kpi"><div class="kpi-v">' + v + '</div><div class="kpi-l">' + tt + '</div></div>').join('') + '</div>';
+    // 待补区：一键补填报名日
+    if (without.length) {
+      h += '<div class="lst sdfill"><div class="lst-h">🗓 Enrolment date to fill · ' + without.length + '</div>'
+        + '<div class="mut sm" style="padding:0 2px 8px">Set each one\'s enrolment date so it lands in the right month.</div>'
+        + without.map(l => '<div class="sdrow">' + avatar(l) + '<div class="lr-m"><div class="lr-n">' + (esc(displayName(l)) || esc(fmtPhone(l.phone))) + ' ' + progChip(progsOf(l)[0] || '') + '</div><div class="lr-p">' + esc(fmtPhone(l.phone)) + '</div></div><input type="date" class="sddate" onchange="stuSetDate(\'' + l.id + '\',this.value)"></div>').join('') + '</div>';
+    }
+    // 各月份（新到旧）
+    const byM = {}; withDate.forEach(l => { const m = l.enrolDate.slice(0, 7); (byM[m] = byM[m] || []).push(l); });
+    Object.keys(byM).sort().reverse().forEach(m => {
+      const arr = byM[m], cnt = {}; arr.forEach(l => { const p = progsOf(l)[0] || 'Other'; cnt[p] = (cnt[p] || 0) + 1; });
+      const mini = Object.entries(cnt).sort((a, b) => b[1] - a[1]).map(([p, n]) => esc(p) + ' ' + n).join(' · ');
+      h += '<div class="lst"><div class="lst-h">' + monthLabel(m) + ' · ' + arr.length + ' <span class="mut sm" style="font-weight:600">' + mini + '</span></div>'
+        + arr.sort((a, b) => (b.enrolDate || '').localeCompare(a.enrolDate || '')).map(row).join('') + '</div>';
+    });
+    if (!withDate.length && !without.length) h += '<div class="stp-done">No enrolled families here</div>';
+  }
+  document.getElementById('students-content').innerHTML = h + '</div>';
+};
 
 
 // ===================== v23（2026-10-26）· 云端版：大家共用一份资料 =====================
