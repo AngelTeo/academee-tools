@@ -224,7 +224,7 @@ window.esc=esc;
 <script>
 /* v94（28-09-2026）：日常成长 ＋ 学科能力 ＋ 总结；派老师加「每位老师教哪几科」（见文件最下方 v94 段；不设负责老师）。
    v93（28-09-2026）：Owner 决定换回整张表 —— 一年填一次、凭一直以来的观察、每个领域都要填。内容与 v91 完全相同，只改版本号；v92「一期多笔」停用。 */
-const APP_VERSION=113,KEY='lovego';
+const APP_VERSION=114,KEY='lovego';
 const SUPABASE_URL='https://qnpvqsvvsgsantekgfbz.supabase.co';
 const SUPABASE_KEY='sb_publishable_v3Y3BD3XiPz33t-hfdX58g_BaFIkjPF';
 const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true}});
@@ -1262,13 +1262,13 @@ try{var _vb=document.getElementById("verBadge");if(_vb&&typeof APP_VERSION!=="un
         </div>
         <div class="lg-supp-body">
           <div class="lg-supp-hint">${hint}</div>
-          ${items.map(it=>`
-            <div class="lg-detail-item">
+          ${items.map(it=>{ const skip=(key==='gak_nap_detail'&&it.id==='milk_help'&&saved.milk_method==='今天没有喝牛奶'); return `
+            <div class="lg-detail-item${skip?' lg-skip':''}">
               <div class="lg-detail-item-title">${it.label}</div>
               <div class="lg-detail-options">
                 ${it.options.map(op=>`<button type="button" class="lg-detail-opt ${saved[it.id]===op?'on':''}" onclick="event.stopPropagation();lgSetDetail('${key}','${it.id}',${esc(JSON.stringify(op))})">${op}</button>`).join('')}
-              </div>
-            </div>`).join('')}
+              </div>${skip?'<div class="lg-skip-tip">今天没有喝牛奶，这一题不用答 · Not needed</div>':''}
+            </div>`; }).join('')}
           <textarea class="lg-supp-note" placeholder="${notePlaceholder||'具体例子（选填）'}" oninput="lgSetDailyText('${noteKey}',this.value)">${esc(d[noteKey]||'')}</textarea>
         </div>
       </div>`;
@@ -1473,10 +1473,10 @@ try{var _vb=document.getElementById("verBadge");if(_vb&&typeof APP_VERSION!=="un
             [
               {id:'milk_method',label:'喝牛奶方式 · Milk Method',options:['仍使用奶瓶','已经使用杯子','两种方式都会使用','今天没有喝牛奶']},
               {id:'milk_help',label:'喝牛奶独立程度 · Milk Independence',options:['需要老师拿着／较多协助','需要少量协助或提醒','能自己完成大部分过程','能稳定独立完成']},
-              {id:'nap_prep',label:'午睡准备 · Nap Preparation',options:['需要老师逐步带入午睡流程','提醒后能跟随准备','大部分能自己进入午睡准备','能稳定自行进入熟悉午睡 routine']},
-              {id:'fall_asleep',label:'入睡协助 · Support to Fall Asleep',options:['需要较多陪伴／抱／持续安抚','需要老师陪伴、轻拍或短暂安抚','基本能自己安定，偶尔需要提醒','能自己安定并入睡']},
-              {id:'wake_mood',label:'睡醒后的情绪 · Mood After Waking',options:['醒来后情绪较大，需要较多安抚','需要一段缓冲时间','短暂缓冲后情绪稳定','醒来后通常情绪稳定']},
-              {id:'recovery',label:'睡醒后恢复 · After-Nap Recovery',options:['较长时间无法重新参与活动','在老师协助下逐渐恢复','短暂整理后能重新参与','能稳定自己整理并进入下一项活动']}
+              {id:'nap_prep',label:'午睡准备 · Nap Preparation',options:['需要老师逐步带入午睡流程','提醒后能跟随准备','大部分能自己进入午睡准备','能稳定自行进入熟悉午睡 routine','没有机会观察 · Not observed']},
+              {id:'fall_asleep',label:'入睡协助 · Support to Fall Asleep',options:['需要较多陪伴／抱／持续安抚','需要老师陪伴、轻拍或短暂安抚','基本能自己安定，偶尔需要提醒','能自己安定并入睡','没有机会观察 · Not observed']},
+              {id:'wake_mood',label:'睡醒后的情绪 · Mood After Waking',options:['醒来后情绪较大，需要较多安抚','需要一段缓冲时间','短暂缓冲后情绪稳定','醒来后通常情绪稳定','没有机会观察 · Not observed']},
+              {id:'recovery',label:'睡醒后恢复 · After-Nap Recovery',options:['较长时间无法重新参与活动','在老师协助下逐渐恢复','短暂整理后能重新参与','能稳定自己整理并进入下一项活动','没有机会观察 · Not observed']}
             ],
             'gak_nap_note',
             '补充一次有代表性的午睡情况（选填）…'
@@ -2574,7 +2574,7 @@ body.lg-teacher .navr .navbtn{display:none!important}
   function suppStats(root){
     let total=0,done=0,firstMiss=null;
     root.querySelectorAll('.lg-supp-block').forEach(b=>{
-      b.querySelectorAll('.lg-detail-item').forEach(it=>{ total++; if(it.querySelector('.lg-detail-opt.on')) done++; else if(!firstMiss) firstMiss=it; });
+      b.querySelectorAll('.lg-detail-item:not(.lg-skip)').forEach(it=>{ total++; if(it.querySelector('.lg-detail-opt.on')) done++; else if(!firstMiss) firstMiss=it; });
       if(b.querySelector('.lg-condition-btn')){ total++; if(b.querySelector('.lg-condition-btn.on')) done++; else if(!firstMiss) firstMiss=b; }
       const ch=b.querySelector('.lg-supp-body > .chips');
       if(ch){ total++; if(ch.querySelector('.chip.on')) done++; else if(!firstMiss) firstMiss=b; }
@@ -2622,7 +2622,7 @@ body.lg-teacher .navr .navbtn{display:none!important}
           if(left>0&&!confirm('还有 '+left+' 题补充题没点（卡片标题旁「补充 x / y 题」）。\n\n确定就这样交吗？')){
             host.querySelectorAll(':scope > .lg-group-card').forEach(card=>{ const c=suppStats(card); if(c.done<c.total&&!card.classList.contains('open')&&window.lgToggleGroup) lgToggleGroup(card.dataset.group); });
             setTimeout(()=>{
-              host.querySelectorAll('.lg-detail-item').forEach(it=>{ if(!it.querySelector('.lg-detail-opt.on')) it.classList.add('lg-missing'); });
+              host.querySelectorAll('.lg-detail-item:not(.lg-skip)').forEach(it=>{ if(!it.querySelector('.lg-detail-opt.on')) it.classList.add('lg-missing'); });
               const f=host.querySelector('.lg-detail-item.lg-missing'); if(f) f.scrollIntoView({behavior:'smooth',block:'center'});
             },120);
             return;
@@ -3045,7 +3045,7 @@ body.lg-teacher .navr .navbtn{display:none!important}
     try{ toast('还差 '+parts.join('、')); }catch(_){}
     if(cnt.supp){ const host=$('domains');
       if(host){ host.querySelectorAll(':scope > .lg-group-card').forEach(card=>{ const c=window.lgSuppStats?window.lgSuppStats(card):{done:0,total:0}; if(c.done<c.total&&!card.classList.contains('open')&&window.lgToggleGroup) lgToggleGroup(card.dataset.group); });
-        setTimeout(()=>{ host.querySelectorAll('.lg-detail-item').forEach(it=>{ if(!it.querySelector('.lg-detail-opt.on')) it.classList.add('lg-missing'); }); },80); } }
+        setTimeout(()=>{ host.querySelectorAll('.lg-detail-item:not(.lg-skip)').forEach(it=>{ if(!it.querySelector('.lg-detail-opt.on')) it.classList.add('lg-missing'); }); },80); } }
     setTimeout(()=>{
       m.forEach(x=>{
         let el=null;
@@ -3420,6 +3420,11 @@ body:not([data-lg95]) .lg95-gst{display:none}
   setInterval(soPaint,500);
 })();
 </script>
+<style id="lg114-css">
+.lg-detail-item.lg-skip{opacity:.45}
+.lg-detail-item.lg-skip .lg-detail-opt{pointer-events:none}
+.lg-skip-tip{margin-top:6px;font-size:12px;font-weight:700;color:#1e7a4f}
+</style>
 <style id="lg112-css">
 body[data-lg112so] .lg94-req,body[data-lg112so] #lg-daily-req:not(.ok){display:none!important}
 body[data-lg112so] #lg-miss-banner{display:none!important}
