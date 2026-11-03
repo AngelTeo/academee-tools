@@ -1,0 +1,1051 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>SchoolExamGo — ATC 学校考试 v1</title>
+<style>
+:root{
+  /* ══ LAYER ══ RPT */
+  --layer:#5A6470;
+  --d-srk:#C45C5C; --d-gak:#E8A04E; --d-atc:#7AB05A; --d-srt:#8B6CAE;
+  --sur:#ffffff; --sur2:#f7f6f2; --bdr:#e0ddd6;
+  --txt:#1a1a1a; --mut:#888888; --hint:#bbbbbb;
+  --ok:#0F6E56; --warn:#854F0B; --danger:#A32D2D; --info:#236FAD;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;
+  background:var(--sur2);color:var(--txt);font-size:13px;line-height:1.4}
+
+/* ══════ NAV (TOPBAR) ══════ */
+.nav{background:var(--layer);border-bottom:.5px solid rgba(0,0,0,.2);
+  display:flex;align-items:center;padding:0 16px;position:sticky;top:0;z-index:50;
+  overflow-x:auto;gap:0}
+.nav-home{background:none;border:none;color:rgba(255,255,255,.6);font-size:15px;
+  cursor:pointer;padding:0 10px 0 0;flex-shrink:0;min-height:44px;min-width:32px}
+.nav-home:hover{color:#fff}
+.nav-logo{font-size:13px;font-weight:600;padding:12px 14px 12px 0;
+  border-right:.5px solid rgba(255,255,255,.2);margin-right:4px;white-space:nowrap;
+  flex-shrink:0;color:#fff}
+.ver{background:#F9CB42;color:var(--layer);border-radius:4px;padding:1px 6px;
+  font-size:10px;font-weight:700;margin-left:4px;vertical-align:middle}
+.ntab{padding:0 14px;font-size:12px;color:rgba(255,255,255,.75);cursor:pointer;
+  border:none;background:transparent;border-bottom:2.5px solid transparent;
+  transition:all .15s;white-space:nowrap;flex-shrink:0;font-family:inherit;min-height:44px}
+.ntab:hover{color:#fff}
+.ntab.on{color:#fff;border-bottom-color:#fff;font-weight:600}
+.nav-r{margin-left:auto;display:flex;gap:5px;align-items:center;padding-left:10px;flex-shrink:0}
+.saved{font-size:10px;color:rgba(255,255,255,.7);white-space:nowrap}
+.btn-nav{padding:0 12px;border-radius:6px;border:.5px solid rgba(255,255,255,.3);
+  background:rgba(255,255,255,.12);color:#fff;font-size:11px;cursor:pointer;
+  font-family:inherit;transition:opacity .15s;white-space:nowrap;min-height:44px}
+.btn-nav:hover{opacity:.85}
+
+/* ══════ PAGES ══════ */
+.page{display:none;padding:16px;max-width:1200px;margin:0 auto}
+.page.on{display:block}
+
+/* ══════ BUTTONS ══════ */
+.btn{padding:5px 12px;border-radius:6px;border:.5px solid var(--bdr);
+  background:var(--sur);color:var(--txt);font-size:12px;cursor:pointer;
+  font-family:inherit;transition:background .15s;white-space:nowrap;min-height:36px}
+.btn:hover{background:var(--sur2)}
+.btn-pri{background:var(--layer);color:#fff;border-color:var(--layer);font-weight:600}
+.btn-pri:hover{opacity:.85;background:var(--layer)}
+.btn-dng{background:var(--danger);color:#fff;border-color:var(--danger)}
+.btn-sm{padding:3px 8px;font-size:11px;min-height:30px}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+
+/* ══════ CARDS ══════ */
+.card{background:var(--sur);border:.5px solid var(--bdr);border-radius:10px;
+  padding:16px;margin-bottom:12px}
+.card-hdr{display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:12px;flex-wrap:wrap;gap:8px}
+.card-title{font-size:11px;font-weight:500;color:var(--mut);
+  letter-spacing:.05em;text-transform:uppercase}
+
+/* ══════ STAT CARDS ══════ */
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px}
+.stat-card{background:var(--sur);border:.5px solid var(--bdr);border-radius:10px;padding:14px 16px}
+.stat-n{font-size:26px;font-weight:700}
+.stat-l{font-size:10px;color:var(--mut);margin-top:2px;text-transform:uppercase;letter-spacing:.05em}
+.stat-sub{font-size:10px;color:var(--hint);margin-top:2px}
+
+/* ══════ TABLES ══════ */
+.tw{overflow-x:auto}
+table.data{width:100%;border-collapse:collapse;font-size:12px}
+table.data thead th{background:#2d2d2d;color:#fff;padding:9px 12px;text-align:left;
+  font-size:10px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;
+  white-space:nowrap;position:sticky;top:0}
+table.data tbody td{padding:8px 12px;border-bottom:.5px solid var(--bdr);vertical-align:middle}
+table.data tbody tr:nth-child(even){background:var(--sur2)}
+table.data tbody tr:hover{background:#FFF9E6}
+
+/* ══════ LOADING ══════ */
+.loading{text-align:center;padding:40px;color:var(--hint);font-size:12px}
+.loading::before{content:'';display:block;width:24px;height:24px;border:2px solid var(--bdr);border-top-color:var(--layer);border-radius:50%;margin:0 auto 10px;animation:spin .6s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ══════ INPUTS ══════ */
+input[type=text],input[type=number],input[type=date],select,textarea{
+  border:.5px solid var(--bdr);border-radius:6px;padding:6px 10px;
+  font-size:12px;font-family:inherit;background:var(--sur);color:var(--txt);
+  min-width:120px;box-sizing:border-box}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--layer)}
+input.err,select.err,textarea.err{border-color:var(--danger)}
+.err-msg{font-size:10px;color:var(--danger);margin-top:2px}
+
+/* ══════ BADGES / TAGS ══════ */
+.badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600;white-space:nowrap}
+.b-atc{background:rgba(122,176,90,.12);color:var(--d-atc)}
+.b-active{background:#E1F5EE;color:var(--ok)}
+.b-inactive{background:#FCEBEB;color:var(--danger)}
+.b-warn{background:#FFF3CD;color:var(--warn)}
+
+/* ══════ TOOLBAR / PILLS ══════ */
+.toolbar{display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap}
+.dept-row{display:flex;gap:4px;flex-wrap:wrap}
+.dept-tag{padding:0 14px;border-radius:16px;border:.5px solid var(--bdr);
+  cursor:pointer;font-size:12px;background:var(--sur);color:var(--mut);font-family:inherit;min-height:36px}
+.dept-tag:hover{border-color:var(--layer);color:var(--layer)}
+.dept-tag.on{background:var(--layer);border-color:var(--layer);color:#fff}
+
+/* ══════ MODAL ══════ */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:999;
+  display:flex;align-items:center;justify-content:center;padding:20px}
+.modal{background:var(--sur);border-radius:10px;width:560px;max-width:100%;
+  max-height:88vh;overflow-y:auto;box-shadow:0 4px 20px rgba(0,0,0,.15)}
+.modal-hdr{padding:14px 20px;border-bottom:.5px solid var(--bdr);display:flex;
+  align-items:center;position:sticky;top:0;background:var(--sur);
+  border-radius:10px 10px 0 0;z-index:2}
+.modal-title{font-size:14px;font-weight:600;flex:1}
+.modal-body{padding:16px 20px}
+.modal-foot{padding:12px 20px;border-top:.5px solid var(--bdr);display:flex;
+  justify-content:flex-end;gap:8px;position:sticky;bottom:0;background:var(--sur);
+  border-radius:0 0 10px 10px}
+.x-btn{background:none;border:none;font-size:18px;color:var(--mut);cursor:pointer;min-width:36px;min-height:36px}
+
+/* ══════ TOAST ══════ */
+.toast{position:fixed;bottom:20px;right:20px;background:var(--txt);color:#fff;
+  padding:8px 16px;border-radius:6px;font-size:12px;opacity:0;
+  transition:opacity .25s;pointer-events:none;z-index:9999;max-width:80vw}
+.toast.show{opacity:1}
+
+/* ══════ MISC ══════ */
+.empty{text-align:center;padding:40px 20px;color:var(--hint);font-size:12px}
+.tip{font-size:11px;color:var(--mut);margin:8px 0}
+.alert{padding:10px 14px;border-radius:6px;font-size:12px;margin-bottom:10px;display:flex;align-items:flex-start;gap:8px;flex-wrap:wrap}
+.alert-info{background:#E8F0F7;color:#236FAD;border-left:3px solid #236FAD}
+.alert-warn{background:#FFF3CD;color:var(--warn);border-left:3px solid var(--warn)}
+.alert-danger{background:#FCEBEB;color:var(--danger);border-left:3px solid var(--danger)}
+.alert-ok{background:#E1F5EE;color:var(--ok);border-left:3px solid var(--ok)}
+.chip{display:inline-block;padding:3px 10px;border-radius:12px;font-size:10px;font-weight:500;cursor:default;margin:2px;white-space:nowrap}
+.chip-layer{background:rgba(90,100,112,.10);color:var(--layer)}
+.chip-ok{background:#E1F5EE;color:var(--ok)}
+.chip-warn{background:#FFF3CD;color:var(--warn)}
+.chip-danger{background:#FCEBEB;color:var(--danger)}
+.chip-info{background:#E8F0F7;color:var(--info)}
+.chip-muted{background:var(--sur2);color:var(--mut)}
+.acc{border:.5px solid var(--bdr);border-radius:8px;margin-bottom:8px;overflow:hidden}
+.acc-hdr{padding:10px 14px;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:space-between;background:var(--sur);user-select:none;min-height:44px}
+.acc-hdr:hover{background:var(--sur2)}
+.acc-arrow{font-size:10px;color:var(--mut);transition:transform .2s}
+.acc.open .acc-arrow{transform:rotate(180deg)}
+.acc-body{display:none;padding:12px 14px;border-top:.5px solid var(--bdr);font-size:12px}
+.acc.open .acc-body{display:block}
+.progress{height:6px;background:var(--bdr);border-radius:3px;overflow:hidden;margin:4px 0}
+.progress-fill{height:100%;border-radius:3px;transition:width .3s}
+.progress-ok .progress-fill{background:var(--ok)}
+.progress-layer .progress-fill{background:var(--layer)}
+.form-row{margin-bottom:12px}
+.form-label{font-size:11px;color:var(--mut);display:block;margin-bottom:4px}
+
+/* ══════ 本系统：进度格 ══════ */
+.pg{display:grid;gap:6px}
+.pg-cell{background:var(--sur);border:.5px solid var(--bdr);border-radius:8px;padding:8px 6px;
+  text-align:center;cursor:pointer;min-height:52px;font-family:inherit;font-size:12px;color:var(--txt)}
+.pg-cell:hover{border-color:var(--layer)}
+.pg-cell.sel{outline:2px solid var(--layer)}
+.pg-cell.done{background:#E1F5EE;border-color:#bfe3d4}
+.pg-cell.part{background:#FFF8E6;border-color:#f0dfb0}
+.pg-cell .n{font-weight:600}
+.pg-cell .s{font-size:10px;color:var(--mut)}
+.pg-head{font-size:10px;color:var(--mut);text-align:center;padding:4px 0;font-weight:600}
+.pg-rowh{font-size:12px;font-weight:600;display:flex;align-items:center}
+.pg-na{background:repeating-linear-gradient(45deg,var(--sur2),var(--sur2) 4px,#eceae4 4px,#eceae4 8px);
+  border-radius:8px;min-height:52px}
+
+/* ══════ 本系统：填写列 ══════ */
+.er{display:grid;grid-template-columns:34px minmax(150px,1.6fr) 70px 110px 130px 150px 110px;
+  gap:8px;align-items:center;padding:8px 10px;border-bottom:.5px solid var(--bdr);background:var(--sur)}
+.er:nth-child(even){background:#fbfaf7}
+.er.head{background:#2d2d2d;color:#fff;font-size:10px;font-weight:600;letter-spacing:.05em;border-radius:8px 8px 0 0}
+.er .no{color:var(--hint);font-size:11px}
+.er .nm b{font-weight:600}
+.er .nm span{color:var(--mut);font-size:11px;margin-left:4px}
+.er .sch{font-size:11px;color:var(--mut)}
+.sc-in{width:100%;min-width:0;font-size:16px;font-weight:600;text-align:center;min-height:40px}
+.st-sel{width:100%;min-width:0;min-height:40px}
+.pdf-btn{width:100%;min-height:40px}
+.cor-btn{width:100%;min-height:40px}
+.cor-btn.done{background:#E1F5EE;color:var(--ok);border-color:#bfe3d4;font-weight:600}
+.lbl-m{display:none;font-size:10px;color:var(--mut)}
+@media(max-width:720px){
+  .er{grid-template-columns:1fr 1fr;gap:6px 8px;padding:12px}
+  .er.head{display:none}
+  .er .no{display:none}
+  .er .nm{grid-column:1/3}
+  .er .sch{grid-column:1/3;margin-top:-4px}
+  .lbl-m{display:block}
+}
+.saving-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--warn);margin-left:4px;vertical-align:middle}
+
+/* ══════ 本系统：总览格 ══════ */
+.ov td.c{text-align:center;cursor:pointer;white-space:nowrap}
+.ov td.c:hover{background:#FFF3CD}
+.ov .sm{font-size:10px;color:var(--mut);display:block}
+
+/* ══════ 登入闸门 ══════ */
+#entry-card{scroll-margin-top:56px}
+#authgate{display:none;position:fixed;inset:0;z-index:9990;background:rgba(28,31,35,.93);
+  align-items:center;justify-content:center;padding:20px}
+#authgate .box{background:#fff;border-radius:10px;max-width:460px;width:100%;padding:26px 28px;text-align:center}
+
+/* ══════ RESPONSIVE ══════ */
+@media(max-width:768px){.stat-grid{grid-template-columns:repeat(2,1fr)}.modal{width:100%;margin:10px}}
+@media(max-width:480px){.ntab{padding:0 10px;font-size:11px}.nav-logo{font-size:12px}
+  .nav-sub{display:none}.pg{gap:3px!important}.pg-cell{padding:5px 1px;min-height:46px;font-size:11px}.pg-cell .s{font-size:8px;letter-spacing:-.3px}
+  .page{padding:12px}.card{padding:12px}
+  .pg-na{min-height:46px}.pg-rowh{font-size:11px}}
+
+/* ══════ PRINT ══════ */
+@media print{
+  @page{margin:12mm 14mm;size:A4 landscape}
+  .nav,.btn,.toast,.toolbar,.no-print,#authgate{display:none!important}
+  body{font-size:10pt;background:#fff}
+  .page{display:none!important}
+  #page-overview{display:block!important;padding:0}
+  .card{border:none;padding:0;page-break-inside:avoid}
+  table.data thead th{background:#333!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  table.data th,table.data td{border:1px solid #999}
+  .print-foot{display:block!important}
+}
+.print-foot{display:none;font-size:9pt;color:#555;margin-top:8px}
+</style>
+</head>
+<body>
+
+<div id="authgate"><div class="box">
+  <div id="ag-icon" style="font-size:34px;line-height:1;margin-bottom:12px">🔒</div>
+  <h2 id="ag-title" style="margin:0 0 8px;font-size:18px">请先登入平台</h2>
+  <p id="ag-msg" style="margin:0 0 18px;font-size:13px;line-height:1.6;color:#4d545c"></p>
+  <button id="ag-btn" class="btn btn-pri" style="width:100%;min-height:44px;font-size:14px"></button>
+</div></div>
+
+<!-- ══════ NAV (TOPBAR) ══════ -->
+<div class="nav">
+  <button class="nav-home" onclick="goPlatform()" title="回平台首页">←</button>
+  <div class="nav-logo">SchoolExamGo <span class="nav-sub" style="font-weight:400;opacity:.8">· ATC 学校考试</span> <span class="ver" id="ver-badge">v1</span></div>
+  <button class="ntab on" id="ntab-enter" onclick="goPage('enter')">填写</button>
+  <button class="ntab" id="ntab-overview" onclick="goPage('overview')">总览</button>
+  <button class="ntab" id="ntab-files" onclick="goPage('files')">考卷档案</button>
+  <button class="ntab" id="ntab-manage" onclick="goPage('manage')" style="display:none">管理</button>
+  <div class="nav-r">
+    <span class="saved" id="last-saved"></span>
+    <button class="btn-nav" onclick="exportData()">↓ Export</button>
+    <button class="btn-nav" onclick="printOverview()">🖨 Print</button>
+  </div>
+</div>
+
+<!-- ══════ PAGE: 填写 ══════ -->
+<div class="page on" id="page-enter">
+  <div id="enter-alerts"></div>
+  <div class="toolbar">
+    <select id="exam-sel" onchange="setExam(this.value)" style="min-height:36px"></select>
+    <span class="tip" id="enter-sub" style="margin:0"></span>
+  </div>
+  <div class="card">
+    <div class="card-hdr"><span class="card-title">每班每科进度 · 点一格开始填</span>
+      <span class="tip" style="margin:0">格子里：已填 / 人数 · 📄 考卷 · ✓ 已修正</span></div>
+    <div class="tw"><div class="pg" id="pg"></div></div>
+  </div>
+  <div class="card" id="entry-card" style="padding:0;overflow:hidden">
+    <div id="entry"></div>
+  </div>
+</div>
+
+<!-- ══════ PAGE: 总览 ══════ -->
+<div class="page" id="page-overview">
+  <div class="toolbar no-print">
+    <select id="exam-sel2" onchange="setExam(this.value)" style="min-height:36px"></select>
+    <div class="dept-row" id="ov-cls"></div>
+  </div>
+  <div class="stat-grid" id="ov-stats"></div>
+  <div id="ov-body"></div>
+  <div class="print-foot" id="print-foot"></div>
+</div>
+
+<!-- ══════ PAGE: 考卷档案 ══════ -->
+<div class="page" id="page-files">
+  <div id="files-body"></div>
+</div>
+
+<!-- ══════ PAGE: 管理 ══════ -->
+<div class="page" id="page-manage">
+  <div id="manage-body"></div>
+</div>
+
+<!-- ══════ MODAL ══════ -->
+<div class="modal-bg" id="modal" style="display:none" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <div class="modal-hdr"><span class="modal-title" id="modal-title"></span>
+      <button class="x-btn" onclick="closeModal()">×</button></div>
+    <div class="modal-body" id="modal-body"></div>
+    <div class="modal-foot" id="modal-foot"></div>
+  </div>
+</div>
+<input type="file" id="pdf-input" accept="application/pdf,.pdf" style="display:none" onchange="pdfChosen(event)">
+
+<div class="toast" id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script>
+/* ═══════════════════════════════════════════════════════════════════
+   SchoolExamGo · ATC 学校考试成绩 ＋ 扫描考卷
+   Owner 2026-11-03：
+   · 学校发回来的考卷（UASA 年头 / 年尾），每位学生每一科一个分数 ＋ 一份扫描 PDF
+   · 老师＋管理层都可以输入；要记「修正」（未修正 / 已修正）
+   · 科目：华、国、英、数、科、道（1–6 年级）＋ 历（只有 4–6 年级）
+   · PDF 原档放 P 槽：电脑（Chrome / Edge）直接写进连接好的资料夹；
+     手机写不到 P 槽 → 先放云端「待收」区，电脑打开时搬进 P 槽、再从云端删掉
+   资料：学生 / 班级 / 班籍只读 MasterHub（hub_*）；本系统只写 schoolexam_*。
+   ═══════════════════════════════════════════════════════════════════ */
+const APP_VERSION = 1;
+const STORAGE_KEY = 'schoolexamgo_v1';
+const SYS_CODE    = 'RPT-EvalGo-ATC';            /* 沿用 EvalGo_ATC 的权限（同一批人） */
+const SYS_NAME    = 'SchoolExamGo';
+const SB_URL      = 'https://qnpvqsvvsgsantekgfbz.supabase.co';
+const SB_KEY      = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFucHZxc3Z2c2dzYW50ZWtnZmJ6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYxNzg4MzIsImV4cCI6MjA5MTc1NDgzMn0.8rfv0BQpWNNSD8yrhHNwCOkcG9q5_uMD7B7z_Y324a0';
+const PLATFORM    = 'https://angelteo.github.io/';
+const ALLOWED_ORIGIN = 'https://angelteo.github.io';
+const BUCKET      = 'schoolexam-inbox';
+const MAX_PDF     = 30*1024*1024;
+const MANAGE_ROLES= ['OWNER','TOP_MGMT','ADMIN'];
+
+const SUBJ = [
+  {c:'MD', zh:'华文'}, {c:'BM', zh:'国文'}, {c:'EN', zh:'英文'}, {c:'MS', zh:'数学'},
+  {c:'SC', zh:'科学'}, {c:'MO', zh:'道德'}, {c:'SJ', zh:'历史', minYear:4}
+];
+const RSTATE = {SCORED:'有分数', NO_EXAM:'没考这科', ABSENT:'缺考', NOT_RETURNED:'卷没拿回'};
+const TERM = {MID:'年头', END:'年尾', OTHER:'其他'};
+
+/* ══ 本机状态 —— 只放偏好与还没送上去的修改；资料以系统为准 ══ */
+let S = { ui:{ examId:'', cls:'', subj:'', page:'enter', ovCls:'', advOpen:false }, pend:{}, meta:{} };
+const CLOUD = { session:null, perm:null, role:'', me:'', checked:false, err:'', online:false,
+  exams:[], classes:[], roster:[], rows:{}, loadedAt:null, rosterAt:null, inbox:[] };
+let _sb = null;
+
+function saveLocal(){
+  S.meta.last_updated = new Date().toISOString();
+  try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(S)); }
+  catch(e){ toast('✕ 这台装置的空间满了 —— 先按 ↓ Export 备份', 4000); }
+}
+function loadLocal(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY); if(!raw) return;
+    const p = JSON.parse(raw);
+    if(p && p.ui) Object.assign(S.ui, p.ui);
+    if(p && p.pend && typeof p.pend==='object') S.pend = p.pend;
+    if(p && p.meta) S.meta = p.meta;
+  }catch(e){ console.warn('[SchoolExamGo] local data unreadable', e); }
+}
+
+/* ══ 小工具 ══ */
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function toast(msg, ms){
+  const el=document.getElementById('toast'); el.textContent=msg;
+  el.classList.add('show'); clearTimeout(el._t);
+  el._t=setTimeout(()=>el.classList.remove('show'), ms||2000);
+}
+function csvCell(v){ const s=String(v==null?'':v); return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s; }
+function stamp(){ const d=new Date(), p=n=>String(n).padStart(2,'0');
+  return d.getFullYear()+p(d.getMonth()+1)+p(d.getDate())+'_'+p(d.getHours())+p(d.getMinutes()); }
+function fmtSize(b){ if(!b && b!==0) return ''; return b>1048576 ? (b/1048576).toFixed(1)+' MB' : Math.max(1,Math.round(b/1024))+' KB'; }
+function plainErr(e){
+  const m = String((e && (e.message||e.error_description||e.error)) || e || '');
+  if(/Failed to fetch|NetworkError|network/i.test(m)) return '网路连不上';
+  if(/row-level security|permission denied|not authorized|403/i.test(m)) return '这个帐号没有权限';
+  if(/JWT|expired/i.test(m)) return '登入过期了，请重新整理';
+  if(/score_le_max/.test(m)) return '分数比满分还大';
+  if(/too large|exceeded|Payload/i.test(m)) return '档案太大（最多 30 MB）';
+  if(/mime|content type/i.test(m)) return '只能上传 PDF';
+  return '系统暂时出错';
+}
+function classNo(cid){ const c=CLOUD.classes.find(x=>x.id===cid); const n=c?String(c.class_name||'').replace(/\D/g,''):''; return n?+n:0; }
+function className(cid){ const c=CLOUD.classes.find(x=>x.id===cid); return c ? (c.class_name||c.label||cid) : cid; }
+function subjOf(c){ return SUBJ.find(s=>s.c===c); }
+function subjForClass(cid){ const y=classNo(cid); return SUBJ.filter(s=>!s.minYear || y>=s.minYear); }
+function examById(id){ return CLOUD.exams.find(e=>e.id===id)||null; }
+function curExam(){ return examById(S.ui.examId); }
+function rosterOf(cid){ return CLOUD.roster.filter(r=>r.class_id===cid).sort((a,b)=>(a.num||999)-(b.num||999)||String(a.name).localeCompare(String(b.name))); }
+function cuid(examId, sid, subj){ return examId+'|'+sid+'|'+subj; }
+function rowOf(sid, subj, examId){
+  const k=cuid(examId||S.ui.examId, sid, subj);
+  const base=CLOUD.rows[k]||null, p=S.pend[k]||null;
+  if(!base && !p) return null;
+  return Object.assign({}, base||{}, p?p.f:{});
+}
+function canEdit(){ return !!(CLOUD.perm && CLOUD.perm.can_edit); }
+function canManage(){ return MANAGE_ROLES.indexOf(CLOUD.role)>=0; }
+function isFilled(r){ return !!r && ((r.result_state||'SCORED')!=='SCORED' || (r.score!==null && r.score!==undefined && r.score!=='')); }
+function pendCount(){ return Object.keys(S.pend).length; }
+
+/* ══ 登入 ══ */
+function safeReturnUrl(raw){ try{ const u=new URL(raw, ALLOWED_ORIGIN); return u.origin===ALLOWED_ORIGIN?u.href:null; }catch(e){ return null; } }
+function goPlatform(){ location.href=PLATFORM; }
+function redirectToPlatformLogin(){
+  const url=new URL(PLATFORM); const back=safeReturnUrl(location.href);
+  if(back) url.searchParams.set('returnTo', back);
+  try{ sessionStorage.setItem('schoolexam_login_bounce','1'); }catch(e){}
+  location.replace(url.toString());
+}
+function shouldAutoLogin(){
+  if(location.protocol==='file:') return false;
+  if(navigator.onLine===false) return false;
+  try{ if(sessionStorage.getItem('schoolexam_login_bounce')==='1') return false; }catch(e){}
+  return true;
+}
+function authGate(){
+  const el=document.getElementById('authgate');
+  const T=document.getElementById('ag-title'), M=document.getElementById('ag-msg'),
+        B=document.getElementById('ag-btn'), I=document.getElementById('ag-icon');
+  let show=false;
+  if(!CLOUD.checked){ el.style.display='none'; return; }
+  if(!window.supabase){ show=true; I.textContent='📡'; T.textContent='网路连不上';
+    M.textContent='系统还没载入。请检查网路后重新整理。'; B.textContent='重新整理'; B.onclick=()=>location.reload(); }
+  else if(!CLOUD.session){
+    if(shouldAutoLogin()){ redirectToPlatformLogin(); return; }
+    show=true; I.textContent='🔒'; T.textContent='请先登入平台';
+    M.textContent='SchoolExamGo 不另外设帐号，用你平常登入学校平台的那一个。按下面会跳去登入，登好会自动回来。';
+    B.textContent='去平台登入'; B.onclick=()=>{ location.href=PLATFORM+'?returnTo='+encodeURIComponent(location.href); };
+  }else if(!CLOUD.perm || CLOUD.perm.can_see!==true){
+    show=true; I.textContent='🚫'; T.textContent='这个帐号还没有开通';
+    M.textContent='你已经登入了，但这个帐号还没有开通 ATC 的考试系统。请找院长开通 —— 不是你的问题。';
+    B.textContent='重新检查'; B.onclick=()=>boot();
+  }
+  el.style.display=show?'flex':'none';
+}
+
+/* ══ 云端：读 ══ */
+async function boot(){
+  CLOUD.err='';
+  if(!window.supabase || !window.supabase.createClient){ CLOUD.checked=true; authGate(); renderAll(); return; }
+  try{
+    if(!_sb) _sb=window.supabase.createClient(SB_URL, SB_KEY);
+    const {data:{session}, error}=await _sb.auth.getSession();
+    if(error) throw error;
+    CLOUD.session=session||null;
+    if(!session){ CLOUD.checked=true; authGate(); renderAll(); return; }
+    try{ sessionStorage.removeItem('schoolexam_login_bounce'); }catch(e){}
+    const [pr, me, ex, cl, ro] = await Promise.all([
+      _sb.rpc('can_access', {p_system:SYS_CODE}),
+      _sb.from('users_meta').select('user_id,display_name,role').eq('user_id', session.user.id).maybeSingle(),
+      _sb.from('schoolexam_exam').select('*').is('voided_at', null).order('school_year',{ascending:false}).order('created_at',{ascending:false}),
+      _sb.from('hub_classes').select('id,class_name,label,status,sort_order').eq('dept','ATC').order('sort_order',{ascending:true}),
+      _sb.from('hub_student_memberships').select('student_id,class_id,num,status,end_date,hub_students(id,name,name_cn,school,status)').eq('dept','ATC').eq('status','Enrolled')
+    ]);
+    if(pr.error) throw pr.error;
+    CLOUD.perm = Array.isArray(pr.data)?pr.data[0]:pr.data;
+    CLOUD.checked=true;
+    if(!CLOUD.perm || CLOUD.perm.can_see!==true){ authGate(); renderAll(); return; }
+    if(me.data){ CLOUD.role=me.data.role||''; CLOUD.me=String(me.data.display_name||'').trim().toUpperCase(); }
+    if(ex.error) throw ex.error; if(cl.error) throw cl.error; if(ro.error) throw ro.error;
+    CLOUD.exams = ex.data||[];
+    CLOUD.classes = (cl.data||[]).filter(c=>c.status!=='inactive' && /^ATC_A\d$/.test(c.id));
+    const today=new Date().toISOString().slice(0,10);
+    CLOUD.roster = (ro.data||[]).filter(m=>m.hub_students && (!m.end_date || m.end_date>=today) && /^ATC_A\d$/.test(m.class_id))
+      .map(m=>({ sid:m.student_id, class_id:m.class_id, num:m.num, name:m.hub_students.name||'', name_cn:m.hub_students.name_cn||'', school:m.hub_students.school||'' }));
+    CLOUD.rosterAt = new Date();
+    if(!examById(S.ui.examId)){ const a=CLOUD.exams.find(e=>e.status==='active')||CLOUD.exams[0]; S.ui.examId=a?a.id:''; }
+    if(!CLOUD.classes.find(c=>c.id===S.ui.cls)) S.ui.cls='';
+    await loadRows();
+    CLOUD.online=true;
+    authGate();
+    document.getElementById('ntab-manage').style.display = canManage()?'':'none';
+    renderAll();
+    pushPending();
+    autoFileInbox();
+  }catch(e){
+    console.warn('[SchoolExamGo] boot', e);
+    CLOUD.checked=true; CLOUD.err=plainErr(e); CLOUD.online=false;
+    authGate(); renderAll();
+  }
+}
+async function loadRows(){
+  CLOUD.rows={};
+  if(!S.ui.examId){ CLOUD.loadedAt=new Date(); return; }
+  let from=0; const size=1000;
+  for(;;){
+    const r=await _sb.from('schoolexam_result').select('*').eq('exam_id', S.ui.examId).is('voided_at', null).range(from, from+size-1);
+    if(r.error) throw r.error;
+    (r.data||[]).forEach(x=>{ CLOUD.rows[x.client_uid]=x; });
+    if(!r.data || r.data.length<size) break;
+    from+=size;
+  }
+  CLOUD.loadedAt=new Date();
+}
+async function setExam(id){
+  S.ui.examId=id; saveLocal();
+  try{ await loadRows(); }catch(e){ toast('✕ 读不到这次考试的资料：'+plainErr(e), 4000); }
+  renderAll();
+}
+
+/* ══ 云端：写（一格一格存；断线先排队，回来自动送）══ */
+let _pushTimer=null, _pushing=false;
+function patchRow(sid, subj, fields){
+  const ex=curExam(); if(!ex) return;
+  const st=CLOUD.roster.find(r=>r.sid===sid); if(!st) return;
+  const k=cuid(ex.id, sid, subj);
+  const p=S.pend[k]||{ id:{ exam_id:ex.id, student_id:sid, class_id:st.class_id, subject:subj, client_uid:k }, f:{} };
+  p.id.class_id = st.class_id;
+  Object.assign(p.f, fields, { entered_by: CLOUD.me||null });
+  p.at=Date.now();
+  S.pend[k]=p; saveLocal(); paintStatus();
+  clearTimeout(_pushTimer); _pushTimer=setTimeout(pushPending, 700);
+}
+async function pushPending(){
+  if(_pushing || !_sb || !CLOUD.session) { paintStatus(); return; }
+  const keys=Object.keys(S.pend); if(!keys.length){ paintStatus(); return; }
+  _pushing=true; paintStatus();
+  let ok=0, fail=0, lastErr='';
+  for(const k of keys){
+    const p=S.pend[k]; if(!p) continue;
+    const at=p.at;
+    try{
+      const body=Object.assign({}, p.id, p.f);
+      const r=await _sb.from('schoolexam_result').upsert(body, {onConflict:'client_uid'}).select('*').single();
+      if(r.error) throw r.error;
+      CLOUD.rows[k]=r.data;
+      if(S.pend[k] && S.pend[k].at===at) delete S.pend[k];   /* 送的时候没有再被改过才清掉 */
+      ok++;
+    }catch(e){
+      fail++; lastErr=plainErr(e); console.warn('[SchoolExamGo] push', k, e);
+      if(/没有权限|分数比满分/.test(lastErr)){ delete S.pend[k]; }   /* 永远送不上去的不留着卡住 */
+    }
+  }
+  _pushing=false; saveLocal();
+  if(fail){ CLOUD.err=lastErr; toast('✕ 有 '+fail+' 笔没存进系统：'+lastErr, 4000); renderEntryStatusOnly(); }
+  else if(ok){ CLOUD.err=''; toast('✓ 已存'); if(S.ui.page==='enter') renderEnterAlerts(); }
+  paintStatus();
+  if(Object.keys(S.pend).length && !fail) setTimeout(pushPending, 500);
+  renderProgress();
+}
+function paintStatus(){
+  const el=document.getElementById('last-saved'); if(!el) return;
+  const n=pendCount();
+  if(!CLOUD.session){ el.textContent=''; return; }
+  if(_pushing) el.textContent='正在存 '+n+' 笔…';
+  else if(n) el.textContent='待上传 '+n+' 笔';
+  else el.textContent=CLOUD.err ? '⚠ '+CLOUD.err : '全部已存 '+new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+}
+window.addEventListener('online', ()=>pushPending());
+let _rz=null; window.addEventListener('resize', ()=>{ clearTimeout(_rz); _rz=setTimeout(()=>{ if(S.ui.page==='enter') renderProgress(); }, 200); });
+
+/* ══ 画面：分页 ══ */
+function goPage(p){
+  if(p==='manage' && !canManage()){ toast('✕ 管理页只有院长 / 管理员看得到'); p='enter'; }
+  S.ui.page=p; saveLocal();
+  document.querySelectorAll('.page').forEach(el=>el.classList.remove('on'));
+  document.querySelectorAll('.ntab').forEach(el=>el.classList.remove('on'));
+  document.getElementById('page-'+p).classList.add('on');
+  const t=document.getElementById('ntab-'+p); if(t) t.classList.add('on');
+  renderPage();
+}
+function renderAll(){ fillExamSelects(); renderPage(); paintStatus(); }
+function renderPage(){
+  const p=S.ui.page||'enter';
+  if(p==='enter'){ renderProgress(); renderEntry(); renderEnterAlerts(); }
+  else if(p==='overview') renderOverview();
+  else if(p==='files'){ renderFiles(); refreshInbox(); }
+  else if(p==='manage') renderManage();
+}
+function fillExamSelects(){
+  const opts = CLOUD.exams.length
+    ? CLOUD.exams.map(e=>`<option value="${esc(e.id)}"${e.id===S.ui.examId?' selected':''}>${esc(e.label)}${e.status!=='active'?'（已结束）':''}</option>`).join('')
+    : '<option value="">（还没有考试）</option>';
+  ['exam-sel','exam-sel2'].forEach(id=>{ const el=document.getElementById(id); if(el) el.innerHTML=opts; });
+}
+
+/* ══ 填写页 ══ */
+function renderEnterAlerts(){
+  const box=document.getElementById('enter-alerts'); const a=[];
+  if(CLOUD.checked && !CLOUD.online && CLOUD.session) a.push(`<div class="alert alert-danger">⚠ 读不到系统资料（${esc(CLOUD.err||'网路连不上')}）。没有任何资料被改动。<button class="btn btn-sm" onclick="boot()">↻ 重新读取</button></div>`);
+  if(pendCount()) a.push(`<div class="alert alert-warn">还有 ${pendCount()} 笔修改没送进系统 —— 资料先留在这台装置，连上网路会自动送出。<button class="btn btn-sm" onclick="pushPending()">☁ 立刻上传</button></div>`);
+  if(CLOUD.online && !canEdit()) a.push(`<div class="alert alert-info">这个帐号只能看，不能填。</div>`);
+  box.innerHTML=a.join('');
+  const ex=curExam();
+  document.getElementById('enter-sub').textContent = ex ? `ATC 1–6 · ${CLOUD.roster.length} 位学生` : '';
+}
+function cellStats(cid, subj){
+  const ros=rosterOf(cid); let filled=0, pdf=0, cor=0;
+  ros.forEach(st=>{ const r=rowOf(st.sid, subj); if(isFilled(r)) filled++;
+    if(r && r.pdf_state && r.pdf_state!=='NONE') pdf++;
+    if(r && r.correction_state==='DONE') cor++; });
+  return {n:ros.length, filled, pdf, cor};
+}
+function renderProgress(){
+  const box=document.getElementById('pg'); if(!box) return;
+  if(!CLOUD.classes.length){ box.innerHTML=`<div class="empty">${CLOUD.checked?'读不到 ATC 班级':'载入中…'}</div>`; box.style.gridTemplateColumns='1fr'; return; }
+  const narrow = window.innerWidth<=480;
+  box.style.gridTemplateColumns = narrow ? `24px repeat(${SUBJ.length}, minmax(0,1fr))` : `64px repeat(${SUBJ.length}, minmax(76px,1fr))`;
+  let h='<div></div>'+SUBJ.map(s=>`<div class="pg-head">${s.zh}</div>`).join('');
+  CLOUD.classes.forEach(c=>{
+    h+=`<div class="pg-rowh">${esc(narrow?String(c.class_name||c.id).replace('ATC','A'):(c.class_name||c.id))}</div>`;
+    const ok=subjForClass(c.id).map(s=>s.c);
+    SUBJ.forEach(s=>{
+      if(ok.indexOf(s.c)<0){ h+='<div class="pg-na" title="这个年级没有这一科"></div>'; return; }
+      const st=cellStats(c.id, s.c);
+      const cls = st.n && st.filled===st.n ? 'done' : (st.filled ? 'part' : '');
+      const sel = (S.ui.cls===c.id && S.ui.subj===s.c) ? ' sel' : '';
+      h+=`<button class="pg-cell ${cls}${sel}" onclick="pickCell('${c.id}','${s.c}')"><div class="n">${st.filled}${narrow?'/':' / '}${st.n}</div><div class="s">${narrow?`📄${st.pdf}✓${st.cor}`:`📄 ${st.pdf} · ✓ ${st.cor}`}</div></button>`;
+    });
+  });
+  box.innerHTML=h;
+}
+function pickCell(cid, subj){
+  S.ui.cls=cid; S.ui.subj=subj; saveLocal(); renderProgress(); renderEntry();
+  const el=document.getElementById('entry-card'); if(el && el.scrollIntoView) el.scrollIntoView({behavior:'smooth', block:'start'});
+}
+function commonMax(cid, subj){
+  const vals=rosterOf(cid).map(st=>{ const r=rowOf(st.sid, subj); return r&&r.max_score!=null?+r.max_score:100; });
+  const u=[...new Set(vals)]; return u.length===1?u[0]:null;
+}
+function renderEntry(){
+  const box=document.getElementById('entry'); const ex=curExam();
+  if(!ex){ box.innerHTML='<div class="empty">还没有考试 —— 请院长在「管理」新增一次考试</div>'; return; }
+  if(!S.ui.cls || !S.ui.subj || subjForClass(S.ui.cls).every(s=>s.c!==S.ui.subj)){
+    box.innerHTML='<div class="empty">👆 在上面点一格（班级 × 科目）开始填</div>'; return; }
+  const cid=S.ui.cls, subj=S.ui.subj, sj=subjOf(subj); const ros=rosterOf(cid); const st=cellStats(cid, subj);
+  const mx=commonMax(cid, subj); const ed=canEdit();
+  let h=`<div style="padding:16px 16px 10px">
+    <div class="card-hdr" style="margin-bottom:6px">
+      <div><div style="font-size:16px;font-weight:600">${esc(className(cid))} · ${sj.zh}</div>
+        <div class="tip" style="margin:2px 0 0">${esc(ex.label)} · 已填 ${st.filled} / ${st.n} · 考卷 ${st.pdf} · 已修正 ${st.cor}</div></div>
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px">满分
+        <input type="text" inputmode="decimal" id="max-in" value="${mx==null?'':mx}" placeholder="${mx==null?'不一':''}" style="width:72px;min-width:0;text-align:center;min-height:36px" ${ed?'':'disabled'} onchange="setMaxAll(this)"></label>
+    </div>
+    <div class="progress progress-ok"><div class="progress-fill" style="width:${st.n?Math.round(st.filled/st.n*100):0}%"></div></div>
+  </div>
+  <div class="er head"><div>#</div><div>学生</div><div>学校</div><div>分数</div><div>状况</div><div>考卷</div><div>修正</div></div>`;
+  if(!ros.length) h+='<div class="empty">这一班没有学生</div>';
+  ros.forEach((s,i)=>{
+    const r=rowOf(s.sid, subj)||{}; const state=r.result_state||'SCORED';
+    const pend=!!S.pend[cuid(ex.id, s.sid, subj)];
+    const pdfLbl = r.pdf_state==='FILED' ? '📄 看考卷' : (r.pdf_state==='INBOX' ? '📄 看（待收）' : '📎 上传考卷');
+    h+=`<div class="er" id="er-${esc(s.sid)}">
+      <div class="no">${s.num||i+1}</div>
+      <div class="nm"><b>${esc(s.name)}</b><span>${esc(s.name_cn)}</span>${pend?'<span class="saving-dot" title="还没存进系统"></span>':''}</div>
+      <div class="sch">${esc(s.school||'—')}</div>
+      <div><span class="lbl-m">分数</span><input type="text" inputmode="decimal" class="sc-in" id="sc-${esc(s.sid)}" value="${r.score==null?'':Number(r.score)}" ${(!ed||state!=='SCORED')?'disabled':''} placeholder="${state==='SCORED'?'—':''}" onchange="setScore('${s.sid}',this)" onkeydown="if(event.key==='Enter'){this.blur();nextScore('${s.sid}')}"></div>
+      <div><span class="lbl-m">状况</span><select class="st-sel" ${ed?'':'disabled'} onchange="setState('${s.sid}',this.value)">
+        ${Object.keys(RSTATE).map(k=>`<option value="${k}"${k===state?' selected':''}>${RSTATE[k]}</option>`).join('')}</select></div>
+      <div><span class="lbl-m">考卷</span><button class="btn pdf-btn" onclick="pdfAction('${s.sid}')">${pdfLbl}</button>
+        ${r.pdf_state&&r.pdf_state!=='NONE'&&ed?`<div style="text-align:center"><a href="javascript:void 0" style="font-size:10px;color:var(--mut)" onclick="pdfPick('${s.sid}')">换一份</a></div>`:''}</div>
+      <div><span class="lbl-m">修正</span><button class="btn cor-btn ${r.correction_state==='DONE'?'done':''}" ${ed?'':'disabled'} onclick="toggleCor('${s.sid}')">${r.correction_state==='DONE'?'✓ 已修正':'未修正'}</button></div>
+    </div>`;
+  });
+  box.innerHTML=h;
+}
+function renderEntryStatusOnly(){ if(S.ui.page==='enter') renderEntry(); renderEnterAlerts(); }
+function nextScore(sid){
+  const ros=rosterOf(S.ui.cls); const i=ros.findIndex(s=>s.sid===sid);
+  for(let j=i+1;j<ros.length;j++){ const el=document.getElementById('sc-'+ros[j].sid); if(el && !el.disabled){ el.focus(); el.select && el.select(); return; } }
+}
+function parseScore(v){ v=String(v).trim().replace(',', '.'); if(v==='') return null; if(!/^\d+(\.\d)?$/.test(v)) return NaN; return +v; }
+function setScore(sid, el){
+  if(!canEdit()){ toast('✕ 这个帐号不能填'); return; }
+  const r=rowOf(sid, S.ui.subj)||{}; const mx=r.max_score!=null?+r.max_score:100;
+  const v=parseScore(el.value);
+  el.classList.remove('err'); const old=el.parentNode.querySelector('.err-msg'); if(old) old.remove();
+  if(Number.isNaN(v) || (v!==null && v>mx)){
+    el.classList.add('err');
+    const m=document.createElement('div'); m.className='err-msg';
+    m.textContent = Number.isNaN(v) ? '只能填数字（最多一位小数）' : `比满分 ${mx} 还大`;
+    el.parentNode.appendChild(m); toast('✕ 没存：'+m.textContent, 2500); return;
+  }
+  patchRow(sid, S.ui.subj, {score:v, result_state:'SCORED', max_score:mx});
+  renderProgressAndHeader();
+}
+function setState(sid, state){
+  if(!canEdit()) return;
+  const f={result_state:state};
+  if(state!=='SCORED') f.score=null;
+  patchRow(sid, S.ui.subj, f); renderEntry(); renderProgress();
+  if(state==='SCORED'){ const el=document.getElementById('sc-'+sid); if(el) el.focus(); }
+}
+function toggleCor(sid){
+  if(!canEdit()) return;
+  const r=rowOf(sid, S.ui.subj)||{};
+  patchRow(sid, S.ui.subj, {correction_state: r.correction_state==='DONE'?'TODO':'DONE'});
+  renderEntry(); renderProgress();
+}
+function setMaxAll(el){
+  const v=parseScore(el.value);
+  if(v===null || Number.isNaN(v) || v<=0){ el.classList.add('err'); toast('✕ 满分要填大于 0 的数字'); return; }
+  const over=rosterOf(S.ui.cls).filter(st=>{ const r=rowOf(st.sid,S.ui.subj); return r && r.score!=null && +r.score>v; });
+  if(over.length){ el.classList.add('err'); toast('✕ 有 '+over.length+' 位学生的分数比 '+v+' 还大，先改分数', 3500); return; }
+  el.classList.remove('err');
+  rosterOf(S.ui.cls).forEach(st=>{ const r=rowOf(st.sid, S.ui.subj);
+    const cur = r && r.max_score!=null ? +r.max_score : 100;
+    if(cur!==v) patchRow(st.sid, S.ui.subj, {max_score:v}); });
+  toast('✓ 满分改成 '+v); renderEntry();
+}
+function renderProgressAndHeader(){ renderProgress();
+  const ex=curExam(); if(!ex) return; const st=cellStats(S.ui.cls, S.ui.subj);
+  const t=document.querySelector('#entry .tip'); if(t) t.textContent=`${ex.label} · 已填 ${st.filled} / ${st.n} · 考卷 ${st.pdf} · 已修正 ${st.cor}`;
+  const f=document.querySelector('#entry .progress-fill'); if(f) f.style.width=(st.n?Math.round(st.filled/st.n*100):0)+'%';
+}
+
+/* ══ 考卷 PDF ══
+   电脑（Chrome / Edge）：连接一次 P 槽资料夹，之后原档直接写进去，资料库只记档名。
+   手机 / 没连接：先放云端「待收」区；电脑打开时自动搬进 P 槽，再从云端删掉。 */
+const FS_OK = typeof window.showDirectoryPicker==='function';
+let PROOT=null, PROOT_OK=false;
+function idb(){ return new Promise((res,rej)=>{ const q=indexedDB.open('schoolexamgo',1);
+  q.onupgradeneeded=()=>q.result.createObjectStore('kv'); q.onsuccess=()=>res(q.result); q.onerror=()=>rej(q.error); }); }
+async function kvGet(k){ try{ const d=await idb(); return await new Promise(r=>{ const t=d.transaction('kv').objectStore('kv').get(k); t.onsuccess=()=>r(t.result); t.onerror=()=>r(null); }); }catch(e){ return null; } }
+async function kvSet(k,v){ try{ const d=await idb(); await new Promise(r=>{ const t=d.transaction('kv','readwrite'); t.objectStore('kv').put(v,k); t.oncomplete=r; t.onerror=r; }); }catch(e){} }
+async function loadPRoot(){
+  if(!FS_OK) return;
+  PROOT = await kvGet('proot');
+  if(PROOT && PROOT.queryPermission){
+    try{ PROOT_OK = (await PROOT.queryPermission({mode:'readwrite'}))==='granted'; }catch(e){ PROOT_OK=false; }
+  }
+}
+async function ensurePRoot(interactive){
+  if(!FS_OK) return false;
+  if(PROOT && PROOT_OK) return true;
+  if(PROOT && interactive){
+    try{ PROOT_OK = (await PROOT.requestPermission({mode:'readwrite'}))==='granted'; }catch(e){ PROOT_OK=false; }
+    if(PROOT_OK) return true;
+  }
+  return false;
+}
+async function connectP(){
+  if(!FS_OK){ toast('✕ 这台装置不能连接 P 槽（要用电脑的 Chrome 或 Edge）', 3500); return; }
+  try{
+    const h=await window.showDirectoryPicker({id:'schoolexamgo', mode:'readwrite'});
+    PROOT=h; PROOT_OK=true; await kvSet('proot', h);
+    toast('✓ 已连接资料夹「'+h.name+'」'); renderPage(); autoFileInbox();
+  }catch(e){ if(e && e.name!=='AbortError') toast('✕ 没连上：'+(e.message||e), 3500); }
+}
+function safeName(s){ return String(s||'').replace(/[\\/:*?"<>|]+/g,' ').replace(/\s+/g,' ').trim(); }
+function pdfParts(ex, classId, st, subj){
+  const n=classNo(classId); const sj=subjOf(subj);
+  return { dirs:[`${ex.school_year}_Exam Papers`, safeName(ex.label), `ATC ${n}`],
+           file: safeName(`A${n} ${st.name} ${sj?sj.zh:subj} ${ex.label}`)+'.pdf' };
+}
+async function writeToP(parts, blob){
+  let d=PROOT;
+  for(const x of parts.dirs) d=await d.getDirectoryHandle(x, {create:true});
+  /* 已经有同名档 → 旧的先另存一份（名字后面加「旧 时间」），不盖掉 */
+  try{
+    const old=await d.getFileHandle(parts.file, {create:false});
+    const of=await old.getFile();
+    const bak=await d.getFileHandle(parts.file.replace(/\.pdf$/i, ` (旧 ${stamp()}).pdf`), {create:true});
+    const w0=await bak.createWritable(); await w0.write(of); await w0.close();
+  }catch(e){ /* 没有旧档 */ }
+  const fh=await d.getFileHandle(parts.file, {create:true});
+  const w=await fh.createWritable(); await w.write(blob); await w.close();
+  return parts.dirs.concat([parts.file]).join('\\');
+}
+async function readFromP(rel){
+  const seg=String(rel).split(/[\\/]/); let d=PROOT;
+  for(let i=0;i<seg.length-1;i++) d=await d.getDirectoryHandle(seg[i]);
+  const fh=await d.getFileHandle(seg[seg.length-1]); return await fh.getFile();
+}
+let _pdfFor=null;
+function pdfPick(sid){
+  if(!canEdit()){ toast('✕ 这个帐号不能上传'); return; }
+  _pdfFor=sid; const el=document.getElementById('pdf-input'); el.value=''; el.click();
+}
+async function pdfAction(sid){
+  const r=rowOf(sid, S.ui.subj)||{};
+  if(!r.pdf_state || r.pdf_state==='NONE'){ pdfPick(sid); return; }
+  const w=window.open('', '_blank');   /* 先开分页（不会被挡），档案准备好再放进去 */
+  try{
+    let blob=null;
+    if(r.pdf_state==='FILED'){
+      if(!(await ensurePRoot(true))){ if(w) w.close();
+        toast(FS_OK?'✕ 这份考卷在 P 槽 —— 先到「考卷档案」连接 P 槽资料夹':'这份考卷已经收进 P 槽，要在办公室电脑上看', 4000); return; }
+      blob=await readFromP(r.pdf_file);
+    }else{
+      const s=await _sb.storage.from(BUCKET).createSignedUrl(r.pdf_inbox_path, 600);
+      if(s.error) throw s.error;
+      if(w){ w.location=s.data.signedUrl; return; } else { location.href=s.data.signedUrl; return; }
+    }
+    const url=URL.createObjectURL(new Blob([blob],{type:'application/pdf'}));
+    if(w) w.location=url; else window.open(url,'_blank');
+  }catch(e){ if(w) w.close(); console.warn('[SchoolExamGo] open pdf', e); toast('✕ 打不开：'+(e&&e.name==='NotFoundError'?'P 槽里找不到这个档（被搬走或改名了？）':plainErr(e)), 4000); }
+}
+async function pdfChosen(ev){
+  const f=ev.target.files && ev.target.files[0]; const sid=_pdfFor; _pdfFor=null;
+  if(!f || !sid) return;
+  if(!/pdf$/i.test(f.type) && !/\.pdf$/i.test(f.name)){ toast('✕ 只能上传 PDF', 3000); return; }
+  if(f.size>MAX_PDF){ toast('✕ 档案太大（'+fmtSize(f.size)+'），最多 30 MB', 3500); return; }
+  const ex=curExam(); const st=CLOUD.roster.find(x=>x.sid===sid); const subj=S.ui.subj;
+  if(!ex || !st) return;
+  const before=rowOf(sid, subj)||{};
+  toast('上传中…', 10000);
+  try{
+    if(await ensurePRoot(false)){
+      const rel=await writeToP(pdfParts(ex, st.class_id, st, subj), f);
+      patchRow(sid, subj, {pdf_state:'FILED', pdf_file:rel, pdf_inbox_path:null, pdf_bytes:f.size, pdf_by:CLOUD.me||null, pdf_at:new Date().toISOString()});
+      if(before.pdf_state==='INBOX' && before.pdf_inbox_path){ try{ await _sb.storage.from(BUCKET).remove([before.pdf_inbox_path]); }catch(e){} }
+      toast('✓ 已存进 P 槽：'+rel.split('\\').pop(), 3000);
+    }else{
+      if(!_sb || !CLOUD.session) throw new Error('Failed to fetch');
+      const path=`${ex.id}/${st.class_id}/${sid}_${subj}.pdf`;
+      const up=await _sb.storage.from(BUCKET).upload(path, f, {upsert:true, contentType:'application/pdf'});
+      if(up.error) throw up.error;
+      patchRow(sid, subj, {pdf_state:'INBOX', pdf_inbox_path:path, pdf_bytes:f.size, pdf_by:CLOUD.me||null, pdf_at:new Date().toISOString()});
+      toast('✓ 已上传（办公室电脑打开时会自动收进 P 槽）', 3500);
+    }
+  }catch(e){ console.warn('[SchoolExamGo] upload', e); toast('✕ 没上传成功：'+plainErr(e), 4000); }
+  renderEntry(); renderProgress();
+}
+/* 待收 → P 槽 */
+let _filing=false;
+async function loadInbox(){
+  if(!_sb || !CLOUD.session) return [];
+  const r=await _sb.from('schoolexam_result').select('*').eq('pdf_state','INBOX').is('voided_at', null).limit(1000);
+  if(r.error) throw r.error; CLOUD.inbox=r.data||[]; return CLOUD.inbox;
+}
+let _inboxBusy=false;
+async function refreshInbox(){
+  if(_inboxBusy || !_sb || !CLOUD.session) return;
+  _inboxBusy=true;
+  try{ await loadInbox(); }catch(e){ console.warn('[SchoolExamGo] inbox', e); }
+  _inboxBusy=false;
+  if(S.ui.page==='files') renderFiles();
+}
+async function autoFileInbox(){ if(FS_OK && PROOT_OK && canEdit()) fileInbox(false); else { try{ await loadInbox(); }catch(e){} if(S.ui.page==='files') renderFiles(); } }
+async function fileInbox(interactive){
+  if(_filing) return;
+  if(!(await ensurePRoot(!!interactive))){ if(interactive) toast('✕ 先连接 P 槽资料夹'); return; }
+  _filing=true; let ok=0, fail=0;
+  try{
+    const list=await loadInbox();
+    for(const r of list){
+      const ex=examById(r.exam_id); const st=CLOUD.roster.find(x=>x.sid===r.student_id) || {name:r.student_id};
+      if(!ex){ fail++; continue; }
+      try{
+        const dl=await _sb.storage.from(BUCKET).download(r.pdf_inbox_path); if(dl.error) throw dl.error;
+        const rel=await writeToP(pdfParts(ex, r.class_id, st, r.subject), dl.data);
+        const up=await _sb.from('schoolexam_result').update({pdf_state:'FILED', pdf_file:rel, pdf_inbox_path:null})
+          .eq('id', r.id).eq('pdf_state','INBOX').select('*');
+        if(up.error) throw up.error;
+        if(up.data && up.data[0]){ CLOUD.rows[up.data[0].client_uid]=up.data[0];
+          const pk=S.pend[up.data[0].client_uid]; if(pk && pk.f){ delete pk.f.pdf_state; delete pk.f.pdf_inbox_path; delete pk.f.pdf_file; } }
+        await _sb.storage.from(BUCKET).remove([r.pdf_inbox_path]);
+        ok++;
+      }catch(e){ fail++; console.warn('[SchoolExamGo] file inbox', r.id, e); }
+    }
+    await loadInbox();
+  }catch(e){ fail++; console.warn('[SchoolExamGo] inbox', e); }
+  _filing=false;
+  if(ok) toast('✓ 已收进 P 槽 '+ok+' 份'+(fail?' · '+fail+' 份没成功':''), 3500);
+  else if(fail) toast('✕ 有 '+fail+' 份没收进 P 槽', 3500);
+  renderPage();
+}
+
+/* ══ 总览页 ══ */
+function renderOverview(){
+  const ex=curExam(); const box=document.getElementById('ov-body');
+  const cls=document.getElementById('ov-cls');
+  if(!S.ui.ovCls || !CLOUD.classes.find(c=>c.id===S.ui.ovCls)) S.ui.ovCls = (CLOUD.classes[0]||{}).id||'';
+  cls.innerHTML = CLOUD.classes.map(c=>`<button class="dept-tag${c.id===S.ui.ovCls?' on':''}" onclick="S.ui.ovCls='${c.id}';saveLocal();renderOverview()">${esc(c.class_name||c.id)}</button>`).join('');
+  if(!ex){ box.innerHTML='<div class="empty">还没有考试</div>'; document.getElementById('ov-stats').innerHTML=''; return; }
+  /* 全部班的数字 */
+  let need=0, filled=0, pdf=0, cor=0, inbox=0;
+  CLOUD.classes.forEach(c=>subjForClass(c.id).forEach(s=>{ const st=cellStats(c.id, s.c); need+=st.n; filled+=st.filled; pdf+=st.pdf; cor+=st.cor; }));
+  Object.values(CLOUD.rows).forEach(r=>{ if(r.pdf_state==='INBOX') inbox++; });
+  document.getElementById('ov-stats').innerHTML=`
+    <div class="stat-card"><div class="stat-n">${filled} / ${need}</div><div class="stat-l">分数已填</div><div class="stat-sub">学生 × 科目（含没考 / 缺考）</div></div>
+    <div class="stat-card"><div class="stat-n">${pdf}</div><div class="stat-l">考卷已上传</div><div class="stat-sub">${inbox?inbox+' 份还在待收区':'全部在 P 槽'}</div></div>
+    <div class="stat-card"><div class="stat-n">${cor}</div><div class="stat-l">已修正</div><div class="stat-sub">学生 × 科目</div></div>`;
+  const cid=S.ui.ovCls; const subs=subjForClass(cid); const ros=rosterOf(cid);
+  let h=`<div class="card"><div class="card-hdr"><span class="card-title">${esc(className(cid))} · ${esc(ex.label)}</span>
+    <span class="tip" style="margin:0">点一格去填 · 📄 有考卷 · ✎ 未修正</span></div><div class="tw"><table class="data ov"><thead><tr><th>#</th><th>学生</th><th>学校</th>
+    ${subs.map(s=>`<th style="text-align:center">${s.zh}</th>`).join('')}</tr></thead><tbody>`;
+  ros.forEach((st,i)=>{
+    h+=`<tr><td style="color:var(--hint)">${st.num||i+1}</td><td><strong>${esc(st.name)}</strong> <span style="color:var(--mut);font-size:11px">${esc(st.name_cn)}</span></td><td style="color:var(--mut)">${esc(st.school||'—')}</td>`;
+    subs.forEach(s=>{
+      const r=rowOf(st.sid, s.c);
+      let v='<span style="color:var(--hint)">—</span>';
+      if(r){ const state=r.result_state||'SCORED';
+        if(state!=='SCORED') v=`<span class="chip chip-muted">${RSTATE[state]}</span>`;
+        else if(r.score!=null) v=`<b>${Number(r.score)}</b>${+r.max_score!==100?`<span style="color:var(--mut)">/${Number(r.max_score)}</span>`:''}`;
+        const marks=(r.pdf_state&&r.pdf_state!=='NONE'?'📄':'')+(isFilled(r)&&state==='SCORED'&&r.correction_state!=='DONE'?' ✎':'');
+        if(marks.trim()) v+=`<span class="sm">${marks}</span>`;
+      }
+      h+=`<td class="c" onclick="jumpTo('${cid}','${s.c}')">${v}</td>`;
+    });
+    h+='</tr>';
+  });
+  if(!ros.length) h+=`<tr><td colspan="${3+subs.length}"><div class="empty">这一班没有学生</div></td></tr>`;
+  h+='</tbody></table></div></div>';
+  box.innerHTML=h;
+  document.getElementById('print-foot').textContent=`${SYS_NAME} v${APP_VERSION} · ${className(cid)} · ${ex.label} · 列印 ${new Date().toLocaleString('en-GB')}`;
+}
+function jumpTo(cid, subj){ S.ui.cls=cid; S.ui.subj=subj; goPage('enter'); pickCell(cid, subj); }
+function printOverview(){ goPage('overview'); setTimeout(()=>window.print(), 150); }
+
+/* ══ 考卷档案页 ══ */
+function renderFiles(){
+  const box=document.getElementById('files-body'); const ex=curExam();
+  let h='<div class="card"><div class="card-hdr"><span class="card-title">P 槽资料夹（这台电脑）</span></div>';
+  if(!FS_OK){
+    h+=`<div class="alert alert-info">这台装置不能连接 P 槽（手机、平板、Safari 都不行）。在这里上传的考卷会先放在「待收」区，办公室电脑打开 SchoolExamGo 时会自动收进 P 槽。</div>`;
+  }else if(!PROOT){
+    h+=`<div class="tip">第一次在这台电脑用：按下面，选 <b>P:\\Teo\\academee\\04_RPT\\EvalGo_ATC</b>。之后的考卷会自动放进<br><code>EvalGo_ATC\\2026_Exam Papers\\2026 年尾 UASA\\ATC 3\\A3 名字 华文 2026 年尾 UASA.pdf</code></div>
+      <button class="btn btn-pri" style="min-height:44px" onclick="connectP()">📁 连接 P 槽资料夹</button>`;
+  }else if(!PROOT_OK){
+    h+=`<div class="alert alert-warn">已经连接过「${esc(PROOT.name)}」，这次打开要你再允许一次。</div>
+      <button class="btn btn-pri" style="min-height:44px" onclick="ensurePRoot(true).then(ok=>{ if(ok){ toast('✓ 已允许'); autoFileInbox(); } renderFiles(); })">允许使用「${esc(PROOT.name)}」</button>
+      <button class="btn" style="min-height:44px" onclick="connectP()">换一个资料夹</button>`;
+  }else{
+    h+=`<div class="alert alert-ok">✓ 已连接「${esc(PROOT.name)}」—— 在这台电脑上传的考卷直接存进这里。</div>
+      <button class="btn" onclick="connectP()">换一个资料夹</button>`;
+  }
+  h+='</div>';
+  const inbox=CLOUD.inbox||[];
+  h+=`<div class="card"><div class="card-hdr"><span class="card-title">待收进 P 槽 · ${inbox.length} 份</span>
+    ${inbox.length&&FS_OK?`<button class="btn btn-pri" ${canEdit()?'':'disabled'} onclick="fileInbox(true)">⬇ 全部收进 P 槽</button>`:''}</div>`;
+  if(!inbox.length) h+='<div class="empty">没有 —— 全部考卷都已经在 P 槽</div>';
+  else{
+    h+='<div class="tw"><table class="data"><thead><tr><th>考试</th><th>班</th><th>学生</th><th>科目</th><th>大小</th><th>谁传的</th></tr></thead><tbody>';
+    inbox.forEach(r=>{ const st=CLOUD.roster.find(x=>x.sid===r.student_id)||{name:r.student_id}; const e=examById(r.exam_id)||{};
+      h+=`<tr><td>${esc(e.label||'')}</td><td>${esc(className(r.class_id))}</td><td>${esc(st.name)}</td><td>${esc((subjOf(r.subject)||{}).zh||r.subject)}</td><td>${fmtSize(r.pdf_bytes)}</td><td>${esc(r.pdf_by||'')}</td></tr>`; });
+    h+='</tbody></table></div>';
+  }
+  h+='</div>';
+  /* 有分数、没考卷 */
+  if(ex){
+    const miss={};
+    CLOUD.classes.forEach(c=>subjForClass(c.id).forEach(s=>rosterOf(c.id).forEach(st=>{
+      const r=rowOf(st.sid, s.c);
+      if(r && (r.result_state||'SCORED')==='SCORED' && r.score!=null && (!r.pdf_state || r.pdf_state==='NONE')) (miss[c.id]=miss[c.id]||[]).push(`${st.name} · ${s.zh}`);
+    })));
+    const n=Object.values(miss).reduce((a,x)=>a+x.length,0);
+    h+=`<div class="card"><div class="card-hdr"><span class="card-title">有分数、还没上传考卷 · ${n}</span></div>`;
+    if(!n) h+='<div class="empty">没有</div>';
+    else h+=Object.keys(miss).map(cid=>`<div style="margin-bottom:8px"><b>${esc(className(cid))}</b> <span class="chip chip-warn">${miss[cid].length}</span><div class="tip" style="margin:4px 0 0">${miss[cid].map(esc).join('、')}</div></div>`).join('');
+    h+='</div>';
+  }
+  box.innerHTML=h;
+}
+
+/* ══ 管理页（院长 / 管理员）══ */
+function renderManage(){
+  if(!canManage()){ document.getElementById('manage-body').innerHTML=''; return; }
+  const P=CLOUD.perm||{}; const yn=b=>b?'✓':'✗';
+  const nRows=Object.keys(CLOUD.rows).length;
+  let h=`<div class="card"><div class="card-hdr"><span class="card-title">① 我的身份</span></div>
+    <div style="font-size:12px;line-height:2">${esc(CLOUD.me||'—')} · ${esc(CLOUD.role||'—')} · 查看 ${yn(P.can_see)} · 填写 ${yn(P.can_edit)} · 删除 / 覆盖 ${yn(P.can_approve)}</div></div>
+  <div class="card"><div class="card-hdr"><span class="card-title">② 系统资讯</span></div>
+    <div style="font-size:12px;line-height:2">系统：<b>${SYS_NAME}</b><br>版本：<b>v${APP_VERSION}</b><br>层：<b>RPT</b> · 权限沿用 EvalGo_ATC<br>这次考试资料：<b>${nRows}</b> 笔</div></div>
+  <div class="card"><div class="card-hdr"><span class="card-title">③ 云端连线</span></div>
+    <div style="font-size:12px;line-height:2">${CLOUD.online?'✓ 已连线':'✗ 没连上'}${CLOUD.err?' · 最近错误：'+esc(CLOUD.err):''}<br>待上传：<b>${pendCount()}</b> 笔<br>
+    学生名单：MasterHub · ATC ${CLOUD.roster.length} 位 · 读取于 ${CLOUD.rosterAt?CLOUD.rosterAt.toLocaleTimeString('en-GB'):'—'}</div>
+    <div class="toolbar" style="margin:8px 0 0"><button class="btn" onclick="pushPending()">☁ 立刻上传</button><button class="btn" onclick="boot()">↻ 重新读取</button></div></div>
+  <div class="card"><div class="card-hdr"><span class="card-title">④ 考试设定</span>
+      <button class="btn btn-pri" ${P.can_approve?'':'disabled'} onclick="openAddExam()">+ 新增考试</button></div>
+    ${CLOUD.exams.length?`<div class="tw"><table class="data"><thead><tr><th>考试</th><th>年份</th><th>年头 / 年尾</th><th>状态</th><th></th></tr></thead><tbody>
+    ${CLOUD.exams.map(e=>`<tr><td><b>${esc(e.label)}</b></td><td>${e.school_year}</td><td>${TERM[e.term]||e.term}</td>
+      <td>${e.status==='active'?'<span class="badge b-active">进行中</span>':'<span class="badge b-warn">已结束</span>'}</td>
+      <td><button class="btn btn-sm" ${P.can_approve?'':'disabled'} onclick="toggleExam('${e.id}')">${e.status==='active'?'设为已结束':'重新开放'}</button></td></tr>`).join('')}
+    </tbody></table></div>`:'<div class="empty">还没有考试</div>'}</div>
+  <div class="card"><div class="card-hdr"><span class="card-title">⑤ 资料备份</span></div>
+    <div class="toolbar" style="margin:0"><button class="btn" onclick="exportData()">↓ 下载备份档</button><button class="btn" onclick="exportCSV()">↓ 下载表格（Excel 可开）</button><button class="btn" onclick="printOverview()">🖨 列印总览</button></div></div>
+  <div class="acc${S.ui.advOpen?' open':''}" id="adv"><div class="acc-hdr" onclick="S.ui.advOpen=!S.ui.advOpen;saveLocal();document.getElementById('adv').classList.toggle('open')">⑥ 进阶 · 管理员用 <span class="acc-arrow">▼</span></div>
+    <div class="acc-body" style="line-height:1.9">
+      资料表：schoolexam_exam · schoolexam_result（不能删；作废要写原因）<br>
+      手机上传的待收区：${BUCKET}（私有、只收 PDF、最多 30 MB；收进 P 槽后会删掉）<br>
+      P 槽档名：&lt;资料夹&gt;\\&lt;年&gt;_Exam Papers\\&lt;考试&gt;\\ATC n\\An 名字 科目 考试.pdf · 同名的旧档会另存「(旧 时间)」不会被盖掉<br>
+      本机暂存：${STORAGE_KEY}</div></div>`;
+  document.getElementById('manage-body').innerHTML=h;
+}
+function openAddExam(){
+  const y=new Date().getFullYear();
+  document.getElementById('modal-title').textContent='新增考试';
+  document.getElementById('modal-body').innerHTML=`
+    <div class="form-row"><label class="form-label">年份 <span style="color:var(--danger)">*</span></label><input type="text" inputmode="numeric" id="ne-year" value="${y}" style="width:100%"></div>
+    <div class="form-row"><label class="form-label">年头 / 年尾 <span style="color:var(--danger)">*</span></label>
+      <select id="ne-term" style="width:100%" onchange="neLabel()"><option value="MID">年头</option><option value="END" selected>年尾</option><option value="OTHER">其他</option></select></div>
+    <div class="form-row"><label class="form-label">名称 <span style="color:var(--danger)">*</span></label><input type="text" id="ne-label" style="width:100%"></div>
+    <div class="tip">名称也是 P 槽里的资料夹名，例：「${y} 年尾 UASA」</div>`;
+  document.getElementById('modal-foot').innerHTML=`<button class="btn" onclick="closeModal()">Cancel</button><button class="btn btn-pri" onclick="saveExam()">Save</button>`;
+  document.getElementById('modal').style.display='flex'; neLabel();
+  document.getElementById('ne-year').oninput=neLabel;
+}
+function neLabel(){ const y=document.getElementById('ne-year').value.trim(), t=document.getElementById('ne-term').value;
+  document.getElementById('ne-label').value = t==='OTHER' ? '' : `${y} ${TERM[t]} UASA`; }
+async function saveExam(){
+  const y=+document.getElementById('ne-year').value, t=document.getElementById('ne-term').value, l=document.getElementById('ne-label').value.trim();
+  if(!(y>=2024 && y<=2100) || !l){ toast('✕ 年份与名称都要填'); return; }
+  try{
+    const code=`ATC-${y}-${t}-${Date.now().toString(36).toUpperCase()}`;
+    const r=await _sb.from('schoolexam_exam').insert({code, label:l, school_year:y, term:t, client_uid:'ui-'+code}).select('*').single();
+    if(r.error) throw r.error;
+    CLOUD.exams.unshift(r.data); S.ui.examId=r.data.id; saveLocal(); closeModal(); await loadRows();
+    toast('✓ 已新增「'+l+'」'); renderAll();
+  }catch(e){ toast('✕ 没存：'+plainErr(e), 3500); }
+}
+async function toggleExam(id){
+  const e=examById(id); if(!e) return; const to=e.status==='active'?'completed':'active';
+  if(to==='completed' && !confirm(`把「${e.label}」设为已结束？\n\n资料都留着，之后还能重新开放。`)) return;
+  try{ const r=await _sb.from('schoolexam_exam').update({status:to}).eq('id', id).select('*').single();
+    if(r.error) throw r.error; Object.assign(e, r.data); toast('✓ 已更新'); renderAll();
+  }catch(err){ toast('✕ 没改成：'+plainErr(err), 3500); }
+}
+function closeModal(){ document.getElementById('modal').style.display='none'; }
+document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeModal(); });
+
+/* ══ Export ══ */
+function flatRows(){
+  const ex=curExam(); const out=[];
+  if(!ex) return out;
+  CLOUD.classes.forEach(c=>subjForClass(c.id).forEach(s=>rosterOf(c.id).forEach(st=>{
+    const r=rowOf(st.sid, s.c)||{};
+    out.push({ 班:className(c.id), 学生编号:st.sid, 英文名:st.name, 中文名:st.name_cn, 学校:st.school, 科目:s.zh,
+      分数: r.score==null?'':Number(r.score), 满分: r.max_score==null?100:Number(r.max_score),
+      状况: RSTATE[r.result_state||'SCORED'] + (((r.result_state||'SCORED')==='SCORED' && r.score==null)?'（未填）':''),
+      修正: r.correction_state==='DONE'?'已修正':'未修正',
+      考卷: r.pdf_state==='FILED'?('P 槽：'+r.pdf_file):(r.pdf_state==='INBOX'?'待收':'没有') });
+  })));
+  return out;
+}
+function download(name, data, type){ const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([data],{type}));
+  a.download=name; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href), 1000); }
+function exportData(){
+  const ex=curExam();
+  const data={ meta:{ system:SYS_NAME, version:APP_VERSION, exported_at:new Date().toISOString(), exam:ex?ex.label:'' },
+    exam:ex, rows:Object.values(CLOUD.rows), pending:S.pend };
+  download(`${SYS_NAME}_${stamp()}.json`, JSON.stringify(data,null,2), 'application/json'); toast('✓ 已下载备份档');
+}
+function exportCSV(){
+  const rows=flatRows(); if(!rows.length){ toast('没有资料'); return; }
+  const cols=Object.keys(rows[0]);
+  const csv='\ufeff'+[cols.join(',')].concat(rows.map(r=>cols.map(c=>csvCell(r[c])).join(','))).join('\n');
+  download(`${SYS_NAME}_${stamp()}.csv`, csv, 'text/csv;charset=utf-8'); toast('✓ 已下载表格');
+}
+
+/* ══ 开始 ══ */
+loadLocal();
+document.getElementById('ver-badge').textContent='v'+APP_VERSION;
+document.title='SchoolExamGo — ATC 学校考试 v'+APP_VERSION;
+(async()=>{ await loadPRoot(); goPage(S.ui.page==='manage'?'enter':(S.ui.page||'enter')); await boot(); })();
+</script>
+</body>
+</html>
