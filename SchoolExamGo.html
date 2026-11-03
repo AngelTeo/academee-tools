@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>SchoolExamGo — ATC 学校考试 v1</title>
+<title>SchoolExamGo — ATC 学校考试 v2</title>
 <style>
 :root{
   /* ══ LAYER ══ RPT */
@@ -160,45 +160,46 @@ input.err,select.err,textarea.err{border-color:var(--danger)}
 .form-row{margin-bottom:12px}
 .form-label{font-size:11px;color:var(--mut);display:block;margin-bottom:4px}
 
-/* ══════ 本系统：进度格 ══════ */
-.pg{display:grid;gap:6px}
-.pg-cell{background:var(--sur);border:.5px solid var(--bdr);border-radius:8px;padding:8px 6px;
-  text-align:center;cursor:pointer;min-height:52px;font-family:inherit;font-size:12px;color:var(--txt)}
-.pg-cell:hover{border-color:var(--layer)}
-.pg-cell.sel{outline:2px solid var(--layer)}
-.pg-cell.done{background:#E1F5EE;border-color:#bfe3d4}
-.pg-cell.part{background:#FFF8E6;border-color:#f0dfb0}
-.pg-cell .n{font-weight:600}
-.pg-cell .s{font-size:10px;color:var(--mut)}
-.pg-head{font-size:10px;color:var(--mut);text-align:center;padding:4px 0;font-weight:600}
-.pg-rowh{font-size:12px;font-weight:600;display:flex;align-items:center}
-.pg-na{background:repeating-linear-gradient(45deg,var(--sur2),var(--sur2) 4px,#eceae4 4px,#eceae4 8px);
-  border-radius:8px;min-height:52px}
+/* ══════ 本系统：班级卡 ══════ */
+.cls-row{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px}
+.cls-card{background:var(--sur);border:.5px solid var(--bdr);border-radius:10px;padding:10px 12px;text-align:left;
+  cursor:pointer;font-family:inherit;color:var(--txt);min-height:44px}
+.cls-card:hover{border-color:var(--layer)}
+.cls-card.sel{outline:2px solid var(--layer);border-color:var(--layer)}
+.cls-card .cn{font-size:14px;font-weight:600}
+.cls-card .cs{font-size:10px;color:var(--mut)}
+@media(max-width:720px){.cls-row{grid-template-columns:repeat(3,minmax(0,1fr))}}
 
-/* ══════ 本系统：填写列 ══════ */
-.er{display:grid;grid-template-columns:34px minmax(150px,1.6fr) 70px 110px 130px 150px 110px;
-  gap:8px;align-items:center;padding:8px 10px;border-bottom:.5px solid var(--bdr);background:var(--sur)}
-.er:nth-child(even){background:#fbfaf7}
-.er.head{background:#2d2d2d;color:#fff;font-size:10px;font-weight:600;letter-spacing:.05em;border-radius:8px 8px 0 0}
-.er .no{color:var(--hint);font-size:11px}
-.er .nm b{font-weight:600}
-.er .nm span{color:var(--mut);font-size:11px;margin-left:4px}
-.er .sch{font-size:11px;color:var(--mut)}
-.sc-in{width:100%;min-width:0;font-size:16px;font-weight:600;text-align:center;min-height:40px}
-.st-sel{width:100%;min-width:0;min-height:40px}
-.pdf-btn{width:100%;min-height:40px}
-.cor-btn{width:100%;min-height:40px}
-.cor-btn.done{background:#E1F5EE;color:var(--ok);border-color:#bfe3d4;font-weight:600}
-.lbl-m{display:none;font-size:10px;color:var(--mut)}
-@media(max-width:720px){
-  .er{grid-template-columns:1fr 1fr;gap:6px 8px;padding:12px}
-  .er.head{display:none}
-  .er .no{display:none}
-  .er .nm{grid-column:1/3}
-  .er .sch{grid-column:1/3;margin-top:-4px}
-  .lbl-m{display:block}
-}
-.saving-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--warn);margin-left:4px;vertical-align:middle}
+/* ══════ 本系统：一班一张表 ══════ */
+.sheet-hd{display:flex;justify-content:space-between;align-items:flex-end;gap:8px;flex-wrap:wrap;padding:14px 16px 10px}
+.sheet-wrap{overflow:auto;max-height:calc(100vh - 120px)}
+table.sheet{border-collapse:separate;border-spacing:0;width:100%;font-size:12px}
+table.sheet thead th{background:#2d2d2d;color:#fff;padding:6px 6px;font-size:12px;font-weight:600;text-align:center;
+  position:sticky;top:0;z-index:2;white-space:nowrap}
+table.sheet thead th.stk{text-align:left;z-index:3;left:0}
+.th-sub{font-size:10px;font-weight:400;opacity:.75}
+.mx-btn{background:rgba(255,255,255,.12);border:.5px solid rgba(255,255,255,.3);color:#fff;border-radius:4px;
+  font-size:10px;padding:2px 6px;margin-top:2px;cursor:pointer;font-family:inherit;min-height:24px}
+table.sheet td{border-bottom:.5px solid var(--bdr);padding:6px 6px;vertical-align:top;background:var(--sur)}
+table.sheet tbody tr:nth-child(even) td{background:#fbfaf7}
+td.stk{position:sticky;left:0;z-index:1;min-width:170px;max-width:220px;border-right:.5px solid var(--bdr)}
+td.nm b{font-weight:600}
+td.nm .no{color:var(--hint);font-size:10px;margin-right:6px}
+td.nm .sub{font-size:10px;color:var(--mut);margin-top:2px}
+td.sc-td{min-width:92px;text-align:center}
+td.sc-td.pend{box-shadow:inset 3px 0 0 var(--warn)}
+.sc-in{width:100%;min-width:0;font-size:16px;font-weight:600;text-align:center;min-height:40px;padding:4px}
+.st-chip{width:100%;min-height:40px;border:.5px dashed var(--bdr);background:var(--sur2);color:var(--mut);
+  border-radius:6px;font-size:11px;cursor:pointer;font-family:inherit}
+.mx{font-size:10px;color:var(--mut)}
+.sc-tools{display:flex;gap:3px;justify-content:center;margin-top:4px}
+.mini{min-width:28px;min-height:28px;border:.5px solid var(--bdr);background:var(--sur);border-radius:6px;
+  font-size:12px;cursor:pointer;padding:0 4px;font-family:inherit;color:var(--mut)}
+.mini.on{background:#E8F0F7;border-color:#c9dcee}
+.mini.ok{background:#E1F5EE;color:var(--ok);border-color:#bfe3d4;font-weight:700}
+.mini[disabled],.st-chip[disabled]{opacity:.5;cursor:not-allowed}
+.menu-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+@media(max-width:720px){td.stk{min-width:120px;max-width:140px}td.nm .sub{display:none}td.sc-td{min-width:78px}}
 
 /* ══════ 本系统：总览格 ══════ */
 .ov td.c{text-align:center;cursor:pointer;white-space:nowrap}
@@ -206,7 +207,6 @@ input.err,select.err,textarea.err{border-color:var(--danger)}
 .ov .sm{font-size:10px;color:var(--mut);display:block}
 
 /* ══════ 登入闸门 ══════ */
-#entry-card{scroll-margin-top:56px}
 #authgate{display:none;position:fixed;inset:0;z-index:9990;background:rgba(28,31,35,.93);
   align-items:center;justify-content:center;padding:20px}
 #authgate .box{background:#fff;border-radius:10px;max-width:460px;width:100%;padding:26px 28px;text-align:center}
@@ -214,9 +214,8 @@ input.err,select.err,textarea.err{border-color:var(--danger)}
 /* ══════ RESPONSIVE ══════ */
 @media(max-width:768px){.stat-grid{grid-template-columns:repeat(2,1fr)}.modal{width:100%;margin:10px}}
 @media(max-width:480px){.ntab{padding:0 10px;font-size:11px}.nav-logo{font-size:12px}
-  .nav-sub{display:none}.pg{gap:3px!important}.pg-cell{padding:5px 1px;min-height:46px;font-size:11px}.pg-cell .s{font-size:8px;letter-spacing:-.3px}
-  .page{padding:12px}.card{padding:12px}
-  .pg-na{min-height:46px}.pg-rowh{font-size:11px}}
+  .nav-sub{display:none}
+  .page{padding:12px}.card{padding:12px}}
 
 /* ══════ PRINT ══════ */
 @media print{
@@ -245,7 +244,7 @@ input.err,select.err,textarea.err{border-color:var(--danger)}
 <!-- ══════ NAV (TOPBAR) ══════ -->
 <div class="nav">
   <button class="nav-home" onclick="goPlatform()" title="回平台首页">←</button>
-  <div class="nav-logo">SchoolExamGo <span class="nav-sub" style="font-weight:400;opacity:.8">· ATC 学校考试</span> <span class="ver" id="ver-badge">v1</span></div>
+  <div class="nav-logo">SchoolExamGo <span class="nav-sub" style="font-weight:400;opacity:.8">· ATC 学校考试</span> <span class="ver" id="ver-badge">v2</span></div>
   <button class="ntab on" id="ntab-enter" onclick="goPage('enter')">填写</button>
   <button class="ntab" id="ntab-overview" onclick="goPage('overview')">总览</button>
   <button class="ntab" id="ntab-files" onclick="goPage('files')">考卷档案</button>
@@ -265,9 +264,9 @@ input.err,select.err,textarea.err{border-color:var(--danger)}
     <span class="tip" id="enter-sub" style="margin:0"></span>
   </div>
   <div class="card">
-    <div class="card-hdr"><span class="card-title">每班每科进度 · 点一格开始填</span>
-      <span class="tip" style="margin:0">格子里：已填 / 人数 · 📄 考卷 · ✓ 已修正</span></div>
-    <div class="tw"><div class="pg" id="pg"></div></div>
+    <div class="card-hdr"><span class="card-title">选一班</span>
+      <span class="tip" style="margin:0">📄 考卷 · ✓ 已修正</span></div>
+    <div class="cls-row" id="pg"></div>
   </div>
   <div class="card" id="entry-card" style="padding:0;overflow:hidden">
     <div id="entry"></div>
@@ -320,8 +319,8 @@ input.err,select.err,textarea.err{border-color:var(--danger)}
      手机写不到 P 槽 → 先放云端「待收」区，电脑打开时搬进 P 槽、再从云端删掉
    资料：学生 / 班级 / 班籍只读 MasterHub（hub_*）；本系统只写 schoolexam_*。
    ═══════════════════════════════════════════════════════════════════ */
-const APP_VERSION = 1;
-const STORAGE_KEY = 'schoolexamgo_v1';
+const APP_VERSION = 2;
+const STORAGE_KEY = 'schoolexamgo_v1';   /* v2 照用 v1 的 key：还没送出的修改不会掉 */
 const SYS_CODE    = 'RPT-EvalGo-ATC';            /* 沿用 EvalGo_ATC 的权限（同一批人） */
 const SYS_NAME    = 'SchoolExamGo';
 const SB_URL      = 'https://qnpvqsvvsgsantekgfbz.supabase.co';
@@ -549,7 +548,6 @@ function paintStatus(){
   else el.textContent=CLOUD.err ? '⚠ '+CLOUD.err : '全部已存 '+new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
 }
 window.addEventListener('online', ()=>pushPending());
-let _rz=null; window.addEventListener('resize', ()=>{ clearTimeout(_rz); _rz=setTimeout(()=>{ if(S.ui.page==='enter') renderProgress(); }, 200); });
 
 /* ══ 画面：分页 ══ */
 function goPage(p){
@@ -593,117 +591,162 @@ function cellStats(cid, subj){
     if(r && r.correction_state==='DONE') cor++; });
   return {n:ros.length, filled, pdf, cor};
 }
+function classStats(cid){
+  let need=0, filled=0, pdf=0, cor=0;
+  subjForClass(cid).forEach(s=>{ const st=cellStats(cid, s.c); need+=st.n; filled+=st.filled; pdf+=st.pdf; cor+=st.cor; });
+  return {need, filled, pdf, cor};
+}
+/* ══ v2 · Owner 2026-11-03：「一整页都是同一班学生，左边学生名字，右边一格一科」══
+   上面一排班级卡（看得到每班填到哪），点一班 → 下面整班一张表：
+   一行一位学生，一格一科，直接在格子里打分数；格子下面两颗小钮：考卷 📎/📄、修正 ✎/✓；
+   「⋯」改成 没考这科 / 缺考 / 卷没拿回。Enter 往下一位（同一科），Tab 往右一科。 */
 function renderProgress(){
   const box=document.getElementById('pg'); if(!box) return;
-  if(!CLOUD.classes.length){ box.innerHTML=`<div class="empty">${CLOUD.checked?'读不到 ATC 班级':'载入中…'}</div>`; box.style.gridTemplateColumns='1fr'; return; }
-  const narrow = window.innerWidth<=480;
-  box.style.gridTemplateColumns = narrow ? `24px repeat(${SUBJ.length}, minmax(0,1fr))` : `64px repeat(${SUBJ.length}, minmax(76px,1fr))`;
-  let h='<div></div>'+SUBJ.map(s=>`<div class="pg-head">${s.zh}</div>`).join('');
-  CLOUD.classes.forEach(c=>{
-    h+=`<div class="pg-rowh">${esc(narrow?String(c.class_name||c.id).replace('ATC','A'):(c.class_name||c.id))}</div>`;
-    const ok=subjForClass(c.id).map(s=>s.c);
-    SUBJ.forEach(s=>{
-      if(ok.indexOf(s.c)<0){ h+='<div class="pg-na" title="这个年级没有这一科"></div>'; return; }
-      const st=cellStats(c.id, s.c);
-      const cls = st.n && st.filled===st.n ? 'done' : (st.filled ? 'part' : '');
-      const sel = (S.ui.cls===c.id && S.ui.subj===s.c) ? ' sel' : '';
-      h+=`<button class="pg-cell ${cls}${sel}" onclick="pickCell('${c.id}','${s.c}')"><div class="n">${st.filled}${narrow?'/':' / '}${st.n}</div><div class="s">${narrow?`📄${st.pdf}✓${st.cor}`:`📄 ${st.pdf} · ✓ ${st.cor}`}</div></button>`;
-    });
-  });
-  box.innerHTML=h;
+  if(!CLOUD.classes.length){ box.innerHTML=`<div class="empty">${CLOUD.checked?'读不到 ATC 班级':'载入中…'}</div>`; return; }
+  if(!S.ui.cls || !CLOUD.classes.find(c=>c.id===S.ui.cls)) S.ui.cls=CLOUD.classes[0].id;
+  box.innerHTML=CLOUD.classes.map(c=>{
+    const st=classStats(c.id); const pct=st.need?Math.round(st.filled/st.need*100):0;
+    return `<button class="cls-card${S.ui.cls===c.id?' sel':''}${st.need&&st.filled===st.need?' done':''}" onclick="pickClass('${c.id}')">
+      <div class="cn">${esc(c.class_name||c.id)}</div>
+      <div class="cs">${rosterOf(c.id).length} 位 · 已填 ${pct}%</div>
+      <div class="progress progress-ok"><div class="progress-fill" style="width:${pct}%"></div></div>
+      <div class="cs">📄 ${st.pdf} · ✓ ${st.cor}</div></button>`;
+  }).join('');
 }
-function pickCell(cid, subj){
-  S.ui.cls=cid; S.ui.subj=subj; saveLocal(); renderProgress(); renderEntry();
-  const el=document.getElementById('entry-card'); if(el && el.scrollIntoView) el.scrollIntoView({behavior:'smooth', block:'start'});
-}
+function pickClass(cid){ S.ui.cls=cid; saveLocal(); renderProgress(); renderEntry(); }
+function pickCell(cid, subj){ S.ui.cls=cid; S.ui.focusSubj=subj; saveLocal(); renderProgress(); renderEntry();
+  const el=document.querySelector(`#entry input[data-subj="${subj}"]`); if(el && !el.disabled) el.focus(); }
 function commonMax(cid, subj){
   const vals=rosterOf(cid).map(st=>{ const r=rowOf(st.sid, subj); return r&&r.max_score!=null?+r.max_score:100; });
   const u=[...new Set(vals)]; return u.length===1?u[0]:null;
 }
+function cellHTML(st, s, ed){
+  const r=rowOf(st.sid, s.c)||{}; const state=r.result_state||'SCORED';
+  const pend=!!S.pend[cuid(S.ui.examId, st.sid, s.c)];
+  const mx=r.max_score!=null?+r.max_score:100;
+  const hasPdf=r.pdf_state && r.pdf_state!=='NONE';
+  const box = state==='SCORED'
+    ? `<input type="text" inputmode="decimal" class="sc-in" id="sc-${esc(st.sid)}-${s.c}" data-sid="${esc(st.sid)}" data-subj="${s.c}"
+        value="${r.score==null?'':Number(r.score)}" ${ed?'':'disabled'} placeholder="—"
+        onchange="setScore('${st.sid}','${s.c}',this)" onkeydown="scoreKey(event,'${st.sid}','${s.c}')">`
+    : `<button class="st-chip" ${ed?'':'disabled'} onclick="openCellMenu('${st.sid}','${s.c}')">${RSTATE[state]}</button>`;
+  return `<td class="sc-td${pend?' pend':''}">
+    ${box}${mx!==100&&state==='SCORED'?`<div class="mx">/ ${mx}</div>`:''}
+    <div class="sc-tools">
+      <button class="mini${hasPdf?' on':''}" title="${hasPdf?(r.pdf_state==='INBOX'?'看考卷（待收进 P 槽）':'看考卷'):'上传考卷'}" onclick="pdfAction('${st.sid}','${s.c}')">${hasPdf?(r.pdf_state==='INBOX'?'📄…':'📄'):'📎'}</button>
+      <button class="mini${r.correction_state==='DONE'?' ok':''}" title="${r.correction_state==='DONE'?'已修正':'未修正'}" ${ed?'':'disabled'} onclick="toggleCor('${st.sid}','${s.c}')">${r.correction_state==='DONE'?'✓':'✎'}</button>
+      <button class="mini" title="没考 / 缺考 / 卷没拿回 / 换考卷" ${ed?'':'disabled'} onclick="openCellMenu('${st.sid}','${s.c}')">⋯</button>
+    </div></td>`;
+}
 function renderEntry(){
   const box=document.getElementById('entry'); const ex=curExam();
   if(!ex){ box.innerHTML='<div class="empty">还没有考试 —— 请院长在「管理」新增一次考试</div>'; return; }
-  if(!S.ui.cls || !S.ui.subj || subjForClass(S.ui.cls).every(s=>s.c!==S.ui.subj)){
-    box.innerHTML='<div class="empty">👆 在上面点一格（班级 × 科目）开始填</div>'; return; }
-  const cid=S.ui.cls, subj=S.ui.subj, sj=subjOf(subj); const ros=rosterOf(cid); const st=cellStats(cid, subj);
-  const mx=commonMax(cid, subj); const ed=canEdit();
-  let h=`<div style="padding:16px 16px 10px">
-    <div class="card-hdr" style="margin-bottom:6px">
-      <div><div style="font-size:16px;font-weight:600">${esc(className(cid))} · ${sj.zh}</div>
-        <div class="tip" style="margin:2px 0 0">${esc(ex.label)} · 已填 ${st.filled} / ${st.n} · 考卷 ${st.pdf} · 已修正 ${st.cor}</div></div>
-      <label style="display:flex;align-items:center;gap:6px;font-size:12px">满分
-        <input type="text" inputmode="decimal" id="max-in" value="${mx==null?'':mx}" placeholder="${mx==null?'不一':''}" style="width:72px;min-width:0;text-align:center;min-height:36px" ${ed?'':'disabled'} onchange="setMaxAll(this)"></label>
+  if(!S.ui.cls){ box.innerHTML='<div class="empty">👆 在上面点一班开始填</div>'; return; }
+  const cid=S.ui.cls; const subs=subjForClass(cid); const ros=rosterOf(cid); const ed=canEdit();
+  const cs=classStats(cid);
+  let h=`<div class="sheet-hd">
+      <div><div style="font-size:16px;font-weight:600">${esc(className(cid))} · ${esc(ex.label)}</div>
+      <div class="tip" id="sheet-sub" style="margin:2px 0 0">已填 ${cs.filled} / ${cs.need} · 考卷 ${cs.pdf} · 已修正 ${cs.cor}</div></div>
+      <div class="tip" style="margin:0">📎 上传考卷 · 📄 看考卷 · ✎ 未修正 / ✓ 已修正 · ⋯ 没考 / 缺考 / 卷没拿回</div>
     </div>
-    <div class="progress progress-ok"><div class="progress-fill" style="width:${st.n?Math.round(st.filled/st.n*100):0}%"></div></div>
-  </div>
-  <div class="er head"><div>#</div><div>学生</div><div>学校</div><div>分数</div><div>状况</div><div>考卷</div><div>修正</div></div>`;
-  if(!ros.length) h+='<div class="empty">这一班没有学生</div>';
-  ros.forEach((s,i)=>{
-    const r=rowOf(s.sid, subj)||{}; const state=r.result_state||'SCORED';
-    const pend=!!S.pend[cuid(ex.id, s.sid, subj)];
-    const pdfLbl = r.pdf_state==='FILED' ? '📄 看考卷' : (r.pdf_state==='INBOX' ? '📄 看（待收）' : '📎 上传考卷');
-    h+=`<div class="er" id="er-${esc(s.sid)}">
-      <div class="no">${s.num||i+1}</div>
-      <div class="nm"><b>${esc(s.name)}</b><span>${esc(s.name_cn)}</span>${pend?'<span class="saving-dot" title="还没存进系统"></span>':''}</div>
-      <div class="sch">${esc(s.school||'—')}</div>
-      <div><span class="lbl-m">分数</span><input type="text" inputmode="decimal" class="sc-in" id="sc-${esc(s.sid)}" value="${r.score==null?'':Number(r.score)}" ${(!ed||state!=='SCORED')?'disabled':''} placeholder="${state==='SCORED'?'—':''}" onchange="setScore('${s.sid}',this)" onkeydown="if(event.key==='Enter'){this.blur();nextScore('${s.sid}')}"></div>
-      <div><span class="lbl-m">状况</span><select class="st-sel" ${ed?'':'disabled'} onchange="setState('${s.sid}',this.value)">
-        ${Object.keys(RSTATE).map(k=>`<option value="${k}"${k===state?' selected':''}>${RSTATE[k]}</option>`).join('')}</select></div>
-      <div><span class="lbl-m">考卷</span><button class="btn pdf-btn" onclick="pdfAction('${s.sid}')">${pdfLbl}</button>
-        ${r.pdf_state&&r.pdf_state!=='NONE'&&ed?`<div style="text-align:center"><a href="javascript:void 0" style="font-size:10px;color:var(--mut)" onclick="pdfPick('${s.sid}')">换一份</a></div>`:''}</div>
-      <div><span class="lbl-m">修正</span><button class="btn cor-btn ${r.correction_state==='DONE'?'done':''}" ${ed?'':'disabled'} onclick="toggleCor('${s.sid}')">${r.correction_state==='DONE'?'✓ 已修正':'未修正'}</button></div>
-    </div>`;
+    <div class="sheet-wrap"><table class="sheet"><thead><tr><th class="stk">学生</th>
+    ${subs.map(s=>{ const st=cellStats(cid, s.c); const mx=commonMax(cid, s.c);
+      return `<th><div>${s.zh}</div><div class="th-sub">${st.filled}/${st.n}</div>
+        <button class="mx-btn" ${ed?'':'disabled'} onclick="openMaxMenu('${s.c}')">满分 ${mx==null?'不一':mx}</button></th>`; }).join('')}
+    </tr></thead><tbody>`;
+  if(!ros.length) h+=`<tr><td colspan="${1+subs.length}"><div class="empty">这一班没有学生</div></td></tr>`;
+  ros.forEach((st,i)=>{
+    h+=`<tr id="er-${esc(st.sid)}"><td class="stk nm"><span class="no">${st.num||i+1}</span><b>${esc(st.name)}</b>
+      <div class="sub">${esc(st.name_cn)}${st.name_cn&&st.school?' · ':''}${esc(st.school||'')}</div></td>
+      ${subs.map(s=>cellHTML(st, s, ed)).join('')}</tr>`;
   });
+  h+='</tbody></table></div>';
   box.innerHTML=h;
 }
 function renderEntryStatusOnly(){ if(S.ui.page==='enter') renderEntry(); renderEnterAlerts(); }
-function nextScore(sid){
+function refreshCell(sid, subj){
+  const st=CLOUD.roster.find(x=>x.sid===sid); const s=subjOf(subj);
+  const tr=document.getElementById('er-'+sid); if(!st||!s||!tr){ renderEntry(); return; }
+  const idx=subjForClass(st.class_id).findIndex(x=>x.c===subj);
+  const td=tr.children[idx+1]; if(!td){ renderEntry(); return; }
+  const tmp=document.createElement('tr'); tmp.innerHTML=cellHTML(st, s, canEdit());
+  td.replaceWith(tmp.firstElementChild);
+}
+function refreshSheetCounts(){
+  renderProgress();
+  if(!S.ui.cls) return; const cs=classStats(S.ui.cls);
+  const t=document.getElementById('sheet-sub'); if(t) t.textContent=`已填 ${cs.filled} / ${cs.need} · 考卷 ${cs.pdf} · 已修正 ${cs.cor}`;
+  const subs=subjForClass(S.ui.cls);
+  document.querySelectorAll('#entry .sheet thead .th-sub').forEach((el,i)=>{ const st=cellStats(S.ui.cls, subs[i].c); el.textContent=`${st.filled}/${st.n}`; });
+}
+function scoreKey(ev, sid, subj){
+  if(ev.key!=='Enter') return;
+  ev.preventDefault(); ev.target.blur();
   const ros=rosterOf(S.ui.cls); const i=ros.findIndex(s=>s.sid===sid);
-  for(let j=i+1;j<ros.length;j++){ const el=document.getElementById('sc-'+ros[j].sid); if(el && !el.disabled){ el.focus(); el.select && el.select(); return; } }
+  for(let j=i+1;j<ros.length;j++){ const el=document.getElementById(`sc-${ros[j].sid}-${subj}`); if(el && !el.disabled){ el.focus(); el.select && el.select(); return; } }
 }
 function parseScore(v){ v=String(v).trim().replace(',', '.'); if(v==='') return null; if(!/^\d+(\.\d)?$/.test(v)) return NaN; return +v; }
-function setScore(sid, el){
+function setScore(sid, subj, el){
   if(!canEdit()){ toast('✕ 这个帐号不能填'); return; }
-  const r=rowOf(sid, S.ui.subj)||{}; const mx=r.max_score!=null?+r.max_score:100;
+  const r=rowOf(sid, subj)||{}; const mx=r.max_score!=null?+r.max_score:100;
   const v=parseScore(el.value);
-  el.classList.remove('err'); const old=el.parentNode.querySelector('.err-msg'); if(old) old.remove();
+  el.classList.remove('err'); el.title='';
   if(Number.isNaN(v) || (v!==null && v>mx)){
     el.classList.add('err');
-    const m=document.createElement('div'); m.className='err-msg';
-    m.textContent = Number.isNaN(v) ? '只能填数字（最多一位小数）' : `比满分 ${mx} 还大`;
-    el.parentNode.appendChild(m); toast('✕ 没存：'+m.textContent, 2500); return;
+    const msg = Number.isNaN(v) ? '只能填数字（最多一位小数）' : `比满分 ${mx} 还大`;
+    el.title=msg; toast('✕ 没存：'+msg, 2500); return;
   }
-  patchRow(sid, S.ui.subj, {score:v, result_state:'SCORED', max_score:mx});
-  renderProgressAndHeader();
+  patchRow(sid, subj, {score:v, result_state:'SCORED', max_score:mx});
+  const td=el.closest('td'); if(td) td.classList.add('pend');
+  refreshSheetCounts();
 }
-function setState(sid, state){
+function setState(sid, subj, state){
   if(!canEdit()) return;
   const f={result_state:state};
   if(state!=='SCORED') f.score=null;
-  patchRow(sid, S.ui.subj, f); renderEntry(); renderProgress();
-  if(state==='SCORED'){ const el=document.getElementById('sc-'+sid); if(el) el.focus(); }
+  patchRow(sid, subj, f); closeModal(); refreshCell(sid, subj); refreshSheetCounts();
+  if(state==='SCORED'){ const el=document.getElementById(`sc-${sid}-${subj}`); if(el) el.focus(); }
 }
-function toggleCor(sid){
+function toggleCor(sid, subj){
   if(!canEdit()) return;
-  const r=rowOf(sid, S.ui.subj)||{};
-  patchRow(sid, S.ui.subj, {correction_state: r.correction_state==='DONE'?'TODO':'DONE'});
-  renderEntry(); renderProgress();
+  const r=rowOf(sid, subj)||{};
+  patchRow(sid, subj, {correction_state: r.correction_state==='DONE'?'TODO':'DONE'});
+  refreshCell(sid, subj); refreshSheetCounts();
 }
-function setMaxAll(el){
-  const v=parseScore(el.value);
+function openCellMenu(sid, subj){
+  const st=CLOUD.roster.find(x=>x.sid===sid); const r=rowOf(sid, subj)||{}; const state=r.result_state||'SCORED';
+  const hasPdf=r.pdf_state && r.pdf_state!=='NONE';
+  document.getElementById('modal-title').textContent=`${st?st.name:''} · ${(subjOf(subj)||{}).zh||subj}`;
+  document.getElementById('modal-body').innerHTML=`
+    <div class="form-label">这一科的状况</div>
+    <div class="menu-grid">${Object.keys(RSTATE).map(k=>`<button class="btn${k===state?' btn-pri':''}" style="min-height:44px" onclick="setState('${sid}','${subj}','${k}')">${RSTATE[k]}</button>`).join('')}</div>
+    <div class="form-label" style="margin-top:14px">考卷</div>
+    <div class="menu-grid">
+      ${hasPdf?`<button class="btn" style="min-height:44px" onclick="closeModal();pdfAction('${sid}','${subj}')">📄 看考卷</button>`:''}
+      <button class="btn" style="min-height:44px" onclick="closeModal();pdfPick('${sid}','${subj}')">${hasPdf?'📎 换一份考卷':'📎 上传考卷'}</button>
+    </div>
+    ${hasPdf?`<div class="tip">${r.pdf_state==='INBOX'?'还在待收区，办公室电脑打开时会收进 P 槽':'在 P 槽：'+esc(r.pdf_file||'')}</div>`:''}`;
+  document.getElementById('modal-foot').innerHTML=`<button class="btn" onclick="closeModal()">关闭</button>`;
+  document.getElementById('modal').style.display='flex';
+}
+function openMaxMenu(subj){
+  const mx=commonMax(S.ui.cls, subj);
+  document.getElementById('modal-title').textContent=`${className(S.ui.cls)} · ${(subjOf(subj)||{}).zh} · 满分`;
+  document.getElementById('modal-body').innerHTML=`<div class="form-row"><label class="form-label">这一班这一科的满分（大部分是 100）</label>
+    <input type="text" inputmode="decimal" id="max-in" value="${mx==null?'':mx}" style="width:100%;font-size:16px"></div>`;
+  document.getElementById('modal-foot').innerHTML=`<button class="btn" onclick="closeModal()">Cancel</button><button class="btn btn-pri" onclick="setMaxCol('${subj}')">Save</button>`;
+  document.getElementById('modal').style.display='flex';
+  setTimeout(()=>{ const el=document.getElementById('max-in'); if(el){ el.focus(); el.select(); } }, 50);
+}
+function setMaxCol(subj){
+  const el=document.getElementById('max-in'); const v=parseScore(el.value);
   if(v===null || Number.isNaN(v) || v<=0){ el.classList.add('err'); toast('✕ 满分要填大于 0 的数字'); return; }
-  const over=rosterOf(S.ui.cls).filter(st=>{ const r=rowOf(st.sid,S.ui.subj); return r && r.score!=null && +r.score>v; });
+  const over=rosterOf(S.ui.cls).filter(st=>{ const r=rowOf(st.sid,subj); return r && r.score!=null && +r.score>v; });
   if(over.length){ el.classList.add('err'); toast('✕ 有 '+over.length+' 位学生的分数比 '+v+' 还大，先改分数', 3500); return; }
-  el.classList.remove('err');
-  rosterOf(S.ui.cls).forEach(st=>{ const r=rowOf(st.sid, S.ui.subj);
+  rosterOf(S.ui.cls).forEach(st=>{ const r=rowOf(st.sid, subj);
     const cur = r && r.max_score!=null ? +r.max_score : 100;
-    if(cur!==v) patchRow(st.sid, S.ui.subj, {max_score:v}); });
-  toast('✓ 满分改成 '+v); renderEntry();
-}
-function renderProgressAndHeader(){ renderProgress();
-  const ex=curExam(); if(!ex) return; const st=cellStats(S.ui.cls, S.ui.subj);
-  const t=document.querySelector('#entry .tip'); if(t) t.textContent=`${ex.label} · 已填 ${st.filled} / ${st.n} · 考卷 ${st.pdf} · 已修正 ${st.cor}`;
-  const f=document.querySelector('#entry .progress-fill'); if(f) f.style.width=(st.n?Math.round(st.filled/st.n*100):0)+'%';
+    if(cur!==v) patchRow(st.sid, subj, {max_score:v}); });
+  closeModal(); toast('✓ 满分改成 '+v); renderEntry();
 }
 
 /* ══ 考卷 PDF ══
@@ -765,13 +808,13 @@ async function readFromP(rel){
   const fh=await d.getFileHandle(seg[seg.length-1]); return await fh.getFile();
 }
 let _pdfFor=null;
-function pdfPick(sid){
+function pdfPick(sid, subj){
   if(!canEdit()){ toast('✕ 这个帐号不能上传'); return; }
-  _pdfFor=sid; const el=document.getElementById('pdf-input'); el.value=''; el.click();
+  _pdfFor={sid, subj}; const el=document.getElementById('pdf-input'); el.value=''; el.click();
 }
-async function pdfAction(sid){
-  const r=rowOf(sid, S.ui.subj)||{};
-  if(!r.pdf_state || r.pdf_state==='NONE'){ pdfPick(sid); return; }
+async function pdfAction(sid, subj){
+  const r=rowOf(sid, subj)||{};
+  if(!r.pdf_state || r.pdf_state==='NONE'){ pdfPick(sid, subj); return; }
   const w=window.open('', '_blank');   /* 先开分页（不会被挡），档案准备好再放进去 */
   try{
     let blob=null;
@@ -789,11 +832,11 @@ async function pdfAction(sid){
   }catch(e){ if(w) w.close(); console.warn('[SchoolExamGo] open pdf', e); toast('✕ 打不开：'+(e&&e.name==='NotFoundError'?'P 槽里找不到这个档（被搬走或改名了？）':plainErr(e)), 4000); }
 }
 async function pdfChosen(ev){
-  const f=ev.target.files && ev.target.files[0]; const sid=_pdfFor; _pdfFor=null;
-  if(!f || !sid) return;
+  const f=ev.target.files && ev.target.files[0]; const pf=_pdfFor; _pdfFor=null;
+  if(!f || !pf) return; const sid=pf.sid, subj=pf.subj;
   if(!/pdf$/i.test(f.type) && !/\.pdf$/i.test(f.name)){ toast('✕ 只能上传 PDF', 3000); return; }
   if(f.size>MAX_PDF){ toast('✕ 档案太大（'+fmtSize(f.size)+'），最多 30 MB', 3500); return; }
-  const ex=curExam(); const st=CLOUD.roster.find(x=>x.sid===sid); const subj=S.ui.subj;
+  const ex=curExam(); const st=CLOUD.roster.find(x=>x.sid===sid);
   if(!ex || !st) return;
   const before=rowOf(sid, subj)||{};
   toast('上传中…', 10000);
@@ -812,7 +855,7 @@ async function pdfChosen(ev){
       toast('✓ 已上传（办公室电脑打开时会自动收进 P 槽）', 3500);
     }
   }catch(e){ console.warn('[SchoolExamGo] upload', e); toast('✕ 没上传成功：'+plainErr(e), 4000); }
-  renderEntry(); renderProgress();
+  if(S.ui.page==='enter'){ refreshCell(sid, subj); refreshSheetCounts(); }
 }
 /* 待收 → P 槽 */
 let _filing=false;
@@ -898,7 +941,7 @@ function renderOverview(){
   box.innerHTML=h;
   document.getElementById('print-foot').textContent=`${SYS_NAME} v${APP_VERSION} · ${className(cid)} · ${ex.label} · 列印 ${new Date().toLocaleString('en-GB')}`;
 }
-function jumpTo(cid, subj){ S.ui.cls=cid; S.ui.subj=subj; goPage('enter'); pickCell(cid, subj); }
+function jumpTo(cid, subj){ S.ui.cls=cid; goPage('enter'); pickCell(cid, subj); }
 function printOverview(){ goPage('overview'); setTimeout(()=>window.print(), 150); }
 
 /* ══ 考卷档案页 ══ */
